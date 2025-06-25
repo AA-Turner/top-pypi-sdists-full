@@ -1,11 +1,13 @@
+import numpy as np
 import pandas as pd
 import pytest
 
-from mizani._colors.utils import to_rgba
+from mizani._colors.utils import color_tuple_to_hex, to_rgba
 
 
 def test_to_rgba():
     assert to_rgba("red", 0.5) == "#FF000080"
+    assert to_rgba("red", 1) == "#FF0000FF"
     assert to_rgba("#FF0000", 0.5) == "#FF000080"
     assert to_rgba("#FF000022", 0.5) == "#FF000022"
     assert to_rgba((0, 1, 0), 0.5) == (0, 1, 0, 0.5)
@@ -25,6 +27,13 @@ def test_to_rgba():
 
     assert to_rgba((0, 0, 1, 0.2), 1) == (0, 0, 1, 0.2)
     assert to_rgba("none", 0.5) == "none"
+    assert to_rgba("red", np.float64(0.5)) == "#FF000080"
+    assert to_rgba("red", np.int64(1)) == "#FF0000FF"  # pyright: ignore[reportCallIssue,reportArgumentType]
+
+    assert to_rgba(None, 1) == "none"
+    assert to_rgba("", 1) == "none"
+    assert to_rgba("none", 0.2) == "none"
+    assert to_rgba([None, None], 1) == ["none", "none"]  # pyright: ignore[reportCallIssue,reportArgumentType]
 
     with pytest.raises(ValueError):
         to_rgba("red", "0")  # pyright: ignore[reportCallIssue,reportArgumentType]
@@ -32,5 +41,10 @@ def test_to_rgba():
     with pytest.raises(ValueError):
         to_rgba((1, 0, 0), "0")  # pyright: ignore[reportCallIssue,reportArgumentType]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         to_rgba((0, 0, 1, 0.2, 0.2), 1)  # pyright: ignore[reportCallIssue,reportArgumentType]
+
+
+def test_color_tuple_to_hex():
+    assert color_tuple_to_hex((1, 0, 0)) == "#FF0000"
+    assert color_tuple_to_hex((1, 0, 0, 0.5)) == "#FF000080"

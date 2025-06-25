@@ -1,7 +1,7 @@
 r'''
 # `google_dns_response_policy`
 
-Refer to the Terraform Registry for docs: [`google_dns_response_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy).
+Refer to the Terraform Registry for docs: [`google_dns_response_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDnsResponsePolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDnsResponsePolicy.GoogleDnsResponsePolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy google_dns_response_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy google_dns_response_policy}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleDnsResponsePolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy google_dns_response_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy google_dns_response_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param response_policy_name: The user assigned name for this Response Policy, such as 'myresponsepolicy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#response_policy_name GoogleDnsResponsePolicy#response_policy_name}
-        :param description: The description of the response policy, such as 'My new response policy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#description GoogleDnsResponsePolicy#description}
-        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#gke_clusters GoogleDnsResponsePolicy#gke_clusters}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#id GoogleDnsResponsePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#networks GoogleDnsResponsePolicy#networks}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#project GoogleDnsResponsePolicy#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#timeouts GoogleDnsResponsePolicy#timeouts}
+        :param response_policy_name: The user assigned name for this Response Policy, such as 'myresponsepolicy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#response_policy_name GoogleDnsResponsePolicy#response_policy_name}
+        :param description: The description of the response policy, such as 'My new response policy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#description GoogleDnsResponsePolicy#description}
+        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#gke_clusters GoogleDnsResponsePolicy#gke_clusters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#id GoogleDnsResponsePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#networks GoogleDnsResponsePolicy#networks}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#project GoogleDnsResponsePolicy#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#timeouts GoogleDnsResponsePolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleDnsResponsePolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDnsResponsePolicy to import.
-        :param import_from_id: The id of the existing GoogleDnsResponsePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDnsResponsePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDnsResponsePolicy to import is found.
         '''
         if __debug__:
@@ -167,9 +167,9 @@ class GoogleDnsResponsePolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#create GoogleDnsResponsePolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#delete GoogleDnsResponsePolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#update GoogleDnsResponsePolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#create GoogleDnsResponsePolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#delete GoogleDnsResponsePolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#update GoogleDnsResponsePolicy#update}.
         '''
         value = GoogleDnsResponsePolicyTimeouts(
             create=create, delete=delete, update=update
@@ -366,13 +366,13 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param response_policy_name: The user assigned name for this Response Policy, such as 'myresponsepolicy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#response_policy_name GoogleDnsResponsePolicy#response_policy_name}
-        :param description: The description of the response policy, such as 'My new response policy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#description GoogleDnsResponsePolicy#description}
-        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#gke_clusters GoogleDnsResponsePolicy#gke_clusters}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#id GoogleDnsResponsePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#networks GoogleDnsResponsePolicy#networks}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#project GoogleDnsResponsePolicy#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#timeouts GoogleDnsResponsePolicy#timeouts}
+        :param response_policy_name: The user assigned name for this Response Policy, such as 'myresponsepolicy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#response_policy_name GoogleDnsResponsePolicy#response_policy_name}
+        :param description: The description of the response policy, such as 'My new response policy'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#description GoogleDnsResponsePolicy#description}
+        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#gke_clusters GoogleDnsResponsePolicy#gke_clusters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#id GoogleDnsResponsePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#networks GoogleDnsResponsePolicy#networks}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#project GoogleDnsResponsePolicy#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#timeouts GoogleDnsResponsePolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -492,7 +492,7 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def response_policy_name(self) -> builtins.str:
         '''The user assigned name for this Response Policy, such as 'myresponsepolicy'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#response_policy_name GoogleDnsResponsePolicy#response_policy_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#response_policy_name GoogleDnsResponsePolicy#response_policy_name}
         '''
         result = self._values.get("response_policy_name")
         assert result is not None, "Required property 'response_policy_name' is missing"
@@ -502,7 +502,7 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the response policy, such as 'My new response policy'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#description GoogleDnsResponsePolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#description GoogleDnsResponsePolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -513,14 +513,14 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDnsResponsePolicyGkeClusters"]]]:
         '''gke_clusters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#gke_clusters GoogleDnsResponsePolicy#gke_clusters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#gke_clusters GoogleDnsResponsePolicy#gke_clusters}
         '''
         result = self._values.get("gke_clusters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDnsResponsePolicyGkeClusters"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#id GoogleDnsResponsePolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#id GoogleDnsResponsePolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -534,14 +534,14 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDnsResponsePolicyNetworks"]]]:
         '''networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#networks GoogleDnsResponsePolicy#networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#networks GoogleDnsResponsePolicy#networks}
         '''
         result = self._values.get("networks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDnsResponsePolicyNetworks"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#project GoogleDnsResponsePolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#project GoogleDnsResponsePolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -549,7 +549,7 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDnsResponsePolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#timeouts GoogleDnsResponsePolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#timeouts GoogleDnsResponsePolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDnsResponsePolicyTimeouts"], result)
@@ -574,7 +574,7 @@ class GoogleDnsResponsePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleDnsResponsePolicyGkeClusters:
     def __init__(self, *, gke_cluster_name: builtins.str) -> None:
         '''
-        :param gke_cluster_name: The resource name of the cluster to bind this ManagedZone to. This should be specified in the format like 'projects/* /locations/* /clusters/*' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#gke_cluster_name GoogleDnsResponsePolicy#gke_cluster_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param gke_cluster_name: The resource name of the cluster to bind this ManagedZone to. This should be specified in the format like 'projects/* /locations/* /clusters/*' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#gke_cluster_name GoogleDnsResponsePolicy#gke_cluster_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13fe4a8916d1ddc150b9c892fc2a800bdc037bc4b601fcc93d159f6b02117e8b)
@@ -590,7 +590,7 @@ class GoogleDnsResponsePolicyGkeClusters:
         This should be specified in the format like
         'projects/* /locations/* /clusters/*'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#gke_cluster_name GoogleDnsResponsePolicy#gke_cluster_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#gke_cluster_name GoogleDnsResponsePolicy#gke_cluster_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -772,7 +772,7 @@ class GoogleDnsResponsePolicyGkeClustersOutputReference(
 class GoogleDnsResponsePolicyNetworks:
     def __init__(self, *, network_url: builtins.str) -> None:
         '''
-        :param network_url: The fully qualified URL of the VPC network to bind to. This should be formatted like 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#network_url GoogleDnsResponsePolicy#network_url}
+        :param network_url: The fully qualified URL of the VPC network to bind to. This should be formatted like 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#network_url GoogleDnsResponsePolicy#network_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23b115654c38b239a352e8b6c304df25e8890a3b25ae118f37b7e86388438b5e)
@@ -785,7 +785,7 @@ class GoogleDnsResponsePolicyNetworks:
     def network_url(self) -> builtins.str:
         '''The fully qualified URL of the VPC network to bind to. This should be formatted like 'https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#network_url GoogleDnsResponsePolicy#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#network_url GoogleDnsResponsePolicy#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -971,9 +971,9 @@ class GoogleDnsResponsePolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#create GoogleDnsResponsePolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#delete GoogleDnsResponsePolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#update GoogleDnsResponsePolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#create GoogleDnsResponsePolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#delete GoogleDnsResponsePolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#update GoogleDnsResponsePolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bee405adae00d378c041fb846c2c932e7557a1171e19d3c428ccc1c650f7c1a0)
@@ -990,19 +990,19 @@ class GoogleDnsResponsePolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#create GoogleDnsResponsePolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#create GoogleDnsResponsePolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#delete GoogleDnsResponsePolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#delete GoogleDnsResponsePolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dns_response_policy#update GoogleDnsResponsePolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dns_response_policy#update GoogleDnsResponsePolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

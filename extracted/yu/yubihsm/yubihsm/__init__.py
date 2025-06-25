@@ -24,8 +24,7 @@ See :class:`~yubihsm.core.YubiHsm`.
 ... session = hsm.create_session_derived(1, 'password')
 """
 
-
 from .core import YubiHsm  # noqa F401
 
 
-__version__ = "3.1.0"
+__version__ = "3.1.1"

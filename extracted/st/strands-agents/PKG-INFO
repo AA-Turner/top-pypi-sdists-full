@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 0.1.8
+Version: 0.1.9
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -52,7 +52,7 @@ Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'docs'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: litellm
-Requires-Dist: litellm<2.0.0,>=1.69.0; extra == 'litellm'
+Requires-Dist: litellm<1.73.0,>=1.72.6; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
 Provides-Extra: ollama

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-parallelcluster
-Version: 3.13.1
+Version: 3.13.2
 Summary: AWS ParallelCluster is an AWS supported Open Source cluster management tool to deploy and manage HPC clusters in the AWS cloud.
 Home-page: https://github.com/aws/aws-parallelcluster
 Author: Amazon Web Services

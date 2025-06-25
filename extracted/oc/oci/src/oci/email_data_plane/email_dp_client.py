@@ -144,7 +144,7 @@ class EmailDPClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.2/emaildataplane/submit_email.py.html>`__ to see an example of how to use submit_email API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/emaildataplane/submit_email.py.html>`__ to see an example of how to use submit_email API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

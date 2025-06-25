@@ -468,6 +468,8 @@ def subproc_toks(
     """
     if lexer is None:
         lexer = xsh.execer.parser.lexer
+    if hasattr(lexer, "subproc_toks"):
+        return lexer.subproc_toks(line, mincol, maxcol, returnline, greedy)
     if maxcol is None:
         maxcol = len(line) + 1
     lexer.reset()
@@ -956,7 +958,7 @@ def print_warning(msg):
         # Notify about the traceback output possibility if neither of
         # the two options have been manually set
         sys.stderr.write(
-            "xonsh: For full traceback set: " "$XONSH_SHOW_TRACEBACK = True\n"
+            "xonsh: For full traceback set: $XONSH_SHOW_TRACEBACK = True\n"
         )
     # convert show_trace to bool if necessary
     if not is_bool(show_trace):
@@ -1033,7 +1035,7 @@ def print_exception(msg=None, exc_info=None, source_msg=None):
         # Notify about the traceback output possibility if neither of
         # the two options have been manually set
         sys.stderr.write(
-            "xonsh: For full traceback set: " "$XONSH_SHOW_TRACEBACK = True\n"
+            "xonsh: For full traceback set: $XONSH_SHOW_TRACEBACK = True\n"
         )
     # convert show_trace to bool if necessary
     if not is_bool(show_trace):

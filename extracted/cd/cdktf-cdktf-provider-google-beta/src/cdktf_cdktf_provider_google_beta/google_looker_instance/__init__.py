@@ -1,7 +1,7 @@
 r'''
 # `google_looker_instance`
 
-Refer to the Terraform Registry for docs: [`google_looker_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance).
+Refer to the Terraform Registry for docs: [`google_looker_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleLookerInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleLookerInstance.GoogleLookerInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance google_looker_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance google_looker_instance}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class GoogleLookerInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance google_looker_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance google_looker_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The ID of the instance or a fully qualified identifier for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#name GoogleLookerInstance#name}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#oauth_config GoogleLookerInstance#oauth_config}
-        :param admin_settings: admin_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#admin_settings GoogleLookerInstance#admin_settings}
-        :param consumer_network: Network name in the consumer project in the format of: projects/{project}/global/networks/{network} Note that the consumer network may be in a different GCP project than the consumer project that is hosting the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#consumer_network GoogleLookerInstance#consumer_network}
-        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#custom_domain GoogleLookerInstance#custom_domain}
-        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. If setting deletion_policy = "FORCE", the Looker instance will be deleted regardless of its nested resources. If set to "DEFAULT", Looker instances that still have nested resources will return an error. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#deletion_policy GoogleLookerInstance#deletion_policy}
-        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#deny_maintenance_period GoogleLookerInstance#deny_maintenance_period}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#encryption_config GoogleLookerInstance#encryption_config}
-        :param fips_enabled: FIPS 140-2 Encryption enablement for Looker (Google Cloud Core). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#fips_enabled GoogleLookerInstance#fips_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#id GoogleLookerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#maintenance_window GoogleLookerInstance#maintenance_window}
-        :param platform_edition: Platform editions for a Looker instance. Each edition maps to a set of instance features, like its size. Must be one of these values: - LOOKER_CORE_TRIAL: trial instance (Currently Unavailable) - LOOKER_CORE_STANDARD: pay as you go standard instance (Currently Unavailable) - LOOKER_CORE_STANDARD_ANNUAL: subscription standard instance - LOOKER_CORE_ENTERPRISE_ANNUAL: subscription enterprise instance - LOOKER_CORE_EMBED_ANNUAL: subscription embed instance - LOOKER_CORE_NONPROD_STANDARD_ANNUAL: nonprod subscription standard instance - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance - LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#platform_edition GoogleLookerInstance#platform_edition}
-        :param private_ip_enabled: Whether private IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#private_ip_enabled GoogleLookerInstance#private_ip_enabled}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#project GoogleLookerInstance#project}.
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#psc_config GoogleLookerInstance#psc_config}
-        :param psc_enabled: Whether Public Service Connect (PSC) is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#psc_enabled GoogleLookerInstance#psc_enabled}
-        :param public_ip_enabled: Whether public IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#public_ip_enabled GoogleLookerInstance#public_ip_enabled}
-        :param region: The name of the Looker region of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#region GoogleLookerInstance#region}
-        :param reserved_range: Name of a reserved IP address range within the consumer network, to be used for private service access connection. User may or may not specify this in a request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#reserved_range GoogleLookerInstance#reserved_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#timeouts GoogleLookerInstance#timeouts}
-        :param user_metadata: user_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#user_metadata GoogleLookerInstance#user_metadata}
+        :param name: The ID of the instance or a fully qualified identifier for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#name GoogleLookerInstance#name}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#oauth_config GoogleLookerInstance#oauth_config}
+        :param admin_settings: admin_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#admin_settings GoogleLookerInstance#admin_settings}
+        :param consumer_network: Network name in the consumer project in the format of: projects/{project}/global/networks/{network} Note that the consumer network may be in a different GCP project than the consumer project that is hosting the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#consumer_network GoogleLookerInstance#consumer_network}
+        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#custom_domain GoogleLookerInstance#custom_domain}
+        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. If setting deletion_policy = "FORCE", the Looker instance will be deleted regardless of its nested resources. If set to "DEFAULT", Looker instances that still have nested resources will return an error. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#deletion_policy GoogleLookerInstance#deletion_policy}
+        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#deny_maintenance_period GoogleLookerInstance#deny_maintenance_period}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#encryption_config GoogleLookerInstance#encryption_config}
+        :param fips_enabled: FIPS 140-2 Encryption enablement for Looker (Google Cloud Core). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#fips_enabled GoogleLookerInstance#fips_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#id GoogleLookerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#maintenance_window GoogleLookerInstance#maintenance_window}
+        :param platform_edition: Platform editions for a Looker instance. Each edition maps to a set of instance features, like its size. Must be one of these values: - LOOKER_CORE_TRIAL: trial instance (Currently Unavailable) - LOOKER_CORE_STANDARD: pay as you go standard instance (Currently Unavailable) - LOOKER_CORE_STANDARD_ANNUAL: subscription standard instance - LOOKER_CORE_ENTERPRISE_ANNUAL: subscription enterprise instance - LOOKER_CORE_EMBED_ANNUAL: subscription embed instance - LOOKER_CORE_NONPROD_STANDARD_ANNUAL: nonprod subscription standard instance - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance - LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#platform_edition GoogleLookerInstance#platform_edition}
+        :param private_ip_enabled: Whether private IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#private_ip_enabled GoogleLookerInstance#private_ip_enabled}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#project GoogleLookerInstance#project}.
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#psc_config GoogleLookerInstance#psc_config}
+        :param psc_enabled: Whether Public Service Connect (PSC) is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#psc_enabled GoogleLookerInstance#psc_enabled}
+        :param public_ip_enabled: Whether public IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#public_ip_enabled GoogleLookerInstance#public_ip_enabled}
+        :param region: The name of the Looker region of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#region GoogleLookerInstance#region}
+        :param reserved_range: Name of a reserved IP address range within the consumer network, to be used for private service access connection. User may or may not specify this in a request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#reserved_range GoogleLookerInstance#reserved_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#timeouts GoogleLookerInstance#timeouts}
+        :param user_metadata: user_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#user_metadata GoogleLookerInstance#user_metadata}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class GoogleLookerInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleLookerInstance to import.
-        :param import_from_id: The id of the existing GoogleLookerInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleLookerInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleLookerInstance to import is found.
         '''
         if __debug__:
@@ -181,7 +181,7 @@ class GoogleLookerInstance(
         allowed_email_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_email_domains: Email domain allowlist for the instance. Define the email domains to which your users can deliver Looker (Google Cloud core) content. Updating this list will restart the instance. Updating the allowed email domains from terraform means the value provided will be considered as the entire list and not an amendment to the existing list of allowed email domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#allowed_email_domains GoogleLookerInstance#allowed_email_domains}
+        :param allowed_email_domains: Email domain allowlist for the instance. Define the email domains to which your users can deliver Looker (Google Cloud core) content. Updating this list will restart the instance. Updating the allowed email domains from terraform means the value provided will be considered as the entire list and not an amendment to the existing list of allowed email domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#allowed_email_domains GoogleLookerInstance#allowed_email_domains}
         '''
         value = GoogleLookerInstanceAdminSettings(
             allowed_email_domains=allowed_email_domains
@@ -196,7 +196,7 @@ class GoogleLookerInstance(
         domain: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain: Domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#domain GoogleLookerInstance#domain}
+        :param domain: Domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#domain GoogleLookerInstance#domain}
         '''
         value = GoogleLookerInstanceCustomDomain(domain=domain)
 
@@ -211,9 +211,9 @@ class GoogleLookerInstance(
         time: typing.Union["GoogleLookerInstanceDenyMaintenancePeriodTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#end_date GoogleLookerInstance#end_date}
-        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#start_date GoogleLookerInstance#start_date}
-        :param time: time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#time GoogleLookerInstance#time}
+        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#end_date GoogleLookerInstance#end_date}
+        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#start_date GoogleLookerInstance#start_date}
+        :param time: time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#time GoogleLookerInstance#time}
         '''
         value = GoogleLookerInstanceDenyMaintenancePeriod(
             end_date=end_date, start_date=start_date, time=time
@@ -228,7 +228,7 @@ class GoogleLookerInstance(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: Name of the customer managed encryption key (CMEK) in KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#kms_key_name GoogleLookerInstance#kms_key_name}
+        :param kms_key_name: Name of the customer managed encryption key (CMEK) in KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#kms_key_name GoogleLookerInstance#kms_key_name}
         '''
         value = GoogleLookerInstanceEncryptionConfig(kms_key_name=kms_key_name)
 
@@ -242,8 +242,8 @@ class GoogleLookerInstance(
         start_time: typing.Union["GoogleLookerInstanceMaintenanceWindowStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param day_of_week: Required. Day of the week for this MaintenanceWindow (in UTC). - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day_of_week GoogleLookerInstance#day_of_week}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#start_time GoogleLookerInstance#start_time}
+        :param day_of_week: Required. Day of the week for this MaintenanceWindow (in UTC). - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day_of_week GoogleLookerInstance#day_of_week}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#start_time GoogleLookerInstance#start_time}
         '''
         value = GoogleLookerInstanceMaintenanceWindow(
             day_of_week=day_of_week, start_time=start_time
@@ -259,8 +259,8 @@ class GoogleLookerInstance(
         client_secret: builtins.str,
     ) -> None:
         '''
-        :param client_id: The client ID for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#client_id GoogleLookerInstance#client_id}
-        :param client_secret: The client secret for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#client_secret GoogleLookerInstance#client_secret}
+        :param client_id: The client ID for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#client_id GoogleLookerInstance#client_id}
+        :param client_secret: The client secret for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#client_secret GoogleLookerInstance#client_secret}
         '''
         value = GoogleLookerInstanceOauthConfig(
             client_id=client_id, client_secret=client_secret
@@ -276,8 +276,8 @@ class GoogleLookerInstance(
         service_attachments: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleLookerInstancePscConfigServiceAttachments", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_vpcs: List of VPCs that are allowed ingress into the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#allowed_vpcs GoogleLookerInstance#allowed_vpcs}
-        :param service_attachments: service_attachments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#service_attachments GoogleLookerInstance#service_attachments}
+        :param allowed_vpcs: List of VPCs that are allowed ingress into the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#allowed_vpcs GoogleLookerInstance#allowed_vpcs}
+        :param service_attachments: service_attachments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#service_attachments GoogleLookerInstance#service_attachments}
         '''
         value = GoogleLookerInstancePscConfig(
             allowed_vpcs=allowed_vpcs, service_attachments=service_attachments
@@ -294,9 +294,9 @@ class GoogleLookerInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#create GoogleLookerInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#delete GoogleLookerInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#update GoogleLookerInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#create GoogleLookerInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#delete GoogleLookerInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#update GoogleLookerInstance#update}.
         '''
         value = GoogleLookerInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -313,9 +313,9 @@ class GoogleLookerInstance(
         additional_viewer_user_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param additional_developer_user_count: Number of additional Developer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_developer_user_count GoogleLookerInstance#additional_developer_user_count}
-        :param additional_standard_user_count: Number of additional Standard Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_standard_user_count GoogleLookerInstance#additional_standard_user_count}
-        :param additional_viewer_user_count: Number of additional Viewer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_viewer_user_count GoogleLookerInstance#additional_viewer_user_count}
+        :param additional_developer_user_count: Number of additional Developer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_developer_user_count GoogleLookerInstance#additional_developer_user_count}
+        :param additional_standard_user_count: Number of additional Standard Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_standard_user_count GoogleLookerInstance#additional_standard_user_count}
+        :param additional_viewer_user_count: Number of additional Viewer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_viewer_user_count GoogleLookerInstance#additional_viewer_user_count}
         '''
         value = GoogleLookerInstanceUserMetadata(
             additional_developer_user_count=additional_developer_user_count,
@@ -800,7 +800,7 @@ class GoogleLookerInstanceAdminSettings:
         allowed_email_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_email_domains: Email domain allowlist for the instance. Define the email domains to which your users can deliver Looker (Google Cloud core) content. Updating this list will restart the instance. Updating the allowed email domains from terraform means the value provided will be considered as the entire list and not an amendment to the existing list of allowed email domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#allowed_email_domains GoogleLookerInstance#allowed_email_domains}
+        :param allowed_email_domains: Email domain allowlist for the instance. Define the email domains to which your users can deliver Looker (Google Cloud core) content. Updating this list will restart the instance. Updating the allowed email domains from terraform means the value provided will be considered as the entire list and not an amendment to the existing list of allowed email domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#allowed_email_domains GoogleLookerInstance#allowed_email_domains}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b6b382d3a78184a830957f242d602ed68856fd02c2c34bf1b5781206ce95cee)
@@ -818,7 +818,7 @@ class GoogleLookerInstanceAdminSettings:
         means the value provided will be considered as the entire list and not an amendment to the
         existing list of allowed email domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#allowed_email_domains GoogleLookerInstance#allowed_email_domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#allowed_email_domains GoogleLookerInstance#allowed_email_domains}
         '''
         result = self._values.get("allowed_email_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -967,27 +967,27 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The ID of the instance or a fully qualified identifier for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#name GoogleLookerInstance#name}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#oauth_config GoogleLookerInstance#oauth_config}
-        :param admin_settings: admin_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#admin_settings GoogleLookerInstance#admin_settings}
-        :param consumer_network: Network name in the consumer project in the format of: projects/{project}/global/networks/{network} Note that the consumer network may be in a different GCP project than the consumer project that is hosting the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#consumer_network GoogleLookerInstance#consumer_network}
-        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#custom_domain GoogleLookerInstance#custom_domain}
-        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. If setting deletion_policy = "FORCE", the Looker instance will be deleted regardless of its nested resources. If set to "DEFAULT", Looker instances that still have nested resources will return an error. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#deletion_policy GoogleLookerInstance#deletion_policy}
-        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#deny_maintenance_period GoogleLookerInstance#deny_maintenance_period}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#encryption_config GoogleLookerInstance#encryption_config}
-        :param fips_enabled: FIPS 140-2 Encryption enablement for Looker (Google Cloud Core). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#fips_enabled GoogleLookerInstance#fips_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#id GoogleLookerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#maintenance_window GoogleLookerInstance#maintenance_window}
-        :param platform_edition: Platform editions for a Looker instance. Each edition maps to a set of instance features, like its size. Must be one of these values: - LOOKER_CORE_TRIAL: trial instance (Currently Unavailable) - LOOKER_CORE_STANDARD: pay as you go standard instance (Currently Unavailable) - LOOKER_CORE_STANDARD_ANNUAL: subscription standard instance - LOOKER_CORE_ENTERPRISE_ANNUAL: subscription enterprise instance - LOOKER_CORE_EMBED_ANNUAL: subscription embed instance - LOOKER_CORE_NONPROD_STANDARD_ANNUAL: nonprod subscription standard instance - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance - LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#platform_edition GoogleLookerInstance#platform_edition}
-        :param private_ip_enabled: Whether private IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#private_ip_enabled GoogleLookerInstance#private_ip_enabled}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#project GoogleLookerInstance#project}.
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#psc_config GoogleLookerInstance#psc_config}
-        :param psc_enabled: Whether Public Service Connect (PSC) is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#psc_enabled GoogleLookerInstance#psc_enabled}
-        :param public_ip_enabled: Whether public IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#public_ip_enabled GoogleLookerInstance#public_ip_enabled}
-        :param region: The name of the Looker region of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#region GoogleLookerInstance#region}
-        :param reserved_range: Name of a reserved IP address range within the consumer network, to be used for private service access connection. User may or may not specify this in a request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#reserved_range GoogleLookerInstance#reserved_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#timeouts GoogleLookerInstance#timeouts}
-        :param user_metadata: user_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#user_metadata GoogleLookerInstance#user_metadata}
+        :param name: The ID of the instance or a fully qualified identifier for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#name GoogleLookerInstance#name}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#oauth_config GoogleLookerInstance#oauth_config}
+        :param admin_settings: admin_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#admin_settings GoogleLookerInstance#admin_settings}
+        :param consumer_network: Network name in the consumer project in the format of: projects/{project}/global/networks/{network} Note that the consumer network may be in a different GCP project than the consumer project that is hosting the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#consumer_network GoogleLookerInstance#consumer_network}
+        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#custom_domain GoogleLookerInstance#custom_domain}
+        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. If setting deletion_policy = "FORCE", the Looker instance will be deleted regardless of its nested resources. If set to "DEFAULT", Looker instances that still have nested resources will return an error. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#deletion_policy GoogleLookerInstance#deletion_policy}
+        :param deny_maintenance_period: deny_maintenance_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#deny_maintenance_period GoogleLookerInstance#deny_maintenance_period}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#encryption_config GoogleLookerInstance#encryption_config}
+        :param fips_enabled: FIPS 140-2 Encryption enablement for Looker (Google Cloud Core). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#fips_enabled GoogleLookerInstance#fips_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#id GoogleLookerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#maintenance_window GoogleLookerInstance#maintenance_window}
+        :param platform_edition: Platform editions for a Looker instance. Each edition maps to a set of instance features, like its size. Must be one of these values: - LOOKER_CORE_TRIAL: trial instance (Currently Unavailable) - LOOKER_CORE_STANDARD: pay as you go standard instance (Currently Unavailable) - LOOKER_CORE_STANDARD_ANNUAL: subscription standard instance - LOOKER_CORE_ENTERPRISE_ANNUAL: subscription enterprise instance - LOOKER_CORE_EMBED_ANNUAL: subscription embed instance - LOOKER_CORE_NONPROD_STANDARD_ANNUAL: nonprod subscription standard instance - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance - LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#platform_edition GoogleLookerInstance#platform_edition}
+        :param private_ip_enabled: Whether private IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#private_ip_enabled GoogleLookerInstance#private_ip_enabled}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#project GoogleLookerInstance#project}.
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#psc_config GoogleLookerInstance#psc_config}
+        :param psc_enabled: Whether Public Service Connect (PSC) is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#psc_enabled GoogleLookerInstance#psc_enabled}
+        :param public_ip_enabled: Whether public IP is enabled on the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#public_ip_enabled GoogleLookerInstance#public_ip_enabled}
+        :param region: The name of the Looker region of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#region GoogleLookerInstance#region}
+        :param reserved_range: Name of a reserved IP address range within the consumer network, to be used for private service access connection. User may or may not specify this in a request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#reserved_range GoogleLookerInstance#reserved_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#timeouts GoogleLookerInstance#timeouts}
+        :param user_metadata: user_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#user_metadata GoogleLookerInstance#user_metadata}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1164,7 +1164,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The ID of the instance or a fully qualified identifier for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#name GoogleLookerInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#name GoogleLookerInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1174,7 +1174,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oauth_config(self) -> "GoogleLookerInstanceOauthConfig":
         '''oauth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#oauth_config GoogleLookerInstance#oauth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#oauth_config GoogleLookerInstance#oauth_config}
         '''
         result = self._values.get("oauth_config")
         assert result is not None, "Required property 'oauth_config' is missing"
@@ -1184,7 +1184,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def admin_settings(self) -> typing.Optional[GoogleLookerInstanceAdminSettings]:
         '''admin_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#admin_settings GoogleLookerInstance#admin_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#admin_settings GoogleLookerInstance#admin_settings}
         '''
         result = self._values.get("admin_settings")
         return typing.cast(typing.Optional[GoogleLookerInstanceAdminSettings], result)
@@ -1193,7 +1193,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def consumer_network(self) -> typing.Optional[builtins.str]:
         '''Network name in the consumer project in the format of: projects/{project}/global/networks/{network} Note that the consumer network may be in a different GCP project than the consumer project that is hosting the Looker Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#consumer_network GoogleLookerInstance#consumer_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#consumer_network GoogleLookerInstance#consumer_network}
         '''
         result = self._values.get("consumer_network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1202,7 +1202,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def custom_domain(self) -> typing.Optional["GoogleLookerInstanceCustomDomain"]:
         '''custom_domain block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#custom_domain GoogleLookerInstance#custom_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#custom_domain GoogleLookerInstance#custom_domain}
         '''
         result = self._values.get("custom_domain")
         return typing.cast(typing.Optional["GoogleLookerInstanceCustomDomain"], result)
@@ -1215,7 +1215,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         of its nested resources. If set to "DEFAULT", Looker instances that still have
         nested resources will return an error. Possible values: DEFAULT, FORCE
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#deletion_policy GoogleLookerInstance#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#deletion_policy GoogleLookerInstance#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1226,7 +1226,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleLookerInstanceDenyMaintenancePeriod"]:
         '''deny_maintenance_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#deny_maintenance_period GoogleLookerInstance#deny_maintenance_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#deny_maintenance_period GoogleLookerInstance#deny_maintenance_period}
         '''
         result = self._values.get("deny_maintenance_period")
         return typing.cast(typing.Optional["GoogleLookerInstanceDenyMaintenancePeriod"], result)
@@ -1237,7 +1237,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleLookerInstanceEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#encryption_config GoogleLookerInstance#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#encryption_config GoogleLookerInstance#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["GoogleLookerInstanceEncryptionConfig"], result)
@@ -1248,14 +1248,14 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''FIPS 140-2 Encryption enablement for Looker (Google Cloud Core).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#fips_enabled GoogleLookerInstance#fips_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#fips_enabled GoogleLookerInstance#fips_enabled}
         '''
         result = self._values.get("fips_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#id GoogleLookerInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#id GoogleLookerInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1269,7 +1269,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleLookerInstanceMaintenanceWindow"]:
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#maintenance_window GoogleLookerInstance#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#maintenance_window GoogleLookerInstance#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional["GoogleLookerInstanceMaintenanceWindow"], result)
@@ -1289,7 +1289,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance
         - LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#platform_edition GoogleLookerInstance#platform_edition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#platform_edition GoogleLookerInstance#platform_edition}
         '''
         result = self._values.get("platform_edition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1300,14 +1300,14 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether private IP is enabled on the Looker instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#private_ip_enabled GoogleLookerInstance#private_ip_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#private_ip_enabled GoogleLookerInstance#private_ip_enabled}
         '''
         result = self._values.get("private_ip_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#project GoogleLookerInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#project GoogleLookerInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1315,7 +1315,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def psc_config(self) -> typing.Optional["GoogleLookerInstancePscConfig"]:
         '''psc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#psc_config GoogleLookerInstance#psc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#psc_config GoogleLookerInstance#psc_config}
         '''
         result = self._values.get("psc_config")
         return typing.cast(typing.Optional["GoogleLookerInstancePscConfig"], result)
@@ -1326,7 +1326,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether Public Service Connect (PSC) is enabled on the Looker instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#psc_enabled GoogleLookerInstance#psc_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#psc_enabled GoogleLookerInstance#psc_enabled}
         '''
         result = self._values.get("psc_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1337,7 +1337,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether public IP is enabled on the Looker instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#public_ip_enabled GoogleLookerInstance#public_ip_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#public_ip_enabled GoogleLookerInstance#public_ip_enabled}
         '''
         result = self._values.get("public_ip_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1346,7 +1346,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The name of the Looker region of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#region GoogleLookerInstance#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#region GoogleLookerInstance#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1357,7 +1357,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         User may or may not specify this in a request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#reserved_range GoogleLookerInstance#reserved_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#reserved_range GoogleLookerInstance#reserved_range}
         '''
         result = self._values.get("reserved_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1366,7 +1366,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleLookerInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#timeouts GoogleLookerInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#timeouts GoogleLookerInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleLookerInstanceTimeouts"], result)
@@ -1375,7 +1375,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_metadata(self) -> typing.Optional["GoogleLookerInstanceUserMetadata"]:
         '''user_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#user_metadata GoogleLookerInstance#user_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#user_metadata GoogleLookerInstance#user_metadata}
         '''
         result = self._values.get("user_metadata")
         return typing.cast(typing.Optional["GoogleLookerInstanceUserMetadata"], result)
@@ -1400,7 +1400,7 @@ class GoogleLookerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleLookerInstanceCustomDomain:
     def __init__(self, *, domain: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param domain: Domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#domain GoogleLookerInstance#domain}
+        :param domain: Domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#domain GoogleLookerInstance#domain}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__970246e31f61542a823f0e6f4459c17c692e6d04e0aabc4915af08d9e788b072)
@@ -1413,7 +1413,7 @@ class GoogleLookerInstanceCustomDomain:
     def domain(self) -> typing.Optional[builtins.str]:
         '''Domain name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#domain GoogleLookerInstance#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#domain GoogleLookerInstance#domain}
         '''
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1506,9 +1506,9 @@ class GoogleLookerInstanceDenyMaintenancePeriod:
         time: typing.Union["GoogleLookerInstanceDenyMaintenancePeriodTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#end_date GoogleLookerInstance#end_date}
-        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#start_date GoogleLookerInstance#start_date}
-        :param time: time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#time GoogleLookerInstance#time}
+        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#end_date GoogleLookerInstance#end_date}
+        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#start_date GoogleLookerInstance#start_date}
+        :param time: time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#time GoogleLookerInstance#time}
         '''
         if isinstance(end_date, dict):
             end_date = GoogleLookerInstanceDenyMaintenancePeriodEndDate(**end_date)
@@ -1531,7 +1531,7 @@ class GoogleLookerInstanceDenyMaintenancePeriod:
     def end_date(self) -> "GoogleLookerInstanceDenyMaintenancePeriodEndDate":
         '''end_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#end_date GoogleLookerInstance#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#end_date GoogleLookerInstance#end_date}
         '''
         result = self._values.get("end_date")
         assert result is not None, "Required property 'end_date' is missing"
@@ -1541,7 +1541,7 @@ class GoogleLookerInstanceDenyMaintenancePeriod:
     def start_date(self) -> "GoogleLookerInstanceDenyMaintenancePeriodStartDate":
         '''start_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#start_date GoogleLookerInstance#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#start_date GoogleLookerInstance#start_date}
         '''
         result = self._values.get("start_date")
         assert result is not None, "Required property 'start_date' is missing"
@@ -1551,7 +1551,7 @@ class GoogleLookerInstanceDenyMaintenancePeriod:
     def time(self) -> "GoogleLookerInstanceDenyMaintenancePeriodTime":
         '''time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#time GoogleLookerInstance#time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#time GoogleLookerInstance#time}
         '''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
@@ -1583,9 +1583,9 @@ class GoogleLookerInstanceDenyMaintenancePeriodEndDate:
         year: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
-        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
-        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
+        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
+        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01be8b5b242a38500b9b8ecacdeaaf4095ecda06968f79da5a0de875db15563d)
@@ -1607,7 +1607,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodEndDate:
         Must be from 1 to 31 and valid for the year and month, or 0
         to specify a year by itself or a year and month where the day isn't significant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
         '''
         result = self._values.get("day")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1619,7 +1619,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodEndDate:
         Must be from 1 to 12, or 0 to specify a year without a
         month and day.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
         '''
         result = self._values.get("month")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1628,7 +1628,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodEndDate:
     def year(self) -> typing.Optional[jsii.Number]:
         '''Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
         '''
         result = self._values.get("year")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1775,9 +1775,9 @@ class GoogleLookerInstanceDenyMaintenancePeriodOutputReference(
         year: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
-        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
-        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
+        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
+        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
         '''
         value = GoogleLookerInstanceDenyMaintenancePeriodEndDate(
             day=day, month=month, year=year
@@ -1794,9 +1794,9 @@ class GoogleLookerInstanceDenyMaintenancePeriodOutputReference(
         year: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
-        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
-        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
+        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
+        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
         '''
         value = GoogleLookerInstanceDenyMaintenancePeriodStartDate(
             day=day, month=month, year=year
@@ -1814,10 +1814,10 @@ class GoogleLookerInstanceDenyMaintenancePeriodOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
         '''
         value = GoogleLookerInstanceDenyMaintenancePeriodTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -1897,9 +1897,9 @@ class GoogleLookerInstanceDenyMaintenancePeriodStartDate:
         year: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
-        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
-        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
+        :param month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
+        :param year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b1cdfa5b03960fe09dade3279ed1077b13d64997de50dca9a6273593d30dabf)
@@ -1921,7 +1921,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodStartDate:
         Must be from 1 to 31 and valid for the year and month, or 0
         to specify a year by itself or a year and month where the day isn't significant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day GoogleLookerInstance#day}
         '''
         result = self._values.get("day")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1933,7 +1933,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodStartDate:
         Must be from 1 to 12, or 0 to specify a year without a
         month and day.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#month GoogleLookerInstance#month}
         '''
         result = self._values.get("month")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1942,7 +1942,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodStartDate:
     def year(self) -> typing.Optional[jsii.Number]:
         '''Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#year GoogleLookerInstance#year}
         '''
         result = self._values.get("year")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2080,10 +2080,10 @@ class GoogleLookerInstanceDenyMaintenancePeriodTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0791b6087d52db8fbe26eb542a1af81237bc0123aa75d488cb13dd6689f8eb0d)
@@ -2105,7 +2105,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodTime:
     def hours(self) -> typing.Optional[jsii.Number]:
         '''Hours of day in 24 hour format. Should be from 0 to 23.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2114,7 +2114,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Must be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2123,7 +2123,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2132,7 +2132,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodTime:
     def seconds(self) -> typing.Optional[jsii.Number]:
         '''Seconds of minutes of the time. Must normally be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2279,7 +2279,7 @@ class GoogleLookerInstanceDenyMaintenancePeriodTimeOutputReference(
 class GoogleLookerInstanceEncryptionConfig:
     def __init__(self, *, kms_key_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_name: Name of the customer managed encryption key (CMEK) in KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#kms_key_name GoogleLookerInstance#kms_key_name}
+        :param kms_key_name: Name of the customer managed encryption key (CMEK) in KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#kms_key_name GoogleLookerInstance#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__755585655e778e16507f1f0e180bc0a2249d75e390beede780d93ac40bfb34db)
@@ -2292,7 +2292,7 @@ class GoogleLookerInstanceEncryptionConfig:
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''Name of the customer managed encryption key (CMEK) in KMS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#kms_key_name GoogleLookerInstance#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#kms_key_name GoogleLookerInstance#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2389,8 +2389,8 @@ class GoogleLookerInstanceMaintenanceWindow:
         start_time: typing.Union["GoogleLookerInstanceMaintenanceWindowStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param day_of_week: Required. Day of the week for this MaintenanceWindow (in UTC). - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day_of_week GoogleLookerInstance#day_of_week}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#start_time GoogleLookerInstance#start_time}
+        :param day_of_week: Required. Day of the week for this MaintenanceWindow (in UTC). - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day_of_week GoogleLookerInstance#day_of_week}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#start_time GoogleLookerInstance#start_time}
         '''
         if isinstance(start_time, dict):
             start_time = GoogleLookerInstanceMaintenanceWindowStartTime(**start_time)
@@ -2415,7 +2415,7 @@ class GoogleLookerInstanceMaintenanceWindow:
         - SATURDAY: Saturday
         - SUNDAY: Sunday Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#day_of_week GoogleLookerInstance#day_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#day_of_week GoogleLookerInstance#day_of_week}
         '''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
@@ -2425,7 +2425,7 @@ class GoogleLookerInstanceMaintenanceWindow:
     def start_time(self) -> "GoogleLookerInstanceMaintenanceWindowStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#start_time GoogleLookerInstance#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#start_time GoogleLookerInstance#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2473,10 +2473,10 @@ class GoogleLookerInstanceMaintenanceWindowOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
         '''
         value = GoogleLookerInstanceMaintenanceWindowStartTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -2551,10 +2551,10 @@ class GoogleLookerInstanceMaintenanceWindowStartTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a0827b2b0cd6c13c3539d9425d33e27b3edc8ee3bc59c8380281b5bf12a5161)
@@ -2576,7 +2576,7 @@ class GoogleLookerInstanceMaintenanceWindowStartTime:
     def hours(self) -> typing.Optional[jsii.Number]:
         '''Hours of day in 24 hour format. Should be from 0 to 23.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#hours GoogleLookerInstance#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2585,7 +2585,7 @@ class GoogleLookerInstanceMaintenanceWindowStartTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Must be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#minutes GoogleLookerInstance#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2594,7 +2594,7 @@ class GoogleLookerInstanceMaintenanceWindowStartTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#nanos GoogleLookerInstance#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2603,7 +2603,7 @@ class GoogleLookerInstanceMaintenanceWindowStartTime:
     def seconds(self) -> typing.Optional[jsii.Number]:
         '''Seconds of minutes of the time. Must normally be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#seconds GoogleLookerInstance#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2750,8 +2750,8 @@ class GoogleLookerInstanceMaintenanceWindowStartTimeOutputReference(
 class GoogleLookerInstanceOauthConfig:
     def __init__(self, *, client_id: builtins.str, client_secret: builtins.str) -> None:
         '''
-        :param client_id: The client ID for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#client_id GoogleLookerInstance#client_id}
-        :param client_secret: The client secret for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#client_secret GoogleLookerInstance#client_secret}
+        :param client_id: The client ID for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#client_id GoogleLookerInstance#client_id}
+        :param client_secret: The client secret for the Oauth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#client_secret GoogleLookerInstance#client_secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4c14b47faf5ead24b5f2821a6d812bb06770cc4a4fbae367fdc51d27634bc1a)
@@ -2766,7 +2766,7 @@ class GoogleLookerInstanceOauthConfig:
     def client_id(self) -> builtins.str:
         '''The client ID for the Oauth config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#client_id GoogleLookerInstance#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#client_id GoogleLookerInstance#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2776,7 +2776,7 @@ class GoogleLookerInstanceOauthConfig:
     def client_secret(self) -> builtins.str:
         '''The client secret for the Oauth config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#client_secret GoogleLookerInstance#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#client_secret GoogleLookerInstance#client_secret}
         '''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
@@ -2880,8 +2880,8 @@ class GoogleLookerInstancePscConfig:
         service_attachments: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleLookerInstancePscConfigServiceAttachments", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_vpcs: List of VPCs that are allowed ingress into the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#allowed_vpcs GoogleLookerInstance#allowed_vpcs}
-        :param service_attachments: service_attachments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#service_attachments GoogleLookerInstance#service_attachments}
+        :param allowed_vpcs: List of VPCs that are allowed ingress into the Looker instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#allowed_vpcs GoogleLookerInstance#allowed_vpcs}
+        :param service_attachments: service_attachments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#service_attachments GoogleLookerInstance#service_attachments}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b217e9a0281809d608549889693c9ff50e344e566a257d1fa184c9502fedf01)
@@ -2897,7 +2897,7 @@ class GoogleLookerInstancePscConfig:
     def allowed_vpcs(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of VPCs that are allowed ingress into the Looker instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#allowed_vpcs GoogleLookerInstance#allowed_vpcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#allowed_vpcs GoogleLookerInstance#allowed_vpcs}
         '''
         result = self._values.get("allowed_vpcs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2908,7 +2908,7 @@ class GoogleLookerInstancePscConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleLookerInstancePscConfigServiceAttachments"]]]:
         '''service_attachments block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#service_attachments GoogleLookerInstance#service_attachments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#service_attachments GoogleLookerInstance#service_attachments}
         '''
         result = self._values.get("service_attachments")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleLookerInstancePscConfigServiceAttachments"]]], result)
@@ -3034,8 +3034,8 @@ class GoogleLookerInstancePscConfigServiceAttachments:
         target_service_attachment_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param local_fqdn: Fully qualified domain name that will be used in the private DNS record created for the service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#local_fqdn GoogleLookerInstance#local_fqdn}
-        :param target_service_attachment_uri: URI of the service attachment to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#target_service_attachment_uri GoogleLookerInstance#target_service_attachment_uri}
+        :param local_fqdn: Fully qualified domain name that will be used in the private DNS record created for the service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#local_fqdn GoogleLookerInstance#local_fqdn}
+        :param target_service_attachment_uri: URI of the service attachment to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#target_service_attachment_uri GoogleLookerInstance#target_service_attachment_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3c0955372ad90de980a986ddf180b7a6bd66ec67a3e3c1a47d5056b676638c6)
@@ -3051,7 +3051,7 @@ class GoogleLookerInstancePscConfigServiceAttachments:
     def local_fqdn(self) -> typing.Optional[builtins.str]:
         '''Fully qualified domain name that will be used in the private DNS record created for the service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#local_fqdn GoogleLookerInstance#local_fqdn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#local_fqdn GoogleLookerInstance#local_fqdn}
         '''
         result = self._values.get("local_fqdn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3060,7 +3060,7 @@ class GoogleLookerInstancePscConfigServiceAttachments:
     def target_service_attachment_uri(self) -> typing.Optional[builtins.str]:
         '''URI of the service attachment to connect to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#target_service_attachment_uri GoogleLookerInstance#target_service_attachment_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#target_service_attachment_uri GoogleLookerInstance#target_service_attachment_uri}
         '''
         result = self._values.get("target_service_attachment_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3275,9 +3275,9 @@ class GoogleLookerInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#create GoogleLookerInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#delete GoogleLookerInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#update GoogleLookerInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#create GoogleLookerInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#delete GoogleLookerInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#update GoogleLookerInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__279b3118a6780f9f8bd7b4dfe4d4cfdcb72968bcc614576ecad61155d93ae2a1)
@@ -3294,19 +3294,19 @@ class GoogleLookerInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#create GoogleLookerInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#create GoogleLookerInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#delete GoogleLookerInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#delete GoogleLookerInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#update GoogleLookerInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#update GoogleLookerInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3441,9 +3441,9 @@ class GoogleLookerInstanceUserMetadata:
         additional_viewer_user_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param additional_developer_user_count: Number of additional Developer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_developer_user_count GoogleLookerInstance#additional_developer_user_count}
-        :param additional_standard_user_count: Number of additional Standard Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_standard_user_count GoogleLookerInstance#additional_standard_user_count}
-        :param additional_viewer_user_count: Number of additional Viewer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_viewer_user_count GoogleLookerInstance#additional_viewer_user_count}
+        :param additional_developer_user_count: Number of additional Developer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_developer_user_count GoogleLookerInstance#additional_developer_user_count}
+        :param additional_standard_user_count: Number of additional Standard Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_standard_user_count GoogleLookerInstance#additional_standard_user_count}
+        :param additional_viewer_user_count: Number of additional Viewer Users to allocate to the Looker Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_viewer_user_count GoogleLookerInstance#additional_viewer_user_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9685fd13ef5866d8dcd12f723139a4d56d005aa7c87793c9da6175d00063fec)
@@ -3462,7 +3462,7 @@ class GoogleLookerInstanceUserMetadata:
     def additional_developer_user_count(self) -> typing.Optional[jsii.Number]:
         '''Number of additional Developer Users to allocate to the Looker Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_developer_user_count GoogleLookerInstance#additional_developer_user_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_developer_user_count GoogleLookerInstance#additional_developer_user_count}
         '''
         result = self._values.get("additional_developer_user_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3471,7 +3471,7 @@ class GoogleLookerInstanceUserMetadata:
     def additional_standard_user_count(self) -> typing.Optional[jsii.Number]:
         '''Number of additional Standard Users to allocate to the Looker Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_standard_user_count GoogleLookerInstance#additional_standard_user_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_standard_user_count GoogleLookerInstance#additional_standard_user_count}
         '''
         result = self._values.get("additional_standard_user_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3480,7 +3480,7 @@ class GoogleLookerInstanceUserMetadata:
     def additional_viewer_user_count(self) -> typing.Optional[jsii.Number]:
         '''Number of additional Viewer Users to allocate to the Looker Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_looker_instance#additional_viewer_user_count GoogleLookerInstance#additional_viewer_user_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_looker_instance#additional_viewer_user_count GoogleLookerInstance#additional_viewer_user_count}
         '''
         result = self._values.get("additional_viewer_user_count")
         return typing.cast(typing.Optional[jsii.Number], result)

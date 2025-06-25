@@ -1,7 +1,7 @@
 r'''
 # `google_network_services_http_route`
 
-Refer to the Terraform Registry for docs: [`google_network_services_http_route`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route).
+Refer to the Terraform Registry for docs: [`google_network_services_http_route`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleNetworkServicesHttpRoute(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleNetworkServicesHttpRoute.GoogleNetworkServicesHttpRoute",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route google_network_services_http_route}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route google_network_services_http_route}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleNetworkServicesHttpRoute(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route google_network_services_http_route} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route google_network_services_http_route} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param hostnames: Set of hosts that should match against the HTTP host header to select a HttpRoute to process the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#hostnames GoogleNetworkServicesHttpRoute#hostnames}
-        :param name: Name of the HttpRoute resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#name GoogleNetworkServicesHttpRoute#name}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#rules GoogleNetworkServicesHttpRoute#rules}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#description GoogleNetworkServicesHttpRoute#description}
-        :param gateways: Gateways defines a list of gateways this HttpRoute is attached to, as one of the routing rules to route the requests served by the gateway. Each gateway reference should match the pattern: projects/* /locations/global/gateways/<gateway_name> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#gateways GoogleNetworkServicesHttpRoute#gateways} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#id GoogleNetworkServicesHttpRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of label tags associated with the HttpRoute resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#labels GoogleNetworkServicesHttpRoute#labels}
-        :param meshes: Meshes defines a list of meshes this HttpRoute is attached to, as one of the routing rules to route the requests served by the mesh. Each mesh reference should match the pattern: projects/* /locations/global/meshes/<mesh_name>. The attached Mesh should be of a type SIDECAR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#meshes GoogleNetworkServicesHttpRoute#meshes} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#project GoogleNetworkServicesHttpRoute#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#timeouts GoogleNetworkServicesHttpRoute#timeouts}
+        :param hostnames: Set of hosts that should match against the HTTP host header to select a HttpRoute to process the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#hostnames GoogleNetworkServicesHttpRoute#hostnames}
+        :param name: Name of the HttpRoute resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#name GoogleNetworkServicesHttpRoute#name}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#rules GoogleNetworkServicesHttpRoute#rules}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#description GoogleNetworkServicesHttpRoute#description}
+        :param gateways: Gateways defines a list of gateways this HttpRoute is attached to, as one of the routing rules to route the requests served by the gateway. Each gateway reference should match the pattern: projects/* /locations/global/gateways/<gateway_name> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#gateways GoogleNetworkServicesHttpRoute#gateways} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#id GoogleNetworkServicesHttpRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of label tags associated with the HttpRoute resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#labels GoogleNetworkServicesHttpRoute#labels}
+        :param meshes: Meshes defines a list of meshes this HttpRoute is attached to, as one of the routing rules to route the requests served by the mesh. Each mesh reference should match the pattern: projects/* /locations/global/meshes/<mesh_name>. The attached Mesh should be of a type SIDECAR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#meshes GoogleNetworkServicesHttpRoute#meshes} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#project GoogleNetworkServicesHttpRoute#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#timeouts GoogleNetworkServicesHttpRoute#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleNetworkServicesHttpRoute(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleNetworkServicesHttpRoute to import.
-        :param import_from_id: The id of the existing GoogleNetworkServicesHttpRoute that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleNetworkServicesHttpRoute that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleNetworkServicesHttpRoute to import is found.
         '''
         if __debug__:
@@ -163,9 +163,9 @@ class GoogleNetworkServicesHttpRoute(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#create GoogleNetworkServicesHttpRoute#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#delete GoogleNetworkServicesHttpRoute#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#update GoogleNetworkServicesHttpRoute#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#create GoogleNetworkServicesHttpRoute#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#delete GoogleNetworkServicesHttpRoute#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#update GoogleNetworkServicesHttpRoute#update}.
         '''
         value = GoogleNetworkServicesHttpRouteTimeouts(
             create=create, delete=delete, update=update
@@ -455,16 +455,16 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param hostnames: Set of hosts that should match against the HTTP host header to select a HttpRoute to process the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#hostnames GoogleNetworkServicesHttpRoute#hostnames}
-        :param name: Name of the HttpRoute resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#name GoogleNetworkServicesHttpRoute#name}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#rules GoogleNetworkServicesHttpRoute#rules}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#description GoogleNetworkServicesHttpRoute#description}
-        :param gateways: Gateways defines a list of gateways this HttpRoute is attached to, as one of the routing rules to route the requests served by the gateway. Each gateway reference should match the pattern: projects/* /locations/global/gateways/<gateway_name> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#gateways GoogleNetworkServicesHttpRoute#gateways} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#id GoogleNetworkServicesHttpRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of label tags associated with the HttpRoute resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#labels GoogleNetworkServicesHttpRoute#labels}
-        :param meshes: Meshes defines a list of meshes this HttpRoute is attached to, as one of the routing rules to route the requests served by the mesh. Each mesh reference should match the pattern: projects/* /locations/global/meshes/<mesh_name>. The attached Mesh should be of a type SIDECAR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#meshes GoogleNetworkServicesHttpRoute#meshes} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#project GoogleNetworkServicesHttpRoute#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#timeouts GoogleNetworkServicesHttpRoute#timeouts}
+        :param hostnames: Set of hosts that should match against the HTTP host header to select a HttpRoute to process the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#hostnames GoogleNetworkServicesHttpRoute#hostnames}
+        :param name: Name of the HttpRoute resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#name GoogleNetworkServicesHttpRoute#name}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#rules GoogleNetworkServicesHttpRoute#rules}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#description GoogleNetworkServicesHttpRoute#description}
+        :param gateways: Gateways defines a list of gateways this HttpRoute is attached to, as one of the routing rules to route the requests served by the gateway. Each gateway reference should match the pattern: projects/* /locations/global/gateways/<gateway_name> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#gateways GoogleNetworkServicesHttpRoute#gateways} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#id GoogleNetworkServicesHttpRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of label tags associated with the HttpRoute resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#labels GoogleNetworkServicesHttpRoute#labels}
+        :param meshes: Meshes defines a list of meshes this HttpRoute is attached to, as one of the routing rules to route the requests served by the mesh. Each mesh reference should match the pattern: projects/* /locations/global/meshes/<mesh_name>. The attached Mesh should be of a type SIDECAR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#meshes GoogleNetworkServicesHttpRoute#meshes} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#project GoogleNetworkServicesHttpRoute#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#timeouts GoogleNetworkServicesHttpRoute#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -591,7 +591,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def hostnames(self) -> typing.List[builtins.str]:
         '''Set of hosts that should match against the HTTP host header to select a HttpRoute to process the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#hostnames GoogleNetworkServicesHttpRoute#hostnames}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#hostnames GoogleNetworkServicesHttpRoute#hostnames}
         '''
         result = self._values.get("hostnames")
         assert result is not None, "Required property 'hostnames' is missing"
@@ -601,7 +601,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def name(self) -> builtins.str:
         '''Name of the HttpRoute resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#name GoogleNetworkServicesHttpRoute#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#name GoogleNetworkServicesHttpRoute#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -613,7 +613,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#rules GoogleNetworkServicesHttpRoute#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#rules GoogleNetworkServicesHttpRoute#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -623,7 +623,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def description(self) -> typing.Optional[builtins.str]:
         '''A free-text description of the resource. Max length 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#description GoogleNetworkServicesHttpRoute#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#description GoogleNetworkServicesHttpRoute#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -634,7 +634,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         Each gateway reference should match the pattern: projects/* /locations/global/gateways/<gateway_name>
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#gateways GoogleNetworkServicesHttpRoute#gateways}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#gateways GoogleNetworkServicesHttpRoute#gateways}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -643,7 +643,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#id GoogleNetworkServicesHttpRoute#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#id GoogleNetworkServicesHttpRoute#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -658,7 +658,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#labels GoogleNetworkServicesHttpRoute#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#labels GoogleNetworkServicesHttpRoute#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -670,7 +670,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
         Each mesh reference should match the pattern: projects/* /locations/global/meshes/<mesh_name>.
         The attached Mesh should be of a type SIDECAR.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#meshes GoogleNetworkServicesHttpRoute#meshes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#meshes GoogleNetworkServicesHttpRoute#meshes}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -679,7 +679,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#project GoogleNetworkServicesHttpRoute#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#project GoogleNetworkServicesHttpRoute#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -687,7 +687,7 @@ class GoogleNetworkServicesHttpRouteConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleNetworkServicesHttpRouteTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#timeouts GoogleNetworkServicesHttpRoute#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#timeouts GoogleNetworkServicesHttpRoute#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteTimeouts"], result)
@@ -717,8 +717,8 @@ class GoogleNetworkServicesHttpRouteRules:
         matches: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleNetworkServicesHttpRouteRulesMatches", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#action GoogleNetworkServicesHttpRoute#action}
-        :param matches: matches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#matches GoogleNetworkServicesHttpRoute#matches}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#action GoogleNetworkServicesHttpRoute#action}
+        :param matches: matches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#matches GoogleNetworkServicesHttpRoute#matches}
         '''
         if isinstance(action, dict):
             action = GoogleNetworkServicesHttpRouteRulesAction(**action)
@@ -736,7 +736,7 @@ class GoogleNetworkServicesHttpRouteRules:
     def action(self) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesAction"]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#action GoogleNetworkServicesHttpRoute#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#action GoogleNetworkServicesHttpRoute#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesAction"], result)
@@ -747,7 +747,7 @@ class GoogleNetworkServicesHttpRouteRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesMatches"]]]:
         '''matches block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#matches GoogleNetworkServicesHttpRoute#matches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#matches GoogleNetworkServicesHttpRoute#matches}
         '''
         result = self._values.get("matches")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesMatches"]]], result)
@@ -796,16 +796,16 @@ class GoogleNetworkServicesHttpRouteRulesAction:
         url_rewrite: typing.Optional[typing.Union["GoogleNetworkServicesHttpRouteRulesActionUrlRewrite", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#cors_policy GoogleNetworkServicesHttpRoute#cors_policy}
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#destinations GoogleNetworkServicesHttpRoute#destinations}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#fault_injection_policy GoogleNetworkServicesHttpRoute#fault_injection_policy}
-        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#redirect GoogleNetworkServicesHttpRoute#redirect}
-        :param request_header_modifier: request_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#request_header_modifier GoogleNetworkServicesHttpRoute#request_header_modifier}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#request_mirror_policy GoogleNetworkServicesHttpRoute#request_mirror_policy}
-        :param response_header_modifier: response_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#response_header_modifier GoogleNetworkServicesHttpRoute#response_header_modifier}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#retry_policy GoogleNetworkServicesHttpRoute#retry_policy}
-        :param timeout: Specifies the timeout for selected route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#timeout GoogleNetworkServicesHttpRoute#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#url_rewrite GoogleNetworkServicesHttpRoute#url_rewrite}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#cors_policy GoogleNetworkServicesHttpRoute#cors_policy}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#destinations GoogleNetworkServicesHttpRoute#destinations}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#fault_injection_policy GoogleNetworkServicesHttpRoute#fault_injection_policy}
+        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#redirect GoogleNetworkServicesHttpRoute#redirect}
+        :param request_header_modifier: request_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#request_header_modifier GoogleNetworkServicesHttpRoute#request_header_modifier}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#request_mirror_policy GoogleNetworkServicesHttpRoute#request_mirror_policy}
+        :param response_header_modifier: response_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#response_header_modifier GoogleNetworkServicesHttpRoute#response_header_modifier}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#retry_policy GoogleNetworkServicesHttpRoute#retry_policy}
+        :param timeout: Specifies the timeout for selected route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#timeout GoogleNetworkServicesHttpRoute#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#url_rewrite GoogleNetworkServicesHttpRoute#url_rewrite}
         '''
         if isinstance(cors_policy, dict):
             cors_policy = GoogleNetworkServicesHttpRouteRulesActionCorsPolicy(**cors_policy)
@@ -863,7 +863,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionCorsPolicy"]:
         '''cors_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#cors_policy GoogleNetworkServicesHttpRoute#cors_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#cors_policy GoogleNetworkServicesHttpRoute#cors_policy}
         '''
         result = self._values.get("cors_policy")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionCorsPolicy"], result)
@@ -874,7 +874,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesActionDestinations"]]]:
         '''destinations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#destinations GoogleNetworkServicesHttpRoute#destinations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#destinations GoogleNetworkServicesHttpRoute#destinations}
         '''
         result = self._values.get("destinations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesActionDestinations"]]], result)
@@ -885,7 +885,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicy"]:
         '''fault_injection_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#fault_injection_policy GoogleNetworkServicesHttpRoute#fault_injection_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#fault_injection_policy GoogleNetworkServicesHttpRoute#fault_injection_policy}
         '''
         result = self._values.get("fault_injection_policy")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicy"], result)
@@ -896,7 +896,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRedirect"]:
         '''redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#redirect GoogleNetworkServicesHttpRoute#redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#redirect GoogleNetworkServicesHttpRoute#redirect}
         '''
         result = self._values.get("redirect")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRedirect"], result)
@@ -907,7 +907,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier"]:
         '''request_header_modifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#request_header_modifier GoogleNetworkServicesHttpRoute#request_header_modifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#request_header_modifier GoogleNetworkServicesHttpRoute#request_header_modifier}
         '''
         result = self._values.get("request_header_modifier")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier"], result)
@@ -918,7 +918,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicy"]:
         '''request_mirror_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#request_mirror_policy GoogleNetworkServicesHttpRoute#request_mirror_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#request_mirror_policy GoogleNetworkServicesHttpRoute#request_mirror_policy}
         '''
         result = self._values.get("request_mirror_policy")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicy"], result)
@@ -929,7 +929,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier"]:
         '''response_header_modifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#response_header_modifier GoogleNetworkServicesHttpRoute#response_header_modifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#response_header_modifier GoogleNetworkServicesHttpRoute#response_header_modifier}
         '''
         result = self._values.get("response_header_modifier")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier"], result)
@@ -940,7 +940,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRetryPolicy"]:
         '''retry_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#retry_policy GoogleNetworkServicesHttpRoute#retry_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#retry_policy GoogleNetworkServicesHttpRoute#retry_policy}
         '''
         result = self._values.get("retry_policy")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRetryPolicy"], result)
@@ -949,7 +949,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     def timeout(self) -> typing.Optional[builtins.str]:
         '''Specifies the timeout for selected route.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#timeout GoogleNetworkServicesHttpRoute#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#timeout GoogleNetworkServicesHttpRoute#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -960,7 +960,7 @@ class GoogleNetworkServicesHttpRouteRulesAction:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionUrlRewrite"]:
         '''url_rewrite block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#url_rewrite GoogleNetworkServicesHttpRoute#url_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#url_rewrite GoogleNetworkServicesHttpRoute#url_rewrite}
         '''
         result = self._values.get("url_rewrite")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionUrlRewrite"], result)
@@ -1005,14 +1005,14 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
         max_age: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_credentials GoogleNetworkServicesHttpRoute#allow_credentials}
-        :param allow_headers: Specifies the content for Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_headers GoogleNetworkServicesHttpRoute#allow_headers}
-        :param allow_methods: Specifies the content for Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_methods GoogleNetworkServicesHttpRoute#allow_methods}
-        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_origin_regexes GoogleNetworkServicesHttpRoute#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_origins GoogleNetworkServicesHttpRoute#allow_origins}
-        :param disabled: If true, the CORS policy is disabled. The default value is false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#disabled GoogleNetworkServicesHttpRoute#disabled}
-        :param expose_headers: Specifies the content for Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#expose_headers GoogleNetworkServicesHttpRoute#expose_headers}
-        :param max_age: Specifies how long result of a preflight request can be cached in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#max_age GoogleNetworkServicesHttpRoute#max_age}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_credentials GoogleNetworkServicesHttpRoute#allow_credentials}
+        :param allow_headers: Specifies the content for Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_headers GoogleNetworkServicesHttpRoute#allow_headers}
+        :param allow_methods: Specifies the content for Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_methods GoogleNetworkServicesHttpRoute#allow_methods}
+        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_origin_regexes GoogleNetworkServicesHttpRoute#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_origins GoogleNetworkServicesHttpRoute#allow_origins}
+        :param disabled: If true, the CORS policy is disabled. The default value is false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#disabled GoogleNetworkServicesHttpRoute#disabled}
+        :param expose_headers: Specifies the content for Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#expose_headers GoogleNetworkServicesHttpRoute#expose_headers}
+        :param max_age: Specifies how long result of a preflight request can be cached in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#max_age GoogleNetworkServicesHttpRoute#max_age}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ece41eb137d3a6e39a7e2e05f66e3ae58aa1e372b9a003a1600512b61750725)
@@ -1048,7 +1048,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''In response to a preflight request, setting this to true indicates that the actual request can include user credentials.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_credentials GoogleNetworkServicesHttpRoute#allow_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_credentials GoogleNetworkServicesHttpRoute#allow_credentials}
         '''
         result = self._values.get("allow_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1057,7 +1057,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     def allow_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for Access-Control-Allow-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_headers GoogleNetworkServicesHttpRoute#allow_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_headers GoogleNetworkServicesHttpRoute#allow_headers}
         '''
         result = self._values.get("allow_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1066,7 +1066,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     def allow_methods(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for Access-Control-Allow-Methods header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_methods GoogleNetworkServicesHttpRoute#allow_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_methods GoogleNetworkServicesHttpRoute#allow_methods}
         '''
         result = self._values.get("allow_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1075,7 +1075,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     def allow_origin_regexes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the regular expression patterns that match allowed origins.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_origin_regexes GoogleNetworkServicesHttpRoute#allow_origin_regexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_origin_regexes GoogleNetworkServicesHttpRoute#allow_origin_regexes}
         '''
         result = self._values.get("allow_origin_regexes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1084,7 +1084,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     def allow_origins(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the list of origins that will be allowed to do CORS requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_origins GoogleNetworkServicesHttpRoute#allow_origins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_origins GoogleNetworkServicesHttpRoute#allow_origins}
         '''
         result = self._values.get("allow_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1097,7 +1097,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
 
         The default value is false, which indicates that the CORS policy is in effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#disabled GoogleNetworkServicesHttpRoute#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#disabled GoogleNetworkServicesHttpRoute#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1106,7 +1106,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for Access-Control-Expose-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#expose_headers GoogleNetworkServicesHttpRoute#expose_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#expose_headers GoogleNetworkServicesHttpRoute#expose_headers}
         '''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1115,7 +1115,7 @@ class GoogleNetworkServicesHttpRouteRulesActionCorsPolicy:
     def max_age(self) -> typing.Optional[builtins.str]:
         '''Specifies how long result of a preflight request can be cached in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#max_age GoogleNetworkServicesHttpRoute#max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#max_age GoogleNetworkServicesHttpRoute#max_age}
         '''
         result = self._values.get("max_age")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1363,8 +1363,8 @@ class GoogleNetworkServicesHttpRouteRulesActionDestinations:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_name: The URL of a BackendService to route traffic to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
-        :param weight: Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports. If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend. If weights are specified for any one service name, they need to be specified for all of them. If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
+        :param service_name: The URL of a BackendService to route traffic to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
+        :param weight: Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports. If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend. If weights are specified for any one service name, they need to be specified for all of them. If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05c3690b223fa877a38a1f6c409037a01297e760e87ad9ec11950ffc15ffbee6)
@@ -1380,7 +1380,7 @@ class GoogleNetworkServicesHttpRouteRulesActionDestinations:
     def service_name(self) -> typing.Optional[builtins.str]:
         '''The URL of a BackendService to route traffic to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
         '''
         result = self._values.get("service_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1394,7 +1394,7 @@ class GoogleNetworkServicesHttpRouteRulesActionDestinations:
         If weights are specified for any one service name, they need to be specified for all of them.
         If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
         '''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1603,8 +1603,8 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicy:
         delay: typing.Optional[typing.Union["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#abort GoogleNetworkServicesHttpRoute#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#delay GoogleNetworkServicesHttpRoute#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#abort GoogleNetworkServicesHttpRoute#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#delay GoogleNetworkServicesHttpRoute#delay}
         '''
         if isinstance(abort, dict):
             abort = GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort(**abort)
@@ -1626,7 +1626,7 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicy:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort"]:
         '''abort block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#abort GoogleNetworkServicesHttpRoute#abort}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#abort GoogleNetworkServicesHttpRoute#abort}
         '''
         result = self._values.get("abort")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort"], result)
@@ -1637,7 +1637,7 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicy:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay"]:
         '''delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#delay GoogleNetworkServicesHttpRoute#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#delay GoogleNetworkServicesHttpRoute#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay"], result)
@@ -1667,8 +1667,8 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#http_status GoogleNetworkServicesHttpRoute#http_status}
-        :param percentage: The percentage of traffic which will be aborted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
+        :param http_status: The HTTP status code used to abort the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#http_status GoogleNetworkServicesHttpRoute#http_status}
+        :param percentage: The percentage of traffic which will be aborted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00a2ad22465ba905b05a8fa925347f4aa30d844bc23e3d451a673b2690baa8dc)
@@ -1684,7 +1684,7 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort:
     def http_status(self) -> typing.Optional[jsii.Number]:
         '''The HTTP status code used to abort the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#http_status GoogleNetworkServicesHttpRoute#http_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#http_status GoogleNetworkServicesHttpRoute#http_status}
         '''
         result = self._values.get("http_status")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1693,7 +1693,7 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort:
     def percentage(self) -> typing.Optional[jsii.Number]:
         '''The percentage of traffic which will be aborted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1803,8 +1803,8 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_delay: Specify a fixed delay before forwarding the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#fixed_delay GoogleNetworkServicesHttpRoute#fixed_delay}
-        :param percentage: The percentage of traffic on which delay will be injected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
+        :param fixed_delay: Specify a fixed delay before forwarding the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#fixed_delay GoogleNetworkServicesHttpRoute#fixed_delay}
+        :param percentage: The percentage of traffic on which delay will be injected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfa7c226a9302d17a6446554dba863f5b834fa911e0befd0479636503eadaaea)
@@ -1820,7 +1820,7 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay:
     def fixed_delay(self) -> typing.Optional[builtins.str]:
         '''Specify a fixed delay before forwarding the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#fixed_delay GoogleNetworkServicesHttpRoute#fixed_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#fixed_delay GoogleNetworkServicesHttpRoute#fixed_delay}
         '''
         result = self._values.get("fixed_delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1829,7 +1829,7 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay:
     def percentage(self) -> typing.Optional[jsii.Number]:
         '''The percentage of traffic on which delay will be injected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1954,8 +1954,8 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyOutputReferen
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#http_status GoogleNetworkServicesHttpRoute#http_status}
-        :param percentage: The percentage of traffic which will be aborted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
+        :param http_status: The HTTP status code used to abort the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#http_status GoogleNetworkServicesHttpRoute#http_status}
+        :param percentage: The percentage of traffic which will be aborted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyAbort(
             http_status=http_status, percentage=percentage
@@ -1971,8 +1971,8 @@ class GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyOutputReferen
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_delay: Specify a fixed delay before forwarding the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#fixed_delay GoogleNetworkServicesHttpRoute#fixed_delay}
-        :param percentage: The percentage of traffic on which delay will be injected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
+        :param fixed_delay: Specify a fixed delay before forwarding the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#fixed_delay GoogleNetworkServicesHttpRoute#fixed_delay}
+        :param percentage: The percentage of traffic on which delay will be injected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#percentage GoogleNetworkServicesHttpRoute#percentage}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay(
             fixed_delay=fixed_delay, percentage=percentage
@@ -2068,14 +2068,14 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         max_age: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_credentials GoogleNetworkServicesHttpRoute#allow_credentials}
-        :param allow_headers: Specifies the content for Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_headers GoogleNetworkServicesHttpRoute#allow_headers}
-        :param allow_methods: Specifies the content for Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_methods GoogleNetworkServicesHttpRoute#allow_methods}
-        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_origin_regexes GoogleNetworkServicesHttpRoute#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#allow_origins GoogleNetworkServicesHttpRoute#allow_origins}
-        :param disabled: If true, the CORS policy is disabled. The default value is false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#disabled GoogleNetworkServicesHttpRoute#disabled}
-        :param expose_headers: Specifies the content for Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#expose_headers GoogleNetworkServicesHttpRoute#expose_headers}
-        :param max_age: Specifies how long result of a preflight request can be cached in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#max_age GoogleNetworkServicesHttpRoute#max_age}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_credentials GoogleNetworkServicesHttpRoute#allow_credentials}
+        :param allow_headers: Specifies the content for Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_headers GoogleNetworkServicesHttpRoute#allow_headers}
+        :param allow_methods: Specifies the content for Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_methods GoogleNetworkServicesHttpRoute#allow_methods}
+        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_origin_regexes GoogleNetworkServicesHttpRoute#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#allow_origins GoogleNetworkServicesHttpRoute#allow_origins}
+        :param disabled: If true, the CORS policy is disabled. The default value is false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#disabled GoogleNetworkServicesHttpRoute#disabled}
+        :param expose_headers: Specifies the content for Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#expose_headers GoogleNetworkServicesHttpRoute#expose_headers}
+        :param max_age: Specifies how long result of a preflight request can be cached in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#max_age GoogleNetworkServicesHttpRoute#max_age}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionCorsPolicy(
             allow_credentials=allow_credentials,
@@ -2111,8 +2111,8 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         delay: typing.Optional[typing.Union[GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicyDelay, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#abort GoogleNetworkServicesHttpRoute#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#delay GoogleNetworkServicesHttpRoute#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#abort GoogleNetworkServicesHttpRoute#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#delay GoogleNetworkServicesHttpRoute#delay}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionFaultInjectionPolicy(
             abort=abort, delay=delay
@@ -2133,13 +2133,13 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         strip_query: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#host_redirect GoogleNetworkServicesHttpRoute#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#https_redirect GoogleNetworkServicesHttpRoute#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect can not be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#path_redirect GoogleNetworkServicesHttpRoute#path_redirect}
-        :param port_redirect: The port that will be used in the redirected request instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#port_redirect GoogleNetworkServicesHttpRoute#port_redirect}
-        :param prefix_rewrite: Indicates that during redirection, the matched prefix (or path) should be swapped with this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_rewrite GoogleNetworkServicesHttpRoute#prefix_rewrite}
-        :param response_code: The HTTP Status code to use for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#response_code GoogleNetworkServicesHttpRoute#response_code}
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#strip_query GoogleNetworkServicesHttpRoute#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#host_redirect GoogleNetworkServicesHttpRoute#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#https_redirect GoogleNetworkServicesHttpRoute#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect can not be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#path_redirect GoogleNetworkServicesHttpRoute#path_redirect}
+        :param port_redirect: The port that will be used in the redirected request instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#port_redirect GoogleNetworkServicesHttpRoute#port_redirect}
+        :param prefix_rewrite: Indicates that during redirection, the matched prefix (or path) should be swapped with this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_rewrite GoogleNetworkServicesHttpRoute#prefix_rewrite}
+        :param response_code: The HTTP Status code to use for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#response_code GoogleNetworkServicesHttpRoute#response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#strip_query GoogleNetworkServicesHttpRoute#strip_query}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionRedirect(
             host_redirect=host_redirect,
@@ -2162,9 +2162,9 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         set: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
-        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
-        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
+        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
+        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
+        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier(
             add=add, remove=remove, set=set
@@ -2179,7 +2179,7 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         destination: typing.Optional[typing.Union["GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#destination GoogleNetworkServicesHttpRoute#destination}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#destination GoogleNetworkServicesHttpRoute#destination}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicy(
             destination=destination
@@ -2196,9 +2196,9 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         set: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
-        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
-        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
+        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
+        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
+        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier(
             add=add, remove=remove, set=set
@@ -2215,9 +2215,9 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number of retries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#num_retries GoogleNetworkServicesHttpRoute#num_retries}
-        :param per_try_timeout: Specifies a non-zero timeout per retry attempt. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#per_try_timeout GoogleNetworkServicesHttpRoute#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#retry_conditions GoogleNetworkServicesHttpRoute#retry_conditions}
+        :param num_retries: Specifies the allowed number of retries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#num_retries GoogleNetworkServicesHttpRoute#num_retries}
+        :param per_try_timeout: Specifies a non-zero timeout per retry attempt. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#per_try_timeout GoogleNetworkServicesHttpRoute#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#retry_conditions GoogleNetworkServicesHttpRoute#retry_conditions}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionRetryPolicy(
             num_retries=num_retries,
@@ -2235,8 +2235,8 @@ class GoogleNetworkServicesHttpRouteRulesActionOutputReference(
         path_prefix_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Prior to forwarding the request to the selected destination, the requests host header is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#host_rewrite GoogleNetworkServicesHttpRoute#host_rewrite}
-        :param path_prefix_rewrite: Prior to forwarding the request to the selected destination, the matching portion of the requests path is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#path_prefix_rewrite GoogleNetworkServicesHttpRoute#path_prefix_rewrite}
+        :param host_rewrite: Prior to forwarding the request to the selected destination, the requests host header is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#host_rewrite GoogleNetworkServicesHttpRoute#host_rewrite}
+        :param path_prefix_rewrite: Prior to forwarding the request to the selected destination, the matching portion of the requests path is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#path_prefix_rewrite GoogleNetworkServicesHttpRoute#path_prefix_rewrite}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionUrlRewrite(
             host_rewrite=host_rewrite, path_prefix_rewrite=path_prefix_rewrite
@@ -2469,13 +2469,13 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
         strip_query: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#host_redirect GoogleNetworkServicesHttpRoute#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#https_redirect GoogleNetworkServicesHttpRoute#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect can not be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#path_redirect GoogleNetworkServicesHttpRoute#path_redirect}
-        :param port_redirect: The port that will be used in the redirected request instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#port_redirect GoogleNetworkServicesHttpRoute#port_redirect}
-        :param prefix_rewrite: Indicates that during redirection, the matched prefix (or path) should be swapped with this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_rewrite GoogleNetworkServicesHttpRoute#prefix_rewrite}
-        :param response_code: The HTTP Status code to use for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#response_code GoogleNetworkServicesHttpRoute#response_code}
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#strip_query GoogleNetworkServicesHttpRoute#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#host_redirect GoogleNetworkServicesHttpRoute#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#https_redirect GoogleNetworkServicesHttpRoute#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect can not be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#path_redirect GoogleNetworkServicesHttpRoute#path_redirect}
+        :param port_redirect: The port that will be used in the redirected request instead of the one that was supplied in the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#port_redirect GoogleNetworkServicesHttpRoute#port_redirect}
+        :param prefix_rewrite: Indicates that during redirection, the matched prefix (or path) should be swapped with this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_rewrite GoogleNetworkServicesHttpRoute#prefix_rewrite}
+        :param response_code: The HTTP Status code to use for the redirect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#response_code GoogleNetworkServicesHttpRoute#response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#strip_query GoogleNetworkServicesHttpRoute#strip_query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ca52603c6f42a6773806d0476124b0d53075e65dbe6fc92474f9c620a3890c7)
@@ -2506,7 +2506,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
     def host_redirect(self) -> typing.Optional[builtins.str]:
         '''The host that will be used in the redirect response instead of the one that was supplied in the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#host_redirect GoogleNetworkServicesHttpRoute#host_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#host_redirect GoogleNetworkServicesHttpRoute#host_redirect}
         '''
         result = self._values.get("host_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2517,7 +2517,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the URL scheme in the redirected request is set to https.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#https_redirect GoogleNetworkServicesHttpRoute#https_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#https_redirect GoogleNetworkServicesHttpRoute#https_redirect}
         '''
         result = self._values.get("https_redirect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2528,7 +2528,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
 
         pathRedirect can not be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#path_redirect GoogleNetworkServicesHttpRoute#path_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#path_redirect GoogleNetworkServicesHttpRoute#path_redirect}
         '''
         result = self._values.get("path_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2537,7 +2537,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
     def port_redirect(self) -> typing.Optional[jsii.Number]:
         '''The port that will be used in the redirected request instead of the one that was supplied in the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#port_redirect GoogleNetworkServicesHttpRoute#port_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#port_redirect GoogleNetworkServicesHttpRoute#port_redirect}
         '''
         result = self._values.get("port_redirect")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2546,7 +2546,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
     def prefix_rewrite(self) -> typing.Optional[builtins.str]:
         '''Indicates that during redirection, the matched prefix (or path) should be swapped with this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_rewrite GoogleNetworkServicesHttpRoute#prefix_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_rewrite GoogleNetworkServicesHttpRoute#prefix_rewrite}
         '''
         result = self._values.get("prefix_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2555,7 +2555,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
     def response_code(self) -> typing.Optional[builtins.str]:
         '''The HTTP Status code to use for the redirect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#response_code GoogleNetworkServicesHttpRoute#response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#response_code GoogleNetworkServicesHttpRoute#response_code}
         '''
         result = self._values.get("response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2566,7 +2566,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRedirect:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#strip_query GoogleNetworkServicesHttpRoute#strip_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#strip_query GoogleNetworkServicesHttpRoute#strip_query}
         '''
         result = self._values.get("strip_query")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2794,9 +2794,9 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier:
         set: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
-        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
-        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
+        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
+        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
+        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73d57648f79c585bfee045d1ccd858358f505a49585d5e830cd0dd6032bedca1)
@@ -2815,7 +2815,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier:
     def add(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Add the headers with given map where key is the name of the header, value is the value of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
         '''
         result = self._values.get("add")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2824,7 +2824,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier:
     def remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Remove headers (matching by header names) specified in the list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
         '''
         result = self._values.get("remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2833,7 +2833,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestHeaderModifier:
     def set(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
         '''
         result = self._values.get("set")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2963,7 +2963,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicy:
         destination: typing.Optional[typing.Union["GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#destination GoogleNetworkServicesHttpRoute#destination}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#destination GoogleNetworkServicesHttpRoute#destination}
         '''
         if isinstance(destination, dict):
             destination = GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination(**destination)
@@ -2980,7 +2980,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicy:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination"]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#destination GoogleNetworkServicesHttpRoute#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#destination GoogleNetworkServicesHttpRoute#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination"], result)
@@ -3010,8 +3010,8 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_name: The URL of a BackendService to route traffic to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
-        :param weight: Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports. If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend. If weights are specified for any one service name, they need to be specified for all of them. If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
+        :param service_name: The URL of a BackendService to route traffic to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
+        :param weight: Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports. If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend. If weights are specified for any one service name, they need to be specified for all of them. If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4882ba70501a32eb58401b78f7025e7f88270dd7d39735f110dd361ccdafee43)
@@ -3027,7 +3027,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination:
     def service_name(self) -> typing.Optional[builtins.str]:
         '''The URL of a BackendService to route traffic to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
         '''
         result = self._values.get("service_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3041,7 +3041,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination:
         If weights are specified for any one service name, they need to be specified for all of them.
         If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
         '''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3166,8 +3166,8 @@ class GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyOutputReferenc
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_name: The URL of a BackendService to route traffic to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
-        :param weight: Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports. If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend. If weights are specified for any one service name, they need to be specified for all of them. If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
+        :param service_name: The URL of a BackendService to route traffic to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#service_name GoogleNetworkServicesHttpRoute#service_name}
+        :param weight: Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports. If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend. If weights are specified for any one service name, they need to be specified for all of them. If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#weight GoogleNetworkServicesHttpRoute#weight}
         '''
         value = GoogleNetworkServicesHttpRouteRulesActionRequestMirrorPolicyDestination(
             service_name=service_name, weight=weight
@@ -3225,9 +3225,9 @@ class GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier:
         set: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
-        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
-        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
+        :param add: Add the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
+        :param remove: Remove headers (matching by header names) specified in the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
+        :param set: Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d893f8186cf93278996d2ae76b564a19824a99eca77ab053df3b973d94ddd7e8)
@@ -3246,7 +3246,7 @@ class GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier:
     def add(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Add the headers with given map where key is the name of the header, value is the value of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#add GoogleNetworkServicesHttpRoute#add}
         '''
         result = self._values.get("add")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3255,7 +3255,7 @@ class GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier:
     def remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Remove headers (matching by header names) specified in the list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#remove GoogleNetworkServicesHttpRoute#remove}
         '''
         result = self._values.get("remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3264,7 +3264,7 @@ class GoogleNetworkServicesHttpRouteRulesActionResponseHeaderModifier:
     def set(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Completely overwrite/replace the headers with given map where key is the name of the header, value is the value of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#set GoogleNetworkServicesHttpRoute#set}
         '''
         result = self._values.get("set")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3400,9 +3400,9 @@ class GoogleNetworkServicesHttpRouteRulesActionRetryPolicy:
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number of retries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#num_retries GoogleNetworkServicesHttpRoute#num_retries}
-        :param per_try_timeout: Specifies a non-zero timeout per retry attempt. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#per_try_timeout GoogleNetworkServicesHttpRoute#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#retry_conditions GoogleNetworkServicesHttpRoute#retry_conditions}
+        :param num_retries: Specifies the allowed number of retries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#num_retries GoogleNetworkServicesHttpRoute#num_retries}
+        :param per_try_timeout: Specifies a non-zero timeout per retry attempt. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#per_try_timeout GoogleNetworkServicesHttpRoute#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#retry_conditions GoogleNetworkServicesHttpRoute#retry_conditions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68f97ec1bd7eaadb0933c01bf9d78c9843041f83f31e73cfc2609622e006c1b1)
@@ -3421,7 +3421,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRetryPolicy:
     def num_retries(self) -> typing.Optional[jsii.Number]:
         '''Specifies the allowed number of retries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#num_retries GoogleNetworkServicesHttpRoute#num_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#num_retries GoogleNetworkServicesHttpRoute#num_retries}
         '''
         result = self._values.get("num_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3432,7 +3432,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRetryPolicy:
 
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#per_try_timeout GoogleNetworkServicesHttpRoute#per_try_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#per_try_timeout GoogleNetworkServicesHttpRoute#per_try_timeout}
         '''
         result = self._values.get("per_try_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3441,7 +3441,7 @@ class GoogleNetworkServicesHttpRouteRulesActionRetryPolicy:
     def retry_conditions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies one or more conditions when this retry policy applies.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#retry_conditions GoogleNetworkServicesHttpRoute#retry_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#retry_conditions GoogleNetworkServicesHttpRoute#retry_conditions}
         '''
         result = self._values.get("retry_conditions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3575,8 +3575,8 @@ class GoogleNetworkServicesHttpRouteRulesActionUrlRewrite:
         path_prefix_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Prior to forwarding the request to the selected destination, the requests host header is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#host_rewrite GoogleNetworkServicesHttpRoute#host_rewrite}
-        :param path_prefix_rewrite: Prior to forwarding the request to the selected destination, the matching portion of the requests path is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#path_prefix_rewrite GoogleNetworkServicesHttpRoute#path_prefix_rewrite}
+        :param host_rewrite: Prior to forwarding the request to the selected destination, the requests host header is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#host_rewrite GoogleNetworkServicesHttpRoute#host_rewrite}
+        :param path_prefix_rewrite: Prior to forwarding the request to the selected destination, the matching portion of the requests path is replaced by this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#path_prefix_rewrite GoogleNetworkServicesHttpRoute#path_prefix_rewrite}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c69b2e5f5c999a7ae5e71e3dc909b11731ea2c77124b917fb908bcb6022fb4b)
@@ -3592,7 +3592,7 @@ class GoogleNetworkServicesHttpRouteRulesActionUrlRewrite:
     def host_rewrite(self) -> typing.Optional[builtins.str]:
         '''Prior to forwarding the request to the selected destination, the requests host header is replaced by this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#host_rewrite GoogleNetworkServicesHttpRoute#host_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#host_rewrite GoogleNetworkServicesHttpRoute#host_rewrite}
         '''
         result = self._values.get("host_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3601,7 +3601,7 @@ class GoogleNetworkServicesHttpRouteRulesActionUrlRewrite:
     def path_prefix_rewrite(self) -> typing.Optional[builtins.str]:
         '''Prior to forwarding the request to the selected destination, the matching portion of the requests path is replaced by this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#path_prefix_rewrite GoogleNetworkServicesHttpRoute#path_prefix_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#path_prefix_rewrite GoogleNetworkServicesHttpRoute#path_prefix_rewrite}
         '''
         result = self._values.get("path_prefix_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3815,12 +3815,12 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
         regex_match: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param full_path_match: The HTTP request path value should exactly match this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#full_path_match GoogleNetworkServicesHttpRoute#full_path_match}
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#headers GoogleNetworkServicesHttpRoute#headers}
-        :param ignore_case: Specifies if prefixMatch and fullPathMatch matches are case sensitive. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#ignore_case GoogleNetworkServicesHttpRoute#ignore_case}
-        :param prefix_match: The HTTP request path value must begin with specified prefixMatch. prefixMatch must begin with a /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
-        :param query_parameters: query_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#query_parameters GoogleNetworkServicesHttpRoute#query_parameters}
-        :param regex_match: The HTTP request path value must satisfy the regular expression specified by regexMatch after removing any query parameters and anchor supplied with the original URL. For regular expression grammar, please see https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
+        :param full_path_match: The HTTP request path value should exactly match this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#full_path_match GoogleNetworkServicesHttpRoute#full_path_match}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#headers GoogleNetworkServicesHttpRoute#headers}
+        :param ignore_case: Specifies if prefixMatch and fullPathMatch matches are case sensitive. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#ignore_case GoogleNetworkServicesHttpRoute#ignore_case}
+        :param prefix_match: The HTTP request path value must begin with specified prefixMatch. prefixMatch must begin with a /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
+        :param query_parameters: query_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#query_parameters GoogleNetworkServicesHttpRoute#query_parameters}
+        :param regex_match: The HTTP request path value must satisfy the regular expression specified by regexMatch after removing any query parameters and anchor supplied with the original URL. For regular expression grammar, please see https://github.com/google/re2/wiki/Syntax Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4ef0821fab685a5f1ab4f0769e11b5c2b7e5a273ce7eb1c45ef9e805080a39a)
@@ -3848,7 +3848,7 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
     def full_path_match(self) -> typing.Optional[builtins.str]:
         '''The HTTP request path value should exactly match this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#full_path_match GoogleNetworkServicesHttpRoute#full_path_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#full_path_match GoogleNetworkServicesHttpRoute#full_path_match}
         '''
         result = self._values.get("full_path_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3859,7 +3859,7 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesMatchesHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#headers GoogleNetworkServicesHttpRoute#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#headers GoogleNetworkServicesHttpRoute#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesMatchesHeaders"]]], result)
@@ -3870,7 +3870,7 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies if prefixMatch and fullPathMatch matches are case sensitive. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#ignore_case GoogleNetworkServicesHttpRoute#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#ignore_case GoogleNetworkServicesHttpRoute#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3879,7 +3879,7 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
     def prefix_match(self) -> typing.Optional[builtins.str]:
         '''The HTTP request path value must begin with specified prefixMatch. prefixMatch must begin with a /.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
         '''
         result = self._values.get("prefix_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3890,7 +3890,7 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters"]]]:
         '''query_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#query_parameters GoogleNetworkServicesHttpRoute#query_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#query_parameters GoogleNetworkServicesHttpRoute#query_parameters}
         '''
         result = self._values.get("query_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters"]]], result)
@@ -3901,7 +3901,7 @@ class GoogleNetworkServicesHttpRouteRulesMatches:
 
         For regular expression grammar, please see https://github.com/google/re2/wiki/Syntax
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
         '''
         result = self._values.get("regex_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3946,14 +3946,14 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
         suffix_match: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact_match: The value of the header should match exactly the content of exactMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
-        :param header: The name of the HTTP header to match against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#header GoogleNetworkServicesHttpRoute#header}
-        :param invert_match: If specified, the match result will be inverted before checking. Default value is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#invert_match GoogleNetworkServicesHttpRoute#invert_match}
-        :param prefix_match: The value of the header must start with the contents of prefixMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
-        :param present_match: A header with headerName must exist. The match takes place whether or not the header has a value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
-        :param range_match: range_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#range_match GoogleNetworkServicesHttpRoute#range_match}
-        :param regex_match: The value of the header must match the regular expression specified in regexMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
-        :param suffix_match: The value of the header must end with the contents of suffixMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#suffix_match GoogleNetworkServicesHttpRoute#suffix_match}
+        :param exact_match: The value of the header should match exactly the content of exactMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
+        :param header: The name of the HTTP header to match against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#header GoogleNetworkServicesHttpRoute#header}
+        :param invert_match: If specified, the match result will be inverted before checking. Default value is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#invert_match GoogleNetworkServicesHttpRoute#invert_match}
+        :param prefix_match: The value of the header must start with the contents of prefixMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
+        :param present_match: A header with headerName must exist. The match takes place whether or not the header has a value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
+        :param range_match: range_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#range_match GoogleNetworkServicesHttpRoute#range_match}
+        :param regex_match: The value of the header must match the regular expression specified in regexMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
+        :param suffix_match: The value of the header must end with the contents of suffixMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#suffix_match GoogleNetworkServicesHttpRoute#suffix_match}
         '''
         if isinstance(range_match, dict):
             range_match = GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch(**range_match)
@@ -3989,7 +3989,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     def exact_match(self) -> typing.Optional[builtins.str]:
         '''The value of the header should match exactly the content of exactMatch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3998,7 +3998,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     def header(self) -> typing.Optional[builtins.str]:
         '''The name of the HTTP header to match against.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#header GoogleNetworkServicesHttpRoute#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#header GoogleNetworkServicesHttpRoute#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4009,7 +4009,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If specified, the match result will be inverted before checking. Default value is set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#invert_match GoogleNetworkServicesHttpRoute#invert_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#invert_match GoogleNetworkServicesHttpRoute#invert_match}
         '''
         result = self._values.get("invert_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4018,7 +4018,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     def prefix_match(self) -> typing.Optional[builtins.str]:
         '''The value of the header must start with the contents of prefixMatch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#prefix_match GoogleNetworkServicesHttpRoute#prefix_match}
         '''
         result = self._values.get("prefix_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4029,7 +4029,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''A header with headerName must exist. The match takes place whether or not the header has a value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
         '''
         result = self._values.get("present_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4040,7 +4040,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     ) -> typing.Optional["GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch"]:
         '''range_match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#range_match GoogleNetworkServicesHttpRoute#range_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#range_match GoogleNetworkServicesHttpRoute#range_match}
         '''
         result = self._values.get("range_match")
         return typing.cast(typing.Optional["GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch"], result)
@@ -4049,7 +4049,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     def regex_match(self) -> typing.Optional[builtins.str]:
         '''The value of the header must match the regular expression specified in regexMatch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
         '''
         result = self._values.get("regex_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4058,7 +4058,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeaders:
     def suffix_match(self) -> typing.Optional[builtins.str]:
         '''The value of the header must end with the contents of suffixMatch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#suffix_match GoogleNetworkServicesHttpRoute#suffix_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#suffix_match GoogleNetworkServicesHttpRoute#suffix_match}
         '''
         result = self._values.get("suffix_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4197,8 +4197,8 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeadersOutputReference(
     @jsii.member(jsii_name="putRangeMatch")
     def put_range_match(self, *, end: jsii.Number, start: jsii.Number) -> None:
         '''
-        :param end: End of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#end GoogleNetworkServicesHttpRoute#end}
-        :param start: Start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#start GoogleNetworkServicesHttpRoute#start}
+        :param end: End of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#end GoogleNetworkServicesHttpRoute#end}
+        :param start: Start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#start GoogleNetworkServicesHttpRoute#start}
         '''
         value = GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch(
             end=end, start=start
@@ -4407,8 +4407,8 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeadersOutputReference(
 class GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch:
     def __init__(self, *, end: jsii.Number, start: jsii.Number) -> None:
         '''
-        :param end: End of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#end GoogleNetworkServicesHttpRoute#end}
-        :param start: Start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#start GoogleNetworkServicesHttpRoute#start}
+        :param end: End of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#end GoogleNetworkServicesHttpRoute#end}
+        :param start: Start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#start GoogleNetworkServicesHttpRoute#start}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa6678ff5417c758f633f7975be28399fa7a956744ce8a6b0c9e929000aa3a79)
@@ -4423,7 +4423,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch:
     def end(self) -> jsii.Number:
         '''End of the range (exclusive).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#end GoogleNetworkServicesHttpRoute#end}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#end GoogleNetworkServicesHttpRoute#end}
         '''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
@@ -4433,7 +4433,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesHeadersRangeMatch:
     def start(self) -> jsii.Number:
         '''Start of the range (inclusive).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#start GoogleNetworkServicesHttpRoute#start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#start GoogleNetworkServicesHttpRoute#start}
         '''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
@@ -4829,10 +4829,10 @@ class GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters:
         regex_match: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact_match: The value of the query parameter must exactly match the contents of exactMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
-        :param present_match: Specifies that the QueryParameterMatcher matches if request contains query parameter, irrespective of whether the parameter has a value or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
-        :param query_parameter: The name of the query parameter to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#query_parameter GoogleNetworkServicesHttpRoute#query_parameter}
-        :param regex_match: The value of the query parameter must match the regular expression specified by regexMatch.For regular expression grammar, please see https://github.com/google/re2/wiki/Syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
+        :param exact_match: The value of the query parameter must exactly match the contents of exactMatch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
+        :param present_match: Specifies that the QueryParameterMatcher matches if request contains query parameter, irrespective of whether the parameter has a value or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
+        :param query_parameter: The name of the query parameter to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#query_parameter GoogleNetworkServicesHttpRoute#query_parameter}
+        :param regex_match: The value of the query parameter must match the regular expression specified by regexMatch.For regular expression grammar, please see https://github.com/google/re2/wiki/Syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d9a826cb897909433a389e4e7712d38ecb3042804bd67c6b8495adbdd6b27c2)
@@ -4854,7 +4854,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters:
     def exact_match(self) -> typing.Optional[builtins.str]:
         '''The value of the query parameter must exactly match the contents of exactMatch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#exact_match GoogleNetworkServicesHttpRoute#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4865,7 +4865,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies that the QueryParameterMatcher matches if request contains query parameter, irrespective of whether the parameter has a value or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#present_match GoogleNetworkServicesHttpRoute#present_match}
         '''
         result = self._values.get("present_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4874,7 +4874,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters:
     def query_parameter(self) -> typing.Optional[builtins.str]:
         '''The name of the query parameter to match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#query_parameter GoogleNetworkServicesHttpRoute#query_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#query_parameter GoogleNetworkServicesHttpRoute#query_parameter}
         '''
         result = self._values.get("query_parameter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4883,7 +4883,7 @@ class GoogleNetworkServicesHttpRouteRulesMatchesQueryParameters:
     def regex_match(self) -> typing.Optional[builtins.str]:
         '''The value of the query parameter must match the regular expression specified by regexMatch.For regular expression grammar, please see https://github.com/google/re2/wiki/Syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#regex_match GoogleNetworkServicesHttpRoute#regex_match}
         '''
         result = self._values.get("regex_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5168,16 +5168,16 @@ class GoogleNetworkServicesHttpRouteRulesOutputReference(
         url_rewrite: typing.Optional[typing.Union[GoogleNetworkServicesHttpRouteRulesActionUrlRewrite, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#cors_policy GoogleNetworkServicesHttpRoute#cors_policy}
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#destinations GoogleNetworkServicesHttpRoute#destinations}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#fault_injection_policy GoogleNetworkServicesHttpRoute#fault_injection_policy}
-        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#redirect GoogleNetworkServicesHttpRoute#redirect}
-        :param request_header_modifier: request_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#request_header_modifier GoogleNetworkServicesHttpRoute#request_header_modifier}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#request_mirror_policy GoogleNetworkServicesHttpRoute#request_mirror_policy}
-        :param response_header_modifier: response_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#response_header_modifier GoogleNetworkServicesHttpRoute#response_header_modifier}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#retry_policy GoogleNetworkServicesHttpRoute#retry_policy}
-        :param timeout: Specifies the timeout for selected route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#timeout GoogleNetworkServicesHttpRoute#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#url_rewrite GoogleNetworkServicesHttpRoute#url_rewrite}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#cors_policy GoogleNetworkServicesHttpRoute#cors_policy}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#destinations GoogleNetworkServicesHttpRoute#destinations}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#fault_injection_policy GoogleNetworkServicesHttpRoute#fault_injection_policy}
+        :param redirect: redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#redirect GoogleNetworkServicesHttpRoute#redirect}
+        :param request_header_modifier: request_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#request_header_modifier GoogleNetworkServicesHttpRoute#request_header_modifier}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#request_mirror_policy GoogleNetworkServicesHttpRoute#request_mirror_policy}
+        :param response_header_modifier: response_header_modifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#response_header_modifier GoogleNetworkServicesHttpRoute#response_header_modifier}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#retry_policy GoogleNetworkServicesHttpRoute#retry_policy}
+        :param timeout: Specifies the timeout for selected route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#timeout GoogleNetworkServicesHttpRoute#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#url_rewrite GoogleNetworkServicesHttpRoute#url_rewrite}
         '''
         value = GoogleNetworkServicesHttpRouteRulesAction(
             cors_policy=cors_policy,
@@ -5271,9 +5271,9 @@ class GoogleNetworkServicesHttpRouteTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#create GoogleNetworkServicesHttpRoute#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#delete GoogleNetworkServicesHttpRoute#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#update GoogleNetworkServicesHttpRoute#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#create GoogleNetworkServicesHttpRoute#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#delete GoogleNetworkServicesHttpRoute#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#update GoogleNetworkServicesHttpRoute#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f658a22019ae8dc465ea99f6d439939a46c9467749ae76c31ae23ada76bc75eb)
@@ -5290,19 +5290,19 @@ class GoogleNetworkServicesHttpRouteTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#create GoogleNetworkServicesHttpRoute#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#create GoogleNetworkServicesHttpRoute#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#delete GoogleNetworkServicesHttpRoute#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#delete GoogleNetworkServicesHttpRoute#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_http_route#update GoogleNetworkServicesHttpRoute#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_http_route#update GoogleNetworkServicesHttpRoute#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

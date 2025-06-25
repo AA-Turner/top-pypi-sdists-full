@@ -1,11 +1,12 @@
 [build-system]
 requires = [
-    "packaging>=24",
-    "setuptools>=54.0,<70.3",
-    "setuptools_scm[toml]>=5.0",
+    "packaging>=24.2",
+    "setuptools>80.0",
+    "setuptools_scm[toml]>=8.0",
     "wheel>=0.36.2",
-    "Cython>=3.0.10",
+    "Cython>=3.1.0",
     "tomli",
+    "standard-distutils ; python_version>='3.12'"
     ]
 
 [tool.setuptools.packages.find]
@@ -20,21 +21,20 @@ write_to_template = 'const char* PYMSSQL_VERSION = "{version}";'
 local_scheme = "no-local-version"
 
 [tool.freetds]
-version_for_pypi_wheels = "1.4.26"
+version_for_pypi_wheels = "1.4.27"
 
 [project]
 name =  "pymssql"
 dynamic =  ["version", "readme"]
 description = 'DB-API interface to Microsoft SQL Server for Python. (new Cython-based version)'
-license = { text = "LGPL" }
+license = "LGPL-2.1-or-later"
 authors = [{name = "Damien Churchill", email = "damoxc@gmail.com"}]
 maintainers = [{name = "Mikhail Terekhov", email = "termim@gmail.com"}]
 keywords = ['mssql', 'SQL Server', 'database', 'DB-API']
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers=[
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -56,3 +56,48 @@ repository = "https://github.com/pymssql/pymssql"
 documentation = "http://pymssql.readthedocs.io"
 "Bug Tracker" = "https://github.com/pymssql/pymssql/issues"
 "Changelog" =  "https://github.com/pymssql/pymssql/blob/master/ChangeLog.rst"
+
+[tool.cibuildwheel]
+build-verbosity = 1
+before-test = "pip install -r dev/requirements-test.txt"
+test-requires = "pytest"
+test-command = "pytest {project}/tests"
+container-engine = { name = "docker", create-args = ["--network", "host"] }
+
+[tool.cibuildwheel.linux]
+environment = { PYMSSQL_FREETDS = "./deps", LD_LIBRARY_PATH = "./deps/lib", CFLAGS = "-Wno-incompatible-pointer-types" }
+before-all = [
+            "yum install -y openssl-devel krb5-devel",
+            "python3 ./dev/build.py --prefix=./deps --enable-krb5 --static-freetds"
+            ]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-all = [
+            "apk add openssl-dev krb5-dev",
+            "python3 ./dev/build.py --prefix=./deps --enable-krb5 --static-freetds"
+            ]
+
+[tool.cibuildwheel.macos]
+environment = { PYMSSQL_FREETDS = "./deps", LD_LIBRARY_PATH = "./deps/lib" }
+before-all = [
+            "brew install openssl",
+            "brew install libiconv",
+            "python3 ./dev/build.py --prefix=./deps --static-freetds"
+            ]
+
+[[tool.cibuildwheel.overrides]]
+select = "*macosx_x86_64"
+inherit.environment = "append"
+environment.MACOSX_DEPLOYMENT_TARGET="13.0"
+
+[[tool.cibuildwheel.overrides]]
+select = "*macosx_arm64"
+inherit.environment = "append"
+environment.MACOSX_DEPLOYMENT_TARGET="14.0"
+
+[tool.cibuildwheel.windows]
+environment = { PYMSSQL_FREETDS = "./deps", LD_LIBRARY_PATH = "./deps/lib" }
+before-all = [
+            "python3 ./dev/build.py --prefix=./deps",
+            ]

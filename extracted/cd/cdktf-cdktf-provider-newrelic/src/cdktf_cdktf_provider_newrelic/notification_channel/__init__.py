@@ -1,7 +1,7 @@
 r'''
 # `newrelic_notification_channel`
 
-Refer to the Terraform Registry for docs: [`newrelic_notification_channel`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel).
+Refer to the Terraform Registry for docs: [`newrelic_notification_channel`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NotificationChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.notificationChannel.NotificationChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel newrelic_notification_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel newrelic_notification_channel}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class NotificationChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel newrelic_notification_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel newrelic_notification_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_id: (Required) The id of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#destination_id NotificationChannel#destination_id}
-        :param name: (Required) The name of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#name NotificationChannel#name}
-        :param product: (Required) The type of the channel product. One of: (DISCUSSIONS, ERROR_TRACKING, IINT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#product NotificationChannel#product}
-        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#property NotificationChannel#property}
-        :param type: (Required) The type of the channel. One of: (WEBHOOK, EMAIL, SERVICENOW_INCIDENTS, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA_CLASSIC, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#type NotificationChannel#type}
-        :param account_id: The account id of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#account_id NotificationChannel#account_id}
-        :param active: Indicates whether the channel is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#active NotificationChannel#active}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#id NotificationChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#timeouts NotificationChannel#timeouts}
+        :param destination_id: (Required) The id of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#destination_id NotificationChannel#destination_id}
+        :param name: (Required) The name of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#name NotificationChannel#name}
+        :param product: (Required) The type of the channel product. One of: (DISCUSSIONS, ERROR_TRACKING, IINT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#product NotificationChannel#product}
+        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#property NotificationChannel#property}
+        :param type: (Required) The type of the channel. One of: (WEBHOOK, EMAIL, SERVICENOW_INCIDENTS, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA_CLASSIC, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#type NotificationChannel#type}
+        :param account_id: The account id of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#account_id NotificationChannel#account_id}
+        :param active: Indicates whether the channel is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#active NotificationChannel#active}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#id NotificationChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#timeouts NotificationChannel#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class NotificationChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NotificationChannel to import.
-        :param import_from_id: The id of the existing NotificationChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NotificationChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NotificationChannel to import is found.
         '''
         if __debug__:
@@ -159,8 +159,8 @@ class NotificationChannel(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#create NotificationChannel#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#update NotificationChannel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#create NotificationChannel#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#update NotificationChannel#update}.
         '''
         value = NotificationChannelTimeouts(create=create, update=update)
 
@@ -400,15 +400,15 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_id: (Required) The id of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#destination_id NotificationChannel#destination_id}
-        :param name: (Required) The name of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#name NotificationChannel#name}
-        :param product: (Required) The type of the channel product. One of: (DISCUSSIONS, ERROR_TRACKING, IINT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#product NotificationChannel#product}
-        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#property NotificationChannel#property}
-        :param type: (Required) The type of the channel. One of: (WEBHOOK, EMAIL, SERVICENOW_INCIDENTS, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA_CLASSIC, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#type NotificationChannel#type}
-        :param account_id: The account id of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#account_id NotificationChannel#account_id}
-        :param active: Indicates whether the channel is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#active NotificationChannel#active}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#id NotificationChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#timeouts NotificationChannel#timeouts}
+        :param destination_id: (Required) The id of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#destination_id NotificationChannel#destination_id}
+        :param name: (Required) The name of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#name NotificationChannel#name}
+        :param product: (Required) The type of the channel product. One of: (DISCUSSIONS, ERROR_TRACKING, IINT). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#product NotificationChannel#product}
+        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#property NotificationChannel#property}
+        :param type: (Required) The type of the channel. One of: (WEBHOOK, EMAIL, SERVICENOW_INCIDENTS, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA_CLASSIC, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#type NotificationChannel#type}
+        :param account_id: The account id of the channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#account_id NotificationChannel#account_id}
+        :param active: Indicates whether the channel is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#active NotificationChannel#active}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#id NotificationChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#timeouts NotificationChannel#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -530,7 +530,7 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination_id(self) -> builtins.str:
         '''(Required) The id of the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#destination_id NotificationChannel#destination_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#destination_id NotificationChannel#destination_id}
         '''
         result = self._values.get("destination_id")
         assert result is not None, "Required property 'destination_id' is missing"
@@ -540,7 +540,7 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''(Required) The name of the channel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#name NotificationChannel#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#name NotificationChannel#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -550,7 +550,7 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def product(self) -> builtins.str:
         '''(Required) The type of the channel product. One of: (DISCUSSIONS, ERROR_TRACKING, IINT).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#product NotificationChannel#product}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#product NotificationChannel#product}
         '''
         result = self._values.get("product")
         assert result is not None, "Required property 'product' is missing"
@@ -562,7 +562,7 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NotificationChannelProperty"]]:
         '''property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#property NotificationChannel#property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#property NotificationChannel#property}
         '''
         result = self._values.get("property")
         assert result is not None, "Required property 'property' is missing"
@@ -572,9 +572,9 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''(Required) The type of the channel.
 
-        One of: (WEBHOOK, EMAIL, SERVICENOW_INCIDENTS, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA_CLASSIC, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS).
+        One of: (WEBHOOK, EMAIL, SERVICENOW_INCIDENTS, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA_CLASSIC, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#type NotificationChannel#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#type NotificationChannel#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -584,7 +584,7 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id of the channel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#account_id NotificationChannel#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#account_id NotificationChannel#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -595,14 +595,14 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the channel is active.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#active NotificationChannel#active}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#active NotificationChannel#active}
         '''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#id NotificationChannel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#id NotificationChannel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -614,7 +614,7 @@ class NotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NotificationChannelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#timeouts NotificationChannel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#timeouts NotificationChannel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NotificationChannelTimeouts"], result)
@@ -651,10 +651,10 @@ class NotificationChannelProperty:
         label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Notification property key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#key NotificationChannel#key}
-        :param value: Notification property value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#value NotificationChannel#value}
-        :param display_value: Notification property display key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#display_value NotificationChannel#display_value}
-        :param label: Notification property label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#label NotificationChannel#label}
+        :param key: Notification property key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#key NotificationChannel#key}
+        :param value: Notification property value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#value NotificationChannel#value}
+        :param display_value: Notification property display key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#display_value NotificationChannel#display_value}
+        :param label: Notification property label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#label NotificationChannel#label}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6235cd005f2ed4ee7250d41a5dd6c4aac41a70b90f6a3e1618958ca7fb27963b)
@@ -675,7 +675,7 @@ class NotificationChannelProperty:
     def key(self) -> builtins.str:
         '''Notification property key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#key NotificationChannel#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#key NotificationChannel#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -685,7 +685,7 @@ class NotificationChannelProperty:
     def value(self) -> builtins.str:
         '''Notification property value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#value NotificationChannel#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#value NotificationChannel#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -695,7 +695,7 @@ class NotificationChannelProperty:
     def display_value(self) -> typing.Optional[builtins.str]:
         '''Notification property display key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#display_value NotificationChannel#display_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#display_value NotificationChannel#display_value}
         '''
         result = self._values.get("display_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -704,7 +704,7 @@ class NotificationChannelProperty:
     def label(self) -> typing.Optional[builtins.str]:
         '''Notification property label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#label NotificationChannel#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#label NotificationChannel#label}
         '''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -944,8 +944,8 @@ class NotificationChannelTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#create NotificationChannel#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#update NotificationChannel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#create NotificationChannel#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#update NotificationChannel#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1550f2e39b71cf3715a50a512d3f04acc2cf2aee1b379062202bc64f051cb5f)
@@ -959,13 +959,13 @@ class NotificationChannelTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#create NotificationChannel#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#create NotificationChannel#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/notification_channel#update NotificationChannel#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/notification_channel#update NotificationChannel#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

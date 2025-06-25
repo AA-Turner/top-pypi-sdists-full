@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_bedrock.literals import ApplicationTypeType
+    from mypy_boto3_bedrock.literals import AgreementStatusType
 
-    data: ApplicationTypeType = "ModelEvaluation"
+    data: AgreementStatusType = "AVAILABLE"
     ```
 """
 
@@ -22,10 +22,13 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AgreementStatusType",
     "ApplicationTypeType",
+    "AuthorizationStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
     "CustomizationTypeType",
+    "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
     "EvaluationJobTypeType",
     "EvaluationTaskTypeType",
@@ -70,12 +73,14 @@ __all__ = (
     "ModelInvocationJobStatusType",
     "ModelModalityType",
     "ModelStatusType",
+    "OfferTypeType",
     "PaginatorName",
     "PerformanceConfigLatencyType",
     "PromptRouterStatusType",
     "PromptRouterTypeType",
     "ProvisionedModelStatusType",
     "QueryTransformationTypeType",
+    "RegionAvailabilityType",
     "RegionName",
     "ResourceServiceName",
     "RetrieveAndGenerateTypeType",
@@ -89,9 +94,12 @@ __all__ = (
     "StatusType",
 )
 
+AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
+AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
 CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
+EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
 ]
@@ -189,11 +197,13 @@ ModelInvocationJobStatusType = Literal[
 ]
 ModelModalityType = Literal["EMBEDDING", "IMAGE", "TEXT"]
 ModelStatusType = Literal["Active", "Creating", "Failed"]
+OfferTypeType = Literal["ALL", "PUBLIC"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 PromptRouterStatusType = Literal["AVAILABLE"]
 PromptRouterTypeType = Literal["custom", "default"]
 ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
 QueryTransformationTypeType = Literal["QUERY_DECOMPOSITION"]
+RegionAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 S3InputFormatType = Literal["JSONL"]
 SearchTypeType = Literal["HYBRID", "SEMANTIC"]
@@ -607,6 +617,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

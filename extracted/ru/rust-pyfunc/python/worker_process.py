@@ -2,21 +2,31 @@ import sys
 import json
 import base64
 import traceback
+import math
 
 CALCULATE_FUNCTION = None
-GO_CLASS_INSTANCE = None
 
-def set_go_class(serialized_go_class):
-    """反序列化并设置全局的go_class实例"""
-    global GO_CLASS_INSTANCE
-    if serialized_go_class:
+def clean_numeric_values(values):
+    """清理数值列表中的NaN/Inf值，转换为None"""
+    cleaned = []
+    for value in values:
         try:
-            import dill
-            decoded_bytes = base64.b64decode(serialized_go_class.encode('utf-8'))
-            GO_CLASS_INSTANCE = dill.loads(decoded_bytes)
-        except Exception as e:
-            # 在这里我们不抛出异常，而是在执行时报告错误
-            GO_CLASS_INSTANCE = f"Failed to deserialize go_class: {e}"
+            if isinstance(value, (int, float)):
+                if math.isnan(value) or math.isinf(value):
+                    cleaned.append(None)  # 将NaN/Inf转换为None
+                else:
+                    cleaned.append(float(value))  # 确保是float类型
+            else:
+                # 尝试转换为数值
+                num_value = float(value)
+                if math.isnan(num_value) or math.isinf(num_value):
+                    cleaned.append(None)
+                else:
+                    cleaned.append(num_value)
+        except (ValueError, TypeError):
+            # 如果无法转换为数值，保持原值
+            cleaned.append(value)
+    return cleaned
 
 def set_function(function_code):
     """设置全局计算函数"""
@@ -31,6 +41,8 @@ def set_function(function_code):
                 # 寻找定义的第一个函数
                 func_name = [name for name, obj in exec_globals.items() if callable(obj) and not name.startswith("__")][0]
                 CALCULATE_FUNCTION = exec_globals[func_name]
+                # 立即清理exec_globals，防止内存累积
+                exec_globals.clear()
             else:
                 # 假设是dill序列化的
                 import dill
@@ -45,7 +57,7 @@ def set_function(function_code):
 
 def execute_tasks(tasks):
     """执行任务列表"""
-    global GO_CLASS_INSTANCE, CALCULATE_FUNCTION
+    global CALCULATE_FUNCTION
     results = []
     errors = []
     
@@ -61,24 +73,21 @@ def execute_tasks(tasks):
             date = task['date']
             code = task['code']
             
-            if isinstance(GO_CLASS_INSTANCE, str) and GO_CLASS_INSTANCE.startswith("Failed to deserialize"):
-                raise TypeError(GO_CLASS_INSTANCE)
-            
-            if GO_CLASS_INSTANCE is not None:
-                facs = CALCULATE_FUNCTION(GO_CLASS_INSTANCE, date, code)
-            else:
-                facs = CALCULATE_FUNCTION(date, code)
+            # 简化为纯函数调用，不支持Go类
+            facs = CALCULATE_FUNCTION(date, code)
             
             if not isinstance(facs, list):
                 facs = list(facs)
-
-            results.append(facs)
+            
+            # 清理NaN/Inf值
+            cleaned_facs = clean_numeric_values(facs)
+            results.append(cleaned_facs)
         except Exception as e:
             error_message = f"Error processing task {task}: {e}\n{traceback.format_exc()}"
             errors.append(error_message)
             results.append([])
 
-    return {"results": results, "errors": errors, "task_count": len(tasks)}
+    return {"results": results, "errors": errors, "task_count": len(results)}
 
 def main():
     """主工作循环"""
@@ -95,15 +104,13 @@ def main():
 
             if command_type == "Task":
                 current_tasks.append(command_value)
-            elif command_type == "GoClass":
-                set_go_class(command_value)
             elif command_type == "FunctionCode":
                 set_function(command_value)
             elif command_type == "Execute":
                 if current_tasks:
                     response = execute_tasks(current_tasks)
                     print(json.dumps(response), flush=True)
-                    current_tasks = []
+                    current_tasks.clear()  # 明确清空任务列表
             elif command_type == "Ping":
                 print(json.dumps({"status": "pong"}), flush=True)
             elif command_type == "Exit":

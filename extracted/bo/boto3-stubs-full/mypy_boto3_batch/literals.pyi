@@ -57,6 +57,7 @@ __all__ = (
     "ResourceTypeType",
     "RetryActionType",
     "ServiceName",
+    "UserdataTypeType",
 )
 
 ArrayJobDependencyType = Literal["N_TO_N", "SEQUENTIAL"]
@@ -97,6 +98,7 @@ OrchestrationTypeType = Literal["ECS", "EKS"]
 PlatformCapabilityType = Literal["EC2", "FARGATE"]
 ResourceTypeType = Literal["GPU", "MEMORY", "VCPU"]
 RetryActionType = Literal["EXIT", "RETRY"]
+UserdataTypeType = Literal["EKS_BOOTSTRAP_SH", "EKS_NODEADM"]
 BatchServiceName = Literal["batch"]
 ServiceName = Literal[
     "accessanalyzer",

@@ -135,6 +135,7 @@ task_definitions = {
     "abf3725f-d9d9-4f48-a31d-b22efb422e08": entrada_cte_333,
     "e9f9a463-c2b6-40cb-8d67-a80d0725b424": entrada_cte_1353,
     "cf25b3f3-b9f1-45b5-a8d2-8c087024afdc": devolucao_ctf,
+    "47acd280-925a-4913-ac63-92e000018fb4": devolucao_ctf, #Cartao Frot
     "f241dbd6-f4a7-4afb-822a-46a628cfc916": exportacao_docs_portal_b2b,  # FIDC
     "5ad2d209-e9da-438c-ba62-db0a5f9a3795": exportacao_docs_portal_b2b,  # Banco do brasil
     "326a746e-06ec-44c0-84bb-3a2dd866353e": cte_manual,

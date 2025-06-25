@@ -504,7 +504,7 @@ class AwsCdkConstructLibrary(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -2626,7 +2626,7 @@ class AwsCdkTypeScriptApp(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -3779,7 +3779,7 @@ class ConstructLibraryAws(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -6547,7 +6547,7 @@ class AwsCdkConstructLibraryOptions(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -8934,7 +8934,7 @@ class AwsCdkConstructLibraryOptions(
     def eslint(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Setup eslint.
 
-        :default: true
+        :default: - true, unless biome is enabled
 
         :stability: experimental
         '''
@@ -12730,7 +12730,7 @@ class AwsCdkTypeScriptAppOptions(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -15074,7 +15074,7 @@ class AwsCdkTypeScriptAppOptions(
     def eslint(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Setup eslint.
 
-        :default: true
+        :default: - true, unless biome is enabled
 
         :stability: experimental
         '''
@@ -16036,7 +16036,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -18425,7 +18425,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     def eslint(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Setup eslint.
 
-        :default: true
+        :default: - true, unless biome is enabled
 
         :stability: experimental
         '''

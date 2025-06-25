@@ -138,7 +138,8 @@ class DatabricksSourceImpl(BaseSQLSource):
             except ImportError:
                 raise missing_dependency_exception("chalkpy[databricks]")
 
-            formatted_op, positional_params, named_params = self.compile_query(finalized_query)
+            # The sql connector v2.5.2 seems to only support pyformat paramstyle, according to the repo's test suite
+            formatted_op, positional_params, named_params = self.compile_query(finalized_query, paramstyle="pyformat")
             if len(positional_params) != 0:
                 raise ValueError("Databricks efficient query uses named parameters only")
 
@@ -177,7 +178,7 @@ class DatabricksSourceImpl(BaseSQLSource):
                             chalk_logger.info(f"Executing query: {repr(formatted_op)}")
 
                             # Execute the query with named parameters
-                            cursor.execute(formatted_op, named_params)
+                            cursor.execute(formatted_op, parameters=named_params)
 
                             # Fetch results as Arrow tables in batches
                             batch_size = int(os.environ.get("CHALK_DATABRICKS_DOWNLOAD_BATCH_SIZE", "10000"))

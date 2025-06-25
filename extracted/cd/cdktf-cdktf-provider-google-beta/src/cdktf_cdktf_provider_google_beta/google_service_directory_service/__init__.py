@@ -1,7 +1,7 @@
 r'''
 # `google_service_directory_service`
 
-Refer to the Terraform Registry for docs: [`google_service_directory_service`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service).
+Refer to the Terraform Registry for docs: [`google_service_directory_service`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleServiceDirectoryService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleServiceDirectoryService.GoogleServiceDirectoryService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service google_service_directory_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service google_service_directory_service}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleServiceDirectoryService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service google_service_directory_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service google_service_directory_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param namespace: The resource name of the namespace this service will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#namespace GoogleServiceDirectoryService#namespace}
-        :param service_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#service_id GoogleServiceDirectoryService#service_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#id GoogleServiceDirectoryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: Metadata for the service. This data can be consumed by service clients. The entire metadata dictionary may contain up to 2000 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#metadata GoogleServiceDirectoryService#metadata}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#timeouts GoogleServiceDirectoryService#timeouts}
+        :param namespace: The resource name of the namespace this service will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#namespace GoogleServiceDirectoryService#namespace}
+        :param service_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#service_id GoogleServiceDirectoryService#service_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#id GoogleServiceDirectoryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: Metadata for the service. This data can be consumed by service clients. The entire metadata dictionary may contain up to 2000 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#metadata GoogleServiceDirectoryService#metadata}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#timeouts GoogleServiceDirectoryService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleServiceDirectoryService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleServiceDirectoryService to import.
-        :param import_from_id: The id of the existing GoogleServiceDirectoryService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleServiceDirectoryService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleServiceDirectoryService to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class GoogleServiceDirectoryService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#create GoogleServiceDirectoryService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#delete GoogleServiceDirectoryService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#update GoogleServiceDirectoryService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#create GoogleServiceDirectoryService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#delete GoogleServiceDirectoryService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#update GoogleServiceDirectoryService#update}.
         '''
         value = GoogleServiceDirectoryServiceTimeouts(
             create=create, delete=delete, update=update
@@ -301,11 +301,11 @@ class GoogleServiceDirectoryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param namespace: The resource name of the namespace this service will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#namespace GoogleServiceDirectoryService#namespace}
-        :param service_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#service_id GoogleServiceDirectoryService#service_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#id GoogleServiceDirectoryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: Metadata for the service. This data can be consumed by service clients. The entire metadata dictionary may contain up to 2000 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#metadata GoogleServiceDirectoryService#metadata}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#timeouts GoogleServiceDirectoryService#timeouts}
+        :param namespace: The resource name of the namespace this service will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#namespace GoogleServiceDirectoryService#namespace}
+        :param service_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#service_id GoogleServiceDirectoryService#service_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#id GoogleServiceDirectoryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: Metadata for the service. This data can be consumed by service clients. The entire metadata dictionary may contain up to 2000 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#metadata GoogleServiceDirectoryService#metadata}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#timeouts GoogleServiceDirectoryService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -418,7 +418,7 @@ class GoogleServiceDirectoryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def namespace(self) -> builtins.str:
         '''The resource name of the namespace this service will belong to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#namespace GoogleServiceDirectoryService#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#namespace GoogleServiceDirectoryService#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -428,7 +428,7 @@ class GoogleServiceDirectoryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def service_id(self) -> builtins.str:
         '''The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#service_id GoogleServiceDirectoryService#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#service_id GoogleServiceDirectoryService#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
@@ -436,7 +436,7 @@ class GoogleServiceDirectoryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#id GoogleServiceDirectoryService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#id GoogleServiceDirectoryService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -453,7 +453,7 @@ class GoogleServiceDirectoryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments
         up to 2000 characters, spread across all key-value pairs.
         Metadata that goes beyond any these limits will be rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#metadata GoogleServiceDirectoryService#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#metadata GoogleServiceDirectoryService#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -462,7 +462,7 @@ class GoogleServiceDirectoryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["GoogleServiceDirectoryServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#timeouts GoogleServiceDirectoryService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#timeouts GoogleServiceDirectoryService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleServiceDirectoryServiceTimeouts"], result)
@@ -493,9 +493,9 @@ class GoogleServiceDirectoryServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#create GoogleServiceDirectoryService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#delete GoogleServiceDirectoryService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#update GoogleServiceDirectoryService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#create GoogleServiceDirectoryService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#delete GoogleServiceDirectoryService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#update GoogleServiceDirectoryService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f84e46c80a43a2e0117c0ca6100a8ffc944af4454872f40cc1e4cc14619f369f)
@@ -512,19 +512,19 @@ class GoogleServiceDirectoryServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#create GoogleServiceDirectoryService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#create GoogleServiceDirectoryService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#delete GoogleServiceDirectoryService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#delete GoogleServiceDirectoryService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_service#update GoogleServiceDirectoryService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_service#update GoogleServiceDirectoryService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

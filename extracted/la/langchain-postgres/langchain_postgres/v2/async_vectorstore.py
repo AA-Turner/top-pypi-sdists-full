@@ -14,6 +14,7 @@ from sqlalchemy import RowMapping, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .engine import PGEngine
+from .hybrid_search_config import HybridSearchConfig
 from .indexes import (
     DEFAULT_DISTANCE_STRATEGY,
     DEFAULT_INDEX_NAME_SUFFIX,
@@ -77,6 +78,7 @@ class AsyncPGVectorStore(VectorStore):
         fetch_k: int = 20,
         lambda_mult: float = 0.5,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_config: Optional[HybridSearchConfig] = None,
     ):
         """AsyncPGVectorStore constructor.
         Args:
@@ -95,6 +97,7 @@ class AsyncPGVectorStore(VectorStore):
             fetch_k (int): Number of Documents to fetch to pass to MMR algorithm.
             lambda_mult (float): Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_config (HybridSearchConfig): Hybrid search configuration. Defaults to None.
 
 
         Raises:
@@ -119,6 +122,7 @@ class AsyncPGVectorStore(VectorStore):
         self.fetch_k = fetch_k
         self.lambda_mult = lambda_mult
         self.index_query_options = index_query_options
+        self.hybrid_search_config = hybrid_search_config
 
     @classmethod
     async def create(
@@ -139,6 +143,7 @@ class AsyncPGVectorStore(VectorStore):
         fetch_k: int = 20,
         lambda_mult: float = 0.5,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_config: Optional[HybridSearchConfig] = None,
     ) -> AsyncPGVectorStore:
         """Create an AsyncPGVectorStore instance.
 
@@ -158,6 +163,7 @@ class AsyncPGVectorStore(VectorStore):
             fetch_k (int): Number of Documents to fetch to pass to MMR algorithm.
             lambda_mult (float): Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
             index_query_options (QueryOptions): Index query option.
+            hybrid_search_config (HybridSearchConfig): Hybrid search configuration. Defaults to None.
 
         Returns:
             AsyncPGVectorStore
@@ -193,6 +199,15 @@ class AsyncPGVectorStore(VectorStore):
             raise ValueError(
                 f"Content column, {content_column}, is type, {content_type}. It must be a type of character string."
             )
+        if hybrid_search_config:
+            tsv_column_name = (
+                hybrid_search_config.tsv_column
+                if hybrid_search_config.tsv_column
+                else content_column + "_tsv"
+            )
+            if tsv_column_name not in columns or columns[tsv_column_name] != "tsvector":
+                # mark tsv_column as empty because there is no TSV column in table
+                hybrid_search_config.tsv_column = ""
         if embedding_column not in columns:
             raise ValueError(f"Embedding column, {embedding_column}, does not exist.")
         if columns[embedding_column] != "USER-DEFINED":
@@ -236,6 +251,7 @@ class AsyncPGVectorStore(VectorStore):
             fetch_k=fetch_k,
             lambda_mult=lambda_mult,
             index_query_options=index_query_options,
+            hybrid_search_config=hybrid_search_config,
         )
 
     @property
@@ -273,17 +289,30 @@ class AsyncPGVectorStore(VectorStore):
                 if len(self.metadata_columns) > 0
                 else ""
             )
-            insert_stmt = f'INSERT INTO "{self.schema_name}"."{self.table_name}"("{self.id_column}", "{self.content_column}", "{self.embedding_column}"{metadata_col_names}'
+            hybrid_search_column = (
+                f', "{self.hybrid_search_config.tsv_column}"'
+                if self.hybrid_search_config and self.hybrid_search_config.tsv_column
+                else ""
+            )
+            insert_stmt = f'INSERT INTO "{self.schema_name}"."{self.table_name}"("{self.id_column}", "{self.content_column}", "{self.embedding_column}"{hybrid_search_column}{metadata_col_names}'
             values = {
-                "id": id,
+                "langchain_id": id,
                 "content": content,
                 "embedding": str([float(dimension) for dimension in embedding]),
             }
-            values_stmt = "VALUES (:id, :content, :embedding"
+            values_stmt = "VALUES (:langchain_id, :content, :embedding"
 
             if not embedding and can_inline_embed:
-                values_stmt = f"VALUES (:id, :content, {self.embedding_service.embed_query_inline(content)}"  # type: ignore
+                values_stmt = f"VALUES (:langchain_id, :content, {self.embedding_service.embed_query_inline(content)}"  # type: ignore
 
+            if self.hybrid_search_config and self.hybrid_search_config.tsv_column:
+                lang = (
+                    f"'{self.hybrid_search_config.tsv_lang}',"
+                    if self.hybrid_search_config.tsv_lang
+                    else ""
+                )
+                values_stmt += f", to_tsvector({lang} :tsv_content)"
+                values["tsv_content"] = content
             # Add metadata
             extra = copy.deepcopy(metadata)
             for metadata_column in self.metadata_columns:
@@ -307,6 +336,9 @@ class AsyncPGVectorStore(VectorStore):
                 values_stmt += ")"
 
             upsert_stmt = f' ON CONFLICT ("{self.id_column}") DO UPDATE SET "{self.content_column}" = EXCLUDED."{self.content_column}", "{self.embedding_column}" = EXCLUDED."{self.embedding_column}"'
+
+            if self.hybrid_search_config and self.hybrid_search_config.tsv_column:
+                upsert_stmt += f', "{self.hybrid_search_config.tsv_column}" = EXCLUDED."{self.hybrid_search_config.tsv_column}"'
 
             if self.metadata_json_column:
                 upsert_stmt += f', "{self.metadata_json_column}" = EXCLUDED."{self.metadata_json_column}"'
@@ -408,6 +440,7 @@ class AsyncPGVectorStore(VectorStore):
         fetch_k: int = 20,
         lambda_mult: float = 0.5,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_config: Optional[HybridSearchConfig] = None,
         **kwargs: Any,
     ) -> AsyncPGVectorStore:
         """Create an AsyncPGVectorStore instance from texts.
@@ -453,6 +486,7 @@ class AsyncPGVectorStore(VectorStore):
             fetch_k=fetch_k,
             lambda_mult=lambda_mult,
             index_query_options=index_query_options,
+            hybrid_search_config=hybrid_search_config,
         )
         await vs.aadd_texts(texts, metadatas=metadatas, ids=ids, **kwargs)
         return vs
@@ -478,6 +512,7 @@ class AsyncPGVectorStore(VectorStore):
         fetch_k: int = 20,
         lambda_mult: float = 0.5,
         index_query_options: Optional[QueryOptions] = None,
+        hybrid_search_config: Optional[HybridSearchConfig] = None,
         **kwargs: Any,
     ) -> AsyncPGVectorStore:
         """Create an AsyncPGVectorStore instance from documents.
@@ -524,6 +559,7 @@ class AsyncPGVectorStore(VectorStore):
             fetch_k=fetch_k,
             lambda_mult=lambda_mult,
             index_query_options=index_query_options,
+            hybrid_search_config=hybrid_search_config,
         )
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
@@ -538,16 +574,30 @@ class AsyncPGVectorStore(VectorStore):
         filter: Optional[dict] = None,
         **kwargs: Any,
     ) -> Sequence[RowMapping]:
-        """Perform similarity search query on database."""
-        k = k if k else self.k
+        """
+        Perform similarity search (or hybrid search) query on database.
+        Queries might be slow if the hybrid search column does not exist.
+        For best hybrid search performance, consider creating a TSV column
+        and adding GIN index.
+        """
+        if not k:
+            k = (
+                max(
+                    self.k,
+                    self.hybrid_search_config.primary_top_k,
+                    self.hybrid_search_config.secondary_top_k,
+                )
+                if self.hybrid_search_config
+                else self.k
+            )
         operator = self.distance_strategy.operator
         search_function = self.distance_strategy.search_function
 
-        columns = self.metadata_columns + [
+        columns = [
             self.id_column,
             self.content_column,
             self.embedding_column,
-        ]
+        ] + self.metadata_columns
         if self.metadata_json_column:
             columns.append(self.metadata_json_column)
 
@@ -557,14 +607,17 @@ class AsyncPGVectorStore(VectorStore):
         filter_dict = None
         if filter and isinstance(filter, dict):
             safe_filter, filter_dict = self._create_filter_clause(filter)
-        param_filter = f"WHERE {safe_filter}" if safe_filter else ""
+
         inline_embed_func = getattr(self.embedding_service, "embed_query_inline", None)
         if not embedding and callable(inline_embed_func) and "query" in kwargs:
             query_embedding = self.embedding_service.embed_query_inline(kwargs["query"])  # type: ignore
+            embedding_data_string = f"{query_embedding}"
         else:
             query_embedding = f"{[float(dimension) for dimension in embedding]}"
-        stmt = f"""SELECT {column_names}, {search_function}("{self.embedding_column}", :query_embedding) as distance
-        FROM "{self.schema_name}"."{self.table_name}" {param_filter} ORDER BY "{self.embedding_column}" {operator} :query_embedding LIMIT :k;
+            embedding_data_string = ":query_embedding"
+        where_filters = f"WHERE {safe_filter}" if safe_filter else ""
+        dense_query_stmt = f"""SELECT {column_names}, {search_function}("{self.embedding_column}", {embedding_data_string}) as distance
+        FROM "{self.schema_name}"."{self.table_name}" {where_filters} ORDER BY "{self.embedding_column}" {operator} {embedding_data_string} LIMIT :k;
         """
         param_dict = {"query_embedding": query_embedding, "k": k}
         if filter_dict:
@@ -575,15 +628,51 @@ class AsyncPGVectorStore(VectorStore):
                 for query_option in self.index_query_options.to_parameter():
                     query_options_stmt = f"SET LOCAL {query_option};"
                     await conn.execute(text(query_options_stmt))
-                result = await conn.execute(text(stmt), param_dict)
+                result = await conn.execute(text(dense_query_stmt), param_dict)
                 result_map = result.mappings()
-                results = result_map.fetchall()
+                dense_results = result_map.fetchall()
         else:
             async with self.engine.connect() as conn:
-                result = await conn.execute(text(stmt), param_dict)
+                result = await conn.execute(text(dense_query_stmt), param_dict)
                 result_map = result.mappings()
-                results = result_map.fetchall()
-        return results
+                dense_results = result_map.fetchall()
+
+        hybrid_search_config = kwargs.get(
+            "hybrid_search_config", self.hybrid_search_config
+        )
+        fts_query = (
+            hybrid_search_config.fts_query
+            if hybrid_search_config and hybrid_search_config.fts_query
+            else kwargs.get("fts_query", "")
+        )
+        if hybrid_search_config and fts_query:
+            hybrid_search_config.fusion_function_parameters["fetch_top_k"] = k
+            # do the sparse query
+            lang = (
+                f"'{hybrid_search_config.tsv_lang}',"
+                if hybrid_search_config.tsv_lang
+                else ""
+            )
+            query_tsv = f"plainto_tsquery({lang} :fts_query)"
+            param_dict["fts_query"] = fts_query
+            if hybrid_search_config.tsv_column:
+                content_tsv = f'"{hybrid_search_config.tsv_column}"'
+            else:
+                content_tsv = f'to_tsvector({lang} "{self.content_column}")'
+            and_filters = f"AND ({safe_filter})" if safe_filter else ""
+            sparse_query_stmt = f'SELECT {column_names}, ts_rank_cd({content_tsv}, {query_tsv}) as distance FROM "{self.schema_name}"."{self.table_name}" WHERE {content_tsv} @@ {query_tsv} {and_filters}  ORDER BY distance desc LIMIT {hybrid_search_config.secondary_top_k};'
+            async with self.engine.connect() as conn:
+                result = await conn.execute(text(sparse_query_stmt), param_dict)
+                result_map = result.mappings()
+                sparse_results = result_map.fetchall()
+
+            combined_results = hybrid_search_config.fusion_function(
+                dense_results,
+                sparse_results,
+                **hybrid_search_config.fusion_function_parameters,
+            )
+            return combined_results
+        return dense_results
 
     async def asimilarity_search(
         self,
@@ -600,6 +689,14 @@ class AsyncPGVectorStore(VectorStore):
             else await self.embedding_service.aembed_query(text=query)
         )
         kwargs["query"] = query
+
+        # add fts_query to hybrid_search_config
+        hybrid_search_config = kwargs.get(
+            "hybrid_search_config", self.hybrid_search_config
+        )
+        if hybrid_search_config and not hybrid_search_config.fts_query:
+            hybrid_search_config.fts_query = query
+            kwargs["hybrid_search_config"] = hybrid_search_config
 
         return await self.asimilarity_search_by_vector(
             embedding=embedding, k=k, filter=filter, **kwargs
@@ -631,6 +728,14 @@ class AsyncPGVectorStore(VectorStore):
             else await self.embedding_service.aembed_query(text=query)
         )
         kwargs["query"] = query
+
+        # add fts_query to hybrid_search_config
+        hybrid_search_config = kwargs.get(
+            "hybrid_search_config", self.hybrid_search_config
+        )
+        if hybrid_search_config and not hybrid_search_config.fts_query:
+            hybrid_search_config.fts_query = query
+            kwargs["hybrid_search_config"] = hybrid_search_config
 
         docs = await self.asimilarity_search_with_score_by_vector(
             embedding=embedding, k=k, filter=filter, **kwargs
@@ -776,6 +881,41 @@ class AsyncPGVectorStore(VectorStore):
 
         return [r for i, r in enumerate(documents_with_scores) if i in mmr_selected]
 
+    async def aapply_hybrid_search_index(
+        self,
+        concurrently: bool = False,
+    ) -> None:
+        """Creates a TSV index in the vector store table if possible."""
+        if (
+            not self.hybrid_search_config
+            or not self.hybrid_search_config.index_type
+            or not self.hybrid_search_config.index_name
+        ):
+            # no index needs to be created
+            raise ValueError("Hybrid Search Config cannot create index.")
+
+        lang = (
+            f"'{self.hybrid_search_config.tsv_lang}',"
+            if self.hybrid_search_config.tsv_lang
+            else ""
+        )
+        tsv_column_name = (
+            self.hybrid_search_config.tsv_column
+            if self.hybrid_search_config.tsv_column
+            else f"to_tsvector({lang} {self.content_column})"
+        )
+        tsv_index_query = f'CREATE INDEX {"CONCURRENTLY" if concurrently else ""} {self.hybrid_search_config.index_name} ON "{self.schema_name}"."{self.table_name}" USING {self.hybrid_search_config.index_type}({tsv_column_name});'
+        if concurrently:
+            async with self.engine.connect() as conn:
+                autocommit_conn = await conn.execution_options(
+                    isolation_level="AUTOCOMMIT"
+                )
+                await autocommit_conn.execute(text(tsv_index_query))
+        else:
+            async with self.engine.connect() as conn:
+                await conn.execute(text(tsv_index_query))
+                await conn.commit()
+
     async def aapply_vector_index(
         self,
         index: BaseIndex,
@@ -800,10 +940,11 @@ class AsyncPGVectorStore(VectorStore):
         filter = f"WHERE ({index.partial_indexes})" if index.partial_indexes else ""
         params = "WITH " + index.index_options()
         if name is None:
-            if index.name == None:
+            if index.name is None:
                 index.name = self.table_name + DEFAULT_INDEX_NAME_SUFFIX
             name = index.name
         stmt = f'CREATE INDEX {"CONCURRENTLY" if concurrently else ""} "{name}" ON "{self.schema_name}"."{self.table_name}" USING {index.index_type} ({self.embedding_column} {function}) {params} {filter};'
+
         if concurrently:
             async with self.engine.connect() as conn:
                 autocommit_conn = await conn.execution_options(
@@ -954,46 +1095,48 @@ class AsyncPGVectorStore(VectorStore):
             operator = "$eq"
             filter_value = value
 
+        suffix_id = str(uuid.uuid4()).split("-")[0]
         if operator in COMPARISONS_TO_NATIVE:
             # Then we implement an equality filter
             # native is trusted input
             native = COMPARISONS_TO_NATIVE[operator]
-            id = str(uuid.uuid4()).split("-")[0]
-            return f"{field} {native} :{field}_{id}", {f"{field}_{id}": filter_value}
+            param_name = f"{field}_{suffix_id}"
+            return f"{field} {native} :{param_name}", {f"{param_name}": filter_value}
         elif operator == "$between":
             # Use AND with two comparisons
             low, high = filter_value
-
-            return f"({field} BETWEEN :{field}_low AND :{field}_high)", {
-                f"{field}_low": low,
-                f"{field}_high": high,
+            low_param_name = f"{field}_low_{suffix_id}"
+            high_param_name = f"{field}_high_{suffix_id}"
+            return f"({field} BETWEEN :{low_param_name} AND :{high_param_name})", {
+                f"{low_param_name}": low,
+                f"{high_param_name}": high,
             }
-        elif operator in {"$in", "$nin", "$like", "$ilike"}:
+        elif operator in {"$in", "$nin"}:
             # We'll do force coercion to text
-            if operator in {"$in", "$nin"}:
-                for val in filter_value:
-                    if not isinstance(val, (str, int, float)):
-                        raise NotImplementedError(
-                            f"Unsupported type: {type(val)} for value: {val}"
-                        )
+            for val in filter_value:
+                if not isinstance(val, (str, int, float)):
+                    raise NotImplementedError(
+                        f"Unsupported type: {type(val)} for value: {val}"
+                    )
 
-                    if isinstance(val, bool):  # b/c bool is an instance of int
-                        raise NotImplementedError(
-                            f"Unsupported type: {type(val)} for value: {val}"
-                        )
-
-            if operator in {"$in"}:
-                return f"{field} = ANY(:{field}_in)", {f"{field}_in": filter_value}
-            elif operator in {"$nin"}:
-                return f"{field} <> ALL (:{field}_nin)", {f"{field}_nin": filter_value}
-            elif operator in {"$like"}:
-                return f"({field} LIKE :{field}_like)", {f"{field}_like": filter_value}
-            elif operator in {"$ilike"}:
-                return f"({field} ILIKE :{field}_ilike)", {
-                    f"{field}_ilike": filter_value
+                if isinstance(val, bool):  # b/c bool is an instance of int
+                    raise NotImplementedError(
+                        f"Unsupported type: {type(val)} for value: {val}"
+                    )
+            param_name = f"{field}_{operator.replace('$', '')}_{suffix_id}"
+            if operator == "$in":
+                return f"{field} = ANY(:{param_name})", {f"{param_name}": filter_value}
+            else:  # i.e. $nin
+                return f"{field} <> ALL (:{param_name})", {
+                    f"{param_name}": filter_value
                 }
-            else:
-                raise NotImplementedError()
+
+        elif operator in {"$like", "$ilike"}:
+            param_name = f"{field}_{operator.replace('$', '')}_{suffix_id}"
+            if operator == "$like":
+                return f"({field} LIKE :{param_name})", {f"{param_name}": filter_value}
+            else:  # i.e. $ilike
+                return f"({field} ILIKE :{param_name})", {f"{param_name}": filter_value}
         elif operator == "$exists":
             if not isinstance(filter_value, bool):
                 raise ValueError(

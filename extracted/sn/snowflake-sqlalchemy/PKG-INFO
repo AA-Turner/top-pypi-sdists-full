@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-sqlalchemy
-Version: 1.7.4
+Version: 1.7.5
 Summary: Snowflake SQLAlchemy Dialect
 Project-URL: Changelog, https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/DESCRIPTION.md
 Project-URL: Documentation, https://docs.snowflake.com/en/user-guide/sqlalchemy.html

@@ -1,7 +1,7 @@
 r'''
 # `google_compute_image`
 
-Refer to the Terraform Registry for docs: [`google_compute_image`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image).
+Refer to the Terraform Registry for docs: [`google_compute_image`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeImage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeImage.GoogleComputeImage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image google_compute_image}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image google_compute_image}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class GoogleComputeImage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image google_compute_image} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image google_compute_image} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#name GoogleComputeImage#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#description GoogleComputeImage#description}
-        :param disk_size_gb: Size of the image when restored onto a persistent disk (in GB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#disk_size_gb GoogleComputeImage#disk_size_gb}
-        :param family: The name of the image family to which this image belongs. You can create disks by specifying an image family instead of a specific image name. The image family always returns its latest image that is not deprecated. The name of the image family must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#family GoogleComputeImage#family}
-        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#guest_os_features GoogleComputeImage#guest_os_features}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#id GoogleComputeImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_encryption_key: image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#image_encryption_key GoogleComputeImage#image_encryption_key}
-        :param labels: Labels to apply to this Image. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#labels GoogleComputeImage#labels}
-        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#licenses GoogleComputeImage#licenses}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#project GoogleComputeImage#project}.
-        :param raw_disk: raw_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_disk GoogleComputeImage#raw_disk}
-        :param shielded_instance_initial_state: shielded_instance_initial_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#shielded_instance_initial_state GoogleComputeImage#shielded_instance_initial_state}
-        :param source_disk: The source disk to create this image based on. You must provide either this property or the rawDisk.source property but not both to create an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_disk GoogleComputeImage#source_disk}
-        :param source_disk_encryption_key: source_disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_disk_encryption_key GoogleComputeImage#source_disk_encryption_key}
-        :param source_image: URL of the source image used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_image GoogleComputeImage#source_image}
-        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_image_encryption_key GoogleComputeImage#source_image_encryption_key}
-        :param source_snapshot: URL of the source snapshot used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The sourceImage URL - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_snapshot GoogleComputeImage#source_snapshot}
-        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_snapshot_encryption_key GoogleComputeImage#source_snapshot_encryption_key}
-        :param storage_locations: Cloud Storage bucket storage location of the image (regional or multi-regional). Reference link: https://cloud.google.com/compute/docs/reference/rest/v1/images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#storage_locations GoogleComputeImage#storage_locations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#timeouts GoogleComputeImage#timeouts}
+        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#name GoogleComputeImage#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#description GoogleComputeImage#description}
+        :param disk_size_gb: Size of the image when restored onto a persistent disk (in GB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#disk_size_gb GoogleComputeImage#disk_size_gb}
+        :param family: The name of the image family to which this image belongs. You can create disks by specifying an image family instead of a specific image name. The image family always returns its latest image that is not deprecated. The name of the image family must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#family GoogleComputeImage#family}
+        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#guest_os_features GoogleComputeImage#guest_os_features}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#id GoogleComputeImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_encryption_key: image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#image_encryption_key GoogleComputeImage#image_encryption_key}
+        :param labels: Labels to apply to this Image. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#labels GoogleComputeImage#labels}
+        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#licenses GoogleComputeImage#licenses}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#project GoogleComputeImage#project}.
+        :param raw_disk: raw_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_disk GoogleComputeImage#raw_disk}
+        :param shielded_instance_initial_state: shielded_instance_initial_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#shielded_instance_initial_state GoogleComputeImage#shielded_instance_initial_state}
+        :param source_disk: The source disk to create this image based on. You must provide either this property or the rawDisk.source property but not both to create an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_disk GoogleComputeImage#source_disk}
+        :param source_disk_encryption_key: source_disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_disk_encryption_key GoogleComputeImage#source_disk_encryption_key}
+        :param source_image: URL of the source image used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_image GoogleComputeImage#source_image}
+        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_image_encryption_key GoogleComputeImage#source_image_encryption_key}
+        :param source_snapshot: URL of the source snapshot used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The sourceImage URL - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_snapshot GoogleComputeImage#source_snapshot}
+        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_snapshot_encryption_key GoogleComputeImage#source_snapshot_encryption_key}
+        :param storage_locations: Cloud Storage bucket storage location of the image (regional or multi-regional). Reference link: https://cloud.google.com/compute/docs/reference/rest/v1/images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#storage_locations GoogleComputeImage#storage_locations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#timeouts GoogleComputeImage#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class GoogleComputeImage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeImage to import.
-        :param import_from_id: The id of the existing GoogleComputeImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeImage to import is found.
         '''
         if __debug__:
@@ -194,10 +194,10 @@ class GoogleComputeImage(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         value = GoogleComputeImageImageEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -217,9 +217,9 @@ class GoogleComputeImage(
         sha1: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source: The full Google Cloud Storage URL where disk storage is stored You must provide either this property or the sourceDisk property but not both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source GoogleComputeImage#source}
-        :param container_type: The format used to encode and transmit the block device, which should be TAR. This is just a container and transmission format and not a runtime format. Provided by the client when the disk image is created. Default value: "TAR" Possible values: ["TAR"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#container_type GoogleComputeImage#container_type}
-        :param sha1: An optional SHA1 checksum of the disk image before unpackaging. This is provided by the client when the disk image is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#sha1 GoogleComputeImage#sha1}
+        :param source: The full Google Cloud Storage URL where disk storage is stored You must provide either this property or the sourceDisk property but not both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source GoogleComputeImage#source}
+        :param container_type: The format used to encode and transmit the block device, which should be TAR. This is just a container and transmission format and not a runtime format. Provided by the client when the disk image is created. Default value: "TAR" Possible values: ["TAR"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#container_type GoogleComputeImage#container_type}
+        :param sha1: An optional SHA1 checksum of the disk image before unpackaging. This is provided by the client when the disk image is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#sha1 GoogleComputeImage#sha1}
         '''
         value = GoogleComputeImageRawDisk(
             source=source, container_type=container_type, sha1=sha1
@@ -237,10 +237,10 @@ class GoogleComputeImage(
         pk: typing.Optional[typing.Union["GoogleComputeImageShieldedInstanceInitialStatePk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dbs: dbs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#dbs GoogleComputeImage#dbs}
-        :param dbxs: dbxs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#dbxs GoogleComputeImage#dbxs}
-        :param keks: keks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#keks GoogleComputeImage#keks}
-        :param pk: pk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#pk GoogleComputeImage#pk}
+        :param dbs: dbs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#dbs GoogleComputeImage#dbs}
+        :param dbxs: dbxs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#dbxs GoogleComputeImage#dbxs}
+        :param keks: keks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#keks GoogleComputeImage#keks}
+        :param pk: pk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#pk GoogleComputeImage#pk}
         '''
         value = GoogleComputeImageShieldedInstanceInitialState(
             dbs=dbs, dbxs=dbxs, keks=keks, pk=pk
@@ -258,10 +258,10 @@ class GoogleComputeImage(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         value = GoogleComputeImageSourceDiskEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -282,10 +282,10 @@ class GoogleComputeImage(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         value = GoogleComputeImageSourceImageEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -306,10 +306,10 @@ class GoogleComputeImage(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         value = GoogleComputeImageSourceSnapshotEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -329,9 +329,9 @@ class GoogleComputeImage(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#create GoogleComputeImage#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#delete GoogleComputeImage#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#update GoogleComputeImage#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#create GoogleComputeImage#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#delete GoogleComputeImage#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#update GoogleComputeImage#update}.
         '''
         value = GoogleComputeImageTimeouts(create=create, delete=delete, update=update)
 
@@ -840,26 +840,26 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#name GoogleComputeImage#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#description GoogleComputeImage#description}
-        :param disk_size_gb: Size of the image when restored onto a persistent disk (in GB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#disk_size_gb GoogleComputeImage#disk_size_gb}
-        :param family: The name of the image family to which this image belongs. You can create disks by specifying an image family instead of a specific image name. The image family always returns its latest image that is not deprecated. The name of the image family must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#family GoogleComputeImage#family}
-        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#guest_os_features GoogleComputeImage#guest_os_features}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#id GoogleComputeImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_encryption_key: image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#image_encryption_key GoogleComputeImage#image_encryption_key}
-        :param labels: Labels to apply to this Image. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#labels GoogleComputeImage#labels}
-        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#licenses GoogleComputeImage#licenses}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#project GoogleComputeImage#project}.
-        :param raw_disk: raw_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_disk GoogleComputeImage#raw_disk}
-        :param shielded_instance_initial_state: shielded_instance_initial_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#shielded_instance_initial_state GoogleComputeImage#shielded_instance_initial_state}
-        :param source_disk: The source disk to create this image based on. You must provide either this property or the rawDisk.source property but not both to create an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_disk GoogleComputeImage#source_disk}
-        :param source_disk_encryption_key: source_disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_disk_encryption_key GoogleComputeImage#source_disk_encryption_key}
-        :param source_image: URL of the source image used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_image GoogleComputeImage#source_image}
-        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_image_encryption_key GoogleComputeImage#source_image_encryption_key}
-        :param source_snapshot: URL of the source snapshot used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The sourceImage URL - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_snapshot GoogleComputeImage#source_snapshot}
-        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_snapshot_encryption_key GoogleComputeImage#source_snapshot_encryption_key}
-        :param storage_locations: Cloud Storage bucket storage location of the image (regional or multi-regional). Reference link: https://cloud.google.com/compute/docs/reference/rest/v1/images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#storage_locations GoogleComputeImage#storage_locations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#timeouts GoogleComputeImage#timeouts}
+        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#name GoogleComputeImage#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#description GoogleComputeImage#description}
+        :param disk_size_gb: Size of the image when restored onto a persistent disk (in GB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#disk_size_gb GoogleComputeImage#disk_size_gb}
+        :param family: The name of the image family to which this image belongs. You can create disks by specifying an image family instead of a specific image name. The image family always returns its latest image that is not deprecated. The name of the image family must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#family GoogleComputeImage#family}
+        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#guest_os_features GoogleComputeImage#guest_os_features}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#id GoogleComputeImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_encryption_key: image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#image_encryption_key GoogleComputeImage#image_encryption_key}
+        :param labels: Labels to apply to this Image. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#labels GoogleComputeImage#labels}
+        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#licenses GoogleComputeImage#licenses}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#project GoogleComputeImage#project}.
+        :param raw_disk: raw_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_disk GoogleComputeImage#raw_disk}
+        :param shielded_instance_initial_state: shielded_instance_initial_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#shielded_instance_initial_state GoogleComputeImage#shielded_instance_initial_state}
+        :param source_disk: The source disk to create this image based on. You must provide either this property or the rawDisk.source property but not both to create an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_disk GoogleComputeImage#source_disk}
+        :param source_disk_encryption_key: source_disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_disk_encryption_key GoogleComputeImage#source_disk_encryption_key}
+        :param source_image: URL of the source image used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_image GoogleComputeImage#source_image}
+        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_image_encryption_key GoogleComputeImage#source_image_encryption_key}
+        :param source_snapshot: URL of the source snapshot used to create this image. In order to create an image, you must provide the full or partial URL of one of the following: - The selfLink URL - This property - The sourceImage URL - The rawDisk.source URL - The sourceDisk URL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_snapshot GoogleComputeImage#source_snapshot}
+        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_snapshot_encryption_key GoogleComputeImage#source_snapshot_encryption_key}
+        :param storage_locations: Cloud Storage bucket storage location of the image (regional or multi-regional). Reference link: https://cloud.google.com/compute/docs/reference/rest/v1/images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#storage_locations GoogleComputeImage#storage_locations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#timeouts GoogleComputeImage#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1038,7 +1038,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the
         last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#name GoogleComputeImage#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#name GoogleComputeImage#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1048,7 +1048,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#description GoogleComputeImage#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#description GoogleComputeImage#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1057,7 +1057,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disk_size_gb(self) -> typing.Optional[jsii.Number]:
         '''Size of the image when restored onto a persistent disk (in GB).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#disk_size_gb GoogleComputeImage#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#disk_size_gb GoogleComputeImage#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1072,7 +1072,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         not deprecated. The name of the image family must comply with
         RFC1035.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#family GoogleComputeImage#family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#family GoogleComputeImage#family}
         '''
         result = self._values.get("family")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1083,14 +1083,14 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageGuestOsFeatures"]]]:
         '''guest_os_features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#guest_os_features GoogleComputeImage#guest_os_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#guest_os_features GoogleComputeImage#guest_os_features}
         '''
         result = self._values.get("guest_os_features")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageGuestOsFeatures"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#id GoogleComputeImage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#id GoogleComputeImage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1104,7 +1104,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeImageImageEncryptionKey"]:
         '''image_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#image_encryption_key GoogleComputeImage#image_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#image_encryption_key GoogleComputeImage#image_encryption_key}
         '''
         result = self._values.get("image_encryption_key")
         return typing.cast(typing.Optional["GoogleComputeImageImageEncryptionKey"], result)
@@ -1116,7 +1116,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#labels GoogleComputeImage#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#labels GoogleComputeImage#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1125,14 +1125,14 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def licenses(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Any applicable license URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#licenses GoogleComputeImage#licenses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#licenses GoogleComputeImage#licenses}
         '''
         result = self._values.get("licenses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#project GoogleComputeImage#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#project GoogleComputeImage#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1140,7 +1140,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def raw_disk(self) -> typing.Optional["GoogleComputeImageRawDisk"]:
         '''raw_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_disk GoogleComputeImage#raw_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_disk GoogleComputeImage#raw_disk}
         '''
         result = self._values.get("raw_disk")
         return typing.cast(typing.Optional["GoogleComputeImageRawDisk"], result)
@@ -1151,7 +1151,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeImageShieldedInstanceInitialState"]:
         '''shielded_instance_initial_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#shielded_instance_initial_state GoogleComputeImage#shielded_instance_initial_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#shielded_instance_initial_state GoogleComputeImage#shielded_instance_initial_state}
         '''
         result = self._values.get("shielded_instance_initial_state")
         return typing.cast(typing.Optional["GoogleComputeImageShieldedInstanceInitialState"], result)
@@ -1163,7 +1163,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         You must provide either this property or the
         rawDisk.source property but not both to create an image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_disk GoogleComputeImage#source_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_disk GoogleComputeImage#source_disk}
         '''
         result = self._values.get("source_disk")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1174,7 +1174,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeImageSourceDiskEncryptionKey"]:
         '''source_disk_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_disk_encryption_key GoogleComputeImage#source_disk_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_disk_encryption_key GoogleComputeImage#source_disk_encryption_key}
         '''
         result = self._values.get("source_disk_encryption_key")
         return typing.cast(typing.Optional["GoogleComputeImageSourceDiskEncryptionKey"], result)
@@ -1191,7 +1191,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - The rawDisk.source URL
         - The sourceDisk URL
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_image GoogleComputeImage#source_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_image GoogleComputeImage#source_image}
         '''
         result = self._values.get("source_image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1202,7 +1202,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeImageSourceImageEncryptionKey"]:
         '''source_image_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_image_encryption_key GoogleComputeImage#source_image_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_image_encryption_key GoogleComputeImage#source_image_encryption_key}
         '''
         result = self._values.get("source_image_encryption_key")
         return typing.cast(typing.Optional["GoogleComputeImageSourceImageEncryptionKey"], result)
@@ -1219,7 +1219,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - The rawDisk.source URL
         - The sourceDisk URL
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_snapshot GoogleComputeImage#source_snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_snapshot GoogleComputeImage#source_snapshot}
         '''
         result = self._values.get("source_snapshot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1230,7 +1230,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeImageSourceSnapshotEncryptionKey"]:
         '''source_snapshot_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source_snapshot_encryption_key GoogleComputeImage#source_snapshot_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source_snapshot_encryption_key GoogleComputeImage#source_snapshot_encryption_key}
         '''
         result = self._values.get("source_snapshot_encryption_key")
         return typing.cast(typing.Optional["GoogleComputeImageSourceSnapshotEncryptionKey"], result)
@@ -1239,7 +1239,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_locations(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Cloud Storage bucket storage location of the image (regional or multi-regional). Reference link: https://cloud.google.com/compute/docs/reference/rest/v1/images.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#storage_locations GoogleComputeImage#storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#storage_locations GoogleComputeImage#storage_locations}
         '''
         result = self._values.get("storage_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1248,7 +1248,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeImageTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#timeouts GoogleComputeImage#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#timeouts GoogleComputeImage#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeImageTimeouts"], result)
@@ -1273,7 +1273,7 @@ class GoogleComputeImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleComputeImageGuestOsFeatures:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: The type of supported feature. Read `Enabling guest operating system features <https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features>`_ to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "IDPF", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE", "SEV_LIVE_MIGRATABLE_V2"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#type GoogleComputeImage#type}
+        :param type: The type of supported feature. Read `Enabling guest operating system features <https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features>`_ to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "IDPF", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE", "SEV_LIVE_MIGRATABLE_V2"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#type GoogleComputeImage#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e54cbffe81512e4151d4d621a60fc835c77495458e6a0c3e144d9f35f6ed2ad8)
@@ -1288,7 +1288,7 @@ class GoogleComputeImageGuestOsFeatures:
 
         Read `Enabling guest operating system features <https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features>`_ to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "IDPF", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE", "SEV_LIVE_MIGRATABLE_V2"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#type GoogleComputeImage#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#type GoogleComputeImage#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1480,10 +1480,10 @@ class GoogleComputeImageImageEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c44e0fee23cb0fa696dd139e5f37fdb1864f56a802fef96b5a601d3fd4961a34)
@@ -1505,7 +1505,7 @@ class GoogleComputeImageImageEncryptionKey:
     def kms_key_self_link(self) -> typing.Optional[builtins.str]:
         '''The self link of the encryption key that is stored in Google Cloud KMS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1517,7 +1517,7 @@ class GoogleComputeImageImageEncryptionKey:
         If absent, the Compute Engine default service
         account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1526,7 +1526,7 @@ class GoogleComputeImageImageEncryptionKey:
     def raw_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1535,7 +1535,7 @@ class GoogleComputeImageImageEncryptionKey:
     def rsa_encrypted_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1690,9 +1690,9 @@ class GoogleComputeImageRawDisk:
         sha1: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source: The full Google Cloud Storage URL where disk storage is stored You must provide either this property or the sourceDisk property but not both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source GoogleComputeImage#source}
-        :param container_type: The format used to encode and transmit the block device, which should be TAR. This is just a container and transmission format and not a runtime format. Provided by the client when the disk image is created. Default value: "TAR" Possible values: ["TAR"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#container_type GoogleComputeImage#container_type}
-        :param sha1: An optional SHA1 checksum of the disk image before unpackaging. This is provided by the client when the disk image is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#sha1 GoogleComputeImage#sha1}
+        :param source: The full Google Cloud Storage URL where disk storage is stored You must provide either this property or the sourceDisk property but not both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source GoogleComputeImage#source}
+        :param container_type: The format used to encode and transmit the block device, which should be TAR. This is just a container and transmission format and not a runtime format. Provided by the client when the disk image is created. Default value: "TAR" Possible values: ["TAR"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#container_type GoogleComputeImage#container_type}
+        :param sha1: An optional SHA1 checksum of the disk image before unpackaging. This is provided by the client when the disk image is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#sha1 GoogleComputeImage#sha1}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82f75cae835840c18c1d10d685e2f5a2dd30c637ac67c41145582caaa440a3b4)
@@ -1711,7 +1711,7 @@ class GoogleComputeImageRawDisk:
     def source(self) -> builtins.str:
         '''The full Google Cloud Storage URL where disk storage is stored You must provide either this property or the sourceDisk property but not both.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#source GoogleComputeImage#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#source GoogleComputeImage#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -1725,7 +1725,7 @@ class GoogleComputeImageRawDisk:
         and not a runtime format. Provided by the client when the disk
         image is created. Default value: "TAR" Possible values: ["TAR"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#container_type GoogleComputeImage#container_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#container_type GoogleComputeImage#container_type}
         '''
         result = self._values.get("container_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1736,7 +1736,7 @@ class GoogleComputeImageRawDisk:
 
         This is provided by the client when the disk image is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#sha1 GoogleComputeImage#sha1}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#sha1 GoogleComputeImage#sha1}
         '''
         result = self._values.get("sha1")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1860,10 +1860,10 @@ class GoogleComputeImageShieldedInstanceInitialState:
         pk: typing.Optional[typing.Union["GoogleComputeImageShieldedInstanceInitialStatePk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dbs: dbs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#dbs GoogleComputeImage#dbs}
-        :param dbxs: dbxs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#dbxs GoogleComputeImage#dbxs}
-        :param keks: keks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#keks GoogleComputeImage#keks}
-        :param pk: pk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#pk GoogleComputeImage#pk}
+        :param dbs: dbs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#dbs GoogleComputeImage#dbs}
+        :param dbxs: dbxs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#dbxs GoogleComputeImage#dbxs}
+        :param keks: keks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#keks GoogleComputeImage#keks}
+        :param pk: pk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#pk GoogleComputeImage#pk}
         '''
         if isinstance(pk, dict):
             pk = GoogleComputeImageShieldedInstanceInitialStatePk(**pk)
@@ -1889,7 +1889,7 @@ class GoogleComputeImageShieldedInstanceInitialState:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageShieldedInstanceInitialStateDbs"]]]:
         '''dbs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#dbs GoogleComputeImage#dbs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#dbs GoogleComputeImage#dbs}
         '''
         result = self._values.get("dbs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageShieldedInstanceInitialStateDbs"]]], result)
@@ -1900,7 +1900,7 @@ class GoogleComputeImageShieldedInstanceInitialState:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageShieldedInstanceInitialStateDbxs"]]]:
         '''dbxs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#dbxs GoogleComputeImage#dbxs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#dbxs GoogleComputeImage#dbxs}
         '''
         result = self._values.get("dbxs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageShieldedInstanceInitialStateDbxs"]]], result)
@@ -1911,7 +1911,7 @@ class GoogleComputeImageShieldedInstanceInitialState:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageShieldedInstanceInitialStateKeks"]]]:
         '''keks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#keks GoogleComputeImage#keks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#keks GoogleComputeImage#keks}
         '''
         result = self._values.get("keks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeImageShieldedInstanceInitialStateKeks"]]], result)
@@ -1920,7 +1920,7 @@ class GoogleComputeImageShieldedInstanceInitialState:
     def pk(self) -> typing.Optional["GoogleComputeImageShieldedInstanceInitialStatePk"]:
         '''pk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#pk GoogleComputeImage#pk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#pk GoogleComputeImage#pk}
         '''
         result = self._values.get("pk")
         return typing.cast(typing.Optional["GoogleComputeImageShieldedInstanceInitialStatePk"], result)
@@ -1950,8 +1950,8 @@ class GoogleComputeImageShieldedInstanceInitialStateDbs:
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
-        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6aaf57b84223346f0e1ce4ad3427d3e47579609d66f9488bb3b29b409b156ae2)
@@ -1969,7 +1969,7 @@ class GoogleComputeImageShieldedInstanceInitialStateDbs:
 
         A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -1979,7 +1979,7 @@ class GoogleComputeImageShieldedInstanceInitialStateDbs:
     def file_type(self) -> typing.Optional[builtins.str]:
         '''The file type of source file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         result = self._values.get("file_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2184,8 +2184,8 @@ class GoogleComputeImageShieldedInstanceInitialStateDbxs:
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
-        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb18c2eeed0409ff0ecdabc6b3908cf1fb8559e39808b2bcac269cde0415d259)
@@ -2203,7 +2203,7 @@ class GoogleComputeImageShieldedInstanceInitialStateDbxs:
 
         A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -2213,7 +2213,7 @@ class GoogleComputeImageShieldedInstanceInitialStateDbxs:
     def file_type(self) -> typing.Optional[builtins.str]:
         '''The file type of source file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         result = self._values.get("file_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2418,8 +2418,8 @@ class GoogleComputeImageShieldedInstanceInitialStateKeks:
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
-        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4980fb559c0a7e78cce43c932dc693d1cc33e0aa08268e756c0a9af8729c6315)
@@ -2437,7 +2437,7 @@ class GoogleComputeImageShieldedInstanceInitialStateKeks:
 
         A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -2447,7 +2447,7 @@ class GoogleComputeImageShieldedInstanceInitialStateKeks:
     def file_type(self) -> typing.Optional[builtins.str]:
         '''The file type of source file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         result = self._values.get("file_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2706,8 +2706,8 @@ class GoogleComputeImageShieldedInstanceInitialStateOutputReference(
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
-        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         value = GoogleComputeImageShieldedInstanceInitialStatePk(
             content=content, file_type=file_type
@@ -2810,8 +2810,8 @@ class GoogleComputeImageShieldedInstanceInitialStatePk:
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
-        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        :param content: The raw content in the secure keys file. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        :param file_type: The file type of source file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__564fa33aa9ab60aaaa3f4fa0f56038f8cd18526d947e1361258a035f69ee8f4f)
@@ -2829,7 +2829,7 @@ class GoogleComputeImageShieldedInstanceInitialStatePk:
 
         A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#content GoogleComputeImage#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -2839,7 +2839,7 @@ class GoogleComputeImageShieldedInstanceInitialStatePk:
     def file_type(self) -> typing.Optional[builtins.str]:
         '''The file type of source file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#file_type GoogleComputeImage#file_type}
         '''
         result = self._values.get("file_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2952,10 +2952,10 @@ class GoogleComputeImageSourceDiskEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__758fce9b4a4ad11582d1a1c25907f1871cd255ee38a0d082eab489e822c6c0ce)
@@ -2983,7 +2983,7 @@ class GoogleComputeImageSourceDiskEncryptionKey:
         'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature.
         See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2995,7 +2995,7 @@ class GoogleComputeImageSourceDiskEncryptionKey:
         If absent, the Compute Engine default service
         account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3004,7 +3004,7 @@ class GoogleComputeImageSourceDiskEncryptionKey:
     def raw_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3015,7 +3015,7 @@ class GoogleComputeImageSourceDiskEncryptionKey:
 
         You can provide either the rawKey or the rsaEncryptedKey.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3174,10 +3174,10 @@ class GoogleComputeImageSourceImageEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ad2630eee1fad616ecf2178de40eb252d6b791127741de11bb9489d2188aa11)
@@ -3205,7 +3205,7 @@ class GoogleComputeImageSourceImageEncryptionKey:
         'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature.
         See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3217,7 +3217,7 @@ class GoogleComputeImageSourceImageEncryptionKey:
         If absent, the Compute Engine default service
         account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3226,7 +3226,7 @@ class GoogleComputeImageSourceImageEncryptionKey:
     def raw_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3237,7 +3237,7 @@ class GoogleComputeImageSourceImageEncryptionKey:
 
         You can provide either the rawKey or the rsaEncryptedKey.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3396,10 +3396,10 @@ class GoogleComputeImageSourceSnapshotEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key used to decrypt this resource. Also called KmsKeyName in the cloud console. Your project's Compute Engine System service account ('service-{{PROJECT_NUMBER}}@compute-system.iam.gserviceaccount.com') must have 'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature. See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79aee8be0fe7bcf3afdaa7ae55089d15a2e0643cf01aee6bc33c8d1137a1ea67)
@@ -3427,7 +3427,7 @@ class GoogleComputeImageSourceSnapshotEncryptionKey:
         'roles/cloudkms.cryptoKeyEncrypterDecrypter' to use this feature.
         See https://cloud.google.com/compute/docs/disks/customer-managed-encryption#encrypt_a_new_persistent_disk_with_your_own_keys
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_self_link GoogleComputeImage#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3439,7 +3439,7 @@ class GoogleComputeImageSourceSnapshotEncryptionKey:
         If absent, the Compute Engine default service
         account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#kms_key_service_account GoogleComputeImage#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3448,7 +3448,7 @@ class GoogleComputeImageSourceSnapshotEncryptionKey:
     def raw_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#raw_key GoogleComputeImage#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3459,7 +3459,7 @@ class GoogleComputeImageSourceSnapshotEncryptionKey:
 
         You can provide either the rawKey or the rsaEncryptedKey.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#rsa_encrypted_key GoogleComputeImage#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3612,9 +3612,9 @@ class GoogleComputeImageTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#create GoogleComputeImage#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#delete GoogleComputeImage#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#update GoogleComputeImage#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#create GoogleComputeImage#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#delete GoogleComputeImage#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#update GoogleComputeImage#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11f372c5ddce9603f22c576af41b8a72fabb8877d4785d270123b989d6b394dd)
@@ -3631,19 +3631,19 @@ class GoogleComputeImageTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#create GoogleComputeImage#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#create GoogleComputeImage#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#delete GoogleComputeImage#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#delete GoogleComputeImage#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_image#update GoogleComputeImage#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_image#update GoogleComputeImage#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpm
-Version: 1.13.6
+Version: 1.14.0
 Summary: MCPM - Model Context Protocol Manager
 Project-URL: Homepage, https://mcpm.sh
 Project-URL: Repository, https://github.com/pathintegral-institute/mcpm.sh
@@ -201,6 +201,8 @@ mcpm share "npx -y @modelcontextprotocol/server-everything" --retry 3
 
 ```bash
 mcpm config clear-cache          # Clear MCPM's registry cache. Cache defaults to refresh every 1 hour.
+mcpm config set                  # Set global MCPM configuration, currently only support node_executable 
+mcpm config get <name>           # Get global MCPM configuration
 mcpm inspector                   # Launch the MCPM Inspector UI to examine server configs
 ```
 

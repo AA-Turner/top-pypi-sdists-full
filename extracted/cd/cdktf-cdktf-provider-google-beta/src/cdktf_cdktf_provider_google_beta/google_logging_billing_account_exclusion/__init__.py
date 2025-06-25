@@ -1,7 +1,7 @@
 r'''
 # `google_logging_billing_account_exclusion`
 
-Refer to the Terraform Registry for docs: [`google_logging_billing_account_exclusion`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion).
+Refer to the Terraform Registry for docs: [`google_logging_billing_account_exclusion`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleLoggingBillingAccountExclusion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleLoggingBillingAccountExclusion.GoogleLoggingBillingAccountExclusion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion google_logging_billing_account_exclusion}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion google_logging_billing_account_exclusion}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleLoggingBillingAccountExclusion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion google_logging_billing_account_exclusion} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion google_logging_billing_account_exclusion} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#billing_account GoogleLoggingBillingAccountExclusion#billing_account}.
-        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#filter GoogleLoggingBillingAccountExclusion#filter}
-        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#name GoogleLoggingBillingAccountExclusion#name}
-        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#description GoogleLoggingBillingAccountExclusion#description}
-        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#disabled GoogleLoggingBillingAccountExclusion#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#id GoogleLoggingBillingAccountExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#billing_account GoogleLoggingBillingAccountExclusion#billing_account}.
+        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#filter GoogleLoggingBillingAccountExclusion#filter}
+        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#name GoogleLoggingBillingAccountExclusion#name}
+        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#description GoogleLoggingBillingAccountExclusion#description}
+        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#disabled GoogleLoggingBillingAccountExclusion#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#id GoogleLoggingBillingAccountExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleLoggingBillingAccountExclusion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleLoggingBillingAccountExclusion to import.
-        :param import_from_id: The id of the existing GoogleLoggingBillingAccountExclusion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleLoggingBillingAccountExclusion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleLoggingBillingAccountExclusion to import is found.
         '''
         if __debug__:
@@ -309,12 +309,12 @@ class GoogleLoggingBillingAccountExclusionConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#billing_account GoogleLoggingBillingAccountExclusion#billing_account}.
-        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#filter GoogleLoggingBillingAccountExclusion#filter}
-        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#name GoogleLoggingBillingAccountExclusion#name}
-        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#description GoogleLoggingBillingAccountExclusion#description}
-        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#disabled GoogleLoggingBillingAccountExclusion#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#id GoogleLoggingBillingAccountExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param billing_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#billing_account GoogleLoggingBillingAccountExclusion#billing_account}.
+        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#filter GoogleLoggingBillingAccountExclusion#filter}
+        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#name GoogleLoggingBillingAccountExclusion#name}
+        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#description GoogleLoggingBillingAccountExclusion#description}
+        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#disabled GoogleLoggingBillingAccountExclusion#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#id GoogleLoggingBillingAccountExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -425,7 +425,7 @@ class GoogleLoggingBillingAccountExclusionConfig(
 
     @builtins.property
     def billing_account(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#billing_account GoogleLoggingBillingAccountExclusion#billing_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#billing_account GoogleLoggingBillingAccountExclusion#billing_account}.'''
         result = self._values.get("billing_account")
         assert result is not None, "Required property 'billing_account' is missing"
         return typing.cast(builtins.str, result)
@@ -434,7 +434,7 @@ class GoogleLoggingBillingAccountExclusionConfig(
     def filter(self) -> builtins.str:
         '''The filter to apply when excluding logs. Only log entries that match the filter are excluded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#filter GoogleLoggingBillingAccountExclusion#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#filter GoogleLoggingBillingAccountExclusion#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -444,7 +444,7 @@ class GoogleLoggingBillingAccountExclusionConfig(
     def name(self) -> builtins.str:
         '''The name of the logging exclusion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#name GoogleLoggingBillingAccountExclusion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#name GoogleLoggingBillingAccountExclusion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -454,7 +454,7 @@ class GoogleLoggingBillingAccountExclusionConfig(
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#description GoogleLoggingBillingAccountExclusion#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#description GoogleLoggingBillingAccountExclusion#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -465,14 +465,14 @@ class GoogleLoggingBillingAccountExclusionConfig(
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this exclusion rule should be disabled or not. This defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#disabled GoogleLoggingBillingAccountExclusion#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#disabled GoogleLoggingBillingAccountExclusion#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_billing_account_exclusion#id GoogleLoggingBillingAccountExclusion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_billing_account_exclusion#id GoogleLoggingBillingAccountExclusion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

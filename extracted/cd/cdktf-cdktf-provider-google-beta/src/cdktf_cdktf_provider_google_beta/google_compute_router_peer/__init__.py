@@ -1,7 +1,7 @@
 r'''
 # `google_compute_router_peer`
 
-Refer to the Terraform Registry for docs: [`google_compute_router_peer`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer).
+Refer to the Terraform Registry for docs: [`google_compute_router_peer`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeRouterPeer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeRouterPeer.GoogleComputeRouterPeer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer google_compute_router_peer}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer google_compute_router_peer}.'''
 
     def __init__(
         self,
@@ -89,40 +89,40 @@ class GoogleComputeRouterPeer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer google_compute_router_peer} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer google_compute_router_peer} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param interface: Name of the interface the BGP peer is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#interface GoogleComputeRouterPeer#interface}
-        :param name: Name of this BGP peer. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
-        :param peer_asn: Peer BGP Autonomous System Number (ASN). Each BGP interface may use a different value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_asn GoogleComputeRouterPeer#peer_asn}
-        :param router: The name of the Cloud Router in which this BgpPeer will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#router GoogleComputeRouterPeer#router}
-        :param advertised_groups: User-specified list of prefix groups to advertise in custom mode, which currently supports the following option:. - 'ALL_SUBNETS': Advertises all of the router's own VPC subnets. This excludes any routes learned for subnets that use VPC Network Peering. Note that this field can only be populated if advertiseMode is 'CUSTOM' and overrides the list defined for the router (in the "bgp" message). These groups are advertised in addition to any specified prefixes. Leave this field blank to advertise no custom groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_groups GoogleComputeRouterPeer#advertised_groups}
-        :param advertised_ip_ranges: advertised_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_ip_ranges GoogleComputeRouterPeer#advertised_ip_ranges}
-        :param advertised_route_priority: The priority of routes advertised to this BGP peer. Where there is more than one matching route of maximum length, the routes with the lowest priority value win. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_route_priority GoogleComputeRouterPeer#advertised_route_priority}
-        :param advertise_mode: User-specified flag to indicate which mode to use for advertisement. Valid values of this enum field are: 'DEFAULT', 'CUSTOM' Default value: "DEFAULT" Possible values: ["DEFAULT", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertise_mode GoogleComputeRouterPeer#advertise_mode}
-        :param bfd: bfd block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#bfd GoogleComputeRouterPeer#bfd}
-        :param custom_learned_ip_ranges: custom_learned_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#custom_learned_ip_ranges GoogleComputeRouterPeer#custom_learned_ip_ranges}
-        :param custom_learned_route_priority: The user-defined custom learned route priority for a BGP session. This value is applied to all custom learned route ranges for the session. You can choose a value from 0 to 65335. If you don't provide a value, Google Cloud assigns a priority of 100 to the ranges. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#custom_learned_route_priority GoogleComputeRouterPeer#custom_learned_route_priority}
-        :param enable: The status of the BGP peer connection. If set to false, any active session with the peer is terminated and all associated routing information is removed. If set to true, the peer connection can be established with routing information. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable GoogleComputeRouterPeer#enable}
-        :param enable_ipv4: Enable IPv4 traffic over BGP Peer. It is enabled by default if the peerIpAddress is version 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable_ipv4 GoogleComputeRouterPeer#enable_ipv4}
-        :param enable_ipv6: Enable IPv6 traffic over BGP Peer. If not specified, it is disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable_ipv6 GoogleComputeRouterPeer#enable_ipv6}
-        :param export_policies: routers.list of export policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_EXPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#export_policies GoogleComputeRouterPeer#export_policies}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#id GoogleComputeRouterPeer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_policies: routers.list of import policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_IMPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#import_policies GoogleComputeRouterPeer#import_policies}
-        :param ip_address: IP address of the interface inside Google Cloud Platform. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ip_address GoogleComputeRouterPeer#ip_address}
-        :param ipv4_nexthop_address: IPv4 address of the interface inside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ipv4_nexthop_address GoogleComputeRouterPeer#ipv4_nexthop_address}
-        :param ipv6_nexthop_address: IPv6 address of the interface inside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ipv6_nexthop_address GoogleComputeRouterPeer#ipv6_nexthop_address}
-        :param md5_authentication_key: md5_authentication_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#md5_authentication_key GoogleComputeRouterPeer#md5_authentication_key}
-        :param peer_ip_address: IP address of the BGP interface outside Google Cloud Platform. Only IPv4 is supported. Required if 'ip_address' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ip_address GoogleComputeRouterPeer#peer_ip_address}
-        :param peer_ipv4_nexthop_address: IPv4 address of the BGP interface outside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ipv4_nexthop_address GoogleComputeRouterPeer#peer_ipv4_nexthop_address}
-        :param peer_ipv6_nexthop_address: IPv6 address of the BGP interface outside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ipv6_nexthop_address GoogleComputeRouterPeer#peer_ipv6_nexthop_address}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#project GoogleComputeRouterPeer#project}.
-        :param region: Region where the router and BgpPeer reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#region GoogleComputeRouterPeer#region}
-        :param router_appliance_instance: The URI of the VM instance that is used as third-party router appliances such as Next Gen Firewalls, Virtual Routers, or Router Appliances. The VM instance must be located in zones contained in the same region as this Cloud Router. The VM instance is the peer side of the BGP session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#router_appliance_instance GoogleComputeRouterPeer#router_appliance_instance}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#timeouts GoogleComputeRouterPeer#timeouts}
-        :param zero_advertised_route_priority: Force the advertised_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#zero_advertised_route_priority GoogleComputeRouterPeer#zero_advertised_route_priority}
-        :param zero_custom_learned_route_priority: Force the custom_learned_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#zero_custom_learned_route_priority GoogleComputeRouterPeer#zero_custom_learned_route_priority}
+        :param interface: Name of the interface the BGP peer is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#interface GoogleComputeRouterPeer#interface}
+        :param name: Name of this BGP peer. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
+        :param peer_asn: Peer BGP Autonomous System Number (ASN). Each BGP interface may use a different value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_asn GoogleComputeRouterPeer#peer_asn}
+        :param router: The name of the Cloud Router in which this BgpPeer will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#router GoogleComputeRouterPeer#router}
+        :param advertised_groups: User-specified list of prefix groups to advertise in custom mode, which currently supports the following option:. - 'ALL_SUBNETS': Advertises all of the router's own VPC subnets. This excludes any routes learned for subnets that use VPC Network Peering. Note that this field can only be populated if advertiseMode is 'CUSTOM' and overrides the list defined for the router (in the "bgp" message). These groups are advertised in addition to any specified prefixes. Leave this field blank to advertise no custom groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_groups GoogleComputeRouterPeer#advertised_groups}
+        :param advertised_ip_ranges: advertised_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_ip_ranges GoogleComputeRouterPeer#advertised_ip_ranges}
+        :param advertised_route_priority: The priority of routes advertised to this BGP peer. Where there is more than one matching route of maximum length, the routes with the lowest priority value win. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_route_priority GoogleComputeRouterPeer#advertised_route_priority}
+        :param advertise_mode: User-specified flag to indicate which mode to use for advertisement. Valid values of this enum field are: 'DEFAULT', 'CUSTOM' Default value: "DEFAULT" Possible values: ["DEFAULT", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertise_mode GoogleComputeRouterPeer#advertise_mode}
+        :param bfd: bfd block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#bfd GoogleComputeRouterPeer#bfd}
+        :param custom_learned_ip_ranges: custom_learned_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#custom_learned_ip_ranges GoogleComputeRouterPeer#custom_learned_ip_ranges}
+        :param custom_learned_route_priority: The user-defined custom learned route priority for a BGP session. This value is applied to all custom learned route ranges for the session. You can choose a value from 0 to 65335. If you don't provide a value, Google Cloud assigns a priority of 100 to the ranges. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#custom_learned_route_priority GoogleComputeRouterPeer#custom_learned_route_priority}
+        :param enable: The status of the BGP peer connection. If set to false, any active session with the peer is terminated and all associated routing information is removed. If set to true, the peer connection can be established with routing information. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable GoogleComputeRouterPeer#enable}
+        :param enable_ipv4: Enable IPv4 traffic over BGP Peer. It is enabled by default if the peerIpAddress is version 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable_ipv4 GoogleComputeRouterPeer#enable_ipv4}
+        :param enable_ipv6: Enable IPv6 traffic over BGP Peer. If not specified, it is disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable_ipv6 GoogleComputeRouterPeer#enable_ipv6}
+        :param export_policies: routers.list of export policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_EXPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#export_policies GoogleComputeRouterPeer#export_policies}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#id GoogleComputeRouterPeer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_policies: routers.list of import policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_IMPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#import_policies GoogleComputeRouterPeer#import_policies}
+        :param ip_address: IP address of the interface inside Google Cloud Platform. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ip_address GoogleComputeRouterPeer#ip_address}
+        :param ipv4_nexthop_address: IPv4 address of the interface inside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ipv4_nexthop_address GoogleComputeRouterPeer#ipv4_nexthop_address}
+        :param ipv6_nexthop_address: IPv6 address of the interface inside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ipv6_nexthop_address GoogleComputeRouterPeer#ipv6_nexthop_address}
+        :param md5_authentication_key: md5_authentication_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#md5_authentication_key GoogleComputeRouterPeer#md5_authentication_key}
+        :param peer_ip_address: IP address of the BGP interface outside Google Cloud Platform. Only IPv4 is supported. Required if 'ip_address' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ip_address GoogleComputeRouterPeer#peer_ip_address}
+        :param peer_ipv4_nexthop_address: IPv4 address of the BGP interface outside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ipv4_nexthop_address GoogleComputeRouterPeer#peer_ipv4_nexthop_address}
+        :param peer_ipv6_nexthop_address: IPv6 address of the BGP interface outside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ipv6_nexthop_address GoogleComputeRouterPeer#peer_ipv6_nexthop_address}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#project GoogleComputeRouterPeer#project}.
+        :param region: Region where the router and BgpPeer reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#region GoogleComputeRouterPeer#region}
+        :param router_appliance_instance: The URI of the VM instance that is used as third-party router appliances such as Next Gen Firewalls, Virtual Routers, or Router Appliances. The VM instance must be located in zones contained in the same region as this Cloud Router. The VM instance is the peer side of the BGP session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#router_appliance_instance GoogleComputeRouterPeer#router_appliance_instance}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#timeouts GoogleComputeRouterPeer#timeouts}
+        :param zero_advertised_route_priority: Force the advertised_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#zero_advertised_route_priority GoogleComputeRouterPeer#zero_advertised_route_priority}
+        :param zero_custom_learned_route_priority: Force the custom_learned_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#zero_custom_learned_route_priority GoogleComputeRouterPeer#zero_custom_learned_route_priority}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -190,7 +190,7 @@ class GoogleComputeRouterPeer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeRouterPeer to import.
-        :param import_from_id: The id of the existing GoogleComputeRouterPeer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeRouterPeer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeRouterPeer to import is found.
         '''
         if __debug__:
@@ -224,10 +224,10 @@ class GoogleComputeRouterPeer(
         multiplier: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param session_initialization_mode: The BFD session initialization mode for this BGP peer. If set to 'ACTIVE', the Cloud Router will initiate the BFD session for this BGP peer. If set to 'PASSIVE', the Cloud Router will wait for the peer router to initiate the BFD session for this BGP peer. If set to 'DISABLED', BFD is disabled for this BGP peer. Possible values: ["ACTIVE", "DISABLED", "PASSIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#session_initialization_mode GoogleComputeRouterPeer#session_initialization_mode}
-        :param min_receive_interval: The minimum interval, in milliseconds, between BFD control packets received from the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the transmit interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#min_receive_interval GoogleComputeRouterPeer#min_receive_interval}
-        :param min_transmit_interval: The minimum interval, in milliseconds, between BFD control packets transmitted to the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the corresponding receive interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#min_transmit_interval GoogleComputeRouterPeer#min_transmit_interval}
-        :param multiplier: The number of consecutive BFD packets that must be missed before BFD declares that a peer is unavailable. If set, the value must be a value between 5 and 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#multiplier GoogleComputeRouterPeer#multiplier}
+        :param session_initialization_mode: The BFD session initialization mode for this BGP peer. If set to 'ACTIVE', the Cloud Router will initiate the BFD session for this BGP peer. If set to 'PASSIVE', the Cloud Router will wait for the peer router to initiate the BFD session for this BGP peer. If set to 'DISABLED', BFD is disabled for this BGP peer. Possible values: ["ACTIVE", "DISABLED", "PASSIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#session_initialization_mode GoogleComputeRouterPeer#session_initialization_mode}
+        :param min_receive_interval: The minimum interval, in milliseconds, between BFD control packets received from the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the transmit interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#min_receive_interval GoogleComputeRouterPeer#min_receive_interval}
+        :param min_transmit_interval: The minimum interval, in milliseconds, between BFD control packets transmitted to the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the corresponding receive interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#min_transmit_interval GoogleComputeRouterPeer#min_transmit_interval}
+        :param multiplier: The number of consecutive BFD packets that must be missed before BFD declares that a peer is unavailable. If set, the value must be a value between 5 and 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#multiplier GoogleComputeRouterPeer#multiplier}
         '''
         value = GoogleComputeRouterPeerBfd(
             session_initialization_mode=session_initialization_mode,
@@ -259,8 +259,8 @@ class GoogleComputeRouterPeer(
         name: builtins.str,
     ) -> None:
         '''
-        :param key: Value of the key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#key GoogleComputeRouterPeer#key}
-        :param name: [REQUIRED] Name used to identify the key. Must be unique within a router. Must be referenced by exactly one bgpPeer. Must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
+        :param key: Value of the key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#key GoogleComputeRouterPeer#key}
+        :param name: [REQUIRED] Name used to identify the key. Must be unique within a router. Must be referenced by exactly one bgpPeer. Must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
         '''
         value = GoogleComputeRouterPeerMd5AuthenticationKey(key=key, name=name)
 
@@ -275,9 +275,9 @@ class GoogleComputeRouterPeer(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#create GoogleComputeRouterPeer#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#delete GoogleComputeRouterPeer#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#update GoogleComputeRouterPeer#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#create GoogleComputeRouterPeer#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#delete GoogleComputeRouterPeer#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#update GoogleComputeRouterPeer#update}.
         '''
         value = GoogleComputeRouterPeerTimeouts(
             create=create, delete=delete, update=update
@@ -947,8 +947,8 @@ class GoogleComputeRouterPeerAdvertisedIpRanges:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param range: The IP range to advertise. The value must be a CIDR-formatted string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
-        :param description: User-specified description for the IP range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#description GoogleComputeRouterPeer#description}
+        :param range: The IP range to advertise. The value must be a CIDR-formatted string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
+        :param description: User-specified description for the IP range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#description GoogleComputeRouterPeer#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e4ae52fb2da3952344bef415ef3cf3af7f4096deb7a6d8576390129538bd303)
@@ -964,7 +964,7 @@ class GoogleComputeRouterPeerAdvertisedIpRanges:
     def range(self) -> builtins.str:
         '''The IP range to advertise. The value must be a CIDR-formatted string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -974,7 +974,7 @@ class GoogleComputeRouterPeerAdvertisedIpRanges:
     def description(self) -> typing.Optional[builtins.str]:
         '''User-specified description for the IP range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#description GoogleComputeRouterPeer#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#description GoogleComputeRouterPeer#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1186,10 +1186,10 @@ class GoogleComputeRouterPeerBfd:
         multiplier: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param session_initialization_mode: The BFD session initialization mode for this BGP peer. If set to 'ACTIVE', the Cloud Router will initiate the BFD session for this BGP peer. If set to 'PASSIVE', the Cloud Router will wait for the peer router to initiate the BFD session for this BGP peer. If set to 'DISABLED', BFD is disabled for this BGP peer. Possible values: ["ACTIVE", "DISABLED", "PASSIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#session_initialization_mode GoogleComputeRouterPeer#session_initialization_mode}
-        :param min_receive_interval: The minimum interval, in milliseconds, between BFD control packets received from the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the transmit interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#min_receive_interval GoogleComputeRouterPeer#min_receive_interval}
-        :param min_transmit_interval: The minimum interval, in milliseconds, between BFD control packets transmitted to the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the corresponding receive interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#min_transmit_interval GoogleComputeRouterPeer#min_transmit_interval}
-        :param multiplier: The number of consecutive BFD packets that must be missed before BFD declares that a peer is unavailable. If set, the value must be a value between 5 and 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#multiplier GoogleComputeRouterPeer#multiplier}
+        :param session_initialization_mode: The BFD session initialization mode for this BGP peer. If set to 'ACTIVE', the Cloud Router will initiate the BFD session for this BGP peer. If set to 'PASSIVE', the Cloud Router will wait for the peer router to initiate the BFD session for this BGP peer. If set to 'DISABLED', BFD is disabled for this BGP peer. Possible values: ["ACTIVE", "DISABLED", "PASSIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#session_initialization_mode GoogleComputeRouterPeer#session_initialization_mode}
+        :param min_receive_interval: The minimum interval, in milliseconds, between BFD control packets received from the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the transmit interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#min_receive_interval GoogleComputeRouterPeer#min_receive_interval}
+        :param min_transmit_interval: The minimum interval, in milliseconds, between BFD control packets transmitted to the peer router. The actual value is negotiated between the two routers and is equal to the greater of this value and the corresponding receive interval of the other router. If set, this value must be between 1000 and 30000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#min_transmit_interval GoogleComputeRouterPeer#min_transmit_interval}
+        :param multiplier: The number of consecutive BFD packets that must be missed before BFD declares that a peer is unavailable. If set, the value must be a value between 5 and 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#multiplier GoogleComputeRouterPeer#multiplier}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ce67722877f1dcf11836e3977e6bfeb2ab3613d39ab7e01ddf5a18a6ac0282a)
@@ -1216,7 +1216,7 @@ class GoogleComputeRouterPeerBfd:
         for the peer router to initiate the BFD session for this BGP peer.
         If set to 'DISABLED', BFD is disabled for this BGP peer. Possible values: ["ACTIVE", "DISABLED", "PASSIVE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#session_initialization_mode GoogleComputeRouterPeer#session_initialization_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#session_initialization_mode GoogleComputeRouterPeer#session_initialization_mode}
         '''
         result = self._values.get("session_initialization_mode")
         assert result is not None, "Required property 'session_initialization_mode' is missing"
@@ -1231,7 +1231,7 @@ class GoogleComputeRouterPeerBfd:
         and the transmit interval of the other router. If set, this value
         must be between 1000 and 30000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#min_receive_interval GoogleComputeRouterPeer#min_receive_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#min_receive_interval GoogleComputeRouterPeer#min_receive_interval}
         '''
         result = self._values.get("min_receive_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1245,7 +1245,7 @@ class GoogleComputeRouterPeerBfd:
         and the corresponding receive interval of the other router. If set,
         this value must be between 1000 and 30000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#min_transmit_interval GoogleComputeRouterPeer#min_transmit_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#min_transmit_interval GoogleComputeRouterPeer#min_transmit_interval}
         '''
         result = self._values.get("min_transmit_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1257,7 +1257,7 @@ class GoogleComputeRouterPeerBfd:
         If set, the value must
         be a value between 5 and 16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#multiplier GoogleComputeRouterPeer#multiplier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#multiplier GoogleComputeRouterPeer#multiplier}
         '''
         result = self._values.get("multiplier")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1483,36 +1483,36 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param interface: Name of the interface the BGP peer is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#interface GoogleComputeRouterPeer#interface}
-        :param name: Name of this BGP peer. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
-        :param peer_asn: Peer BGP Autonomous System Number (ASN). Each BGP interface may use a different value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_asn GoogleComputeRouterPeer#peer_asn}
-        :param router: The name of the Cloud Router in which this BgpPeer will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#router GoogleComputeRouterPeer#router}
-        :param advertised_groups: User-specified list of prefix groups to advertise in custom mode, which currently supports the following option:. - 'ALL_SUBNETS': Advertises all of the router's own VPC subnets. This excludes any routes learned for subnets that use VPC Network Peering. Note that this field can only be populated if advertiseMode is 'CUSTOM' and overrides the list defined for the router (in the "bgp" message). These groups are advertised in addition to any specified prefixes. Leave this field blank to advertise no custom groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_groups GoogleComputeRouterPeer#advertised_groups}
-        :param advertised_ip_ranges: advertised_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_ip_ranges GoogleComputeRouterPeer#advertised_ip_ranges}
-        :param advertised_route_priority: The priority of routes advertised to this BGP peer. Where there is more than one matching route of maximum length, the routes with the lowest priority value win. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_route_priority GoogleComputeRouterPeer#advertised_route_priority}
-        :param advertise_mode: User-specified flag to indicate which mode to use for advertisement. Valid values of this enum field are: 'DEFAULT', 'CUSTOM' Default value: "DEFAULT" Possible values: ["DEFAULT", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertise_mode GoogleComputeRouterPeer#advertise_mode}
-        :param bfd: bfd block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#bfd GoogleComputeRouterPeer#bfd}
-        :param custom_learned_ip_ranges: custom_learned_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#custom_learned_ip_ranges GoogleComputeRouterPeer#custom_learned_ip_ranges}
-        :param custom_learned_route_priority: The user-defined custom learned route priority for a BGP session. This value is applied to all custom learned route ranges for the session. You can choose a value from 0 to 65335. If you don't provide a value, Google Cloud assigns a priority of 100 to the ranges. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#custom_learned_route_priority GoogleComputeRouterPeer#custom_learned_route_priority}
-        :param enable: The status of the BGP peer connection. If set to false, any active session with the peer is terminated and all associated routing information is removed. If set to true, the peer connection can be established with routing information. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable GoogleComputeRouterPeer#enable}
-        :param enable_ipv4: Enable IPv4 traffic over BGP Peer. It is enabled by default if the peerIpAddress is version 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable_ipv4 GoogleComputeRouterPeer#enable_ipv4}
-        :param enable_ipv6: Enable IPv6 traffic over BGP Peer. If not specified, it is disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable_ipv6 GoogleComputeRouterPeer#enable_ipv6}
-        :param export_policies: routers.list of export policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_EXPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#export_policies GoogleComputeRouterPeer#export_policies}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#id GoogleComputeRouterPeer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_policies: routers.list of import policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_IMPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#import_policies GoogleComputeRouterPeer#import_policies}
-        :param ip_address: IP address of the interface inside Google Cloud Platform. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ip_address GoogleComputeRouterPeer#ip_address}
-        :param ipv4_nexthop_address: IPv4 address of the interface inside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ipv4_nexthop_address GoogleComputeRouterPeer#ipv4_nexthop_address}
-        :param ipv6_nexthop_address: IPv6 address of the interface inside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ipv6_nexthop_address GoogleComputeRouterPeer#ipv6_nexthop_address}
-        :param md5_authentication_key: md5_authentication_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#md5_authentication_key GoogleComputeRouterPeer#md5_authentication_key}
-        :param peer_ip_address: IP address of the BGP interface outside Google Cloud Platform. Only IPv4 is supported. Required if 'ip_address' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ip_address GoogleComputeRouterPeer#peer_ip_address}
-        :param peer_ipv4_nexthop_address: IPv4 address of the BGP interface outside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ipv4_nexthop_address GoogleComputeRouterPeer#peer_ipv4_nexthop_address}
-        :param peer_ipv6_nexthop_address: IPv6 address of the BGP interface outside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ipv6_nexthop_address GoogleComputeRouterPeer#peer_ipv6_nexthop_address}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#project GoogleComputeRouterPeer#project}.
-        :param region: Region where the router and BgpPeer reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#region GoogleComputeRouterPeer#region}
-        :param router_appliance_instance: The URI of the VM instance that is used as third-party router appliances such as Next Gen Firewalls, Virtual Routers, or Router Appliances. The VM instance must be located in zones contained in the same region as this Cloud Router. The VM instance is the peer side of the BGP session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#router_appliance_instance GoogleComputeRouterPeer#router_appliance_instance}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#timeouts GoogleComputeRouterPeer#timeouts}
-        :param zero_advertised_route_priority: Force the advertised_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#zero_advertised_route_priority GoogleComputeRouterPeer#zero_advertised_route_priority}
-        :param zero_custom_learned_route_priority: Force the custom_learned_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#zero_custom_learned_route_priority GoogleComputeRouterPeer#zero_custom_learned_route_priority}
+        :param interface: Name of the interface the BGP peer is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#interface GoogleComputeRouterPeer#interface}
+        :param name: Name of this BGP peer. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
+        :param peer_asn: Peer BGP Autonomous System Number (ASN). Each BGP interface may use a different value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_asn GoogleComputeRouterPeer#peer_asn}
+        :param router: The name of the Cloud Router in which this BgpPeer will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#router GoogleComputeRouterPeer#router}
+        :param advertised_groups: User-specified list of prefix groups to advertise in custom mode, which currently supports the following option:. - 'ALL_SUBNETS': Advertises all of the router's own VPC subnets. This excludes any routes learned for subnets that use VPC Network Peering. Note that this field can only be populated if advertiseMode is 'CUSTOM' and overrides the list defined for the router (in the "bgp" message). These groups are advertised in addition to any specified prefixes. Leave this field blank to advertise no custom groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_groups GoogleComputeRouterPeer#advertised_groups}
+        :param advertised_ip_ranges: advertised_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_ip_ranges GoogleComputeRouterPeer#advertised_ip_ranges}
+        :param advertised_route_priority: The priority of routes advertised to this BGP peer. Where there is more than one matching route of maximum length, the routes with the lowest priority value win. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_route_priority GoogleComputeRouterPeer#advertised_route_priority}
+        :param advertise_mode: User-specified flag to indicate which mode to use for advertisement. Valid values of this enum field are: 'DEFAULT', 'CUSTOM' Default value: "DEFAULT" Possible values: ["DEFAULT", "CUSTOM"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertise_mode GoogleComputeRouterPeer#advertise_mode}
+        :param bfd: bfd block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#bfd GoogleComputeRouterPeer#bfd}
+        :param custom_learned_ip_ranges: custom_learned_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#custom_learned_ip_ranges GoogleComputeRouterPeer#custom_learned_ip_ranges}
+        :param custom_learned_route_priority: The user-defined custom learned route priority for a BGP session. This value is applied to all custom learned route ranges for the session. You can choose a value from 0 to 65335. If you don't provide a value, Google Cloud assigns a priority of 100 to the ranges. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#custom_learned_route_priority GoogleComputeRouterPeer#custom_learned_route_priority}
+        :param enable: The status of the BGP peer connection. If set to false, any active session with the peer is terminated and all associated routing information is removed. If set to true, the peer connection can be established with routing information. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable GoogleComputeRouterPeer#enable}
+        :param enable_ipv4: Enable IPv4 traffic over BGP Peer. It is enabled by default if the peerIpAddress is version 4. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable_ipv4 GoogleComputeRouterPeer#enable_ipv4}
+        :param enable_ipv6: Enable IPv6 traffic over BGP Peer. If not specified, it is disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable_ipv6 GoogleComputeRouterPeer#enable_ipv6}
+        :param export_policies: routers.list of export policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_EXPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#export_policies GoogleComputeRouterPeer#export_policies}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#id GoogleComputeRouterPeer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_policies: routers.list of import policies applied to this peer, in the order they must be evaluated. The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_IMPORT type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#import_policies GoogleComputeRouterPeer#import_policies}
+        :param ip_address: IP address of the interface inside Google Cloud Platform. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ip_address GoogleComputeRouterPeer#ip_address}
+        :param ipv4_nexthop_address: IPv4 address of the interface inside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ipv4_nexthop_address GoogleComputeRouterPeer#ipv4_nexthop_address}
+        :param ipv6_nexthop_address: IPv6 address of the interface inside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ipv6_nexthop_address GoogleComputeRouterPeer#ipv6_nexthop_address}
+        :param md5_authentication_key: md5_authentication_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#md5_authentication_key GoogleComputeRouterPeer#md5_authentication_key}
+        :param peer_ip_address: IP address of the BGP interface outside Google Cloud Platform. Only IPv4 is supported. Required if 'ip_address' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ip_address GoogleComputeRouterPeer#peer_ip_address}
+        :param peer_ipv4_nexthop_address: IPv4 address of the BGP interface outside Google Cloud Platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ipv4_nexthop_address GoogleComputeRouterPeer#peer_ipv4_nexthop_address}
+        :param peer_ipv6_nexthop_address: IPv6 address of the BGP interface outside Google Cloud Platform. The address must be in the range 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64. If you do not specify the next hop addresses, Google Cloud automatically assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ipv6_nexthop_address GoogleComputeRouterPeer#peer_ipv6_nexthop_address}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#project GoogleComputeRouterPeer#project}.
+        :param region: Region where the router and BgpPeer reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#region GoogleComputeRouterPeer#region}
+        :param router_appliance_instance: The URI of the VM instance that is used as third-party router appliances such as Next Gen Firewalls, Virtual Routers, or Router Appliances. The VM instance must be located in zones contained in the same region as this Cloud Router. The VM instance is the peer side of the BGP session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#router_appliance_instance GoogleComputeRouterPeer#router_appliance_instance}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#timeouts GoogleComputeRouterPeer#timeouts}
+        :param zero_advertised_route_priority: Force the advertised_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#zero_advertised_route_priority GoogleComputeRouterPeer#zero_advertised_route_priority}
+        :param zero_custom_learned_route_priority: Force the custom_learned_route_priority to be 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#zero_custom_learned_route_priority GoogleComputeRouterPeer#zero_custom_learned_route_priority}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1702,7 +1702,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def interface(self) -> builtins.str:
         '''Name of the interface the BGP peer is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#interface GoogleComputeRouterPeer#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#interface GoogleComputeRouterPeer#interface}
         '''
         result = self._values.get("interface")
         assert result is not None, "Required property 'interface' is missing"
@@ -1719,7 +1719,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         following characters must be a dash, lowercase letter, or digit,
         except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1729,7 +1729,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peer_asn(self) -> jsii.Number:
         '''Peer BGP Autonomous System Number (ASN). Each BGP interface may use a different value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_asn GoogleComputeRouterPeer#peer_asn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_asn GoogleComputeRouterPeer#peer_asn}
         '''
         result = self._values.get("peer_asn")
         assert result is not None, "Required property 'peer_asn' is missing"
@@ -1739,7 +1739,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def router(self) -> builtins.str:
         '''The name of the Cloud Router in which this BgpPeer will be configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#router GoogleComputeRouterPeer#router}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#router GoogleComputeRouterPeer#router}
         '''
         result = self._values.get("router")
         assert result is not None, "Required property 'router' is missing"
@@ -1758,7 +1758,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         These groups are advertised in addition to any specified prefixes.
         Leave this field blank to advertise no custom groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_groups GoogleComputeRouterPeer#advertised_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_groups GoogleComputeRouterPeer#advertised_groups}
         '''
         result = self._values.get("advertised_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1769,7 +1769,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleComputeRouterPeerAdvertisedIpRanges]]]:
         '''advertised_ip_ranges block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_ip_ranges GoogleComputeRouterPeer#advertised_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_ip_ranges GoogleComputeRouterPeer#advertised_ip_ranges}
         '''
         result = self._values.get("advertised_ip_ranges")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleComputeRouterPeerAdvertisedIpRanges]]], result)
@@ -1781,7 +1781,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Where there is more than one matching route of maximum
         length, the routes with the lowest priority value win.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertised_route_priority GoogleComputeRouterPeer#advertised_route_priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertised_route_priority GoogleComputeRouterPeer#advertised_route_priority}
         '''
         result = self._values.get("advertised_route_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1792,7 +1792,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values of this enum field are: 'DEFAULT', 'CUSTOM' Default value: "DEFAULT" Possible values: ["DEFAULT", "CUSTOM"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#advertise_mode GoogleComputeRouterPeer#advertise_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#advertise_mode GoogleComputeRouterPeer#advertise_mode}
         '''
         result = self._values.get("advertise_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1801,7 +1801,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bfd(self) -> typing.Optional[GoogleComputeRouterPeerBfd]:
         '''bfd block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#bfd GoogleComputeRouterPeer#bfd}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#bfd GoogleComputeRouterPeer#bfd}
         '''
         result = self._values.get("bfd")
         return typing.cast(typing.Optional[GoogleComputeRouterPeerBfd], result)
@@ -1812,7 +1812,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeRouterPeerCustomLearnedIpRanges"]]]:
         '''custom_learned_ip_ranges block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#custom_learned_ip_ranges GoogleComputeRouterPeer#custom_learned_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#custom_learned_ip_ranges GoogleComputeRouterPeer#custom_learned_ip_ranges}
         '''
         result = self._values.get("custom_learned_ip_ranges")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeRouterPeerCustomLearnedIpRanges"]]], result)
@@ -1824,7 +1824,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This value is applied to all custom learned route ranges for the session. You can choose a value
         from 0 to 65335. If you don't provide a value, Google Cloud assigns a priority of 100 to the ranges.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#custom_learned_route_priority GoogleComputeRouterPeer#custom_learned_route_priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#custom_learned_route_priority GoogleComputeRouterPeer#custom_learned_route_priority}
         '''
         result = self._values.get("custom_learned_route_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1840,7 +1840,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If set to true, the peer connection can be established with routing information.
         The default is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable GoogleComputeRouterPeer#enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable GoogleComputeRouterPeer#enable}
         '''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1851,7 +1851,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable IPv4 traffic over BGP Peer. It is enabled by default if the peerIpAddress is version 4.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable_ipv4 GoogleComputeRouterPeer#enable_ipv4}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable_ipv4 GoogleComputeRouterPeer#enable_ipv4}
         '''
         result = self._values.get("enable_ipv4")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1862,7 +1862,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable IPv6 traffic over BGP Peer. If not specified, it is disabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#enable_ipv6 GoogleComputeRouterPeer#enable_ipv6}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#enable_ipv6 GoogleComputeRouterPeer#enable_ipv6}
         '''
         result = self._values.get("enable_ipv6")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1871,14 +1871,14 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def export_policies(self) -> typing.Optional[typing.List[builtins.str]]:
         '''routers.list of export policies applied to this peer, in the order they must be evaluated.  The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_EXPORT type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#export_policies GoogleComputeRouterPeer#export_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#export_policies GoogleComputeRouterPeer#export_policies}
         '''
         result = self._values.get("export_policies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#id GoogleComputeRouterPeer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#id GoogleComputeRouterPeer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1890,7 +1890,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def import_policies(self) -> typing.Optional[typing.List[builtins.str]]:
         '''routers.list of import policies applied to this peer, in the order they must be evaluated.  The name must correspond to an existing policy that has ROUTE_POLICY_TYPE_IMPORT type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#import_policies GoogleComputeRouterPeer#import_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#import_policies GoogleComputeRouterPeer#import_policies}
         '''
         result = self._values.get("import_policies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1899,7 +1899,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip_address(self) -> typing.Optional[builtins.str]:
         '''IP address of the interface inside Google Cloud Platform. Only IPv4 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ip_address GoogleComputeRouterPeer#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ip_address GoogleComputeRouterPeer#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1908,7 +1908,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ipv4_nexthop_address(self) -> typing.Optional[builtins.str]:
         '''IPv4 address of the interface inside Google Cloud Platform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ipv4_nexthop_address GoogleComputeRouterPeer#ipv4_nexthop_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ipv4_nexthop_address GoogleComputeRouterPeer#ipv4_nexthop_address}
         '''
         result = self._values.get("ipv4_nexthop_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1921,7 +1921,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If you do not specify the next hop addresses, Google Cloud automatically
         assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#ipv6_nexthop_address GoogleComputeRouterPeer#ipv6_nexthop_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#ipv6_nexthop_address GoogleComputeRouterPeer#ipv6_nexthop_address}
         '''
         result = self._values.get("ipv6_nexthop_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1932,7 +1932,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeRouterPeerMd5AuthenticationKey"]:
         '''md5_authentication_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#md5_authentication_key GoogleComputeRouterPeer#md5_authentication_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#md5_authentication_key GoogleComputeRouterPeer#md5_authentication_key}
         '''
         result = self._values.get("md5_authentication_key")
         return typing.cast(typing.Optional["GoogleComputeRouterPeerMd5AuthenticationKey"], result)
@@ -1941,7 +1941,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peer_ip_address(self) -> typing.Optional[builtins.str]:
         '''IP address of the BGP interface outside Google Cloud Platform. Only IPv4 is supported. Required if 'ip_address' is set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ip_address GoogleComputeRouterPeer#peer_ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ip_address GoogleComputeRouterPeer#peer_ip_address}
         '''
         result = self._values.get("peer_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1950,7 +1950,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peer_ipv4_nexthop_address(self) -> typing.Optional[builtins.str]:
         '''IPv4 address of the BGP interface outside Google Cloud Platform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ipv4_nexthop_address GoogleComputeRouterPeer#peer_ipv4_nexthop_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ipv4_nexthop_address GoogleComputeRouterPeer#peer_ipv4_nexthop_address}
         '''
         result = self._values.get("peer_ipv4_nexthop_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1963,14 +1963,14 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If you do not specify the next hop addresses, Google Cloud automatically
         assigns unused addresses from the 2600:2d00:0:2::/64 or 2600:2d00:0:3::/64 range for you.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#peer_ipv6_nexthop_address GoogleComputeRouterPeer#peer_ipv6_nexthop_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#peer_ipv6_nexthop_address GoogleComputeRouterPeer#peer_ipv6_nexthop_address}
         '''
         result = self._values.get("peer_ipv6_nexthop_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#project GoogleComputeRouterPeer#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#project GoogleComputeRouterPeer#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1978,7 +1978,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where the router and BgpPeer reside. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#region GoogleComputeRouterPeer#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#region GoogleComputeRouterPeer#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1990,7 +1990,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The VM instance must be located in zones contained in the same region as
         this Cloud Router. The VM instance is the peer side of the BGP session.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#router_appliance_instance GoogleComputeRouterPeer#router_appliance_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#router_appliance_instance GoogleComputeRouterPeer#router_appliance_instance}
         '''
         result = self._values.get("router_appliance_instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1999,7 +1999,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeRouterPeerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#timeouts GoogleComputeRouterPeer#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#timeouts GoogleComputeRouterPeer#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeRouterPeerTimeouts"], result)
@@ -2010,7 +2010,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Force the advertised_route_priority to be 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#zero_advertised_route_priority GoogleComputeRouterPeer#zero_advertised_route_priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#zero_advertised_route_priority GoogleComputeRouterPeer#zero_advertised_route_priority}
         '''
         result = self._values.get("zero_advertised_route_priority")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2021,7 +2021,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Force the custom_learned_route_priority to be 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#zero_custom_learned_route_priority GoogleComputeRouterPeer#zero_custom_learned_route_priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#zero_custom_learned_route_priority GoogleComputeRouterPeer#zero_custom_learned_route_priority}
         '''
         result = self._values.get("zero_custom_learned_route_priority")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2046,7 +2046,7 @@ class GoogleComputeRouterPeerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleComputeRouterPeerCustomLearnedIpRanges:
     def __init__(self, *, range: builtins.str) -> None:
         '''
-        :param range: The IP range to learn. The value must be a CIDR-formatted string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
+        :param range: The IP range to learn. The value must be a CIDR-formatted string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b178f67976becbe18e83e2c65268e7f89486533a45f5bb61bca6bf06d1d6c88)
@@ -2059,7 +2059,7 @@ class GoogleComputeRouterPeerCustomLearnedIpRanges:
     def range(self) -> builtins.str:
         '''The IP range to learn. The value must be a CIDR-formatted string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#range GoogleComputeRouterPeer#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -2239,8 +2239,8 @@ class GoogleComputeRouterPeerCustomLearnedIpRangesOutputReference(
 class GoogleComputeRouterPeerMd5AuthenticationKey:
     def __init__(self, *, key: builtins.str, name: builtins.str) -> None:
         '''
-        :param key: Value of the key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#key GoogleComputeRouterPeer#key}
-        :param name: [REQUIRED] Name used to identify the key. Must be unique within a router. Must be referenced by exactly one bgpPeer. Must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
+        :param key: Value of the key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#key GoogleComputeRouterPeer#key}
+        :param name: [REQUIRED] Name used to identify the key. Must be unique within a router. Must be referenced by exactly one bgpPeer. Must comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e533ebacb9eee54ecbbb7cce3f5a2463893cc53c6b5585a23a3e2895bfcf657)
@@ -2255,7 +2255,7 @@ class GoogleComputeRouterPeerMd5AuthenticationKey:
     def key(self) -> builtins.str:
         '''Value of the key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#key GoogleComputeRouterPeer#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#key GoogleComputeRouterPeer#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -2267,7 +2267,7 @@ class GoogleComputeRouterPeerMd5AuthenticationKey:
 
         Must be unique within a router. Must be referenced by exactly one bgpPeer. Must comply with RFC1035.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#name GoogleComputeRouterPeer#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2371,9 +2371,9 @@ class GoogleComputeRouterPeerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#create GoogleComputeRouterPeer#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#delete GoogleComputeRouterPeer#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#update GoogleComputeRouterPeer#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#create GoogleComputeRouterPeer#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#delete GoogleComputeRouterPeer#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#update GoogleComputeRouterPeer#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d5678224788a92386c23fa06bbe6a3e8aaeca9af74e7eaffa458abdf0caefd6)
@@ -2390,19 +2390,19 @@ class GoogleComputeRouterPeerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#create GoogleComputeRouterPeer#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#create GoogleComputeRouterPeer#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#delete GoogleComputeRouterPeer#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#delete GoogleComputeRouterPeer#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_router_peer#update GoogleComputeRouterPeer#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_router_peer#update GoogleComputeRouterPeer#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

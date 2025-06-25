@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chunkr-ai
-Version: 0.0.50
+Version: 0.1.0
 Summary: Python client for Chunkr: open source document intelligence
 Author-email: Ishaan Kapoor <ishaan@lumina.sh>
 License: MIT License

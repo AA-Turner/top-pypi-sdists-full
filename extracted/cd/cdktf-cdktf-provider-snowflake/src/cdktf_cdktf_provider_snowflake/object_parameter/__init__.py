@@ -1,7 +1,7 @@
 r'''
 # `snowflake_object_parameter`
 
-Refer to the Terraform Registry for docs: [`snowflake_object_parameter`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter).
+Refer to the Terraform Registry for docs: [`snowflake_object_parameter`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ObjectParameter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.objectParameter.ObjectParameter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter snowflake_object_parameter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter snowflake_object_parameter}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ObjectParameter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter snowflake_object_parameter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter snowflake_object_parameter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key: Name of object parameter. Valid values are those in `object parameters <https://docs.snowflake.com/en/sql-reference/parameters.html#object-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#key ObjectParameter#key}
-        :param value: Value of object parameter, as a string. Constraints are the same as those for the parameters in Snowflake documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#value ObjectParameter#value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#id ObjectParameter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_identifier: object_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#object_identifier ObjectParameter#object_identifier}
-        :param object_type: Type of object to which the parameter applies. Valid values are those in `object types <https://docs.snowflake.com/en/sql-reference/parameters.html#object-types>`_. If no value is provided, then the resource will default to setting the object parameter at account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#object_type ObjectParameter#object_type}
-        :param on_account: (Default: ``false``) If true, the object parameter will be set on the account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#on_account ObjectParameter#on_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#timeouts ObjectParameter#timeouts}
+        :param key: Name of object parameter. Valid values are those in `object parameters <https://docs.snowflake.com/en/sql-reference/parameters.html#object-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#key ObjectParameter#key}
+        :param value: Value of object parameter, as a string. Constraints are the same as those for the parameters in Snowflake documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#value ObjectParameter#value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#id ObjectParameter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_identifier: object_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#object_identifier ObjectParameter#object_identifier}
+        :param object_type: Type of object to which the parameter applies. Valid values are those in `object types <https://docs.snowflake.com/en/sql-reference/parameters.html#object-types>`_. If no value is provided, then the resource will default to setting the object parameter at account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#object_type ObjectParameter#object_type}
+        :param on_account: (Default: ``false``) If true, the object parameter will be set on the account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#on_account ObjectParameter#on_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#timeouts ObjectParameter#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ObjectParameter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ObjectParameter to import.
-        :param import_from_id: The id of the existing ObjectParameter that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ObjectParameter that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ObjectParameter to import is found.
         '''
         if __debug__:
@@ -155,10 +155,10 @@ class ObjectParameter(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#create ObjectParameter#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#delete ObjectParameter#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#read ObjectParameter#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#update ObjectParameter#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#create ObjectParameter#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#delete ObjectParameter#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#read ObjectParameter#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#update ObjectParameter#update}.
         '''
         value = ObjectParameterTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -361,13 +361,13 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key: Name of object parameter. Valid values are those in `object parameters <https://docs.snowflake.com/en/sql-reference/parameters.html#object-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#key ObjectParameter#key}
-        :param value: Value of object parameter, as a string. Constraints are the same as those for the parameters in Snowflake documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#value ObjectParameter#value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#id ObjectParameter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_identifier: object_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#object_identifier ObjectParameter#object_identifier}
-        :param object_type: Type of object to which the parameter applies. Valid values are those in `object types <https://docs.snowflake.com/en/sql-reference/parameters.html#object-types>`_. If no value is provided, then the resource will default to setting the object parameter at account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#object_type ObjectParameter#object_type}
-        :param on_account: (Default: ``false``) If true, the object parameter will be set on the account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#on_account ObjectParameter#on_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#timeouts ObjectParameter#timeouts}
+        :param key: Name of object parameter. Valid values are those in `object parameters <https://docs.snowflake.com/en/sql-reference/parameters.html#object-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#key ObjectParameter#key}
+        :param value: Value of object parameter, as a string. Constraints are the same as those for the parameters in Snowflake documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#value ObjectParameter#value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#id ObjectParameter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_identifier: object_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#object_identifier ObjectParameter#object_identifier}
+        :param object_type: Type of object to which the parameter applies. Valid values are those in `object types <https://docs.snowflake.com/en/sql-reference/parameters.html#object-types>`_. If no value is provided, then the resource will default to setting the object parameter at account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#object_type ObjectParameter#object_type}
+        :param on_account: (Default: ``false``) If true, the object parameter will be set on the account level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#on_account ObjectParameter#on_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#timeouts ObjectParameter#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -486,7 +486,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key(self) -> builtins.str:
         '''Name of object parameter. Valid values are those in `object parameters <https://docs.snowflake.com/en/sql-reference/parameters.html#object-parameters>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#key ObjectParameter#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#key ObjectParameter#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -496,7 +496,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''Value of object parameter, as a string. Constraints are the same as those for the parameters in Snowflake documentation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#value ObjectParameter#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#value ObjectParameter#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -504,7 +504,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#id ObjectParameter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#id ObjectParameter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -518,7 +518,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObjectParameterObjectIdentifier"]]]:
         '''object_identifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#object_identifier ObjectParameter#object_identifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#object_identifier ObjectParameter#object_identifier}
         '''
         result = self._values.get("object_identifier")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObjectParameterObjectIdentifier"]]], result)
@@ -529,7 +529,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are those in `object types <https://docs.snowflake.com/en/sql-reference/parameters.html#object-types>`_. If no value is provided, then the resource will default to setting the object parameter at account level.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#object_type ObjectParameter#object_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#object_type ObjectParameter#object_type}
         '''
         result = self._values.get("object_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -540,7 +540,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) If true, the object parameter will be set on the account level.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#on_account ObjectParameter#on_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#on_account ObjectParameter#on_account}
         '''
         result = self._values.get("on_account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -549,7 +549,7 @@ class ObjectParameterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ObjectParameterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#timeouts ObjectParameter#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#timeouts ObjectParameter#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ObjectParameterTimeouts"], result)
@@ -580,9 +580,9 @@ class ObjectParameterObjectIdentifier:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the object to set the parameter for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#name ObjectParameter#name}
-        :param database: Name of the database that the object was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#database ObjectParameter#database}
-        :param schema: Name of the schema that the object was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#schema ObjectParameter#schema}
+        :param name: Name of the object to set the parameter for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#name ObjectParameter#name}
+        :param database: Name of the database that the object was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#database ObjectParameter#database}
+        :param schema: Name of the schema that the object was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#schema ObjectParameter#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__691919e75705c2ca74c379aed06450b8eb4c70c41f62b449cabe2eead30ad52a)
@@ -601,7 +601,7 @@ class ObjectParameterObjectIdentifier:
     def name(self) -> builtins.str:
         '''Name of the object to set the parameter for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#name ObjectParameter#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#name ObjectParameter#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -611,7 +611,7 @@ class ObjectParameterObjectIdentifier:
     def database(self) -> typing.Optional[builtins.str]:
         '''Name of the database that the object was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#database ObjectParameter#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#database ObjectParameter#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -620,7 +620,7 @@ class ObjectParameterObjectIdentifier:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Name of the schema that the object was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#schema ObjectParameter#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#schema ObjectParameter#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -853,10 +853,10 @@ class ObjectParameterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#create ObjectParameter#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#delete ObjectParameter#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#read ObjectParameter#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#update ObjectParameter#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#create ObjectParameter#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#delete ObjectParameter#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#read ObjectParameter#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#update ObjectParameter#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b144a4d27043b39124614a3710d9352f2b269b0d935109ae87a941734741b8a4)
@@ -876,25 +876,25 @@ class ObjectParameterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#create ObjectParameter#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#create ObjectParameter#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#delete ObjectParameter#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#delete ObjectParameter#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#read ObjectParameter#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#read ObjectParameter#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/object_parameter#update ObjectParameter#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/object_parameter#update ObjectParameter#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

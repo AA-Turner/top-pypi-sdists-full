@@ -1,7 +1,7 @@
 r'''
 # `google_sourcerepo_repository`
 
-Refer to the Terraform Registry for docs: [`google_sourcerepo_repository`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository).
+Refer to the Terraform Registry for docs: [`google_sourcerepo_repository`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSourcerepoRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSourcerepoRepository.GoogleSourcerepoRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository google_sourcerepo_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository google_sourcerepo_repository}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleSourcerepoRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository google_sourcerepo_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository google_sourcerepo_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Resource name of the repository, of the form '{{repo}}'. The repo name may contain slashes. eg, 'name/with/slash'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#name GoogleSourcerepoRepository#name}
-        :param create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#create_ignore_already_exists GoogleSourcerepoRepository#create_ignore_already_exists}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#id GoogleSourcerepoRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#project GoogleSourcerepoRepository#project}.
-        :param pubsub_configs: pubsub_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#pubsub_configs GoogleSourcerepoRepository#pubsub_configs}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#timeouts GoogleSourcerepoRepository#timeouts}
+        :param name: Resource name of the repository, of the form '{{repo}}'. The repo name may contain slashes. eg, 'name/with/slash'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#name GoogleSourcerepoRepository#name}
+        :param create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#create_ignore_already_exists GoogleSourcerepoRepository#create_ignore_already_exists}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#id GoogleSourcerepoRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#project GoogleSourcerepoRepository#project}.
+        :param pubsub_configs: pubsub_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#pubsub_configs GoogleSourcerepoRepository#pubsub_configs}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#timeouts GoogleSourcerepoRepository#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleSourcerepoRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSourcerepoRepository to import.
-        :param import_from_id: The id of the existing GoogleSourcerepoRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSourcerepoRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSourcerepoRepository to import is found.
         '''
         if __debug__:
@@ -151,9 +151,9 @@ class GoogleSourcerepoRepository(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#create GoogleSourcerepoRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#delete GoogleSourcerepoRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#update GoogleSourcerepoRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#create GoogleSourcerepoRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#delete GoogleSourcerepoRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#update GoogleSourcerepoRepository#update}.
         '''
         value = GoogleSourcerepoRepositoryTimeouts(
             create=create, delete=delete, update=update
@@ -349,12 +349,12 @@ class GoogleSourcerepoRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Resource name of the repository, of the form '{{repo}}'. The repo name may contain slashes. eg, 'name/with/slash'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#name GoogleSourcerepoRepository#name}
-        :param create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#create_ignore_already_exists GoogleSourcerepoRepository#create_ignore_already_exists}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#id GoogleSourcerepoRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#project GoogleSourcerepoRepository#project}.
-        :param pubsub_configs: pubsub_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#pubsub_configs GoogleSourcerepoRepository#pubsub_configs}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#timeouts GoogleSourcerepoRepository#timeouts}
+        :param name: Resource name of the repository, of the form '{{repo}}'. The repo name may contain slashes. eg, 'name/with/slash'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#name GoogleSourcerepoRepository#name}
+        :param create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#create_ignore_already_exists GoogleSourcerepoRepository#create_ignore_already_exists}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#id GoogleSourcerepoRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#project GoogleSourcerepoRepository#project}.
+        :param pubsub_configs: pubsub_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#pubsub_configs GoogleSourcerepoRepository#pubsub_configs}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#timeouts GoogleSourcerepoRepository#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -471,7 +471,7 @@ class GoogleSourcerepoRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Resource name of the repository, of the form '{{repo}}'. The repo name may contain slashes. eg, 'name/with/slash'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#name GoogleSourcerepoRepository#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#name GoogleSourcerepoRepository#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -483,14 +483,14 @@ class GoogleSourcerepoRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, skip repository creation if a repository with the same name already exists.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#create_ignore_already_exists GoogleSourcerepoRepository#create_ignore_already_exists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#create_ignore_already_exists GoogleSourcerepoRepository#create_ignore_already_exists}
         '''
         result = self._values.get("create_ignore_already_exists")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#id GoogleSourcerepoRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#id GoogleSourcerepoRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -500,7 +500,7 @@ class GoogleSourcerepoRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#project GoogleSourcerepoRepository#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#project GoogleSourcerepoRepository#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,7 +510,7 @@ class GoogleSourcerepoRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleSourcerepoRepositoryPubsubConfigs"]]]:
         '''pubsub_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#pubsub_configs GoogleSourcerepoRepository#pubsub_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#pubsub_configs GoogleSourcerepoRepository#pubsub_configs}
         '''
         result = self._values.get("pubsub_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleSourcerepoRepositoryPubsubConfigs"]]], result)
@@ -519,7 +519,7 @@ class GoogleSourcerepoRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleSourcerepoRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#timeouts GoogleSourcerepoRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#timeouts GoogleSourcerepoRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSourcerepoRepositoryTimeouts"], result)
@@ -554,9 +554,9 @@ class GoogleSourcerepoRepositoryPubsubConfigs:
         service_account_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: The format of the Cloud Pub/Sub messages. - PROTOBUF: The message payload is a serialized protocol buffer of SourceRepoEvent. - JSON: The message payload is a JSON string of SourceRepoEvent. Possible values: ["PROTOBUF", "JSON"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#message_format GoogleSourcerepoRepository#message_format}
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#topic GoogleSourcerepoRepository#topic}.
-        :param service_account_email: Email address of the service account used for publishing Cloud Pub/Sub messages. This service account needs to be in the same project as the PubsubConfig. When added, the caller needs to have iam.serviceAccounts.actAs permission on this service account. If unspecified, it defaults to the compute engine default service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#service_account_email GoogleSourcerepoRepository#service_account_email}
+        :param message_format: The format of the Cloud Pub/Sub messages. - PROTOBUF: The message payload is a serialized protocol buffer of SourceRepoEvent. - JSON: The message payload is a JSON string of SourceRepoEvent. Possible values: ["PROTOBUF", "JSON"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#message_format GoogleSourcerepoRepository#message_format}
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#topic GoogleSourcerepoRepository#topic}.
+        :param service_account_email: Email address of the service account used for publishing Cloud Pub/Sub messages. This service account needs to be in the same project as the PubsubConfig. When added, the caller needs to have iam.serviceAccounts.actAs permission on this service account. If unspecified, it defaults to the compute engine default service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#service_account_email GoogleSourcerepoRepository#service_account_email}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c679474119fa061ccadb905d90641c495d2522ed8f54c4b530aa0ee42b9b512)
@@ -577,7 +577,7 @@ class GoogleSourcerepoRepositoryPubsubConfigs:
         - PROTOBUF: The message payload is a serialized protocol buffer of SourceRepoEvent.
         - JSON: The message payload is a JSON string of SourceRepoEvent. Possible values: ["PROTOBUF", "JSON"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#message_format GoogleSourcerepoRepository#message_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#message_format GoogleSourcerepoRepository#message_format}
         '''
         result = self._values.get("message_format")
         assert result is not None, "Required property 'message_format' is missing"
@@ -585,7 +585,7 @@ class GoogleSourcerepoRepositoryPubsubConfigs:
 
     @builtins.property
     def topic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#topic GoogleSourcerepoRepository#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#topic GoogleSourcerepoRepository#topic}.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
@@ -598,7 +598,7 @@ class GoogleSourcerepoRepositoryPubsubConfigs:
         the caller needs to have iam.serviceAccounts.actAs permission on this service account.
         If unspecified, it defaults to the compute engine default service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#service_account_email GoogleSourcerepoRepository#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#service_account_email GoogleSourcerepoRepository#service_account_email}
         '''
         result = self._values.get("service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -821,9 +821,9 @@ class GoogleSourcerepoRepositoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#create GoogleSourcerepoRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#delete GoogleSourcerepoRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#update GoogleSourcerepoRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#create GoogleSourcerepoRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#delete GoogleSourcerepoRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#update GoogleSourcerepoRepository#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cc19ff7bcabad6a070ce0baca68485a85901d044bec775899c14f588f999619)
@@ -840,19 +840,19 @@ class GoogleSourcerepoRepositoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#create GoogleSourcerepoRepository#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#create GoogleSourcerepoRepository#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#delete GoogleSourcerepoRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#delete GoogleSourcerepoRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_sourcerepo_repository#update GoogleSourcerepoRepository#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_sourcerepo_repository#update GoogleSourcerepoRepository#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

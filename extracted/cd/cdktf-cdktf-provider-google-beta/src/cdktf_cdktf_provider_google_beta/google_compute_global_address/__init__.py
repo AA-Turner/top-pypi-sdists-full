@@ -1,7 +1,7 @@
 r'''
 # `google_compute_global_address`
 
-Refer to the Terraform Registry for docs: [`google_compute_global_address`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address).
+Refer to the Terraform Registry for docs: [`google_compute_global_address`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeGlobalAddress(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeGlobalAddress.GoogleComputeGlobalAddress",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address google_compute_global_address}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address google_compute_global_address}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleComputeGlobalAddress(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address google_compute_global_address} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address google_compute_global_address} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#name GoogleComputeGlobalAddress#name}
-        :param address: The IP address or beginning of the address range represented by this resource. This can be supplied as an input to reserve a specific address or omitted to allow GCP to choose a valid one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#address GoogleComputeGlobalAddress#address}
-        :param address_type: The type of the address to reserve. - EXTERNAL indicates public/external single IP address. - INTERNAL indicates internal IP ranges belonging to some network. Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#address_type GoogleComputeGlobalAddress#address_type}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#description GoogleComputeGlobalAddress#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#id GoogleComputeGlobalAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_version: The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#ip_version GoogleComputeGlobalAddress#ip_version}
-        :param labels: Labels to apply to this address. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#labels GoogleComputeGlobalAddress#labels}
-        :param network: The URL of the network in which to reserve the IP range. The IP range must be in RFC1918 space. The network cannot be deleted if there are any reserved IP ranges referring to it. This should only be set when using an Internal address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#network GoogleComputeGlobalAddress#network}
-        :param prefix_length: The prefix length of the IP range. If not present, it means the address field is a single IP address. This field is not applicable to addresses with addressType=INTERNAL when purpose=PRIVATE_SERVICE_CONNECT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#prefix_length GoogleComputeGlobalAddress#prefix_length}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#project GoogleComputeGlobalAddress#project}.
-        :param purpose: The purpose of the resource. Possible values include:. - VPC_PEERING - for peer networks - PRIVATE_SERVICE_CONNECT - for (`Beta <https://terraform.io/docs/providers/google/guides/provider_versions.html>`_ only) Private Service Connect networks Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#purpose GoogleComputeGlobalAddress#purpose}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#timeouts GoogleComputeGlobalAddress#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#name GoogleComputeGlobalAddress#name}
+        :param address: The IP address or beginning of the address range represented by this resource. This can be supplied as an input to reserve a specific address or omitted to allow GCP to choose a valid one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#address GoogleComputeGlobalAddress#address}
+        :param address_type: The type of the address to reserve. - EXTERNAL indicates public/external single IP address. - INTERNAL indicates internal IP ranges belonging to some network. Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#address_type GoogleComputeGlobalAddress#address_type}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#description GoogleComputeGlobalAddress#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#id GoogleComputeGlobalAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_version: The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#ip_version GoogleComputeGlobalAddress#ip_version}
+        :param labels: Labels to apply to this address. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#labels GoogleComputeGlobalAddress#labels}
+        :param network: The URL of the network in which to reserve the IP range. The IP range must be in RFC1918 space. The network cannot be deleted if there are any reserved IP ranges referring to it. This should only be set when using an Internal address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#network GoogleComputeGlobalAddress#network}
+        :param prefix_length: The prefix length of the IP range. If not present, it means the address field is a single IP address. This field is not applicable to addresses with addressType=INTERNAL when purpose=PRIVATE_SERVICE_CONNECT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#prefix_length GoogleComputeGlobalAddress#prefix_length}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#project GoogleComputeGlobalAddress#project}.
+        :param purpose: The purpose of the resource. Possible values include:. - VPC_PEERING - for peer networks - PRIVATE_SERVICE_CONNECT - for (`Beta <https://terraform.io/docs/providers/google/guides/provider_versions.html>`_ only) Private Service Connect networks Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#purpose GoogleComputeGlobalAddress#purpose}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#timeouts GoogleComputeGlobalAddress#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleComputeGlobalAddress(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeGlobalAddress to import.
-        :param import_from_id: The id of the existing GoogleComputeGlobalAddress that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeGlobalAddress that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeGlobalAddress to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class GoogleComputeGlobalAddress(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#create GoogleComputeGlobalAddress#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#delete GoogleComputeGlobalAddress#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#update GoogleComputeGlobalAddress#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#create GoogleComputeGlobalAddress#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#delete GoogleComputeGlobalAddress#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#update GoogleComputeGlobalAddress#update}.
         '''
         value = GoogleComputeGlobalAddressTimeouts(
             create=create, delete=delete, update=update
@@ -507,18 +507,18 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#name GoogleComputeGlobalAddress#name}
-        :param address: The IP address or beginning of the address range represented by this resource. This can be supplied as an input to reserve a specific address or omitted to allow GCP to choose a valid one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#address GoogleComputeGlobalAddress#address}
-        :param address_type: The type of the address to reserve. - EXTERNAL indicates public/external single IP address. - INTERNAL indicates internal IP ranges belonging to some network. Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#address_type GoogleComputeGlobalAddress#address_type}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#description GoogleComputeGlobalAddress#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#id GoogleComputeGlobalAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_version: The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#ip_version GoogleComputeGlobalAddress#ip_version}
-        :param labels: Labels to apply to this address. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#labels GoogleComputeGlobalAddress#labels}
-        :param network: The URL of the network in which to reserve the IP range. The IP range must be in RFC1918 space. The network cannot be deleted if there are any reserved IP ranges referring to it. This should only be set when using an Internal address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#network GoogleComputeGlobalAddress#network}
-        :param prefix_length: The prefix length of the IP range. If not present, it means the address field is a single IP address. This field is not applicable to addresses with addressType=INTERNAL when purpose=PRIVATE_SERVICE_CONNECT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#prefix_length GoogleComputeGlobalAddress#prefix_length}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#project GoogleComputeGlobalAddress#project}.
-        :param purpose: The purpose of the resource. Possible values include:. - VPC_PEERING - for peer networks - PRIVATE_SERVICE_CONNECT - for (`Beta <https://terraform.io/docs/providers/google/guides/provider_versions.html>`_ only) Private Service Connect networks Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#purpose GoogleComputeGlobalAddress#purpose}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#timeouts GoogleComputeGlobalAddress#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#name GoogleComputeGlobalAddress#name}
+        :param address: The IP address or beginning of the address range represented by this resource. This can be supplied as an input to reserve a specific address or omitted to allow GCP to choose a valid one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#address GoogleComputeGlobalAddress#address}
+        :param address_type: The type of the address to reserve. - EXTERNAL indicates public/external single IP address. - INTERNAL indicates internal IP ranges belonging to some network. Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#address_type GoogleComputeGlobalAddress#address_type}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#description GoogleComputeGlobalAddress#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#id GoogleComputeGlobalAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_version: The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#ip_version GoogleComputeGlobalAddress#ip_version}
+        :param labels: Labels to apply to this address. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#labels GoogleComputeGlobalAddress#labels}
+        :param network: The URL of the network in which to reserve the IP range. The IP range must be in RFC1918 space. The network cannot be deleted if there are any reserved IP ranges referring to it. This should only be set when using an Internal address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#network GoogleComputeGlobalAddress#network}
+        :param prefix_length: The prefix length of the IP range. If not present, it means the address field is a single IP address. This field is not applicable to addresses with addressType=INTERNAL when purpose=PRIVATE_SERVICE_CONNECT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#prefix_length GoogleComputeGlobalAddress#prefix_length}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#project GoogleComputeGlobalAddress#project}.
+        :param purpose: The purpose of the resource. Possible values include:. - VPC_PEERING - for peer networks - PRIVATE_SERVICE_CONNECT - for (`Beta <https://terraform.io/docs/providers/google/guides/provider_versions.html>`_ only) Private Service Connect networks Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#purpose GoogleComputeGlobalAddress#purpose}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#timeouts GoogleComputeGlobalAddress#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -661,7 +661,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#name GoogleComputeGlobalAddress#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#name GoogleComputeGlobalAddress#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -674,7 +674,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This can be supplied as an input to reserve a specific
         address or omitted to allow GCP to choose a valid one for you.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#address GoogleComputeGlobalAddress#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#address GoogleComputeGlobalAddress#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -686,7 +686,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - EXTERNAL indicates public/external single IP address.
         - INTERNAL indicates internal IP ranges belonging to some network. Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#address_type GoogleComputeGlobalAddress#address_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#address_type GoogleComputeGlobalAddress#address_type}
         '''
         result = self._values.get("address_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -695,14 +695,14 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#description GoogleComputeGlobalAddress#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#description GoogleComputeGlobalAddress#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#id GoogleComputeGlobalAddress#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#id GoogleComputeGlobalAddress#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -714,7 +714,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip_version(self) -> typing.Optional[builtins.str]:
         '''The IP Version that will be used by this address. The default value is 'IPV4'. Possible values: ["IPV4", "IPV6"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#ip_version GoogleComputeGlobalAddress#ip_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#ip_version GoogleComputeGlobalAddress#ip_version}
         '''
         result = self._values.get("ip_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -726,7 +726,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#labels GoogleComputeGlobalAddress#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#labels GoogleComputeGlobalAddress#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -741,7 +741,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This should only be set when using an Internal address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#network GoogleComputeGlobalAddress#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#network GoogleComputeGlobalAddress#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -753,14 +753,14 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This field is not applicable to addresses with addressType=INTERNAL
         when purpose=PRIVATE_SERVICE_CONNECT
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#prefix_length GoogleComputeGlobalAddress#prefix_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#prefix_length GoogleComputeGlobalAddress#prefix_length}
         '''
         result = self._values.get("prefix_length")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#project GoogleComputeGlobalAddress#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#project GoogleComputeGlobalAddress#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -771,7 +771,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - VPC_PEERING - for peer networks
         - PRIVATE_SERVICE_CONNECT - for (`Beta <https://terraform.io/docs/providers/google/guides/provider_versions.html>`_ only) Private Service Connect networks
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#purpose GoogleComputeGlobalAddress#purpose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#purpose GoogleComputeGlobalAddress#purpose}
         '''
         result = self._values.get("purpose")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -780,7 +780,7 @@ class GoogleComputeGlobalAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeGlobalAddressTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#timeouts GoogleComputeGlobalAddress#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#timeouts GoogleComputeGlobalAddress#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeGlobalAddressTimeouts"], result)
@@ -811,9 +811,9 @@ class GoogleComputeGlobalAddressTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#create GoogleComputeGlobalAddress#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#delete GoogleComputeGlobalAddress#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#update GoogleComputeGlobalAddress#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#create GoogleComputeGlobalAddress#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#delete GoogleComputeGlobalAddress#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#update GoogleComputeGlobalAddress#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3040954a82ad7e4b89deb17e1b480092da16d8e100d1db6ca0c7cb59778718f5)
@@ -830,19 +830,19 @@ class GoogleComputeGlobalAddressTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#create GoogleComputeGlobalAddress#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#create GoogleComputeGlobalAddress#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#delete GoogleComputeGlobalAddress#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#delete GoogleComputeGlobalAddress#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_global_address#update GoogleComputeGlobalAddress#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_global_address#update GoogleComputeGlobalAddress#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

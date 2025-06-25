@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google_beta",
-    "version": "16.2.0",
+    "version": "16.3.0",
     "description": "Prebuilt google-beta Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-googlebeta.git",
@@ -490,6 +490,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_apihub_api_hub_instance",
         "cdktf_cdktf_provider_google_beta.google_apihub_curation",
         "cdktf_cdktf_provider_google_beta.google_apihub_host_project_registration",
+        "cdktf_cdktf_provider_google_beta.google_apihub_plugin_instance",
         "cdktf_cdktf_provider_google_beta.google_apikeys_key",
         "cdktf_cdktf_provider_google_beta.google_app_engine_application",
         "cdktf_cdktf_provider_google_beta.google_app_engine_application_url_dispatch_rules",
@@ -839,6 +840,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_compute_url_map",
         "cdktf_cdktf_provider_google_beta.google_compute_vpn_gateway",
         "cdktf_cdktf_provider_google_beta.google_compute_vpn_tunnel",
+        "cdktf_cdktf_provider_google_beta.google_contact_center_insights_view",
         "cdktf_cdktf_provider_google_beta.google_container_analysis_note",
         "cdktf_cdktf_provider_google_beta.google_container_analysis_note_iam_binding",
         "cdktf_cdktf_provider_google_beta.google_container_analysis_note_iam_member",
@@ -961,6 +963,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_dataproc_metastore_table_iam_binding",
         "cdktf_cdktf_provider_google_beta.google_dataproc_metastore_table_iam_member",
         "cdktf_cdktf_provider_google_beta.google_dataproc_metastore_table_iam_policy",
+        "cdktf_cdktf_provider_google_beta.google_dataproc_session_template",
         "cdktf_cdktf_provider_google_beta.google_dataproc_workflow_template",
         "cdktf_cdktf_provider_google_beta.google_datastream_connection_profile",
         "cdktf_cdktf_provider_google_beta.google_datastream_private_connection",
@@ -981,6 +984,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_tool",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_version",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_webhook",
+        "cdktf_cdktf_provider_google_beta.google_dialogflow_encryption_spec",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_entity_type",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_fulfillment",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_intent",
@@ -1606,7 +1610,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google_beta._jsii": [
-            "provider-google-beta@16.2.0.jsii.tgz"
+            "provider-google-beta@16.3.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google_beta": [
             "py.typed"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.17.3
+Version: 0.17.4
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -30,7 +30,7 @@ Requires-Python: <4,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fpdf2
-Requires-Dist: grpcio<1.73,>=1.50.0
+Requires-Dist: grpcio<1.74,>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil
 Requires-Dist: pyedb>=0.4.0; python_version == "3.7"

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.40.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.41.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.40.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.41.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -186,6 +186,7 @@ __all__ = [
     "apihub_api_hub_instance",
     "apihub_curation",
     "apihub_host_project_registration",
+    "apihub_plugin_instance",
     "apikeys_key",
     "app_engine_application",
     "app_engine_application_url_dispatch_rules",
@@ -511,6 +512,7 @@ __all__ = [
     "compute_url_map",
     "compute_vpn_gateway",
     "compute_vpn_tunnel",
+    "contact_center_insights_view",
     "container_analysis_note",
     "container_analysis_note_iam_binding",
     "container_analysis_note_iam_member",
@@ -984,6 +986,7 @@ __all__ = [
     "dataproc_metastore_table_iam_binding",
     "dataproc_metastore_table_iam_member",
     "dataproc_metastore_table_iam_policy",
+    "dataproc_session_template",
     "dataproc_workflow_template",
     "datastream_connection_profile",
     "datastream_private_connection",
@@ -1004,6 +1007,7 @@ __all__ = [
     "dialogflow_cx_tool",
     "dialogflow_cx_version",
     "dialogflow_cx_webhook",
+    "dialogflow_encryption_spec",
     "dialogflow_entity_type",
     "dialogflow_fulfillment",
     "dialogflow_intent",
@@ -1615,6 +1619,7 @@ from . import apigee_target_server
 from . import apihub_api_hub_instance
 from . import apihub_curation
 from . import apihub_host_project_registration
+from . import apihub_plugin_instance
 from . import apikeys_key
 from . import app_engine_application
 from . import app_engine_application_url_dispatch_rules
@@ -1940,6 +1945,7 @@ from . import compute_target_tcp_proxy
 from . import compute_url_map
 from . import compute_vpn_gateway
 from . import compute_vpn_tunnel
+from . import contact_center_insights_view
 from . import container_analysis_note
 from . import container_analysis_note_iam_binding
 from . import container_analysis_note_iam_member
@@ -2413,6 +2419,7 @@ from . import dataproc_metastore_service_iam_policy
 from . import dataproc_metastore_table_iam_binding
 from . import dataproc_metastore_table_iam_member
 from . import dataproc_metastore_table_iam_policy
+from . import dataproc_session_template
 from . import dataproc_workflow_template
 from . import datastream_connection_profile
 from . import datastream_private_connection
@@ -2433,6 +2440,7 @@ from . import dialogflow_cx_test_case
 from . import dialogflow_cx_tool
 from . import dialogflow_cx_version
 from . import dialogflow_cx_webhook
+from . import dialogflow_encryption_spec
 from . import dialogflow_entity_type
 from . import dialogflow_fulfillment
 from . import dialogflow_intent

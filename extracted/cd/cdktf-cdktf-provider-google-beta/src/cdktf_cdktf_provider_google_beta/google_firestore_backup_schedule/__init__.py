@@ -1,7 +1,7 @@
 r'''
 # `google_firestore_backup_schedule`
 
-Refer to the Terraform Registry for docs: [`google_firestore_backup_schedule`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule).
+Refer to the Terraform Registry for docs: [`google_firestore_backup_schedule`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFirestoreBackupSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFirestoreBackupSchedule.GoogleFirestoreBackupSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule google_firestore_backup_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule google_firestore_backup_schedule}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleFirestoreBackupSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule google_firestore_backup_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule google_firestore_backup_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param retention: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". You can set this to a value up to 14 weeks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#retention GoogleFirestoreBackupSchedule#retention}
-        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#daily_recurrence GoogleFirestoreBackupSchedule#daily_recurrence}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#database GoogleFirestoreBackupSchedule#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#id GoogleFirestoreBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#project GoogleFirestoreBackupSchedule#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#timeouts GoogleFirestoreBackupSchedule#timeouts}
-        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#weekly_recurrence GoogleFirestoreBackupSchedule#weekly_recurrence}
+        :param retention: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". You can set this to a value up to 14 weeks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#retention GoogleFirestoreBackupSchedule#retention}
+        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#daily_recurrence GoogleFirestoreBackupSchedule#daily_recurrence}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#database GoogleFirestoreBackupSchedule#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#id GoogleFirestoreBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#project GoogleFirestoreBackupSchedule#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#timeouts GoogleFirestoreBackupSchedule#timeouts}
+        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#weekly_recurrence GoogleFirestoreBackupSchedule#weekly_recurrence}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleFirestoreBackupSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFirestoreBackupSchedule to import.
-        :param import_from_id: The id of the existing GoogleFirestoreBackupSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFirestoreBackupSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFirestoreBackupSchedule to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class GoogleFirestoreBackupSchedule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#create GoogleFirestoreBackupSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#delete GoogleFirestoreBackupSchedule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#update GoogleFirestoreBackupSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#create GoogleFirestoreBackupSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#delete GoogleFirestoreBackupSchedule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#update GoogleFirestoreBackupSchedule#update}.
         '''
         value = GoogleFirestoreBackupScheduleTimeouts(
             create=create, delete=delete, update=update
@@ -164,7 +164,7 @@ class GoogleFirestoreBackupSchedule(
         day: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param day: The day of week to run. Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#day GoogleFirestoreBackupSchedule#day}
+        :param day: The day of week to run. Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#day GoogleFirestoreBackupSchedule#day}
         '''
         value = GoogleFirestoreBackupScheduleWeeklyRecurrence(day=day)
 
@@ -368,13 +368,13 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param retention: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". You can set this to a value up to 14 weeks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#retention GoogleFirestoreBackupSchedule#retention}
-        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#daily_recurrence GoogleFirestoreBackupSchedule#daily_recurrence}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#database GoogleFirestoreBackupSchedule#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#id GoogleFirestoreBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#project GoogleFirestoreBackupSchedule#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#timeouts GoogleFirestoreBackupSchedule#timeouts}
-        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#weekly_recurrence GoogleFirestoreBackupSchedule#weekly_recurrence}
+        :param retention: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". You can set this to a value up to 14 weeks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#retention GoogleFirestoreBackupSchedule#retention}
+        :param daily_recurrence: daily_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#daily_recurrence GoogleFirestoreBackupSchedule#daily_recurrence}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#database GoogleFirestoreBackupSchedule#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#id GoogleFirestoreBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#project GoogleFirestoreBackupSchedule#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#timeouts GoogleFirestoreBackupSchedule#timeouts}
+        :param weekly_recurrence: weekly_recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#weekly_recurrence GoogleFirestoreBackupSchedule#weekly_recurrence}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -500,7 +500,7 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         You can set this to a value up to 14 weeks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#retention GoogleFirestoreBackupSchedule#retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#retention GoogleFirestoreBackupSchedule#retention}
         '''
         result = self._values.get("retention")
         assert result is not None, "Required property 'retention' is missing"
@@ -512,7 +512,7 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["GoogleFirestoreBackupScheduleDailyRecurrence"]:
         '''daily_recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#daily_recurrence GoogleFirestoreBackupSchedule#daily_recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#daily_recurrence GoogleFirestoreBackupSchedule#daily_recurrence}
         '''
         result = self._values.get("daily_recurrence")
         return typing.cast(typing.Optional["GoogleFirestoreBackupScheduleDailyRecurrence"], result)
@@ -521,14 +521,14 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def database(self) -> typing.Optional[builtins.str]:
         '''The Firestore database id. Defaults to '"(default)"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#database GoogleFirestoreBackupSchedule#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#database GoogleFirestoreBackupSchedule#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#id GoogleFirestoreBackupSchedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#id GoogleFirestoreBackupSchedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -538,7 +538,7 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#project GoogleFirestoreBackupSchedule#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#project GoogleFirestoreBackupSchedule#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -546,7 +546,7 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["GoogleFirestoreBackupScheduleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#timeouts GoogleFirestoreBackupSchedule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#timeouts GoogleFirestoreBackupSchedule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFirestoreBackupScheduleTimeouts"], result)
@@ -557,7 +557,7 @@ class GoogleFirestoreBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["GoogleFirestoreBackupScheduleWeeklyRecurrence"]:
         '''weekly_recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#weekly_recurrence GoogleFirestoreBackupSchedule#weekly_recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#weekly_recurrence GoogleFirestoreBackupSchedule#weekly_recurrence}
         '''
         result = self._values.get("weekly_recurrence")
         return typing.cast(typing.Optional["GoogleFirestoreBackupScheduleWeeklyRecurrence"], result)
@@ -647,9 +647,9 @@ class GoogleFirestoreBackupScheduleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#create GoogleFirestoreBackupSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#delete GoogleFirestoreBackupSchedule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#update GoogleFirestoreBackupSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#create GoogleFirestoreBackupSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#delete GoogleFirestoreBackupSchedule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#update GoogleFirestoreBackupSchedule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27580da51583e625160c59d84f48d83a27bd3cb4db2260b408158a5ac8b2b5ee)
@@ -666,19 +666,19 @@ class GoogleFirestoreBackupScheduleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#create GoogleFirestoreBackupSchedule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#create GoogleFirestoreBackupSchedule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#delete GoogleFirestoreBackupSchedule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#delete GoogleFirestoreBackupSchedule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#update GoogleFirestoreBackupSchedule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#update GoogleFirestoreBackupSchedule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -803,7 +803,7 @@ class GoogleFirestoreBackupScheduleTimeoutsOutputReference(
 class GoogleFirestoreBackupScheduleWeeklyRecurrence:
     def __init__(self, *, day: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param day: The day of week to run. Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#day GoogleFirestoreBackupSchedule#day}
+        :param day: The day of week to run. Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#day GoogleFirestoreBackupSchedule#day}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99def208edc99d46547de03c7c0162512df7f3985fccecb35627e8cebd3660bd)
@@ -816,7 +816,7 @@ class GoogleFirestoreBackupScheduleWeeklyRecurrence:
     def day(self) -> typing.Optional[builtins.str]:
         '''The day of week to run. Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_backup_schedule#day GoogleFirestoreBackupSchedule#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_backup_schedule#day GoogleFirestoreBackupSchedule#day}
         '''
         result = self._values.get("day")
         return typing.cast(typing.Optional[builtins.str], result)

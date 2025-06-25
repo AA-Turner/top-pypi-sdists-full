@@ -1,7 +1,7 @@
 r'''
 # `google_gke_hub_namespace`
 
-Refer to the Terraform Registry for docs: [`google_gke_hub_namespace`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace).
+Refer to the Terraform Registry for docs: [`google_gke_hub_namespace`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleGkeHubNamespace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleGkeHubNamespace.GoogleGkeHubNamespace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace google_gke_hub_namespace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace google_gke_hub_namespace}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleGkeHubNamespace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace google_gke_hub_namespace} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace google_gke_hub_namespace} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param scope: The name of the Scope instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope GoogleGkeHubNamespace#scope}
-        :param scope_id: Id of the scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope_id GoogleGkeHubNamespace#scope_id}
-        :param scope_namespace_id: The client-provided identifier of the namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope_namespace_id GoogleGkeHubNamespace#scope_namespace_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#id GoogleGkeHubNamespace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels for this Namespace. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#labels GoogleGkeHubNamespace#labels}
-        :param namespace_labels: Namespace-level cluster namespace labels. These labels are applied to the related namespace of the member clusters bound to the parent Scope. Scope-level labels ('namespace_labels' in the Fleet Scope resource) take precedence over Namespace-level labels if they share a key. Keys and values must be Kubernetes-conformant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#namespace_labels GoogleGkeHubNamespace#namespace_labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#project GoogleGkeHubNamespace#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#timeouts GoogleGkeHubNamespace#timeouts}
+        :param scope: The name of the Scope instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope GoogleGkeHubNamespace#scope}
+        :param scope_id: Id of the scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope_id GoogleGkeHubNamespace#scope_id}
+        :param scope_namespace_id: The client-provided identifier of the namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope_namespace_id GoogleGkeHubNamespace#scope_namespace_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#id GoogleGkeHubNamespace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels for this Namespace. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#labels GoogleGkeHubNamespace#labels}
+        :param namespace_labels: Namespace-level cluster namespace labels. These labels are applied to the related namespace of the member clusters bound to the parent Scope. Scope-level labels ('namespace_labels' in the Fleet Scope resource) take precedence over Namespace-level labels if they share a key. Keys and values must be Kubernetes-conformant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#namespace_labels GoogleGkeHubNamespace#namespace_labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#project GoogleGkeHubNamespace#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#timeouts GoogleGkeHubNamespace#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleGkeHubNamespace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleGkeHubNamespace to import.
-        :param import_from_id: The id of the existing GoogleGkeHubNamespace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleGkeHubNamespace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleGkeHubNamespace to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GoogleGkeHubNamespace(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#create GoogleGkeHubNamespace#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#delete GoogleGkeHubNamespace#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#update GoogleGkeHubNamespace#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#create GoogleGkeHubNamespace#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#delete GoogleGkeHubNamespace#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#update GoogleGkeHubNamespace#update}.
         '''
         value = GoogleGkeHubNamespaceTimeouts(
             create=create, delete=delete, update=update
@@ -415,14 +415,14 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param scope: The name of the Scope instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope GoogleGkeHubNamespace#scope}
-        :param scope_id: Id of the scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope_id GoogleGkeHubNamespace#scope_id}
-        :param scope_namespace_id: The client-provided identifier of the namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope_namespace_id GoogleGkeHubNamespace#scope_namespace_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#id GoogleGkeHubNamespace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels for this Namespace. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#labels GoogleGkeHubNamespace#labels}
-        :param namespace_labels: Namespace-level cluster namespace labels. These labels are applied to the related namespace of the member clusters bound to the parent Scope. Scope-level labels ('namespace_labels' in the Fleet Scope resource) take precedence over Namespace-level labels if they share a key. Keys and values must be Kubernetes-conformant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#namespace_labels GoogleGkeHubNamespace#namespace_labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#project GoogleGkeHubNamespace#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#timeouts GoogleGkeHubNamespace#timeouts}
+        :param scope: The name of the Scope instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope GoogleGkeHubNamespace#scope}
+        :param scope_id: Id of the scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope_id GoogleGkeHubNamespace#scope_id}
+        :param scope_namespace_id: The client-provided identifier of the namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope_namespace_id GoogleGkeHubNamespace#scope_namespace_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#id GoogleGkeHubNamespace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels for this Namespace. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#labels GoogleGkeHubNamespace#labels}
+        :param namespace_labels: Namespace-level cluster namespace labels. These labels are applied to the related namespace of the member clusters bound to the parent Scope. Scope-level labels ('namespace_labels' in the Fleet Scope resource) take precedence over Namespace-level labels if they share a key. Keys and values must be Kubernetes-conformant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#namespace_labels GoogleGkeHubNamespace#namespace_labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#project GoogleGkeHubNamespace#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#timeouts GoogleGkeHubNamespace#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -543,7 +543,7 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope(self) -> builtins.str:
         '''The name of the Scope instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope GoogleGkeHubNamespace#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope GoogleGkeHubNamespace#scope}
         '''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
@@ -553,7 +553,7 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope_id(self) -> builtins.str:
         '''Id of the scope.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope_id GoogleGkeHubNamespace#scope_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope_id GoogleGkeHubNamespace#scope_id}
         '''
         result = self._values.get("scope_id")
         assert result is not None, "Required property 'scope_id' is missing"
@@ -563,7 +563,7 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope_namespace_id(self) -> builtins.str:
         '''The client-provided identifier of the namespace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#scope_namespace_id GoogleGkeHubNamespace#scope_namespace_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#scope_namespace_id GoogleGkeHubNamespace#scope_namespace_id}
         '''
         result = self._values.get("scope_namespace_id")
         assert result is not None, "Required property 'scope_namespace_id' is missing"
@@ -571,7 +571,7 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#id GoogleGkeHubNamespace#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#id GoogleGkeHubNamespace#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -586,7 +586,7 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#labels GoogleGkeHubNamespace#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#labels GoogleGkeHubNamespace#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -603,14 +603,14 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         resource) take precedence over Namespace-level labels if they share
         a key. Keys and values must be Kubernetes-conformant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#namespace_labels GoogleGkeHubNamespace#namespace_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#namespace_labels GoogleGkeHubNamespace#namespace_labels}
         '''
         result = self._values.get("namespace_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#project GoogleGkeHubNamespace#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#project GoogleGkeHubNamespace#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -618,7 +618,7 @@ class GoogleGkeHubNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleGkeHubNamespaceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#timeouts GoogleGkeHubNamespace#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#timeouts GoogleGkeHubNamespace#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleGkeHubNamespaceTimeouts"], result)
@@ -790,9 +790,9 @@ class GoogleGkeHubNamespaceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#create GoogleGkeHubNamespace#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#delete GoogleGkeHubNamespace#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#update GoogleGkeHubNamespace#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#create GoogleGkeHubNamespace#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#delete GoogleGkeHubNamespace#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#update GoogleGkeHubNamespace#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d04fe33a059fe04359791822f8b2c8e475c6b9cec128883a26991f4b5342a09)
@@ -809,19 +809,19 @@ class GoogleGkeHubNamespaceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#create GoogleGkeHubNamespace#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#create GoogleGkeHubNamespace#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#delete GoogleGkeHubNamespace#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#delete GoogleGkeHubNamespace#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_namespace#update GoogleGkeHubNamespace#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_namespace#update GoogleGkeHubNamespace#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

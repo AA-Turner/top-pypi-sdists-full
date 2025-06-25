@@ -41,6 +41,7 @@ from .literals import (
     PlatformCapabilityType,
     ResourceTypeType,
     RetryActionType,
+    UserdataTypeType,
 )
 
 if sys.version_info >= (3, 9):
@@ -614,6 +615,7 @@ class LaunchTemplateSpecificationOverrideOutputTypeDef(TypedDict):
     launchTemplateName: NotRequired[str]
     version: NotRequired[str]
     targetInstanceTypes: NotRequired[List[str]]
+    userdataType: NotRequired[UserdataTypeType]
 
 
 class LaunchTemplateSpecificationOverrideTypeDef(TypedDict):
@@ -621,6 +623,7 @@ class LaunchTemplateSpecificationOverrideTypeDef(TypedDict):
     launchTemplateName: NotRequired[str]
     version: NotRequired[str]
     targetInstanceTypes: NotRequired[Sequence[str]]
+    userdataType: NotRequired[UserdataTypeType]
 
 
 class TmpfsOutputTypeDef(TypedDict):
@@ -1025,6 +1028,7 @@ class LaunchTemplateSpecificationOutputTypeDef(TypedDict):
     launchTemplateName: NotRequired[str]
     version: NotRequired[str]
     overrides: NotRequired[List[LaunchTemplateSpecificationOverrideOutputTypeDef]]
+    userdataType: NotRequired[UserdataTypeType]
 
 
 LaunchTemplateSpecificationOverrideUnionTypeDef = Union[
@@ -1197,6 +1201,7 @@ class LaunchTemplateSpecificationTypeDef(TypedDict):
     launchTemplateName: NotRequired[str]
     version: NotRequired[str]
     overrides: NotRequired[Sequence[LaunchTemplateSpecificationOverrideUnionTypeDef]]
+    userdataType: NotRequired[UserdataTypeType]
 
 
 class TaskContainerDetailsTypeDef(TypedDict):

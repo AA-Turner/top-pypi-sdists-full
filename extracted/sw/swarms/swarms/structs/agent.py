@@ -72,8 +72,10 @@ from swarms.prompts.max_loop_prompt import generate_reasoning_prompt
 from swarms.prompts.safety_prompt import SAFETY_PROMPT
 from swarms.structs.ma_utils import set_random_models_for_agents
 from swarms.tools.mcp_client_call import (
+    execute_multiple_tools_on_multiple_mcp_servers_sync,
     execute_tool_call_simple,
     get_mcp_tools_sync,
+    get_tools_for_multiple_mcp_servers,
 )
 from swarms.schemas.mcp_schemas import (
     MCPConnection,
@@ -81,7 +83,6 @@ from swarms.schemas.mcp_schemas import (
 from swarms.utils.index import (
     exists,
     format_data_structure,
-    format_dict_to_string,
 )
 from swarms.schemas.conversation_schema import ConversationSchema
 from swarms.utils.output_types import OutputType
@@ -417,7 +418,8 @@ class Agent:
         llm_base_url: Optional[str] = None,
         llm_api_key: Optional[str] = None,
         rag_config: Optional[RAGConfig] = None,
-        tool_call_summary: bool = False,
+        tool_call_summary: bool = True,
+        output_raw_json_from_tool_call: bool = False,
         *args,
         **kwargs,
     ):
@@ -446,7 +448,10 @@ class Agent:
         self.system_prompt = system_prompt
         self.agent_name = agent_name
         self.agent_description = agent_description
-        self.saved_state_path = f"{self.agent_name}_{generate_api_key(prefix='agent-')}_state.json"
+        # self.saved_state_path = f"{self.agent_name}_{generate_api_key(prefix='agent-')}_state.json"
+        self.saved_state_path = (
+            f"{generate_api_key(prefix='agent-')}_state.json"
+        )
         self.autosave = autosave
         self.response_filters = []
         self.self_healing_enabled = self_healing_enabled
@@ -550,6 +555,9 @@ class Agent:
         self.llm_api_key = llm_api_key
         self.rag_config = rag_config
         self.tool_call_summary = tool_call_summary
+        self.output_raw_json_from_tool_call = (
+            output_raw_json_from_tool_call
+        )
 
         # self.short_memory = self.short_memory_init()
 
@@ -623,7 +631,7 @@ class Agent:
 
         self.short_memory.add(
             role=f"{self.agent_name}",
-            content=f"Tools available: {format_data_structure(self.tools_list_dictionary)}",
+            content=self.tools_list_dictionary,
         )
 
     def short_memory_init(self):
@@ -692,6 +700,10 @@ class Agent:
 
         if exists(self.tools) and len(self.tools) >= 2:
             parallel_tool_calls = True
+        elif exists(self.mcp_url) or exists(self.mcp_urls):
+            parallel_tool_calls = True
+        elif exists(self.mcp_config):
+            parallel_tool_calls = True
         else:
             parallel_tool_calls = False
 
@@ -714,7 +726,7 @@ class Agent:
                     parallel_tool_calls=parallel_tool_calls,
                 )
 
-            elif self.mcp_url is not None:
+            elif exists(self.mcp_url) or exists(self.mcp_urls):
                 self.llm = LiteLLM(
                     **common_args,
                     tools_list_dictionary=self.add_mcp_tools_to_memory(),
@@ -752,15 +764,27 @@ class Agent:
                 tools = get_mcp_tools_sync(server_path=self.mcp_url)
             elif exists(self.mcp_config):
                 tools = get_mcp_tools_sync(connection=self.mcp_config)
-                logger.info(f"Tools: {tools}")
+                # logger.info(f"Tools: {tools}")
+            elif exists(self.mcp_urls):
+                tools = get_tools_for_multiple_mcp_servers(
+                    urls=self.mcp_urls,
+                    output_type="str",
+                )
+                # print(f"Tools: {tools} for {self.mcp_urls}")
             else:
                 raise AgentMCPConnectionError(
                     "mcp_url must be either a string URL or MCPConnection object"
                 )
-            self.pretty_print(
-                f"✨ [SYSTEM] Successfully integrated {len(tools)} MCP tools into agent: {self.agent_name} | Status: ONLINE | Time: {time.strftime('%H:%M:%S')} ✨",
-                loop_count=0,
-            )
+
+            if (
+                exists(self.mcp_url)
+                or exists(self.mcp_urls)
+                or exists(self.mcp_config)
+            ):
+                self.pretty_print(
+                    f"✨ [SYSTEM] Successfully integrated {len(tools)} MCP tools into agent: {self.agent_name} | Status: ONLINE | Time: {time.strftime('%H:%M:%S')} ✨",
+                    loop_count=0,
+                )
 
             return tools
         except AgentMCPConnectionError as e:
@@ -939,7 +963,7 @@ class Agent:
 
             self.short_memory.add(role=self.user_name, content=task)
 
-            if self.plan_enabled:
+            if self.plan_enabled or self.planning_prompt is not None:
                 self.plan(task)
 
             # Set the loop count
@@ -1006,55 +1030,51 @@ class Agent:
                             )
                             self.memory_query(task_prompt)
 
-                        # # Generate response using LLM
-                        # response_args = (
-                        #     (task_prompt, *args)
-                        #     if img is None
-                        #     else (task_prompt, img, *args)
-                        # )
-
-                        # # Call the LLM
-                        # response = self.call_llm(
-                        #     *response_args, **kwargs
-                        # )
-
                         response = self.call_llm(
                             task=task_prompt, img=img, *args, **kwargs
                         )
+
+                        print(f"Response: {response}")
 
                         if exists(self.tools_list_dictionary):
                             if isinstance(response, BaseModel):
                                 response = response.model_dump()
 
-                        # # Convert to a str if the response is not a str
-                        # if self.mcp_url is None or self.tools is None:
+                        # Parse the response from the agent with the output type
                         response = self.parse_llm_output(response)
 
                         self.short_memory.add(
                             role=self.agent_name,
-                            content=format_dict_to_string(response),
+                            content=response,
                         )
 
                         # Print
                         self.pretty_print(response, loop_count)
 
-                        # # Output Cleaner
-                        # self.output_cleaner_op(response)
-
-                        # Check and execute tools
+                        # Check and execute callable tools
                         if exists(self.tools):
 
-                            self.execute_tools(
-                                response=response,
-                                loop_count=loop_count,
-                            )
+                            if (
+                                self.output_raw_json_from_tool_call
+                                is True
+                            ):
+                                print(type(response))
+                                response = response
+                            else:
+                                self.execute_tools(
+                                    response=response,
+                                    loop_count=loop_count,
+                                )
 
                         # Handle MCP tools
-                        if exists(self.mcp_url) or exists(
-                            self.mcp_config
+                        if (
+                            exists(self.mcp_url)
+                            or exists(self.mcp_config)
+                            or exists(self.mcp_urls)
                         ):
                             self.mcp_tool_handling(
-                                response, loop_count
+                                response=response,
+                                current_loop=loop_count,
                             )
 
                         self.sentiment_and_evaluator(response)
@@ -1298,26 +1318,47 @@ class Agent:
 
     def plan(self, task: str, *args, **kwargs) -> None:
         """
-        Plan the task
+        Create a strategic plan for executing the given task.
+
+        This method generates a step-by-step plan by combining the conversation
+        history, planning prompt, and current task. The plan is then added to
+        the agent's short-term memory for reference during execution.
 
         Args:
-            task (str): The task to plan
+            task (str): The task to create a plan for
+            *args: Additional positional arguments passed to the LLM
+            **kwargs: Additional keyword arguments passed to the LLM
+
+        Returns:
+            None: The plan is stored in memory rather than returned
+
+        Raises:
+            Exception: If planning fails, the original exception is re-raised
         """
         try:
-            if exists(self.planning_prompt):
-                # Join the plan and the task
-                planning_prompt = f"{self.planning_prompt} {task}"
-                plan = self.llm(planning_prompt, *args, **kwargs)
-                logger.info(f"Plan: {plan}")
+            # Get the current conversation history
+            history = self.short_memory.get_str()
 
-            # Add the plan to the memory
-            self.short_memory.add(
-                role=self.agent_name, content=str(plan)
+            # Construct the planning prompt by combining history, planning prompt, and task
+            planning_prompt = (
+                f"{history}\n\n{self.planning_prompt}\n\nTask: {task}"
             )
 
+            # Generate the plan using the LLM
+            plan = self.llm.run(task=planning_prompt, *args, **kwargs)
+
+            # Store the generated plan in short-term memory
+            self.short_memory.add(role=self.agent_name, content=plan)
+
+            logger.info(
+                f"Successfully created plan for task: {task[:50]}..."
+            )
             return None
+
         except Exception as error:
-            logger.error(f"Error planning task: {error}")
+            logger.error(
+                f"Failed to create plan for task '{task}': {error}"
+            )
             raise error
 
     async def run_concurrent(self, task: str, *args, **kwargs):
@@ -1440,7 +1481,6 @@ class Agent:
             raise AgentInitializationError(
                 f"Max tokens is set to {self.max_tokens}, but the model '{self.model_name}' only supports {get_max_tokens(self.model_name)} tokens. Please set max tokens to {get_max_tokens(self.model_name)} or less."
             )
-            
 
         if self.model_name not in model_list:
             logger.warning(
@@ -2664,7 +2704,7 @@ class Agent:
                 )  # Convert other dicts to string
 
             elif isinstance(response, BaseModel):
-                out = response.model_dump()
+                response = response.model_dump()
 
             # Handle List[BaseModel] responses
             elif (
@@ -2674,14 +2714,9 @@ class Agent:
             ):
                 return [item.model_dump() for item in response]
 
-            elif isinstance(response, list):
-                out = format_data_structure(response)
-            else:
-                out = str(response)
+            return response
 
-            return out
-
-        except Exception as e:
+        except AgentChatCompletionResponse as e:
             logger.error(f"Error parsing LLM output: {e}")
             raise ValueError(
                 f"Failed to parse LLM output: {type(response)}"
@@ -2738,6 +2773,15 @@ class Agent:
                         connection=self.mcp_config,
                     )
                 )
+            elif exists(self.mcp_urls):
+                tool_response = execute_multiple_tools_on_multiple_mcp_servers_sync(
+                    responses=response,
+                    urls=self.mcp_urls,
+                    output_type="json",
+                )
+                # tool_response = format_data_structure(tool_response)
+
+                print(f"Multiple MCP Tool Response: {tool_response}")
             else:
                 raise AgentMCPConnectionError(
                     "mcp_url must be either a string URL or MCPConnection object"
@@ -2745,7 +2789,7 @@ class Agent:
 
             # Get the text content from the tool response
             # execute_tool_call_simple returns a string directly, not an object with content attribute
-            text_content = f"MCP Tool Response: \n{json.dumps(tool_response, indent=2)}"
+            text_content = f"MCP Tool Response: \n\n {json.dumps(tool_response, indent=2)}"
 
             if self.no_print is False:
                 formatter.print_panel(

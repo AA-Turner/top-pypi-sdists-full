@@ -1,7 +1,7 @@
 r'''
 # `newrelic_key_transaction`
 
-Refer to the Terraform Registry for docs: [`newrelic_key_transaction`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction).
+Refer to the Terraform Registry for docs: [`newrelic_key_transaction`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KeyTransaction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.keyTransaction.KeyTransaction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction newrelic_key_transaction}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction newrelic_key_transaction}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class KeyTransaction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction newrelic_key_transaction} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction newrelic_key_transaction} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param apdex_index: The acceptable amount of the time spent in the backend before customers get frustrated (Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#apdex_index KeyTransaction#apdex_index}
-        :param application_guid: The GUID of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#application_guid KeyTransaction#application_guid}
-        :param browser_apdex_target: The acceptable amount of time for rendering a page in a browser before customers get frustrated (browser Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#browser_apdex_target KeyTransaction#browser_apdex_target}
-        :param metric_name: The name of the metric underlying this key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#metric_name KeyTransaction#metric_name}
-        :param name: The name of the key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#name KeyTransaction#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#id KeyTransaction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param apdex_index: The acceptable amount of the time spent in the backend before customers get frustrated (Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#apdex_index KeyTransaction#apdex_index}
+        :param application_guid: The GUID of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#application_guid KeyTransaction#application_guid}
+        :param browser_apdex_target: The acceptable amount of time for rendering a page in a browser before customers get frustrated (browser Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#browser_apdex_target KeyTransaction#browser_apdex_target}
+        :param metric_name: The name of the metric underlying this key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#metric_name KeyTransaction#metric_name}
+        :param name: The name of the key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#name KeyTransaction#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#id KeyTransaction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class KeyTransaction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KeyTransaction to import.
-        :param import_from_id: The id of the existing KeyTransaction that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KeyTransaction that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KeyTransaction to import is found.
         '''
         if __debug__:
@@ -304,12 +304,12 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param apdex_index: The acceptable amount of the time spent in the backend before customers get frustrated (Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#apdex_index KeyTransaction#apdex_index}
-        :param application_guid: The GUID of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#application_guid KeyTransaction#application_guid}
-        :param browser_apdex_target: The acceptable amount of time for rendering a page in a browser before customers get frustrated (browser Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#browser_apdex_target KeyTransaction#browser_apdex_target}
-        :param metric_name: The name of the metric underlying this key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#metric_name KeyTransaction#metric_name}
-        :param name: The name of the key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#name KeyTransaction#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#id KeyTransaction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param apdex_index: The acceptable amount of the time spent in the backend before customers get frustrated (Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#apdex_index KeyTransaction#apdex_index}
+        :param application_guid: The GUID of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#application_guid KeyTransaction#application_guid}
+        :param browser_apdex_target: The acceptable amount of time for rendering a page in a browser before customers get frustrated (browser Apdex target). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#browser_apdex_target KeyTransaction#browser_apdex_target}
+        :param metric_name: The name of the metric underlying this key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#metric_name KeyTransaction#metric_name}
+        :param name: The name of the key transaction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#name KeyTransaction#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#id KeyTransaction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -420,7 +420,7 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def apdex_index(self) -> jsii.Number:
         '''The acceptable amount of the time spent in the backend before customers get frustrated (Apdex target).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#apdex_index KeyTransaction#apdex_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#apdex_index KeyTransaction#apdex_index}
         '''
         result = self._values.get("apdex_index")
         assert result is not None, "Required property 'apdex_index' is missing"
@@ -430,7 +430,7 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_guid(self) -> builtins.str:
         '''The GUID of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#application_guid KeyTransaction#application_guid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#application_guid KeyTransaction#application_guid}
         '''
         result = self._values.get("application_guid")
         assert result is not None, "Required property 'application_guid' is missing"
@@ -440,7 +440,7 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def browser_apdex_target(self) -> jsii.Number:
         '''The acceptable amount of time for rendering a page in a browser before customers get frustrated (browser Apdex target).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#browser_apdex_target KeyTransaction#browser_apdex_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#browser_apdex_target KeyTransaction#browser_apdex_target}
         '''
         result = self._values.get("browser_apdex_target")
         assert result is not None, "Required property 'browser_apdex_target' is missing"
@@ -450,7 +450,7 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric_name(self) -> builtins.str:
         '''The name of the metric underlying this key transaction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#metric_name KeyTransaction#metric_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#metric_name KeyTransaction#metric_name}
         '''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
@@ -460,7 +460,7 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the key transaction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#name KeyTransaction#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#name KeyTransaction#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -468,7 +468,7 @@ class KeyTransactionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/key_transaction#id KeyTransaction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/key_transaction#id KeyTransaction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

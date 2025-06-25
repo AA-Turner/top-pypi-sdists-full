@@ -37,6 +37,7 @@ Experiments for verification and validation of quantum devices.
     ~randomized_benchmarking.StandardRB
     ~randomized_benchmarking.InterleavedRB
     ~randomized_benchmarking.LayerFidelity
+    ~randomized_benchmarking.LayerFidelityUnitary
     ~tomography.TomographyExperiment
     ~tomography.StateTomography
     ~tomography.ProcessTomography
@@ -83,7 +84,6 @@ Experiments for characterization of properties of two qubit interactions.
     :template: autosummary/experiment.rst
 
     ~characterization.ZZRamsey
-    ~characterization.FineZXAmplitude
 
 .. _characterization-mitigation:
 
@@ -112,7 +112,6 @@ from .characterization import (
     FineAmplitude,
     FineXAmplitude,
     FineSXAmplitude,
-    FineZXAmplitude,
     RamseyXY,
     FineFrequency,
     ReadoutAngle,
@@ -121,7 +120,12 @@ from .characterization import (
     ZZRamsey,
     MultiStateDiscrimination,
 )
-from .randomized_benchmarking import StandardRB, InterleavedRB
+from .randomized_benchmarking import (
+    StandardRB,
+    InterleavedRB,
+    LayerFidelity,
+    LayerFidelityUnitary,
+)
 from .tomography import (
     TomographyExperiment,
     StateTomography,

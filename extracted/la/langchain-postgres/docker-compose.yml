@@ -1,0 +1,27 @@
+name: langchain-postgres
+
+services:
+  pgvector:
+    # postgres with the pgvector extension
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: langchain_test
+      POSTGRES_USER: langchain
+      POSTGRES_PASSWORD: langchain
+    ports:
+      - "5432:5432"
+    command: |
+      postgres -c log_statement=all
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "psql postgresql://langchain:langchain@localhost/langchain --command 'SELECT 1;' || exit 1",
+        ]
+      interval: 5s
+      retries: 60
+    volumes:
+      - postgres_data_pgvector_16:/var/lib/postgresql/data
+
+volumes:
+  postgres_data_pgvector_16:

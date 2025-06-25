@@ -1,7 +1,7 @@
 r'''
 # `google_compute_interconnect_group`
 
-Refer to the Terraform Registry for docs: [`google_compute_interconnect_group`](https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group).
+Refer to the Terraform Registry for docs: [`google_compute_interconnect_group`](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeInterconnectGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeInterconnectGroup.ComputeInterconnectGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group google_compute_interconnect_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group google_compute_interconnect_group}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ComputeInterconnectGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group google_compute_interconnect_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group google_compute_interconnect_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#intent ComputeInterconnectGroup#intent}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#description ComputeInterconnectGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#id ComputeInterconnectGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interconnects: interconnects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#interconnects ComputeInterconnectGroup#interconnects}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#project ComputeInterconnectGroup#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#timeouts ComputeInterconnectGroup#timeouts}
+        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#intent ComputeInterconnectGroup#intent}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#description ComputeInterconnectGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#id ComputeInterconnectGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interconnects: interconnects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#interconnects ComputeInterconnectGroup#interconnects}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#project ComputeInterconnectGroup#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#timeouts ComputeInterconnectGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ComputeInterconnectGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeInterconnectGroup to import.
-        :param import_from_id: The id of the existing ComputeInterconnectGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeInterconnectGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeInterconnectGroup to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class ComputeInterconnectGroup(
         topology_capability: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topology_capability: The reliability the user intends this group to be capable of, in terms of the Interconnect product SLAs. Possible values: ["PRODUCTION_NON_CRITICAL", "PRODUCTION_CRITICAL", "NO_SLA", "AVAILABILITY_SLA_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#topology_capability ComputeInterconnectGroup#topology_capability}
+        :param topology_capability: The reliability the user intends this group to be capable of, in terms of the Interconnect product SLAs. Possible values: ["PRODUCTION_NON_CRITICAL", "PRODUCTION_CRITICAL", "NO_SLA", "AVAILABILITY_SLA_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#topology_capability ComputeInterconnectGroup#topology_capability}
         '''
         value = ComputeInterconnectGroupIntent(topology_capability=topology_capability)
 
@@ -167,9 +167,9 @@ class ComputeInterconnectGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#create ComputeInterconnectGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#delete ComputeInterconnectGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#update ComputeInterconnectGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#create ComputeInterconnectGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#delete ComputeInterconnectGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#update ComputeInterconnectGroup#update}.
         '''
         value = ComputeInterconnectGroupTimeouts(
             create=create, delete=delete, update=update
@@ -375,13 +375,13 @@ class ComputeInterconnectGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#intent ComputeInterconnectGroup#intent}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#description ComputeInterconnectGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#id ComputeInterconnectGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interconnects: interconnects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#interconnects ComputeInterconnectGroup#interconnects}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#project ComputeInterconnectGroup#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#timeouts ComputeInterconnectGroup#timeouts}
+        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#intent ComputeInterconnectGroup#intent}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#description ComputeInterconnectGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#id ComputeInterconnectGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interconnects: interconnects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#interconnects ComputeInterconnectGroup#interconnects}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#project ComputeInterconnectGroup#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#timeouts ComputeInterconnectGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -502,7 +502,7 @@ class ComputeInterconnectGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def intent(self) -> "ComputeInterconnectGroupIntent":
         '''intent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#intent ComputeInterconnectGroup#intent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#intent ComputeInterconnectGroup#intent}
         '''
         result = self._values.get("intent")
         assert result is not None, "Required property 'intent' is missing"
@@ -518,7 +518,7 @@ class ComputeInterconnectGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         character must be a lowercase letter, and all following characters must be a dash,
         lowercase letter, or digit, except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -528,14 +528,14 @@ class ComputeInterconnectGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#description ComputeInterconnectGroup#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#description ComputeInterconnectGroup#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#id ComputeInterconnectGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#id ComputeInterconnectGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -549,14 +549,14 @@ class ComputeInterconnectGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInterconnectGroupInterconnects"]]]:
         '''interconnects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#interconnects ComputeInterconnectGroup#interconnects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#interconnects ComputeInterconnectGroup#interconnects}
         '''
         result = self._values.get("interconnects")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInterconnectGroupInterconnects"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#project ComputeInterconnectGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#project ComputeInterconnectGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -564,7 +564,7 @@ class ComputeInterconnectGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeInterconnectGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#timeouts ComputeInterconnectGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#timeouts ComputeInterconnectGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeInterconnectGroupTimeouts"], result)
@@ -1068,7 +1068,7 @@ class ComputeInterconnectGroupIntent:
         topology_capability: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topology_capability: The reliability the user intends this group to be capable of, in terms of the Interconnect product SLAs. Possible values: ["PRODUCTION_NON_CRITICAL", "PRODUCTION_CRITICAL", "NO_SLA", "AVAILABILITY_SLA_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#topology_capability ComputeInterconnectGroup#topology_capability}
+        :param topology_capability: The reliability the user intends this group to be capable of, in terms of the Interconnect product SLAs. Possible values: ["PRODUCTION_NON_CRITICAL", "PRODUCTION_CRITICAL", "NO_SLA", "AVAILABILITY_SLA_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#topology_capability ComputeInterconnectGroup#topology_capability}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5edc0fcbe1a68072427cf4e5dbeeafb45e274eca9e9781c155ce97a6b085103b)
@@ -1083,7 +1083,7 @@ class ComputeInterconnectGroupIntent:
 
         Possible values: ["PRODUCTION_NON_CRITICAL", "PRODUCTION_CRITICAL", "NO_SLA", "AVAILABILITY_SLA_UNSPECIFIED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#topology_capability ComputeInterconnectGroup#topology_capability}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#topology_capability ComputeInterconnectGroup#topology_capability}
         '''
         result = self._values.get("topology_capability")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1170,8 +1170,8 @@ class ComputeInterconnectGroupInterconnects:
         interconnect: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}.
-        :param interconnect: The URL of an Interconnect in this group. All Interconnects in the group are unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#interconnect ComputeInterconnectGroup#interconnect}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}.
+        :param interconnect: The URL of an Interconnect in this group. All Interconnects in the group are unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#interconnect ComputeInterconnectGroup#interconnect}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd4ed76b85283ceb20816949cdf060322c4ceb82320ab19e1ef2b853d77b5253)
@@ -1185,7 +1185,7 @@ class ComputeInterconnectGroupInterconnects:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#name ComputeInterconnectGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1194,7 +1194,7 @@ class ComputeInterconnectGroupInterconnects:
     def interconnect(self) -> typing.Optional[builtins.str]:
         '''The URL of an Interconnect in this group. All Interconnects in the group are unique.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#interconnect ComputeInterconnectGroup#interconnect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#interconnect ComputeInterconnectGroup#interconnect}
         '''
         result = self._values.get("interconnect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2003,9 +2003,9 @@ class ComputeInterconnectGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#create ComputeInterconnectGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#delete ComputeInterconnectGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#update ComputeInterconnectGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#create ComputeInterconnectGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#delete ComputeInterconnectGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#update ComputeInterconnectGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b21420169adb996494303b0c84908cb8c474554b38e1aba07c10739cdbe50ea)
@@ -2022,19 +2022,19 @@ class ComputeInterconnectGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#create ComputeInterconnectGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#create ComputeInterconnectGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#delete ComputeInterconnectGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#delete ComputeInterconnectGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/compute_interconnect_group#update ComputeInterconnectGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_interconnect_group#update ComputeInterconnectGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

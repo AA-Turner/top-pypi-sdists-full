@@ -96,6 +96,7 @@ LanguageCodeType = Literal[
     "en-ZA",
     "es-ES",
     "es-US",
+    "et-EE",
     "et-ET",
     "eu-ES",
     "fa-IR",

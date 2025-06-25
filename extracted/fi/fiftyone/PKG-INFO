@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.5.2
+Version: 1.6.0
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -71,7 +71,7 @@ Requires-Dist: universal-analytics-python3<2,>=1.0.1
 Requires-Dist: pydash
 Requires-Dist: fiftyone-brain<0.22,>=0.21.2
 Requires-Dist: fiftyone-db<2.0,>=0.4
-Requires-Dist: voxel51-eta<0.15,>=0.14.0
+Requires-Dist: voxel51-eta<0.15,>=0.14.2
 Requires-Dist: opencv-python-headless
 Dynamic: author
 Dynamic: author-email

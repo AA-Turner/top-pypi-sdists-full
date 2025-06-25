@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdktf-cdktf-provider-snowflake
-Version: 15.0.0
+Version: 15.0.1
 Summary: Prebuilt snowflake Provider for Terraform CDK (cdktf)
 Home-page: https://github.com/cdktf/cdktf-provider-snowflake.git
 Author: HashiCorp
@@ -25,9 +25,9 @@ Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 
-# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.1.0
+# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.1.1
 
-This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -89,7 +89,7 @@ This project is explicitly not tracking the Terraform snowflake provider version
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0)
+* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.

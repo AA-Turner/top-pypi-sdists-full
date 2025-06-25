@@ -10,6 +10,7 @@ use std::path::Path;
 use std::{collections::HashSet, path::PathBuf};
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, Connectivity};
+use uv_configuration::PreviewMode;
 use uv_distribution_types::{InstalledDist, Name};
 use uv_installer::SitePackages;
 use uv_pep508::{PackageName, Requirement};
@@ -80,6 +81,7 @@ pub fn uv_venv(maybe_cache: Option<Cache>) -> anyhow::Result<PythonEnvironment> 
         &PythonRequest::Any,                // just find me a python
         EnvironmentPreference::OnlyVirtual, // venv is always virtual
         &cache,
+        PreviewMode::Disabled,
     )?;
 
     Ok(environ)
@@ -93,6 +95,7 @@ pub fn environment_from_path_str(path: &str) -> anyhow::Result<PythonEnvironment
         &PythonRequest::parse(path),
         EnvironmentPreference::ExplicitSystem, // based on above python wishes
         &cache,
+        PreviewMode::Disabled,
     )?)
 }
 
@@ -109,6 +112,7 @@ pub fn system_environment() -> anyhow::Result<PythonEnvironment> {
         &PythonRequest::Any, // just find me a python
         EnvironmentPreference::OnlySystem,
         &cache,
+        PreviewMode::Disabled,
     )?)
 }
 
@@ -139,6 +143,7 @@ pub async fn uv_search_python(python: Option<&str>) -> Option<String> {
         None,
         None,
         None,
+        PreviewMode::Disabled,
     )
     .await
     .ok()?;

@@ -15,6 +15,9 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Internet",
     "Topic :: Utilities",
@@ -28,7 +31,7 @@ with open("HISTORY.rst") as file_history:
 
 setup(
     name="retrying",
-    version="1.3.5",
+    version="1.4.0",
     description="Retrying",
     long_description=readme + "\n\n" + history,
     author="Greg Roodt",
@@ -38,4 +41,5 @@ setup(
     keywords="decorator decorators retry retrying exception exponential backoff",
     py_modules=["retrying"],
     test_suite="test_retrying",
+    python_requires=">=3.6",
 )

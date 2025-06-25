@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.16.8
+Version: 3.16.9
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Homepage, https://flexget.com
 Project-URL: Issue Tracker, https://github.com/Flexget/Flexget/issues
@@ -169,7 +169,6 @@ Requires-Dist: requests==2.32.4; extra == 'locked'
 Requires-Dist: rich==14.0.0; extra == 'locked'
 Requires-Dist: rpds-py==0.25.1; extra == 'locked'
 Requires-Dist: rpyc==6.0.2; extra == 'locked'
-Requires-Dist: ruff==0.11.13; extra == 'locked'
 Requires-Dist: setuptools==80.9.0; extra == 'locked'
 Requires-Dist: sgmllib3k==1.0.0; extra == 'locked'
 Requires-Dist: six==1.17.0; extra == 'locked'

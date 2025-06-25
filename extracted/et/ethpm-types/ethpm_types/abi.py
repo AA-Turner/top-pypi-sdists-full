@@ -2,10 +2,11 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from eth_abi import grammar
 from eth_abi.packed import encode_packed
-from eth_pydantic_types import HexBytes, HexStr32
 from eth_utils import encode_hex, keccak, to_hex
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
+from eth_pydantic_types import HexBytes, HexStr32
+from eth_pydantic_types.utils import PadDirection
 from ethpm_types.base import BaseModel
 from ethpm_types.utils import parse_signature
 
@@ -38,6 +39,14 @@ class ABIType(BaseModel):
     """
 
     model_config = ConfigDict(frozen=True, extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_model(cls, model):
+        if "internal_type" in model and not model.get("internalType"):
+            model["internalType"] = model.pop("internal_type")
+
+        return model
 
     @property
     def canonical_type(self) -> str:
@@ -196,7 +205,7 @@ class ReceiveABI(BaseABI):
     """
     An ABI dedicated to receiving currency from transactions with unknown
     method selectors.
-    **NOTE**: The receive ABI does not have name field.
+    **NOTE**: The `receive` ABI does not have name field.
     """
 
     type: Literal["receive"] = "receive"
@@ -415,7 +424,7 @@ def encode_topic_value(abi_type, value) -> Union[Optional[str], list[str]]:
 
         return encode_hex(keccak(encode_packed([str(abi_type)], [value])))
 
-    return HexStr32.__eth_pydantic_validate__(value)
+    return HexStr32.__eth_pydantic_validate__(value, pad=PadDirection.LEFT)
 
 
 def is_dynamic_sized_type(abi_type: Union[ABIType, str]) -> bool:

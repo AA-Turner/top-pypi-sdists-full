@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_sync_authorization`
 
-Refer to the Terraform Registry for docs: [`google_apigee_sync_authorization`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization).
+Refer to the Terraform Registry for docs: [`google_apigee_sync_authorization`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApigeeSyncAuthorization(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApigeeSyncAuthorization.GoogleApigeeSyncAuthorization",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization google_apigee_sync_authorization}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization google_apigee_sync_authorization}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GoogleApigeeSyncAuthorization(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization google_apigee_sync_authorization} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization google_apigee_sync_authorization} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param identities: Array of service accounts to grant access to control plane resources, each specified using the following format: 'serviceAccount:service-account-name'. The 'service-account-name' is formatted like an email address. For example: my-synchronizer-manager-serviceAccount@my_project_id.iam.gserviceaccount.com You might specify multiple service accounts, for example, if you have multiple environments and wish to assign a unique service account to each one. The service accounts must have **Apigee Synchronizer Manager** role. See also `Create service accounts <https://cloud.google.com/apigee/docs/hybrid/v1.8/sa-about#create-the-service-accounts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#identities GoogleApigeeSyncAuthorization#identities}
-        :param name: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#name GoogleApigeeSyncAuthorization#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#id GoogleApigeeSyncAuthorization#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#timeouts GoogleApigeeSyncAuthorization#timeouts}
+        :param identities: Array of service accounts to grant access to control plane resources, each specified using the following format: 'serviceAccount:service-account-name'. The 'service-account-name' is formatted like an email address. For example: my-synchronizer-manager-serviceAccount@my_project_id.iam.gserviceaccount.com You might specify multiple service accounts, for example, if you have multiple environments and wish to assign a unique service account to each one. The service accounts must have **Apigee Synchronizer Manager** role. See also `Create service accounts <https://cloud.google.com/apigee/docs/hybrid/v1.8/sa-about#create-the-service-accounts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#identities GoogleApigeeSyncAuthorization#identities}
+        :param name: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#name GoogleApigeeSyncAuthorization#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#id GoogleApigeeSyncAuthorization#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#timeouts GoogleApigeeSyncAuthorization#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GoogleApigeeSyncAuthorization(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApigeeSyncAuthorization to import.
-        :param import_from_id: The id of the existing GoogleApigeeSyncAuthorization that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApigeeSyncAuthorization that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApigeeSyncAuthorization to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class GoogleApigeeSyncAuthorization(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#create GoogleApigeeSyncAuthorization#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#delete GoogleApigeeSyncAuthorization#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#update GoogleApigeeSyncAuthorization#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#create GoogleApigeeSyncAuthorization#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#delete GoogleApigeeSyncAuthorization#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#update GoogleApigeeSyncAuthorization#update}.
         '''
         value = GoogleApigeeSyncAuthorizationTimeouts(
             create=create, delete=delete, update=update
@@ -273,10 +273,10 @@ class GoogleApigeeSyncAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param identities: Array of service accounts to grant access to control plane resources, each specified using the following format: 'serviceAccount:service-account-name'. The 'service-account-name' is formatted like an email address. For example: my-synchronizer-manager-serviceAccount@my_project_id.iam.gserviceaccount.com You might specify multiple service accounts, for example, if you have multiple environments and wish to assign a unique service account to each one. The service accounts must have **Apigee Synchronizer Manager** role. See also `Create service accounts <https://cloud.google.com/apigee/docs/hybrid/v1.8/sa-about#create-the-service-accounts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#identities GoogleApigeeSyncAuthorization#identities}
-        :param name: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#name GoogleApigeeSyncAuthorization#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#id GoogleApigeeSyncAuthorization#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#timeouts GoogleApigeeSyncAuthorization#timeouts}
+        :param identities: Array of service accounts to grant access to control plane resources, each specified using the following format: 'serviceAccount:service-account-name'. The 'service-account-name' is formatted like an email address. For example: my-synchronizer-manager-serviceAccount@my_project_id.iam.gserviceaccount.com You might specify multiple service accounts, for example, if you have multiple environments and wish to assign a unique service account to each one. The service accounts must have **Apigee Synchronizer Manager** role. See also `Create service accounts <https://cloud.google.com/apigee/docs/hybrid/v1.8/sa-about#create-the-service-accounts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#identities GoogleApigeeSyncAuthorization#identities}
+        :param name: Name of the Apigee organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#name GoogleApigeeSyncAuthorization#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#id GoogleApigeeSyncAuthorization#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#timeouts GoogleApigeeSyncAuthorization#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -392,7 +392,7 @@ class GoogleApigeeSyncAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         The service accounts must have **Apigee Synchronizer Manager** role. See also `Create service accounts <https://cloud.google.com/apigee/docs/hybrid/v1.8/sa-about#create-the-service-accounts>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#identities GoogleApigeeSyncAuthorization#identities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#identities GoogleApigeeSyncAuthorization#identities}
         '''
         result = self._values.get("identities")
         assert result is not None, "Required property 'identities' is missing"
@@ -402,7 +402,7 @@ class GoogleApigeeSyncAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def name(self) -> builtins.str:
         '''Name of the Apigee organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#name GoogleApigeeSyncAuthorization#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#name GoogleApigeeSyncAuthorization#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -410,7 +410,7 @@ class GoogleApigeeSyncAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#id GoogleApigeeSyncAuthorization#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#id GoogleApigeeSyncAuthorization#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -422,7 +422,7 @@ class GoogleApigeeSyncAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["GoogleApigeeSyncAuthorizationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#timeouts GoogleApigeeSyncAuthorization#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#timeouts GoogleApigeeSyncAuthorization#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApigeeSyncAuthorizationTimeouts"], result)
@@ -453,9 +453,9 @@ class GoogleApigeeSyncAuthorizationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#create GoogleApigeeSyncAuthorization#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#delete GoogleApigeeSyncAuthorization#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#update GoogleApigeeSyncAuthorization#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#create GoogleApigeeSyncAuthorization#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#delete GoogleApigeeSyncAuthorization#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#update GoogleApigeeSyncAuthorization#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cde8387ee0fc8c9e197b34a5e67a07e46b4ac8a04202f3aa8c8f541e16fea4fb)
@@ -472,19 +472,19 @@ class GoogleApigeeSyncAuthorizationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#create GoogleApigeeSyncAuthorization#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#create GoogleApigeeSyncAuthorization#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#delete GoogleApigeeSyncAuthorization#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#delete GoogleApigeeSyncAuthorization#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sync_authorization#update GoogleApigeeSyncAuthorization#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sync_authorization#update GoogleApigeeSyncAuthorization#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

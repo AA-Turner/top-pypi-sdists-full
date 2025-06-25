@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-semantic-interfaces
-Version: 0.8.4
+Version: 0.8.5
 Summary: The shared semantic layer definitions that dbt-core and MetricFlow use
 Author-email: dbt Labs <info@dbtlabs.com>
 License-Expression: Apache-2.0

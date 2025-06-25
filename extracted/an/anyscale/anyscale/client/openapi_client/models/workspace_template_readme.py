@@ -37,7 +37,8 @@ class WorkspaceTemplateReadme(object):
         'title': 'str',
         'description': 'str',
         'icon_type': 'str',
-        'icon_bg_color': 'str'
+        'icon_bg_color': 'str',
+        'url': 'str'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class WorkspaceTemplateReadme(object):
         'title': 'title',
         'description': 'description',
         'icon_type': 'icon_type',
-        'icon_bg_color': 'icon_bg_color'
+        'icon_bg_color': 'icon_bg_color',
+        'url': 'url'
     }
 
-    def __init__(self, content=None, title=None, description=None, icon_type=None, icon_bg_color=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, content=None, title=None, description=None, icon_type=None, icon_bg_color=None, url=None, local_vars_configuration=None):  # noqa: E501
         """WorkspaceTemplateReadme - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +61,7 @@ class WorkspaceTemplateReadme(object):
         self._description = None
         self._icon_type = None
         self._icon_bg_color = None
+        self._url = None
         self.discriminator = None
 
         self.content = content
@@ -68,6 +71,7 @@ class WorkspaceTemplateReadme(object):
             self.icon_type = icon_type
         if icon_bg_color is not None:
             self.icon_bg_color = icon_bg_color
+        self.url = url
 
     @property
     def content(self):
@@ -189,6 +193,31 @@ class WorkspaceTemplateReadme(object):
         """
 
         self._icon_bg_color = icon_bg_color
+
+    @property
+    def url(self):
+        """Gets the url of this WorkspaceTemplateReadme.  # noqa: E501
+
+        The url of the workspace template  # noqa: E501
+
+        :return: The url of this WorkspaceTemplateReadme.  # noqa: E501
+        :rtype: str
+        """
+        return self._url
+
+    @url.setter
+    def url(self, url):
+        """Sets the url of this WorkspaceTemplateReadme.
+
+        The url of the workspace template  # noqa: E501
+
+        :param url: The url of this WorkspaceTemplateReadme.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and url is None:  # noqa: E501
+            raise ValueError("Invalid value for `url`, must not be `None`")  # noqa: E501
+
+        self._url = url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

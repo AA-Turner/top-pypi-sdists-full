@@ -1,84 +1,59 @@
-from vizro import Vizro
-import vizro.plotly.express as px
-import vizro.models as vm
+import numpy as np
 
-gapminder_2007 = px.data.gapminder().query("year == 2007")
+from vizro import Vizro
+import vizro.models as vm
+import pandas as pd
+from vizro.tables import dash_ag_grid
+import string
+
+
+N = len(string.ascii_letters)
+df = pd.DataFrame(
+    {
+        "category 1": np.random.choice(list("abc"), N),
+        "category 2": np.random.choice(list("ABC"), N),
+        "long_words": [" ".join(list(string.ascii_letters[: n + 1])) for n in range(N)],
+        "numbers": np.random.randint(N, size=N),
+    }
+)
+
+
+def dynamic_data(n=10):
+    return df.loc[:n]
+
+
+def make_controls():
+    return [
+        vm.Filter(column="long_words"),
+        vm.Filter(
+            column="category 1",
+            selector=vm.Checklist(),
+        ),
+        vm.Filter(column="category 2", selector=vm.RadioItems()),
+        vm.Filter(column="numbers"),
+    ]
+
 
 page_1 = vm.Page(
-    title="Collapsible containers bug",
+    title="Test page",
     components=[
         vm.Container(
-            title="Outer container - collapsible",
-            collapsed=False,
-            layout=vm.Flex(),
-            components=[
-                vm.Container(
-                    collapsed=False,
-                    title="First container - collapsible",
-                    layout=vm.Flex(),
-                    components=[vm.Card(text="First card"), vm.Card(text="Second card"), vm.Card(text="Third card")],
-                ),
-                vm.Container(
-                    collapsed=False,
-                    title="Second container - collapsible",
-                    layout=vm.Flex(),
-                    components=[vm.Card(text="First card"), vm.Card(text="Second card"), vm.Card(text="Third card")],
-                ),
-                vm.Container(
-                    title="Third container - not collapsible",
-                    layout=vm.Flex(),
-                    components=[vm.Card(text="First card"), vm.Card(text="Second card"), vm.Card(text="Third card")],
-                ),
-            ],
-        )
+            components=[vm.AgGrid(id="grid", figure=dash_ag_grid(dynamic_data))],
+            controls=make_controls(),
+        ),
+    ],
+    controls=[
+        vm.Parameter(
+            targets=["grid.data_frame.n"],
+            selector=vm.Slider(
+                title="Change me to see bug", min=0, max=N, step=1, marks={0: "0", N // 2: str(N // 2), N: str(N)}
+            ),
+        ),
+        *make_controls(),
     ],
 )
 
-page_2 = vm.Page(
-    title="Tab css issue",
-    components=[
-        vm.Tabs(
-            tabs=[
-                vm.Container(
-                    title="Tab1",
-                    components=[
-                        vm.Graph(
-                            title="Graph 1",
-                            figure=px.bar(
-                                gapminder_2007,
-                                x="continent",
-                                y="lifeExp",
-                                color="continent",
-                            ),
-                        ),
-                    ],
-                ),
-                vm.Container(
-                    title="Tab2",
-                    components=[
-                        vm.Graph(
-                            title="Graph 2",
-                            figure=px.scatter(
-                                gapminder_2007,
-                                x="gdpPercap",
-                                y="lifeExp",
-                                size="pop",
-                                color="continent",
-                            ),
-                        ),
-                    ],
-                ),
-                vm.Container(
-                    title="Tab3",
-                    layout=vm.Flex(),
-                    components=[vm.Card(text="First card!"), vm.Card(text="Second card!"), vm.Card(text="Third card!")],
-                ),
-            ]
-        )
-    ],
-)
-
-dashboard = vm.Dashboard(title="Test dashboard", pages=[page_1, page_2])
+dashboard = vm.Dashboard(title="Test dashboard", pages=[page_1])
 
 if __name__ == "__main__":
     app = Vizro().build(dashboard)

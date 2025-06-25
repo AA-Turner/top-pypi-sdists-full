@@ -1,7 +1,7 @@
 r'''
 # `google_edgenetwork_network`
 
-Refer to the Terraform Registry for docs: [`google_edgenetwork_network`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network).
+Refer to the Terraform Registry for docs: [`google_edgenetwork_network`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleEdgenetworkNetwork(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleEdgenetworkNetwork.GoogleEdgenetworkNetwork",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network google_edgenetwork_network}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network google_edgenetwork_network}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleEdgenetworkNetwork(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network google_edgenetwork_network} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network google_edgenetwork_network} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The Google Cloud region to which the target Distributed Cloud Edge zone belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#location GoogleEdgenetworkNetwork#location}
-        :param network_id: A unique ID that identifies this network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#network_id GoogleEdgenetworkNetwork#network_id}
-        :param zone: The name of the target Distributed Cloud Edge zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#zone GoogleEdgenetworkNetwork#zone}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#description GoogleEdgenetworkNetwork#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#id GoogleEdgenetworkNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#labels GoogleEdgenetworkNetwork#labels}
-        :param mtu: IP (L3) MTU value of the network. Default value is '1500'. Possible values are: '1500', '9000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#mtu GoogleEdgenetworkNetwork#mtu}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#project GoogleEdgenetworkNetwork#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#timeouts GoogleEdgenetworkNetwork#timeouts}
+        :param location: The Google Cloud region to which the target Distributed Cloud Edge zone belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#location GoogleEdgenetworkNetwork#location}
+        :param network_id: A unique ID that identifies this network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#network_id GoogleEdgenetworkNetwork#network_id}
+        :param zone: The name of the target Distributed Cloud Edge zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#zone GoogleEdgenetworkNetwork#zone}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#description GoogleEdgenetworkNetwork#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#id GoogleEdgenetworkNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#labels GoogleEdgenetworkNetwork#labels}
+        :param mtu: IP (L3) MTU value of the network. Default value is '1500'. Possible values are: '1500', '9000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#mtu GoogleEdgenetworkNetwork#mtu}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#project GoogleEdgenetworkNetwork#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#timeouts GoogleEdgenetworkNetwork#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleEdgenetworkNetwork(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleEdgenetworkNetwork to import.
-        :param import_from_id: The id of the existing GoogleEdgenetworkNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleEdgenetworkNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleEdgenetworkNetwork to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class GoogleEdgenetworkNetwork(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#create GoogleEdgenetworkNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#delete GoogleEdgenetworkNetwork#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#update GoogleEdgenetworkNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#create GoogleEdgenetworkNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#delete GoogleEdgenetworkNetwork#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#update GoogleEdgenetworkNetwork#update}.
         '''
         value = GoogleEdgenetworkNetworkTimeouts(
             create=create, delete=delete, update=update
@@ -421,15 +421,15 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The Google Cloud region to which the target Distributed Cloud Edge zone belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#location GoogleEdgenetworkNetwork#location}
-        :param network_id: A unique ID that identifies this network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#network_id GoogleEdgenetworkNetwork#network_id}
-        :param zone: The name of the target Distributed Cloud Edge zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#zone GoogleEdgenetworkNetwork#zone}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#description GoogleEdgenetworkNetwork#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#id GoogleEdgenetworkNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#labels GoogleEdgenetworkNetwork#labels}
-        :param mtu: IP (L3) MTU value of the network. Default value is '1500'. Possible values are: '1500', '9000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#mtu GoogleEdgenetworkNetwork#mtu}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#project GoogleEdgenetworkNetwork#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#timeouts GoogleEdgenetworkNetwork#timeouts}
+        :param location: The Google Cloud region to which the target Distributed Cloud Edge zone belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#location GoogleEdgenetworkNetwork#location}
+        :param network_id: A unique ID that identifies this network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#network_id GoogleEdgenetworkNetwork#network_id}
+        :param zone: The name of the target Distributed Cloud Edge zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#zone GoogleEdgenetworkNetwork#zone}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#description GoogleEdgenetworkNetwork#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#id GoogleEdgenetworkNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels associated with this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#labels GoogleEdgenetworkNetwork#labels}
+        :param mtu: IP (L3) MTU value of the network. Default value is '1500'. Possible values are: '1500', '9000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#mtu GoogleEdgenetworkNetwork#mtu}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#project GoogleEdgenetworkNetwork#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#timeouts GoogleEdgenetworkNetwork#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -553,7 +553,7 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The Google Cloud region to which the target Distributed Cloud Edge zone belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#location GoogleEdgenetworkNetwork#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#location GoogleEdgenetworkNetwork#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -563,7 +563,7 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_id(self) -> builtins.str:
         '''A unique ID that identifies this network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#network_id GoogleEdgenetworkNetwork#network_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#network_id GoogleEdgenetworkNetwork#network_id}
         '''
         result = self._values.get("network_id")
         assert result is not None, "Required property 'network_id' is missing"
@@ -573,7 +573,7 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> builtins.str:
         '''The name of the target Distributed Cloud Edge zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#zone GoogleEdgenetworkNetwork#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#zone GoogleEdgenetworkNetwork#zone}
         '''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
@@ -583,14 +583,14 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A free-text description of the resource. Max length 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#description GoogleEdgenetworkNetwork#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#description GoogleEdgenetworkNetwork#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#id GoogleEdgenetworkNetwork#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#id GoogleEdgenetworkNetwork#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -605,7 +605,7 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#labels GoogleEdgenetworkNetwork#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#labels GoogleEdgenetworkNetwork#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -614,14 +614,14 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mtu(self) -> typing.Optional[jsii.Number]:
         '''IP (L3) MTU value of the network. Default value is '1500'. Possible values are: '1500', '9000'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#mtu GoogleEdgenetworkNetwork#mtu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#mtu GoogleEdgenetworkNetwork#mtu}
         '''
         result = self._values.get("mtu")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#project GoogleEdgenetworkNetwork#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#project GoogleEdgenetworkNetwork#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -629,7 +629,7 @@ class GoogleEdgenetworkNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleEdgenetworkNetworkTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#timeouts GoogleEdgenetworkNetwork#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#timeouts GoogleEdgenetworkNetwork#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleEdgenetworkNetworkTimeouts"], result)
@@ -660,9 +660,9 @@ class GoogleEdgenetworkNetworkTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#create GoogleEdgenetworkNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#delete GoogleEdgenetworkNetwork#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#update GoogleEdgenetworkNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#create GoogleEdgenetworkNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#delete GoogleEdgenetworkNetwork#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#update GoogleEdgenetworkNetwork#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9ad93d56d6077bb4d20e833ba6af79598e91def373f715c074da625d5e380da)
@@ -679,19 +679,19 @@ class GoogleEdgenetworkNetworkTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#create GoogleEdgenetworkNetwork#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#create GoogleEdgenetworkNetwork#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#delete GoogleEdgenetworkNetwork#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#delete GoogleEdgenetworkNetwork#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgenetwork_network#update GoogleEdgenetworkNetwork#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgenetwork_network#update GoogleEdgenetworkNetwork#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

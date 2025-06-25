@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-19T23:04:39.548757                                                            #
+# Generated on 2025-06-25T00:26:31.498291                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.events
-    import datetime
     import tarfile
     import typing
     import tempfile
+    import datetime
     import metaflow.client.core
 
 from ..metaflow_current import current as current

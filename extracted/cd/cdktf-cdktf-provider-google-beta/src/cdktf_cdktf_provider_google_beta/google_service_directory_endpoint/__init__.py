@@ -1,7 +1,7 @@
 r'''
 # `google_service_directory_endpoint`
 
-Refer to the Terraform Registry for docs: [`google_service_directory_endpoint`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint).
+Refer to the Terraform Registry for docs: [`google_service_directory_endpoint`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleServiceDirectoryEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleServiceDirectoryEndpoint.GoogleServiceDirectoryEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint google_service_directory_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint google_service_directory_endpoint}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleServiceDirectoryEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint google_service_directory_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint google_service_directory_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param endpoint_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#endpoint_id GoogleServiceDirectoryEndpoint#endpoint_id}
-        :param service: The resource name of the service that this endpoint provides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#service GoogleServiceDirectoryEndpoint#service}
-        :param address: IPv4 or IPv6 address of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#address GoogleServiceDirectoryEndpoint#address}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#id GoogleServiceDirectoryEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: Metadata for the endpoint. This data can be consumed by service clients. The entire metadata dictionary may contain up to 512 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#metadata GoogleServiceDirectoryEndpoint#metadata}
-        :param network: The URL to the network, such as projects/PROJECT_NUMBER/locations/global/networks/NETWORK_NAME. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#network GoogleServiceDirectoryEndpoint#network}
-        :param port: Port that the endpoint is running on, must be in the range of [0, 65535]. If unspecified, the default is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#port GoogleServiceDirectoryEndpoint#port}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#timeouts GoogleServiceDirectoryEndpoint#timeouts}
+        :param endpoint_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#endpoint_id GoogleServiceDirectoryEndpoint#endpoint_id}
+        :param service: The resource name of the service that this endpoint provides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#service GoogleServiceDirectoryEndpoint#service}
+        :param address: IPv4 or IPv6 address of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#address GoogleServiceDirectoryEndpoint#address}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#id GoogleServiceDirectoryEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: Metadata for the endpoint. This data can be consumed by service clients. The entire metadata dictionary may contain up to 512 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#metadata GoogleServiceDirectoryEndpoint#metadata}
+        :param network: The URL to the network, such as projects/PROJECT_NUMBER/locations/global/networks/NETWORK_NAME. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#network GoogleServiceDirectoryEndpoint#network}
+        :param port: Port that the endpoint is running on, must be in the range of [0, 65535]. If unspecified, the default is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#port GoogleServiceDirectoryEndpoint#port}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#timeouts GoogleServiceDirectoryEndpoint#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleServiceDirectoryEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleServiceDirectoryEndpoint to import.
-        :param import_from_id: The id of the existing GoogleServiceDirectoryEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleServiceDirectoryEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleServiceDirectoryEndpoint to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GoogleServiceDirectoryEndpoint(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#create GoogleServiceDirectoryEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#delete GoogleServiceDirectoryEndpoint#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#update GoogleServiceDirectoryEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#create GoogleServiceDirectoryEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#delete GoogleServiceDirectoryEndpoint#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#update GoogleServiceDirectoryEndpoint#update}.
         '''
         value = GoogleServiceDirectoryEndpointTimeouts(
             create=create, delete=delete, update=update
@@ -379,14 +379,14 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param endpoint_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#endpoint_id GoogleServiceDirectoryEndpoint#endpoint_id}
-        :param service: The resource name of the service that this endpoint provides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#service GoogleServiceDirectoryEndpoint#service}
-        :param address: IPv4 or IPv6 address of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#address GoogleServiceDirectoryEndpoint#address}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#id GoogleServiceDirectoryEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: Metadata for the endpoint. This data can be consumed by service clients. The entire metadata dictionary may contain up to 512 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#metadata GoogleServiceDirectoryEndpoint#metadata}
-        :param network: The URL to the network, such as projects/PROJECT_NUMBER/locations/global/networks/NETWORK_NAME. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#network GoogleServiceDirectoryEndpoint#network}
-        :param port: Port that the endpoint is running on, must be in the range of [0, 65535]. If unspecified, the default is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#port GoogleServiceDirectoryEndpoint#port}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#timeouts GoogleServiceDirectoryEndpoint#timeouts}
+        :param endpoint_id: The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#endpoint_id GoogleServiceDirectoryEndpoint#endpoint_id}
+        :param service: The resource name of the service that this endpoint provides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#service GoogleServiceDirectoryEndpoint#service}
+        :param address: IPv4 or IPv6 address of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#address GoogleServiceDirectoryEndpoint#address}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#id GoogleServiceDirectoryEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: Metadata for the endpoint. This data can be consumed by service clients. The entire metadata dictionary may contain up to 512 characters, spread across all key-value pairs. Metadata that goes beyond any these limits will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#metadata GoogleServiceDirectoryEndpoint#metadata}
+        :param network: The URL to the network, such as projects/PROJECT_NUMBER/locations/global/networks/NETWORK_NAME. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#network GoogleServiceDirectoryEndpoint#network}
+        :param port: Port that the endpoint is running on, must be in the range of [0, 65535]. If unspecified, the default is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#port GoogleServiceDirectoryEndpoint#port}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#timeouts GoogleServiceDirectoryEndpoint#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -508,7 +508,7 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def endpoint_id(self) -> builtins.str:
         '''The Resource ID must be 1-63 characters long, including digits, lowercase letters or the hyphen character.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#endpoint_id GoogleServiceDirectoryEndpoint#endpoint_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#endpoint_id GoogleServiceDirectoryEndpoint#endpoint_id}
         '''
         result = self._values.get("endpoint_id")
         assert result is not None, "Required property 'endpoint_id' is missing"
@@ -518,7 +518,7 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def service(self) -> builtins.str:
         '''The resource name of the service that this endpoint provides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#service GoogleServiceDirectoryEndpoint#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#service GoogleServiceDirectoryEndpoint#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -528,14 +528,14 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def address(self) -> typing.Optional[builtins.str]:
         '''IPv4 or IPv6 address of the endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#address GoogleServiceDirectoryEndpoint#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#address GoogleServiceDirectoryEndpoint#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#id GoogleServiceDirectoryEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#id GoogleServiceDirectoryEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -552,7 +552,7 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
         up to 512 characters, spread across all key-value pairs.
         Metadata that goes beyond any these limits will be rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#metadata GoogleServiceDirectoryEndpoint#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#metadata GoogleServiceDirectoryEndpoint#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -561,7 +561,7 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def network(self) -> typing.Optional[builtins.str]:
         '''The URL to the network, such as projects/PROJECT_NUMBER/locations/global/networks/NETWORK_NAME.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#network GoogleServiceDirectoryEndpoint#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#network GoogleServiceDirectoryEndpoint#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -572,7 +572,7 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         If unspecified, the default is 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#port GoogleServiceDirectoryEndpoint#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#port GoogleServiceDirectoryEndpoint#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -581,7 +581,7 @@ class GoogleServiceDirectoryEndpointConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleServiceDirectoryEndpointTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#timeouts GoogleServiceDirectoryEndpoint#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#timeouts GoogleServiceDirectoryEndpoint#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleServiceDirectoryEndpointTimeouts"], result)
@@ -612,9 +612,9 @@ class GoogleServiceDirectoryEndpointTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#create GoogleServiceDirectoryEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#delete GoogleServiceDirectoryEndpoint#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#update GoogleServiceDirectoryEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#create GoogleServiceDirectoryEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#delete GoogleServiceDirectoryEndpoint#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#update GoogleServiceDirectoryEndpoint#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b89f365d62cc4c7960fc4f1a00757e8a1721ab7d9cd71e194fe7fd232854d7b8)
@@ -631,19 +631,19 @@ class GoogleServiceDirectoryEndpointTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#create GoogleServiceDirectoryEndpoint#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#create GoogleServiceDirectoryEndpoint#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#delete GoogleServiceDirectoryEndpoint#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#delete GoogleServiceDirectoryEndpoint#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_directory_endpoint#update GoogleServiceDirectoryEndpoint#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_directory_endpoint#update GoogleServiceDirectoryEndpoint#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

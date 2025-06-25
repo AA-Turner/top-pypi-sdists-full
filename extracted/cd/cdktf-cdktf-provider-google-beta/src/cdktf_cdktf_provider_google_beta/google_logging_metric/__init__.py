@@ -1,7 +1,7 @@
 r'''
 # `google_logging_metric`
 
-Refer to the Terraform Registry for docs: [`google_logging_metric`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric).
+Refer to the Terraform Registry for docs: [`google_logging_metric`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleLoggingMetric(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleLoggingMetric.GoogleLoggingMetric",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric google_logging_metric}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric google_logging_metric}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleLoggingMetric(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric google_logging_metric} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric google_logging_metric} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#filter GoogleLoggingMetric#filter}
-        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#name GoogleLoggingMetric#name}
-        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bucket_name GoogleLoggingMetric#bucket_name}
-        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bucket_options GoogleLoggingMetric#bucket_options}
-        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
-        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#disabled GoogleLoggingMetric#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#id GoogleLoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#label_extractors GoogleLoggingMetric#label_extractors}
-        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#metric_descriptor GoogleLoggingMetric#metric_descriptor}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#project GoogleLoggingMetric#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#timeouts GoogleLoggingMetric#timeouts}
-        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_extractor GoogleLoggingMetric#value_extractor}
+        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#filter GoogleLoggingMetric#filter}
+        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#name GoogleLoggingMetric#name}
+        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bucket_name GoogleLoggingMetric#bucket_name}
+        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bucket_options GoogleLoggingMetric#bucket_options}
+        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
+        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#disabled GoogleLoggingMetric#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#id GoogleLoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#label_extractors GoogleLoggingMetric#label_extractors}
+        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#metric_descriptor GoogleLoggingMetric#metric_descriptor}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#project GoogleLoggingMetric#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#timeouts GoogleLoggingMetric#timeouts}
+        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_extractor GoogleLoggingMetric#value_extractor}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleLoggingMetric(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleLoggingMetric to import.
-        :param import_from_id: The id of the existing GoogleLoggingMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleLoggingMetric that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleLoggingMetric to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class GoogleLoggingMetric(
         linear_buckets: typing.Optional[typing.Union["GoogleLoggingMetricBucketOptionsLinearBuckets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#explicit_buckets GoogleLoggingMetric#explicit_buckets}
-        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#exponential_buckets GoogleLoggingMetric#exponential_buckets}
-        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#linear_buckets GoogleLoggingMetric#linear_buckets}
+        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#explicit_buckets GoogleLoggingMetric#explicit_buckets}
+        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#exponential_buckets GoogleLoggingMetric#exponential_buckets}
+        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#linear_buckets GoogleLoggingMetric#linear_buckets}
         '''
         value = GoogleLoggingMetricBucketOptions(
             explicit_buckets=explicit_buckets,
@@ -179,11 +179,11 @@ class GoogleLoggingMetric(
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#metric_kind GoogleLoggingMetric#metric_kind}
-        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
-        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#display_name GoogleLoggingMetric#display_name}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#labels GoogleLoggingMetric#labels}
-        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#unit GoogleLoggingMetric#unit}
+        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#metric_kind GoogleLoggingMetric#metric_kind}
+        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
+        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#display_name GoogleLoggingMetric#display_name}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#labels GoogleLoggingMetric#labels}
+        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#unit GoogleLoggingMetric#unit}
         '''
         value = GoogleLoggingMetricMetricDescriptor(
             metric_kind=metric_kind,
@@ -204,9 +204,9 @@ class GoogleLoggingMetric(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#create GoogleLoggingMetric#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#delete GoogleLoggingMetric#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#update GoogleLoggingMetric#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#create GoogleLoggingMetric#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#delete GoogleLoggingMetric#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#update GoogleLoggingMetric#update}.
         '''
         value = GoogleLoggingMetricTimeouts(
             create=create, delete=delete, update=update
@@ -485,9 +485,9 @@ class GoogleLoggingMetricBucketOptions:
         linear_buckets: typing.Optional[typing.Union["GoogleLoggingMetricBucketOptionsLinearBuckets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#explicit_buckets GoogleLoggingMetric#explicit_buckets}
-        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#exponential_buckets GoogleLoggingMetric#exponential_buckets}
-        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#linear_buckets GoogleLoggingMetric#linear_buckets}
+        :param explicit_buckets: explicit_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#explicit_buckets GoogleLoggingMetric#explicit_buckets}
+        :param exponential_buckets: exponential_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#exponential_buckets GoogleLoggingMetric#exponential_buckets}
+        :param linear_buckets: linear_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#linear_buckets GoogleLoggingMetric#linear_buckets}
         '''
         if isinstance(explicit_buckets, dict):
             explicit_buckets = GoogleLoggingMetricBucketOptionsExplicitBuckets(**explicit_buckets)
@@ -514,7 +514,7 @@ class GoogleLoggingMetricBucketOptions:
     ) -> typing.Optional["GoogleLoggingMetricBucketOptionsExplicitBuckets"]:
         '''explicit_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#explicit_buckets GoogleLoggingMetric#explicit_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#explicit_buckets GoogleLoggingMetric#explicit_buckets}
         '''
         result = self._values.get("explicit_buckets")
         return typing.cast(typing.Optional["GoogleLoggingMetricBucketOptionsExplicitBuckets"], result)
@@ -525,7 +525,7 @@ class GoogleLoggingMetricBucketOptions:
     ) -> typing.Optional["GoogleLoggingMetricBucketOptionsExponentialBuckets"]:
         '''exponential_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#exponential_buckets GoogleLoggingMetric#exponential_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#exponential_buckets GoogleLoggingMetric#exponential_buckets}
         '''
         result = self._values.get("exponential_buckets")
         return typing.cast(typing.Optional["GoogleLoggingMetricBucketOptionsExponentialBuckets"], result)
@@ -536,7 +536,7 @@ class GoogleLoggingMetricBucketOptions:
     ) -> typing.Optional["GoogleLoggingMetricBucketOptionsLinearBuckets"]:
         '''linear_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#linear_buckets GoogleLoggingMetric#linear_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#linear_buckets GoogleLoggingMetric#linear_buckets}
         '''
         result = self._values.get("linear_buckets")
         return typing.cast(typing.Optional["GoogleLoggingMetricBucketOptionsLinearBuckets"], result)
@@ -561,7 +561,7 @@ class GoogleLoggingMetricBucketOptions:
 class GoogleLoggingMetricBucketOptionsExplicitBuckets:
     def __init__(self, *, bounds: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bounds GoogleLoggingMetric#bounds}
+        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bounds GoogleLoggingMetric#bounds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be0f55aece3eae396de86bc1e9928ebf7eb2091638aeb3fdcb431f0c0c9de291)
@@ -574,7 +574,7 @@ class GoogleLoggingMetricBucketOptionsExplicitBuckets:
     def bounds(self) -> typing.List[jsii.Number]:
         '''The values must be monotonically increasing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bounds GoogleLoggingMetric#bounds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bounds GoogleLoggingMetric#bounds}
         '''
         result = self._values.get("bounds")
         assert result is not None, "Required property 'bounds' is missing"
@@ -665,9 +665,9 @@ class GoogleLoggingMetricBucketOptionsExponentialBuckets:
         scale: jsii.Number,
     ) -> None:
         '''
-        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#growth_factor GoogleLoggingMetric#growth_factor}
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
-        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#scale GoogleLoggingMetric#scale}
+        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#growth_factor GoogleLoggingMetric#growth_factor}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
+        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#scale GoogleLoggingMetric#scale}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57415f5793cfd7c36db423fe2cf84409ad1c2ba69d252dc645c29f1fd31774fa)
@@ -684,7 +684,7 @@ class GoogleLoggingMetricBucketOptionsExponentialBuckets:
     def growth_factor(self) -> jsii.Number:
         '''Must be greater than 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#growth_factor GoogleLoggingMetric#growth_factor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#growth_factor GoogleLoggingMetric#growth_factor}
         '''
         result = self._values.get("growth_factor")
         assert result is not None, "Required property 'growth_factor' is missing"
@@ -694,7 +694,7 @@ class GoogleLoggingMetricBucketOptionsExponentialBuckets:
     def num_finite_buckets(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
         '''
         result = self._values.get("num_finite_buckets")
         assert result is not None, "Required property 'num_finite_buckets' is missing"
@@ -704,7 +704,7 @@ class GoogleLoggingMetricBucketOptionsExponentialBuckets:
     def scale(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#scale GoogleLoggingMetric#scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#scale GoogleLoggingMetric#scale}
         '''
         result = self._values.get("scale")
         assert result is not None, "Required property 'scale' is missing"
@@ -829,9 +829,9 @@ class GoogleLoggingMetricBucketOptionsLinearBuckets:
         width: jsii.Number,
     ) -> None:
         '''
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
-        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#offset GoogleLoggingMetric#offset}
-        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#width GoogleLoggingMetric#width}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
+        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#offset GoogleLoggingMetric#offset}
+        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#width GoogleLoggingMetric#width}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14db14d1b11a465229ccd9aad6557d7437a13d551ac3a08cd1983a8885b51cbe)
@@ -848,7 +848,7 @@ class GoogleLoggingMetricBucketOptionsLinearBuckets:
     def num_finite_buckets(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
         '''
         result = self._values.get("num_finite_buckets")
         assert result is not None, "Required property 'num_finite_buckets' is missing"
@@ -858,7 +858,7 @@ class GoogleLoggingMetricBucketOptionsLinearBuckets:
     def offset(self) -> jsii.Number:
         '''Lower bound of the first bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#offset GoogleLoggingMetric#offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#offset GoogleLoggingMetric#offset}
         '''
         result = self._values.get("offset")
         assert result is not None, "Required property 'offset' is missing"
@@ -868,7 +868,7 @@ class GoogleLoggingMetricBucketOptionsLinearBuckets:
     def width(self) -> jsii.Number:
         '''Must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#width GoogleLoggingMetric#width}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#width GoogleLoggingMetric#width}
         '''
         result = self._values.get("width")
         assert result is not None, "Required property 'width' is missing"
@@ -998,7 +998,7 @@ class GoogleLoggingMetricBucketOptionsOutputReference(
     @jsii.member(jsii_name="putExplicitBuckets")
     def put_explicit_buckets(self, *, bounds: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bounds GoogleLoggingMetric#bounds}
+        :param bounds: The values must be monotonically increasing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bounds GoogleLoggingMetric#bounds}
         '''
         value = GoogleLoggingMetricBucketOptionsExplicitBuckets(bounds=bounds)
 
@@ -1013,9 +1013,9 @@ class GoogleLoggingMetricBucketOptionsOutputReference(
         scale: jsii.Number,
     ) -> None:
         '''
-        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#growth_factor GoogleLoggingMetric#growth_factor}
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
-        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#scale GoogleLoggingMetric#scale}
+        :param growth_factor: Must be greater than 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#growth_factor GoogleLoggingMetric#growth_factor}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
+        :param scale: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#scale GoogleLoggingMetric#scale}
         '''
         value = GoogleLoggingMetricBucketOptionsExponentialBuckets(
             growth_factor=growth_factor,
@@ -1034,9 +1034,9 @@ class GoogleLoggingMetricBucketOptionsOutputReference(
         width: jsii.Number,
     ) -> None:
         '''
-        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
-        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#offset GoogleLoggingMetric#offset}
-        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#width GoogleLoggingMetric#width}
+        :param num_finite_buckets: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#num_finite_buckets GoogleLoggingMetric#num_finite_buckets}
+        :param offset: Lower bound of the first bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#offset GoogleLoggingMetric#offset}
+        :param width: Must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#width GoogleLoggingMetric#width}
         '''
         value = GoogleLoggingMetricBucketOptionsLinearBuckets(
             num_finite_buckets=num_finite_buckets, offset=offset, width=width
@@ -1171,18 +1171,18 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#filter GoogleLoggingMetric#filter}
-        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#name GoogleLoggingMetric#name}
-        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bucket_name GoogleLoggingMetric#bucket_name}
-        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bucket_options GoogleLoggingMetric#bucket_options}
-        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
-        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#disabled GoogleLoggingMetric#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#id GoogleLoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#label_extractors GoogleLoggingMetric#label_extractors}
-        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#metric_descriptor GoogleLoggingMetric#metric_descriptor}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#project GoogleLoggingMetric#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#timeouts GoogleLoggingMetric#timeouts}
-        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_extractor GoogleLoggingMetric#value_extractor}
+        :param filter: An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#filter GoogleLoggingMetric#filter}
+        :param name: The client-assigned metric identifier. Examples - "error_count", "nginx/requests". Metric identifiers are limited to 100 characters and can include only the following characters A-Z, a-z, 0-9, and the special characters _-.,+!*',()%/. The forward-slash character (/) denotes a hierarchy of name pieces, and it cannot be the first character of the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#name GoogleLoggingMetric#name}
+        :param bucket_name: The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects are supported. The bucket has to be in the same project as the metric. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bucket_name GoogleLoggingMetric#bucket_name}
+        :param bucket_options: bucket_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bucket_options GoogleLoggingMetric#bucket_options}
+        :param description: A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
+        :param disabled: If set to True, then this metric is disabled and it does not generate any points. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#disabled GoogleLoggingMetric#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#id GoogleLoggingMetric#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label_extractors: A map from a label key string to an extractor expression which is used to extract data from a log entry field and assign as the label value. Each label key specified in the LabelDescriptor must have an associated extractor expression in this map. The syntax of the extractor expression is the same as for the valueExtractor field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#label_extractors GoogleLoggingMetric#label_extractors}
+        :param metric_descriptor: metric_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#metric_descriptor GoogleLoggingMetric#metric_descriptor}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#project GoogleLoggingMetric#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#timeouts GoogleLoggingMetric#timeouts}
+        :param value_extractor: A valueExtractor is required when using a distribution logs-based metric to extract the values to record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are 1. field - The name of the log entry field from which the value is to be extracted. 2. regex - A regular expression using the Google RE2 syntax (https://github.com/google/re2/wiki/Syntax) with a single capture group to extract data from the specified log entry field. The value of the field is converted to a string before applying the regex. It is an error to specify a regex that does not include exactly one capture group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_extractor GoogleLoggingMetric#value_extractor}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1320,7 +1320,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> builtins.str:
         '''An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which is used to match log entries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#filter GoogleLoggingMetric#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#filter GoogleLoggingMetric#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -1336,7 +1336,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         character (/) denotes a hierarchy of name pieces, and it cannot be the first character
         of the name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#name GoogleLoggingMetric#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#name GoogleLoggingMetric#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1349,7 +1349,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Only Log Buckets in projects
         are supported. The bucket has to be in the same project as the metric.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bucket_name GoogleLoggingMetric#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bucket_name GoogleLoggingMetric#bucket_name}
         '''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1358,7 +1358,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket_options(self) -> typing.Optional[GoogleLoggingMetricBucketOptions]:
         '''bucket_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#bucket_options GoogleLoggingMetric#bucket_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#bucket_options GoogleLoggingMetric#bucket_options}
         '''
         result = self._values.get("bucket_options")
         return typing.cast(typing.Optional[GoogleLoggingMetricBucketOptions], result)
@@ -1367,7 +1367,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of this metric, which is used in documentation. The maximum length of the description is 8000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1378,14 +1378,14 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to True, then this metric is disabled and it does not generate any points.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#disabled GoogleLoggingMetric#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#disabled GoogleLoggingMetric#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#id GoogleLoggingMetric#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#id GoogleLoggingMetric#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1403,7 +1403,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         have an associated extractor expression in this map. The syntax of the extractor expression is
         the same as for the valueExtractor field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#label_extractors GoogleLoggingMetric#label_extractors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#label_extractors GoogleLoggingMetric#label_extractors}
         '''
         result = self._values.get("label_extractors")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1414,14 +1414,14 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleLoggingMetricMetricDescriptor"]:
         '''metric_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#metric_descriptor GoogleLoggingMetric#metric_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#metric_descriptor GoogleLoggingMetric#metric_descriptor}
         '''
         result = self._values.get("metric_descriptor")
         return typing.cast(typing.Optional["GoogleLoggingMetricMetricDescriptor"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#project GoogleLoggingMetric#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#project GoogleLoggingMetric#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1429,7 +1429,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleLoggingMetricTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#timeouts GoogleLoggingMetric#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#timeouts GoogleLoggingMetric#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleLoggingMetricTimeouts"], result)
@@ -1445,7 +1445,7 @@ class GoogleLoggingMetricConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         log entry field. The value of the field is converted to a string before applying the regex. It is an
         error to specify a regex that does not include exactly one capture group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_extractor GoogleLoggingMetric#value_extractor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_extractor GoogleLoggingMetric#value_extractor}
         '''
         result = self._values.get("value_extractor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1484,11 +1484,11 @@ class GoogleLoggingMetricMetricDescriptor:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#metric_kind GoogleLoggingMetric#metric_kind}
-        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
-        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#display_name GoogleLoggingMetric#display_name}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#labels GoogleLoggingMetric#labels}
-        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#unit GoogleLoggingMetric#unit}
+        :param metric_kind: Whether the metric records instantaneous values, changes to a value, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#metric_kind GoogleLoggingMetric#metric_kind}
+        :param value_type: Whether the measurement is an integer, a floating-point number, etc. Some combinations of metricKind and valueType might not be supported. For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
+        :param display_name: A concise name for the metric, which can be displayed in user interfaces. Use sentence case without an ending period, for example "Request count". This field is optional but it is recommended to be set for any metrics associated with user-visible concepts, such as Quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#display_name GoogleLoggingMetric#display_name}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#labels GoogleLoggingMetric#labels}
+        :param unit: The unit in which the metric value is reported. It is only applicable if the valueType is 'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#unit GoogleLoggingMetric#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1b04a33a21352caa718019784d8604c2cc150b81ad255f0ab6ef7fb967613c8)
@@ -1515,7 +1515,7 @@ class GoogleLoggingMetricMetricDescriptor:
         Some combinations of metricKind and valueType might not be supported.
         For counter metrics, set this to DELTA. Possible values: ["DELTA", "GAUGE", "CUMULATIVE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#metric_kind GoogleLoggingMetric#metric_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#metric_kind GoogleLoggingMetric#metric_kind}
         '''
         result = self._values.get("metric_kind")
         assert result is not None, "Required property 'metric_kind' is missing"
@@ -1528,7 +1528,7 @@ class GoogleLoggingMetricMetricDescriptor:
         Some combinations of metricKind and valueType might not be supported.
         For counter metrics, set this to INT64. Possible values: ["BOOL", "INT64", "DOUBLE", "STRING", "DISTRIBUTION", "MONEY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
         '''
         result = self._values.get("value_type")
         assert result is not None, "Required property 'value_type' is missing"
@@ -1542,7 +1542,7 @@ class GoogleLoggingMetricMetricDescriptor:
         without an ending period, for example "Request count". This field is optional but it is
         recommended to be set for any metrics associated with user-visible concepts, such as Quota.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#display_name GoogleLoggingMetric#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#display_name GoogleLoggingMetric#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1553,7 +1553,7 @@ class GoogleLoggingMetricMetricDescriptor:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleLoggingMetricMetricDescriptorLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#labels GoogleLoggingMetric#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#labels GoogleLoggingMetric#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleLoggingMetricMetricDescriptorLabels"]]], result)
@@ -1566,7 +1566,7 @@ class GoogleLoggingMetricMetricDescriptor:
         'INT64', 'DOUBLE', or 'DISTRIBUTION'. The supported units are a subset of
         `The Unified Code for Units of Measure <http://unitsofmeasure.org/ucum.html>`_ standard
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#unit GoogleLoggingMetric#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#unit GoogleLoggingMetric#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1601,9 +1601,9 @@ class GoogleLoggingMetricMetricDescriptorLabels:
         value_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: The label key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#key GoogleLoggingMetric#key}
-        :param description: A human-readable description for the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
-        :param value_type: The type of data that can be assigned to the label. Default value: "STRING" Possible values: ["BOOL", "INT64", "STRING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
+        :param key: The label key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#key GoogleLoggingMetric#key}
+        :param description: A human-readable description for the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
+        :param value_type: The type of data that can be assigned to the label. Default value: "STRING" Possible values: ["BOOL", "INT64", "STRING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e616b109322d2ae4ce9b94b216ed804a43491cbcd23d1866c05953dde9800cd6)
@@ -1622,7 +1622,7 @@ class GoogleLoggingMetricMetricDescriptorLabels:
     def key(self) -> builtins.str:
         '''The label key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#key GoogleLoggingMetric#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#key GoogleLoggingMetric#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1632,7 +1632,7 @@ class GoogleLoggingMetricMetricDescriptorLabels:
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description for the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#description GoogleLoggingMetric#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1641,7 +1641,7 @@ class GoogleLoggingMetricMetricDescriptorLabels:
     def value_type(self) -> typing.Optional[builtins.str]:
         '''The type of data that can be assigned to the label. Default value: "STRING" Possible values: ["BOOL", "INT64", "STRING"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#value_type GoogleLoggingMetric#value_type}
         '''
         result = self._values.get("value_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2009,9 +2009,9 @@ class GoogleLoggingMetricTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#create GoogleLoggingMetric#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#delete GoogleLoggingMetric#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#update GoogleLoggingMetric#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#create GoogleLoggingMetric#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#delete GoogleLoggingMetric#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#update GoogleLoggingMetric#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7593d220e64403aebdd7a8fd87f490d9d9d93de2419b72455c75c0ded78be4e6)
@@ -2028,19 +2028,19 @@ class GoogleLoggingMetricTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#create GoogleLoggingMetric#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#create GoogleLoggingMetric#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#delete GoogleLoggingMetric#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#delete GoogleLoggingMetric#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_metric#update GoogleLoggingMetric#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_metric#update GoogleLoggingMetric#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

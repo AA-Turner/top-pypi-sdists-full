@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_metastore_database_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_metastore_database_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding).
+Refer to the Terraform Registry for docs: [`google_dataproc_metastore_database_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataprocMetastoreDatabaseIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataprocMetastoreDatabaseIamBinding.GoogleDataprocMetastoreDatabaseIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding google_dataproc_metastore_database_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding google_dataproc_metastore_database_iam_binding}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleDataprocMetastoreDatabaseIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding google_dataproc_metastore_database_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding google_dataproc_metastore_database_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#database GoogleDataprocMetastoreDatabaseIamBinding#database}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#members GoogleDataprocMetastoreDatabaseIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#role GoogleDataprocMetastoreDatabaseIamBinding#role}.
-        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#service_id GoogleDataprocMetastoreDatabaseIamBinding#service_id}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#condition GoogleDataprocMetastoreDatabaseIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#id GoogleDataprocMetastoreDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#location GoogleDataprocMetastoreDatabaseIamBinding#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#project GoogleDataprocMetastoreDatabaseIamBinding#project}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#database GoogleDataprocMetastoreDatabaseIamBinding#database}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#members GoogleDataprocMetastoreDatabaseIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#role GoogleDataprocMetastoreDatabaseIamBinding#role}.
+        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#service_id GoogleDataprocMetastoreDatabaseIamBinding#service_id}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#condition GoogleDataprocMetastoreDatabaseIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#id GoogleDataprocMetastoreDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#location GoogleDataprocMetastoreDatabaseIamBinding#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#project GoogleDataprocMetastoreDatabaseIamBinding#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleDataprocMetastoreDatabaseIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataprocMetastoreDatabaseIamBinding to import.
-        :param import_from_id: The id of the existing GoogleDataprocMetastoreDatabaseIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataprocMetastoreDatabaseIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataprocMetastoreDatabaseIamBinding to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GoogleDataprocMetastoreDatabaseIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#expression GoogleDataprocMetastoreDatabaseIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#title GoogleDataprocMetastoreDatabaseIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#description GoogleDataprocMetastoreDatabaseIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#expression GoogleDataprocMetastoreDatabaseIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#title GoogleDataprocMetastoreDatabaseIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#description GoogleDataprocMetastoreDatabaseIamBinding#description}.
         '''
         value = GoogleDataprocMetastoreDatabaseIamBindingCondition(
             expression=expression, title=title, description=description
@@ -340,9 +340,9 @@ class GoogleDataprocMetastoreDatabaseIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#expression GoogleDataprocMetastoreDatabaseIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#title GoogleDataprocMetastoreDatabaseIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#description GoogleDataprocMetastoreDatabaseIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#expression GoogleDataprocMetastoreDatabaseIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#title GoogleDataprocMetastoreDatabaseIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#description GoogleDataprocMetastoreDatabaseIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__456a2999d10b3532ddbbb3e151af6c278ce4a966c8a0056f26eea17c1ed7e2a9)
@@ -358,21 +358,21 @@ class GoogleDataprocMetastoreDatabaseIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#expression GoogleDataprocMetastoreDatabaseIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#expression GoogleDataprocMetastoreDatabaseIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#title GoogleDataprocMetastoreDatabaseIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#title GoogleDataprocMetastoreDatabaseIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#description GoogleDataprocMetastoreDatabaseIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#description GoogleDataprocMetastoreDatabaseIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -532,14 +532,14 @@ class GoogleDataprocMetastoreDatabaseIamBindingConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#database GoogleDataprocMetastoreDatabaseIamBinding#database}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#members GoogleDataprocMetastoreDatabaseIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#role GoogleDataprocMetastoreDatabaseIamBinding#role}.
-        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#service_id GoogleDataprocMetastoreDatabaseIamBinding#service_id}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#condition GoogleDataprocMetastoreDatabaseIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#id GoogleDataprocMetastoreDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#location GoogleDataprocMetastoreDatabaseIamBinding#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#project GoogleDataprocMetastoreDatabaseIamBinding#project}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#database GoogleDataprocMetastoreDatabaseIamBinding#database}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#members GoogleDataprocMetastoreDatabaseIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#role GoogleDataprocMetastoreDatabaseIamBinding#role}.
+        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#service_id GoogleDataprocMetastoreDatabaseIamBinding#service_id}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#condition GoogleDataprocMetastoreDatabaseIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#id GoogleDataprocMetastoreDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#location GoogleDataprocMetastoreDatabaseIamBinding#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#project GoogleDataprocMetastoreDatabaseIamBinding#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -657,28 +657,28 @@ class GoogleDataprocMetastoreDatabaseIamBindingConfig(
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#database GoogleDataprocMetastoreDatabaseIamBinding#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#database GoogleDataprocMetastoreDatabaseIamBinding#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#members GoogleDataprocMetastoreDatabaseIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#members GoogleDataprocMetastoreDatabaseIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#role GoogleDataprocMetastoreDatabaseIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#role GoogleDataprocMetastoreDatabaseIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#service_id GoogleDataprocMetastoreDatabaseIamBinding#service_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#service_id GoogleDataprocMetastoreDatabaseIamBinding#service_id}.'''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
         return typing.cast(builtins.str, result)
@@ -689,14 +689,14 @@ class GoogleDataprocMetastoreDatabaseIamBindingConfig(
     ) -> typing.Optional[GoogleDataprocMetastoreDatabaseIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#condition GoogleDataprocMetastoreDatabaseIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#condition GoogleDataprocMetastoreDatabaseIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleDataprocMetastoreDatabaseIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#id GoogleDataprocMetastoreDatabaseIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#id GoogleDataprocMetastoreDatabaseIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -706,13 +706,13 @@ class GoogleDataprocMetastoreDatabaseIamBindingConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#location GoogleDataprocMetastoreDatabaseIamBinding#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#location GoogleDataprocMetastoreDatabaseIamBinding#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_metastore_database_iam_binding#project GoogleDataprocMetastoreDatabaseIamBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_metastore_database_iam_binding#project GoogleDataprocMetastoreDatabaseIamBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

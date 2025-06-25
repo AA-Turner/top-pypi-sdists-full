@@ -1,3 +1,4 @@
+import datetime
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
@@ -19,6 +20,7 @@ from django_tasks.task import (
     MIN_PRIORITY,
     ResultStatus,
     Task,
+    TaskError,
 )
 from django_tasks.utils import get_exception_traceback, get_module_path, retry
 
@@ -46,14 +48,17 @@ else:
             return cls
 
 
+DATE_MAX = datetime.datetime(9999, 1, 1, tzinfo=datetime.timezone.utc)
+
+
 class DBTaskResultQuerySet(models.QuerySet):
     def ready(self) -> "DBTaskResultQuerySet":
         """
         Return tasks which are ready to be processed.
         """
         return self.filter(
-            status=ResultStatus.NEW,
-        ).filter(models.Q(run_after=None) | models.Q(run_after__lte=timezone.now()))
+            status=ResultStatus.READY,
+        ).filter(models.Q(run_after=DATE_MAX) | models.Q(run_after__lte=timezone.now()))
 
     def succeeded(self) -> "DBTaskResultQuerySet":
         return self.filter(status=ResultStatus.SUCCEEDED)
@@ -81,7 +86,7 @@ class DBTaskResult(GenericBase[P, T], models.Model):
     status = models.CharField(
         _("status"),
         choices=ResultStatus.choices,
-        default=ResultStatus.NEW,
+        default=ResultStatus.READY,
         max_length=max(len(value) for value in ResultStatus.values),
     )
 
@@ -94,11 +99,14 @@ class DBTaskResult(GenericBase[P, T], models.Model):
     priority = models.IntegerField(_("priority"), default=DEFAULT_PRIORITY)
 
     task_path = models.TextField(_("task path"))
+    worker_ids = models.JSONField(_("worker id"), default=list)
 
-    queue_name = models.TextField(_("queue name"), default=DEFAULT_QUEUE_NAME)
-    backend_name = models.TextField(_("backend name"))
+    queue_name = models.CharField(
+        _("queue name"), default=DEFAULT_QUEUE_NAME, max_length=32
+    )
+    backend_name = models.CharField(_("backend name"), max_length=32)
 
-    run_after = models.DateTimeField(_("run after"), null=True)
+    run_after = models.DateTimeField(_("run after"))
 
     return_value = models.JSONField(_("return value"), default=None, null=True)
 
@@ -108,9 +116,19 @@ class DBTaskResult(GenericBase[P, T], models.Model):
     objects = DBTaskResultQuerySet.as_manager()
 
     class Meta:
-        ordering = [F("priority").desc(), F("run_after").asc(nulls_last=True)]
+        ordering = [F("priority").desc(), F("run_after").asc()]
         verbose_name = _("Task Result")
         verbose_name_plural = _("Task Results")
+        indexes = [
+            models.Index(
+                "status",
+                *ordering,
+                name="django_task_new_ordering_idx",
+                condition=Q(status=ResultStatus.READY),
+            ),
+            models.Index(fields=["queue_name"]),
+            models.Index(fields=["backend_name"]),
+        ]
 
         if django.VERSION >= (5, 1):
             constraints = [
@@ -139,18 +157,13 @@ class DBTaskResult(GenericBase[P, T], models.Model):
         return task.using(
             priority=self.priority,
             queue_name=self.queue_name,
-            run_after=self.run_after,
+            run_after=None if self.run_after == DATE_MAX else self.run_after,
             backend=self.backend_name,
         )
 
     @property
     def task_result(self) -> "TaskResult[T]":
         from .backend import TaskResult
-
-        try:
-            exception_class = import_string(self.exception_class_path)
-        except ImportError:
-            exception_class = None
 
         task_result = TaskResult[T](
             db_result=self,
@@ -159,14 +172,23 @@ class DBTaskResult(GenericBase[P, T], models.Model):
             status=ResultStatus[self.status],
             enqueued_at=self.enqueued_at,
             started_at=self.started_at,
+            last_attempted_at=self.started_at,
             finished_at=self.finished_at,
             args=self.args_kwargs["args"],
             kwargs=self.args_kwargs["kwargs"],
             backend=self.backend_name,
+            errors=[],
+            worker_ids=self.worker_ids,
         )
 
-        object.__setattr__(task_result, "_exception_class", exception_class)
-        object.__setattr__(task_result, "_traceback", self.traceback or None)
+        if self.status == ResultStatus.FAILED:
+            task_result.errors.append(
+                TaskError(
+                    exception_class_path=self.exception_class_path,
+                    traceback=self.traceback,
+                )
+            )
+
         object.__setattr__(task_result, "_return_value", self.return_value)
 
         return task_result
@@ -186,13 +208,14 @@ class DBTaskResult(GenericBase[P, T], models.Model):
             return self.task_path
 
     @retry(backoff_delay=0)
-    def claim(self) -> None:
+    def claim(self, worker_id: str) -> None:
         """
         Mark as job as being run
         """
         self.status = ResultStatus.RUNNING
         self.started_at = timezone.now()
-        self.save(update_fields=["status", "started_at"])
+        self.worker_ids = [*self.worker_ids, worker_id]
+        self.save(update_fields=["status", "started_at", "worker_ids"])
 
     @retry()
     def set_succeeded(self, return_value: Any) -> None:

@@ -144,7 +144,7 @@ def load_pdb(
 
     if not isinstance(filename, (str, os.PathLike)):
         raise TypeError(
-            "filename must be of type string or path-like for load_pdb. " "you supplied %s" % type(filename),
+            "filename must be of type string or path-like for load_pdb. you supplied %s" % type(filename),
         )
 
     atom_indices = cast_indices(atom_indices)
@@ -307,7 +307,6 @@ class PDBTrajectoryFile:
         unitcell_angles=None,
         bfactors=None,
         ter=True,
-        header=True,
     ):
         """Write a PDB file to disk
 
@@ -330,9 +329,6 @@ class PDBTrajectoryFile:
         ter : bool, default=True
             Include TER lines in pdb to indicate end of a chain of residues. This is useful
             if you need to keep atom numbers consistent.
-        header : bool, default=True
-            Include header in pdb. Useful if you want the extra output, but sometimes prevent
-            programs from running smoothly.
         """
         if not self._mode == "w":
             raise ValueError("file not opened for writing")
@@ -364,7 +360,7 @@ class PDBTrajectoryFile:
 
         atomIndex = 1
         posIndex = 0
-        if header and modelIndex is not None:
+        if modelIndex is not None:
             print("MODEL     %4d" % modelIndex, file=self._file)
         for chainIndex, chain in enumerate(topology.chains):
             if not chain.chain_id:
@@ -427,12 +423,13 @@ class PDBTrajectoryFile:
                     atomIndex += 1
                 if resIndex == len(residues) - 1 and ter:
                     print(
-                        "TER   %5d      %3s %s%4d" % ((atomSerial + 1) % 100000, resName, chainName, res.resSeq % 10000),
+                        "TER   %5d      %3s %s%4d"
+                        % ((atomSerial + 1) % 100000, resName, chainName, res.resSeq % 10000),
                         file=self._file,
                     )
                     atomIndex += 1
 
-        if header and modelIndex is not None:
+        if modelIndex is not None:
             print("ENDMDL", file=self._file)
 
     def _write_header(self, unitcell_lengths, unitcell_angles, write_metadata=True):
@@ -458,7 +455,7 @@ class PDBTrajectoryFile:
                 raise ValueError("unitcell_angles must be length 3")
         else:
             raise ValueError(
-                "either unitcell_lengths and unitcell_angles" "should both be spefied, or neither",
+                "either unitcell_lengths and unitcell_anglesshould both be spefied, or neither",
             )
 
         box = list(unitcell_lengths) + list(unitcell_angles)
@@ -474,48 +471,53 @@ class PDBTrajectoryFile:
             file=self._file,
         )
 
+    _standardResidues = [
+        "ALA",
+        "ASN",
+        "CYS",
+        "GLU",
+        "HIS",
+        "LEU",
+        "MET",
+        "PRO",
+        "THR",
+        "TYR",
+        "ARG",
+        "ASP",
+        "GLN",
+        "GLY",
+        "ILE",
+        "LYS",
+        "PHE",
+        "SER",
+        "TRP",
+        "VAL",
+        "A",
+        "G",
+        "C",
+        "U",
+        "I",
+        "DA",
+        "DG",
+        "DC",
+        "DT",
+        "DI",
+        "HOH",
+    ]
+
     def _write_footer(self):
         if not self._mode == "w":
             raise ValueError("file not opened for writing")
 
         # Identify bonds that should be listed as CONECT records.
-        standardResidues = [
-            "ALA",
-            "ASN",
-            "CYS",
-            "GLU",
-            "HIS",
-            "LEU",
-            "MET",
-            "PRO",
-            "THR",
-            "TYR",
-            "ARG",
-            "ASP",
-            "GLN",
-            "GLY",
-            "ILE",
-            "LYS",
-            "PHE",
-            "SER",
-            "TRP",
-            "VAL",
-            "A",
-            "G",
-            "C",
-            "U",
-            "I",
-            "DA",
-            "DG",
-            "DC",
-            "DT",
-            "DI",
-            "HOH",
-        ]
+
         conectBonds = []
         if self._last_topology is not None:
             for atom1, atom2 in self._last_topology.bonds:
-                if atom1.residue.name not in standardResidues or atom2.residue.name not in standardResidues:
+                if (
+                    atom1.residue.name not in self._standardResidues
+                    or atom2.residue.name not in self._standardResidues
+                ):
                     conectBonds.append((atom1, atom2))
                 elif (
                     atom1.name == "SG"
@@ -831,5 +833,5 @@ def _format_83(f):
     if -9999999 < f < 99999999:
         return ("%8.3f" % f)[:8]
     raise ValueError(
-        'coordinate "%s" could not be represnted ' "in a width-8 field" % f,
+        'coordinate "%s" could not be represnted in a width-8 field' % f,
     )

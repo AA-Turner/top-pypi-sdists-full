@@ -34,6 +34,7 @@ class CloudDeployment(object):
     """
     openapi_types = {
         'cloud_deployment_id': 'str',
+        'name': 'str',
         'provider': 'CloudProviders',
         'compute_stack': 'ComputeStack',
         'region': 'str',
@@ -42,12 +43,12 @@ class CloudDeployment(object):
         'file_storage': 'FileStorage',
         'aws_config': 'AWSConfig',
         'gcp_config': 'GCPConfig',
-        'pcp_config': 'PCPConfig',
         'kubernetes_config': 'KubernetesConfig'
     }
 
     attribute_map = {
         'cloud_deployment_id': 'cloud_deployment_id',
+        'name': 'name',
         'provider': 'provider',
         'compute_stack': 'compute_stack',
         'region': 'region',
@@ -56,17 +57,17 @@ class CloudDeployment(object):
         'file_storage': 'file_storage',
         'aws_config': 'aws_config',
         'gcp_config': 'gcp_config',
-        'pcp_config': 'pcp_config',
         'kubernetes_config': 'kubernetes_config'
     }
 
-    def __init__(self, cloud_deployment_id=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, pcp_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
         """CloudDeployment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._cloud_deployment_id = None
+        self._name = None
         self._provider = None
         self._compute_stack = None
         self._region = None
@@ -75,12 +76,13 @@ class CloudDeployment(object):
         self._file_storage = None
         self._aws_config = None
         self._gcp_config = None
-        self._pcp_config = None
         self._kubernetes_config = None
         self.discriminator = None
 
         if cloud_deployment_id is not None:
             self.cloud_deployment_id = cloud_deployment_id
+        if name is not None:
+            self.name = name
         self.provider = provider
         if compute_stack is not None:
             self.compute_stack = compute_stack
@@ -92,7 +94,6 @@ class CloudDeployment(object):
         self.file_storage = file_storage
         self.aws_config = aws_config
         self.gcp_config = gcp_config
-        self.pcp_config = pcp_config
         self.kubernetes_config = kubernetes_config
 
     @property
@@ -119,10 +120,33 @@ class CloudDeployment(object):
         self._cloud_deployment_id = cloud_deployment_id
 
     @property
+    def name(self):
+        """Gets the name of this CloudDeployment.  # noqa: E501
+
+        The name of this deployment.  # noqa: E501
+
+        :return: The name of this CloudDeployment.  # noqa: E501
+        :rtype: str
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        """Sets the name of this CloudDeployment.
+
+        The name of this deployment.  # noqa: E501
+
+        :param name: The name of this CloudDeployment.  # noqa: E501
+        :type: str
+        """
+
+        self._name = name
+
+    @property
     def provider(self):
         """Gets the provider of this CloudDeployment.  # noqa: E501
 
-        The cloud provider type (AWS, GCP, PCP, AZURE, or GENERIC).  # noqa: E501
+        The cloud provider type (AWS, GCP, AZURE, or GENERIC).  # noqa: E501
 
         :return: The provider of this CloudDeployment.  # noqa: E501
         :rtype: CloudProviders
@@ -133,7 +157,7 @@ class CloudDeployment(object):
     def provider(self, provider):
         """Sets the provider of this CloudDeployment.
 
-        The cloud provider type (AWS, GCP, PCP, AZURE, or GENERIC).  # noqa: E501
+        The cloud provider type (AWS, GCP, AZURE, or GENERIC).  # noqa: E501
 
         :param provider: The provider of this CloudDeployment.  # noqa: E501
         :type: CloudProviders
@@ -303,29 +327,6 @@ class CloudDeployment(object):
         """
 
         self._gcp_config = gcp_config
-
-    @property
-    def pcp_config(self):
-        """Gets the pcp_config of this CloudDeployment.  # noqa: E501
-
-        Machine pool configurations.  # noqa: E501
-
-        :return: The pcp_config of this CloudDeployment.  # noqa: E501
-        :rtype: PCPConfig
-        """
-        return self._pcp_config
-
-    @pcp_config.setter
-    def pcp_config(self, pcp_config):
-        """Sets the pcp_config of this CloudDeployment.
-
-        Machine pool configurations.  # noqa: E501
-
-        :param pcp_config: The pcp_config of this CloudDeployment.  # noqa: E501
-        :type: PCPConfig
-        """
-
-        self._pcp_config = pcp_config
 
     @property
     def kubernetes_config(self):

@@ -1,4 +1,4 @@
-from .agent import KnowledgeScope, ProResearchRequest
+from .agent import ChatCompletionMessageParam, KnowledgeScope, ProResearchRequest
 from .api_key import APIKey
 from .chunk import Chunk
 from .converter import GenericConverter
@@ -67,6 +67,7 @@ __all__ = [
     "Resource",
     "Permission",
     "Chunk",
+    "ChatCompletionMessageParam",
     "Rule",
     "GlobalRule",
     "SpaceRule",

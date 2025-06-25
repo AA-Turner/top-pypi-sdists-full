@@ -41,7 +41,7 @@ if have_c_files:
 else:
     # Force `setup_requires` stuff like Cython to be installed before proceeding
     from setuptools.dist import Distribution
-    Distribution(dict(setup_requires='Cython>=3.0'))
+    Distribution(dict(setup_requires='Cython>=3.1.0'))
     from Cython.Distutils import build_ext as _build_ext
 
 def check_env(env_name, default):
@@ -59,6 +59,7 @@ LINK_KRB5 = check_env('LINK_KRB5', 'YES')
 
 # 32 bit or 64 bit system?
 BITNESS = struct.calcsize("P") * 8
+print(f"setup.py: BITNESS='{BITNESS}'")
 WINDOWS = platform.system() == 'Windows'
 MACOS = platform.system() == 'Darwin'
 
@@ -79,7 +80,7 @@ elif exists("/opt/local/include/sqlfront.h"): # MacPorts
     prefix = "/opt/local"
 elif exists("/sw/include/sqlfront.h"): # Fink
     prefix = "/sw"
-print(f"prefix='{prefix}'")
+print(f"setup.py: prefix='{prefix}'")
 
 if os.getenv('PYMSSQL_FREETDS_INCLUDEDIR'):
     include_dirs = [ os.getenv('PYMSSQL_FREETDS_INCLUDEDIR') ]
@@ -96,7 +97,7 @@ else:
 
 if MACOS:
     pref = subprocess.getoutput('brew --prefix openssl')
-    print(f"PREFIX={pref}")
+    print(f"setup.py: PREFIX={pref}")
     include_dirs.append(f"{pref}/include")
     library_dirs.append(f"{pref}/lib")
 
@@ -259,12 +260,12 @@ def ext_modules():
 
     ext_modules = [
         Extension('pymssql._mssql', [join('src', 'pymssql', '_mssql.%s' % source_extension)],
-            extra_compile_args = [ '-DMSDBLIB' ],
+            extra_compile_args = [ '-DMSDBLIB', '-std=c99' ],
             include_dirs = include_dirs,
             library_dirs = library_dirs,
         ),
         Extension('pymssql._pymssql', [join('src', 'pymssql', '_pymssql.%s' % source_extension)],
-            extra_compile_args = [ '-DMSDBLIB' ],
+            extra_compile_args = [ '-DMSDBLIB', '-std=c99' ],
             include_dirs = include_dirs,
             library_dirs = library_dirs,
         ),
@@ -307,7 +308,6 @@ setup(
         'release': release,
     },
     zip_safe = False,
-    setup_requires=['setuptools_scm[toml]>=5.0,<9.0', 'Cython>=3.0.7'],
     ext_modules = ext_modules(),
     packages = [ 'pymssql'],
     package_dir = {'': 'src'},

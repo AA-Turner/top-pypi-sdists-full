@@ -367,6 +367,7 @@ struct OfflineTtsKokoroModelConfig {
   std::string data_dir;
   std::string dict_dir;
   std::string lexicon;
+  std::string lang;
 
   float length_scale = 1.0;  // < 1, faster in speed; > 1, slower in speed
 };
@@ -613,6 +614,10 @@ class SHERPA_ONNX_API LinearResampler
  private:
   explicit LinearResampler(const SherpaOnnxLinearResampler *p);
 };
+
+std::string GetVersionStr();
+std::string GetGitSha1();
+std::string GetGitDate();
 
 }  // namespace sherpa_onnx::cxx
 

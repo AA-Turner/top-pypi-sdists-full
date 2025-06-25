@@ -102,6 +102,7 @@ IpAddressStatusType = Literal[
     "DETACHING",
     "FAILED_CREATION",
     "FAILED_RESOURCE_GONE",
+    "ISOLATED",
     "REMAP_ATTACHING",
     "REMAP_DETACHING",
     "UPDATE_FAILED",
@@ -152,7 +153,7 @@ ResolverDNSSECValidationStatusType = Literal[
     "UPDATING_TO_USE_LOCAL_RESOURCE_SETTING",
     "USE_LOCAL_RESOURCE_SETTING",
 ]
-ResolverEndpointDirectionType = Literal["INBOUND", "OUTBOUND"]
+ResolverEndpointDirectionType = Literal["INBOUND", "INBOUND_DELEGATION", "OUTBOUND"]
 ResolverEndpointStatusType = Literal[
     "ACTION_NEEDED", "AUTO_RECOVERING", "CREATING", "DELETING", "OPERATIONAL", "UPDATING"
 ]
@@ -168,7 +169,7 @@ ResolverRuleAssociationStatusType = Literal[
     "COMPLETE", "CREATING", "DELETING", "FAILED", "OVERRIDDEN"
 ]
 ResolverRuleStatusType = Literal["COMPLETE", "DELETING", "FAILED", "UPDATING"]
-RuleTypeOptionType = Literal["FORWARD", "RECURSIVE", "SYSTEM"]
+RuleTypeOptionType = Literal["DELEGATE", "FORWARD", "RECURSIVE", "SYSTEM"]
 ShareStatusType = Literal["NOT_SHARED", "SHARED_BY_ME", "SHARED_WITH_ME"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ValidationType = Literal["DISABLE", "ENABLE", "USE_LOCAL_RESOURCE_SETTING"]

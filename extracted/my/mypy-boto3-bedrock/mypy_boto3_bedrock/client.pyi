@@ -46,6 +46,8 @@ from .type_defs import (
     CreateCustomModelResponseTypeDef,
     CreateEvaluationJobRequestTypeDef,
     CreateEvaluationJobResponseTypeDef,
+    CreateFoundationModelAgreementRequestTypeDef,
+    CreateFoundationModelAgreementResponseTypeDef,
     CreateGuardrailRequestTypeDef,
     CreateGuardrailResponseTypeDef,
     CreateGuardrailVersionRequestTypeDef,
@@ -67,6 +69,7 @@ from .type_defs import (
     CreateProvisionedModelThroughputRequestTypeDef,
     CreateProvisionedModelThroughputResponseTypeDef,
     DeleteCustomModelRequestTypeDef,
+    DeleteFoundationModelAgreementRequestTypeDef,
     DeleteGuardrailRequestTypeDef,
     DeleteImportedModelRequestTypeDef,
     DeleteInferenceProfileRequestTypeDef,
@@ -78,6 +81,8 @@ from .type_defs import (
     GetCustomModelResponseTypeDef,
     GetEvaluationJobRequestTypeDef,
     GetEvaluationJobResponseTypeDef,
+    GetFoundationModelAvailabilityRequestTypeDef,
+    GetFoundationModelAvailabilityResponseTypeDef,
     GetFoundationModelRequestTypeDef,
     GetFoundationModelResponseTypeDef,
     GetGuardrailRequestTypeDef,
@@ -101,10 +106,13 @@ from .type_defs import (
     GetPromptRouterResponseTypeDef,
     GetProvisionedModelThroughputRequestTypeDef,
     GetProvisionedModelThroughputResponseTypeDef,
+    GetUseCaseForModelAccessResponseTypeDef,
     ListCustomModelsRequestTypeDef,
     ListCustomModelsResponseTypeDef,
     ListEvaluationJobsRequestTypeDef,
     ListEvaluationJobsResponseTypeDef,
+    ListFoundationModelAgreementOffersRequestTypeDef,
+    ListFoundationModelAgreementOffersResponseTypeDef,
     ListFoundationModelsRequestTypeDef,
     ListFoundationModelsResponseTypeDef,
     ListGuardrailsRequestTypeDef,
@@ -130,6 +138,7 @@ from .type_defs import (
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutModelInvocationLoggingConfigurationRequestTypeDef,
+    PutUseCaseForModelAccessRequestTypeDef,
     RegisterMarketplaceModelEndpointRequestTypeDef,
     RegisterMarketplaceModelEndpointResponseTypeDef,
     StopEvaluationJobRequestTypeDef,
@@ -232,6 +241,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_evaluation_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#create_evaluation_job)
+        """
+
+    def create_foundation_model_agreement(
+        self, **kwargs: Unpack[CreateFoundationModelAgreementRequestTypeDef]
+    ) -> CreateFoundationModelAgreementResponseTypeDef:
+        """
+        Request a model access agreement for the specified model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_foundation_model_agreement.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#create_foundation_model_agreement)
         """
 
     def create_guardrail(
@@ -349,6 +368,16 @@ class BedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#delete_custom_model)
         """
 
+    def delete_foundation_model_agreement(
+        self, **kwargs: Unpack[DeleteFoundationModelAgreementRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Delete the model access agreement for the specified model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_foundation_model_agreement.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#delete_foundation_model_agreement)
+        """
+
     def delete_guardrail(self, **kwargs: Unpack[DeleteGuardrailRequestTypeDef]) -> Dict[str, Any]:
         """
         Deletes a guardrail.
@@ -454,6 +483,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_foundation_model.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_foundation_model)
+        """
+
+    def get_foundation_model_availability(
+        self, **kwargs: Unpack[GetFoundationModelAvailabilityRequestTypeDef]
+    ) -> GetFoundationModelAvailabilityResponseTypeDef:
+        """
+        Get information about the Foundation model availability.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_foundation_model_availability.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_foundation_model_availability)
         """
 
     def get_guardrail(
@@ -569,6 +608,14 @@ class BedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_provisioned_model_throughput)
         """
 
+    def get_use_case_for_model_access(self) -> GetUseCaseForModelAccessResponseTypeDef:
+        """
+        Get usecase for model access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_use_case_for_model_access.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#get_use_case_for_model_access)
+        """
+
     def list_custom_models(
         self, **kwargs: Unpack[ListCustomModelsRequestTypeDef]
     ) -> ListCustomModelsResponseTypeDef:
@@ -588,6 +635,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_evaluation_jobs.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#list_evaluation_jobs)
+        """
+
+    def list_foundation_model_agreement_offers(
+        self, **kwargs: Unpack[ListFoundationModelAgreementOffersRequestTypeDef]
+    ) -> ListFoundationModelAgreementOffersResponseTypeDef:
+        """
+        Get the offers associated with the specified model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_foundation_model_agreement_offers.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#list_foundation_model_agreement_offers)
         """
 
     def list_foundation_models(
@@ -719,6 +776,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_model_invocation_logging_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#put_model_invocation_logging_configuration)
+        """
+
+    def put_use_case_for_model_access(
+        self, **kwargs: Unpack[PutUseCaseForModelAccessRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Put usecase for model access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_use_case_for_model_access.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/client/#put_use_case_for_model_access)
         """
 
     def register_marketplace_model_endpoint(

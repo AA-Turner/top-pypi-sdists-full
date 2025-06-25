@@ -348,6 +348,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
                 {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
                 {"name": "SecurityGroupId", "value": "sg-12345678"},
                 {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
             ],
         }
         self.remote_client._utils = Mock()
@@ -456,6 +457,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
                 {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
                 {"name": "SecurityGroupId", "value": "sg-12345678"},
                 {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
             ],
         }
         self.remote_client._utils = Mock()

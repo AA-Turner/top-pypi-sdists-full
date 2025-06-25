@@ -1,6 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ipylab
-Version: 1.0.0
+Version: 1.1.0
+Dynamic: Keywords
 Summary: Control JupyterLab from Python notebooks
 Project-URL: Homepage, https://github.com/jtpio/ipylab
 Project-URL: Bug Tracker, https://github.com/jtpio/ipylab/issues
@@ -46,6 +47,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Requires-Dist: ipywidgets<9,>=7.6.0
 Description-Content-Type: text/markdown

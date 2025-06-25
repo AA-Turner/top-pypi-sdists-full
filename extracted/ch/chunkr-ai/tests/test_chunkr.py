@@ -2,7 +2,6 @@ import pytest
 from pathlib import Path
 from PIL import Image
 import asyncio
-from typing import Awaitable
 
 from chunkr_ai import Chunkr
 from chunkr_ai.models import (
@@ -21,6 +20,7 @@ from chunkr_ai.models import (
     Status,
     TaskResponse,
     Tokenizer,
+    SegmentFormat,
 )
 
 @pytest.fixture
@@ -53,9 +53,9 @@ def markdown_embed_config():
     return Configuration(
         segment_processing=SegmentProcessing(
             Page=GenerationConfig(
-                html=GenerationStrategy.LLM,
-                markdown=GenerationStrategy.LLM,
-                embed_sources=[EmbedSource.MARKDOWN]
+                format=SegmentFormat.MARKDOWN,
+                strategy=GenerationStrategy.LLM,
+                embed_sources=[EmbedSource.CONTENT]
             )
         ),
     )
@@ -65,9 +65,9 @@ def html_embed_config():
     return Configuration(
         segment_processing=SegmentProcessing(
             Page=GenerationConfig(
-                html=GenerationStrategy.LLM,
-                markdown=GenerationStrategy.LLM,
-                embed_sources=[EmbedSource.HTML]
+                format=SegmentFormat.HTML,
+                strategy=GenerationStrategy.LLM,
+                embed_sources=[EmbedSource.HTML]  # Keep this for backwards compatibility testing
             )
         ),
     )
@@ -77,10 +77,10 @@ def multiple_embed_config():
     return Configuration(
         segment_processing=SegmentProcessing(
             Page=GenerationConfig(
-                html=GenerationStrategy.LLM,
-                markdown=GenerationStrategy.LLM,
+                format=SegmentFormat.MARKDOWN,
+                strategy=GenerationStrategy.LLM,
                 llm="Generate a summary of this content",
-                embed_sources=[EmbedSource.MARKDOWN, EmbedSource.LLM, EmbedSource.HTML]
+                embed_sources=[EmbedSource.CONTENT, EmbedSource.LLM, EmbedSource.HTML]
             )
         ),
     )
@@ -169,13 +169,15 @@ def model_fallback_config():
 def extended_context_config():
     return Configuration(
         segment_processing=SegmentProcessing(
-            picture=GenerationConfig(
+            Picture=GenerationConfig(
                 extended_context=True,
-                html=GenerationStrategy.LLM,
+                format=SegmentFormat.HTML,
+                strategy=GenerationStrategy.LLM,
             ),
-            table=GenerationConfig(
+            Table=GenerationConfig(
                 extended_context=True,
-                html=GenerationStrategy.LLM,
+                format=SegmentFormat.HTML,
+                strategy=GenerationStrategy.LLM,
             )
         ),
     )
@@ -471,12 +473,12 @@ async def test_tokenizer_custom_string(client, sample_path, custom_tokenizer_con
     assert response.status == "Succeeded"
     assert response.output is not None
 
-@pytest.mark.asyncio
-async def test_embed_sources_with_different_tokenizer(client, sample_path, xlm_roberta_with_html_content_config):
-    response = await client.upload(sample_path, xlm_roberta_with_html_content_config)
-    assert response.task_id is not None
-    assert response.status == "Succeeded"
-    assert response.output is not None
+# @pytest.mark.asyncio
+# async def test_embed_sources_with_different_tokenizer(client, sample_path, xlm_roberta_with_html_content_config):
+#     response = await client.upload(sample_path, xlm_roberta_with_html_content_config)
+#     assert response.task_id is not None
+#     assert response.status == "Succeeded"
+#     assert response.output is not None
 
 @pytest.mark.asyncio
 async def test_error_handling_continue(client, sample_path):

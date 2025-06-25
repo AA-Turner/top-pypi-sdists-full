@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: httpx-sse
-Version: 0.4.0
+Version: 0.4.1
 Summary: Consume Server-Sent Event (SSE) messages with HTTPX.
 Author-email: Florimond Manca <florimond.manca@protonmail.com>
 License: MIT
@@ -9,14 +9,15 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # httpx-sse
 
@@ -115,7 +116,7 @@ async def auth_events(request):
 app = Starlette(routes=[Route("/sse/auth/", endpoint=auth_events)])
 
 async def main():
-    async with httpx.AsyncClient(app=app) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app)) as client:
         async with aconnect_sse(
             client, "GET", "http://localhost:8000/sse/auth/"
         ) as event_source:
@@ -226,6 +227,16 @@ Helper for working with an SSE response.
 
 The underlying [`httpx.Response`](https://www.python-httpx.org/api/#response).
 
+You may use this to perform more operations and checks on the response, such as checking for HTTP status errors:
+
+```python
+with connect_sse(...) as event_source:
+    event_source.response.raise_for_status()
+
+    for sse in event_source.iter_sse():
+        ...
+```
+
 #### `iter_sse`
 
 ```python
@@ -279,6 +290,12 @@ MIT
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## 0.4.1 - 2025-06-24
+
+### Fixed
+
+* Always close the response async generator in `aiter_sse()`. (Pull #30)
 
 ## 0.4.0 - 2023-12-22
 

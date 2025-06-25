@@ -1,7 +1,7 @@
 r'''
 # `google_billing_budget`
 
-Refer to the Terraform Registry for docs: [`google_billing_budget`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget).
+Refer to the Terraform Registry for docs: [`google_billing_budget`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleBillingBudget(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBillingBudget.GoogleBillingBudget",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget google_billing_budget}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget google_billing_budget}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleBillingBudget(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget google_billing_budget} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget google_billing_budget} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param amount: amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#amount GoogleBillingBudget#amount}
-        :param billing_account: ID of the billing account to set a budget on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#billing_account GoogleBillingBudget#billing_account}
-        :param all_updates_rule: all_updates_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#all_updates_rule GoogleBillingBudget#all_updates_rule}
-        :param budget_filter: budget_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#budget_filter GoogleBillingBudget#budget_filter}
-        :param display_name: User data for display name in UI. Must be <= 60 chars. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#display_name GoogleBillingBudget#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#id GoogleBillingBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ownership_scope: The ownership scope of the budget. The ownership scope and users' IAM permissions determine who has full access to the budget's data. Possible values: ["OWNERSHIP_SCOPE_UNSPECIFIED", "ALL_USERS", "BILLING_ACCOUNT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#ownership_scope GoogleBillingBudget#ownership_scope}
-        :param threshold_rules: threshold_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#threshold_rules GoogleBillingBudget#threshold_rules}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#timeouts GoogleBillingBudget#timeouts}
+        :param amount: amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#amount GoogleBillingBudget#amount}
+        :param billing_account: ID of the billing account to set a budget on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#billing_account GoogleBillingBudget#billing_account}
+        :param all_updates_rule: all_updates_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#all_updates_rule GoogleBillingBudget#all_updates_rule}
+        :param budget_filter: budget_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#budget_filter GoogleBillingBudget#budget_filter}
+        :param display_name: User data for display name in UI. Must be <= 60 chars. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#display_name GoogleBillingBudget#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#id GoogleBillingBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ownership_scope: The ownership scope of the budget. The ownership scope and users' IAM permissions determine who has full access to the budget's data. Possible values: ["OWNERSHIP_SCOPE_UNSPECIFIED", "ALL_USERS", "BILLING_ACCOUNT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#ownership_scope GoogleBillingBudget#ownership_scope}
+        :param threshold_rules: threshold_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#threshold_rules GoogleBillingBudget#threshold_rules}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#timeouts GoogleBillingBudget#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleBillingBudget(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBillingBudget to import.
-        :param import_from_id: The id of the existing GoogleBillingBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBillingBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBillingBudget to import is found.
         '''
         if __debug__:
@@ -149,11 +149,11 @@ class GoogleBillingBudget(
         schema_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable_default_iam_recipients: Boolean. When set to true, disables default notifications sent when a threshold is exceeded. Default recipients are those with Billing Account Administrators and Billing Account Users IAM roles for the target account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#disable_default_iam_recipients GoogleBillingBudget#disable_default_iam_recipients}
-        :param enable_project_level_recipients: When set to true, and when the budget has a single project configured, notifications will be sent to project level recipients of that project. This field will be ignored if the budget has multiple or no project configured. Currently, project level recipients are the users with Owner role on a cloud project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#enable_project_level_recipients GoogleBillingBudget#enable_project_level_recipients}
-        :param monitoring_notification_channels: The full resource name of a monitoring notification channel in the form projects/{project_id}/notificationChannels/{channel_id}. A maximum of 5 channels are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#monitoring_notification_channels GoogleBillingBudget#monitoring_notification_channels}
-        :param pubsub_topic: The name of the Cloud Pub/Sub topic where budget related messages will be published, in the form projects/{project_id}/topics/{topic_id}. Updates are sent at regular intervals to the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#pubsub_topic GoogleBillingBudget#pubsub_topic}
-        :param schema_version: The schema version of the notification. Only "1.0" is accepted. It represents the JSON schema as defined in https://cloud.google.com/billing/docs/how-to/budgets#notification_format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#schema_version GoogleBillingBudget#schema_version}
+        :param disable_default_iam_recipients: Boolean. When set to true, disables default notifications sent when a threshold is exceeded. Default recipients are those with Billing Account Administrators and Billing Account Users IAM roles for the target account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#disable_default_iam_recipients GoogleBillingBudget#disable_default_iam_recipients}
+        :param enable_project_level_recipients: When set to true, and when the budget has a single project configured, notifications will be sent to project level recipients of that project. This field will be ignored if the budget has multiple or no project configured. Currently, project level recipients are the users with Owner role on a cloud project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#enable_project_level_recipients GoogleBillingBudget#enable_project_level_recipients}
+        :param monitoring_notification_channels: The full resource name of a monitoring notification channel in the form projects/{project_id}/notificationChannels/{channel_id}. A maximum of 5 channels are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#monitoring_notification_channels GoogleBillingBudget#monitoring_notification_channels}
+        :param pubsub_topic: The name of the Cloud Pub/Sub topic where budget related messages will be published, in the form projects/{project_id}/topics/{topic_id}. Updates are sent at regular intervals to the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#pubsub_topic GoogleBillingBudget#pubsub_topic}
+        :param schema_version: The schema version of the notification. Only "1.0" is accepted. It represents the JSON schema as defined in https://cloud.google.com/billing/docs/how-to/budgets#notification_format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#schema_version GoogleBillingBudget#schema_version}
         '''
         value = GoogleBillingBudgetAllUpdatesRule(
             disable_default_iam_recipients=disable_default_iam_recipients,
@@ -173,8 +173,8 @@ class GoogleBillingBudget(
         specified_amount: typing.Optional[typing.Union["GoogleBillingBudgetAmountSpecifiedAmount", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param last_period_amount: Configures a budget amount that is automatically set to 100% of last period's spend. Boolean. Set value to true to use. Do not set to false, instead use the 'specified_amount' block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#last_period_amount GoogleBillingBudget#last_period_amount}
-        :param specified_amount: specified_amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#specified_amount GoogleBillingBudget#specified_amount}
+        :param last_period_amount: Configures a budget amount that is automatically set to 100% of last period's spend. Boolean. Set value to true to use. Do not set to false, instead use the 'specified_amount' block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#last_period_amount GoogleBillingBudget#last_period_amount}
+        :param specified_amount: specified_amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#specified_amount GoogleBillingBudget#specified_amount}
         '''
         value = GoogleBillingBudgetAmount(
             last_period_amount=last_period_amount, specified_amount=specified_amount
@@ -197,15 +197,15 @@ class GoogleBillingBudget(
         subaccounts: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param calendar_period: A CalendarPeriod represents the abstract concept of a recurring time period that has a canonical start. Grammatically, "the start of the current CalendarPeriod". All calendar times begin at 12 AM US and Canadian Pacific Time (UTC-8). Exactly one of 'calendar_period', 'custom_period' must be provided. Possible values: ["MONTH", "QUARTER", "YEAR", "CALENDAR_PERIOD_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#calendar_period GoogleBillingBudget#calendar_period}
-        :param credit_types: Optional. If creditTypesTreatment is INCLUDE_SPECIFIED_CREDITS, this is a list of credit types to be subtracted from gross cost to determine the spend for threshold calculations. See a list of acceptable credit type values. If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#credit_types GoogleBillingBudget#credit_types}
-        :param credit_types_treatment: Specifies how credits should be treated when determining spend for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#credit_types_treatment GoogleBillingBudget#credit_types_treatment}
-        :param custom_period: custom_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#custom_period GoogleBillingBudget#custom_period}
-        :param labels: A single label and value pair specifying that usage from only this set of labeled resources should be included in the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#labels GoogleBillingBudget#labels}
-        :param projects: A set of projects of the form projects/{project_number}, specifying that usage from only this set of projects should be included in the budget. If omitted, the report will include all usage for the billing account, regardless of which project the usage occurred on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#projects GoogleBillingBudget#projects}
-        :param resource_ancestors: A set of folder and organization names of the form folders/{folderId} or organizations/{organizationId}, specifying that usage from only this set of folders and organizations should be included in the budget. If omitted, the budget includes all usage that the billing account pays for. If the folder or organization contains projects that are paid for by a different Cloud Billing account, the budget doesn't apply to those projects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#resource_ancestors GoogleBillingBudget#resource_ancestors}
-        :param services: A set of services of the form services/{service_id}, specifying that usage from only this set of services should be included in the budget. If omitted, the report will include usage for all the services. The service names are available through the Catalog API: https://cloud.google.com/billing/v1/how-tos/catalog-api. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#services GoogleBillingBudget#services}
-        :param subaccounts: A set of subaccounts of the form billingAccounts/{account_id}, specifying that usage from only this set of subaccounts should be included in the budget. If a subaccount is set to the name of the parent account, usage from the parent account will be included. If the field is omitted, the report will include usage from the parent account and all subaccounts, if they exist. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#subaccounts GoogleBillingBudget#subaccounts}
+        :param calendar_period: A CalendarPeriod represents the abstract concept of a recurring time period that has a canonical start. Grammatically, "the start of the current CalendarPeriod". All calendar times begin at 12 AM US and Canadian Pacific Time (UTC-8). Exactly one of 'calendar_period', 'custom_period' must be provided. Possible values: ["MONTH", "QUARTER", "YEAR", "CALENDAR_PERIOD_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#calendar_period GoogleBillingBudget#calendar_period}
+        :param credit_types: Optional. If creditTypesTreatment is INCLUDE_SPECIFIED_CREDITS, this is a list of credit types to be subtracted from gross cost to determine the spend for threshold calculations. See a list of acceptable credit type values. If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#credit_types GoogleBillingBudget#credit_types}
+        :param credit_types_treatment: Specifies how credits should be treated when determining spend for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#credit_types_treatment GoogleBillingBudget#credit_types_treatment}
+        :param custom_period: custom_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#custom_period GoogleBillingBudget#custom_period}
+        :param labels: A single label and value pair specifying that usage from only this set of labeled resources should be included in the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#labels GoogleBillingBudget#labels}
+        :param projects: A set of projects of the form projects/{project_number}, specifying that usage from only this set of projects should be included in the budget. If omitted, the report will include all usage for the billing account, regardless of which project the usage occurred on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#projects GoogleBillingBudget#projects}
+        :param resource_ancestors: A set of folder and organization names of the form folders/{folderId} or organizations/{organizationId}, specifying that usage from only this set of folders and organizations should be included in the budget. If omitted, the budget includes all usage that the billing account pays for. If the folder or organization contains projects that are paid for by a different Cloud Billing account, the budget doesn't apply to those projects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#resource_ancestors GoogleBillingBudget#resource_ancestors}
+        :param services: A set of services of the form services/{service_id}, specifying that usage from only this set of services should be included in the budget. If omitted, the report will include usage for all the services. The service names are available through the Catalog API: https://cloud.google.com/billing/v1/how-tos/catalog-api. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#services GoogleBillingBudget#services}
+        :param subaccounts: A set of subaccounts of the form billingAccounts/{account_id}, specifying that usage from only this set of subaccounts should be included in the budget. If a subaccount is set to the name of the parent account, usage from the parent account will be included. If the field is omitted, the report will include usage from the parent account and all subaccounts, if they exist. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#subaccounts GoogleBillingBudget#subaccounts}
         '''
         value = GoogleBillingBudgetBudgetFilter(
             calendar_period=calendar_period,
@@ -243,9 +243,9 @@ class GoogleBillingBudget(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#create GoogleBillingBudget#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#delete GoogleBillingBudget#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#update GoogleBillingBudget#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#create GoogleBillingBudget#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#delete GoogleBillingBudget#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#update GoogleBillingBudget#update}.
         '''
         value = GoogleBillingBudgetTimeouts(
             create=create, delete=delete, update=update
@@ -446,11 +446,11 @@ class GoogleBillingBudgetAllUpdatesRule:
         schema_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable_default_iam_recipients: Boolean. When set to true, disables default notifications sent when a threshold is exceeded. Default recipients are those with Billing Account Administrators and Billing Account Users IAM roles for the target account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#disable_default_iam_recipients GoogleBillingBudget#disable_default_iam_recipients}
-        :param enable_project_level_recipients: When set to true, and when the budget has a single project configured, notifications will be sent to project level recipients of that project. This field will be ignored if the budget has multiple or no project configured. Currently, project level recipients are the users with Owner role on a cloud project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#enable_project_level_recipients GoogleBillingBudget#enable_project_level_recipients}
-        :param monitoring_notification_channels: The full resource name of a monitoring notification channel in the form projects/{project_id}/notificationChannels/{channel_id}. A maximum of 5 channels are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#monitoring_notification_channels GoogleBillingBudget#monitoring_notification_channels}
-        :param pubsub_topic: The name of the Cloud Pub/Sub topic where budget related messages will be published, in the form projects/{project_id}/topics/{topic_id}. Updates are sent at regular intervals to the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#pubsub_topic GoogleBillingBudget#pubsub_topic}
-        :param schema_version: The schema version of the notification. Only "1.0" is accepted. It represents the JSON schema as defined in https://cloud.google.com/billing/docs/how-to/budgets#notification_format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#schema_version GoogleBillingBudget#schema_version}
+        :param disable_default_iam_recipients: Boolean. When set to true, disables default notifications sent when a threshold is exceeded. Default recipients are those with Billing Account Administrators and Billing Account Users IAM roles for the target account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#disable_default_iam_recipients GoogleBillingBudget#disable_default_iam_recipients}
+        :param enable_project_level_recipients: When set to true, and when the budget has a single project configured, notifications will be sent to project level recipients of that project. This field will be ignored if the budget has multiple or no project configured. Currently, project level recipients are the users with Owner role on a cloud project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#enable_project_level_recipients GoogleBillingBudget#enable_project_level_recipients}
+        :param monitoring_notification_channels: The full resource name of a monitoring notification channel in the form projects/{project_id}/notificationChannels/{channel_id}. A maximum of 5 channels are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#monitoring_notification_channels GoogleBillingBudget#monitoring_notification_channels}
+        :param pubsub_topic: The name of the Cloud Pub/Sub topic where budget related messages will be published, in the form projects/{project_id}/topics/{topic_id}. Updates are sent at regular intervals to the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#pubsub_topic GoogleBillingBudget#pubsub_topic}
+        :param schema_version: The schema version of the notification. Only "1.0" is accepted. It represents the JSON schema as defined in https://cloud.google.com/billing/docs/how-to/budgets#notification_format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#schema_version GoogleBillingBudget#schema_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c99c3f40026102571c49a0ea5647dc5fb3ef983619c29b998ed8a6eeaecf89d)
@@ -482,7 +482,7 @@ class GoogleBillingBudgetAllUpdatesRule:
         those with Billing Account Administrators and Billing
         Account Users IAM roles for the target account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#disable_default_iam_recipients GoogleBillingBudget#disable_default_iam_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#disable_default_iam_recipients GoogleBillingBudget#disable_default_iam_recipients}
         '''
         result = self._values.get("disable_default_iam_recipients")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -497,7 +497,7 @@ class GoogleBillingBudgetAllUpdatesRule:
 
         Currently, project level recipients are the users with Owner role on a cloud project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#enable_project_level_recipients GoogleBillingBudget#enable_project_level_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#enable_project_level_recipients GoogleBillingBudget#enable_project_level_recipients}
         '''
         result = self._values.get("enable_project_level_recipients")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -508,7 +508,7 @@ class GoogleBillingBudgetAllUpdatesRule:
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''The full resource name of a monitoring notification channel in the form projects/{project_id}/notificationChannels/{channel_id}. A maximum of 5 channels are allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#monitoring_notification_channels GoogleBillingBudget#monitoring_notification_channels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#monitoring_notification_channels GoogleBillingBudget#monitoring_notification_channels}
         '''
         result = self._values.get("monitoring_notification_channels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -520,7 +520,7 @@ class GoogleBillingBudgetAllUpdatesRule:
         Updates are sent
         at regular intervals to the topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#pubsub_topic GoogleBillingBudget#pubsub_topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#pubsub_topic GoogleBillingBudget#pubsub_topic}
         '''
         result = self._values.get("pubsub_topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -529,7 +529,7 @@ class GoogleBillingBudgetAllUpdatesRule:
     def schema_version(self) -> typing.Optional[builtins.str]:
         '''The schema version of the notification. Only "1.0" is accepted. It represents the JSON schema as defined in https://cloud.google.com/billing/docs/how-to/budgets#notification_format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#schema_version GoogleBillingBudget#schema_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#schema_version GoogleBillingBudget#schema_version}
         '''
         result = self._values.get("schema_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -722,8 +722,8 @@ class GoogleBillingBudgetAmount:
         specified_amount: typing.Optional[typing.Union["GoogleBillingBudgetAmountSpecifiedAmount", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param last_period_amount: Configures a budget amount that is automatically set to 100% of last period's spend. Boolean. Set value to true to use. Do not set to false, instead use the 'specified_amount' block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#last_period_amount GoogleBillingBudget#last_period_amount}
-        :param specified_amount: specified_amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#specified_amount GoogleBillingBudget#specified_amount}
+        :param last_period_amount: Configures a budget amount that is automatically set to 100% of last period's spend. Boolean. Set value to true to use. Do not set to false, instead use the 'specified_amount' block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#last_period_amount GoogleBillingBudget#last_period_amount}
+        :param specified_amount: specified_amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#specified_amount GoogleBillingBudget#specified_amount}
         '''
         if isinstance(specified_amount, dict):
             specified_amount = GoogleBillingBudgetAmountSpecifiedAmount(**specified_amount)
@@ -746,7 +746,7 @@ class GoogleBillingBudgetAmount:
         Boolean. Set value to true to use. Do not set to false, instead
         use the 'specified_amount' block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#last_period_amount GoogleBillingBudget#last_period_amount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#last_period_amount GoogleBillingBudget#last_period_amount}
         '''
         result = self._values.get("last_period_amount")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -757,7 +757,7 @@ class GoogleBillingBudgetAmount:
     ) -> typing.Optional["GoogleBillingBudgetAmountSpecifiedAmount"]:
         '''specified_amount block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#specified_amount GoogleBillingBudget#specified_amount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#specified_amount GoogleBillingBudget#specified_amount}
         '''
         result = self._values.get("specified_amount")
         return typing.cast(typing.Optional["GoogleBillingBudgetAmountSpecifiedAmount"], result)
@@ -803,9 +803,9 @@ class GoogleBillingBudgetAmountOutputReference(
         units: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param currency_code: The 3-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#currency_code GoogleBillingBudget#currency_code}
-        :param nanos: Number of nano (10^-9) units of the amount. The value must be between -999,999,999 and +999,999,999 inclusive. If units is positive, nanos must be positive or zero. If units is zero, nanos can be positive, zero, or negative. If units is negative, nanos must be negative or zero. For example $-1.75 is represented as units=-1 and nanos=-750,000,000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#nanos GoogleBillingBudget#nanos}
-        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#units GoogleBillingBudget#units}
+        :param currency_code: The 3-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#currency_code GoogleBillingBudget#currency_code}
+        :param nanos: Number of nano (10^-9) units of the amount. The value must be between -999,999,999 and +999,999,999 inclusive. If units is positive, nanos must be positive or zero. If units is zero, nanos can be positive, zero, or negative. If units is negative, nanos must be negative or zero. For example $-1.75 is represented as units=-1 and nanos=-750,000,000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#nanos GoogleBillingBudget#nanos}
+        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#units GoogleBillingBudget#units}
         '''
         value = GoogleBillingBudgetAmountSpecifiedAmount(
             currency_code=currency_code, nanos=nanos, units=units
@@ -886,9 +886,9 @@ class GoogleBillingBudgetAmountSpecifiedAmount:
         units: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param currency_code: The 3-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#currency_code GoogleBillingBudget#currency_code}
-        :param nanos: Number of nano (10^-9) units of the amount. The value must be between -999,999,999 and +999,999,999 inclusive. If units is positive, nanos must be positive or zero. If units is zero, nanos can be positive, zero, or negative. If units is negative, nanos must be negative or zero. For example $-1.75 is represented as units=-1 and nanos=-750,000,000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#nanos GoogleBillingBudget#nanos}
-        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#units GoogleBillingBudget#units}
+        :param currency_code: The 3-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#currency_code GoogleBillingBudget#currency_code}
+        :param nanos: Number of nano (10^-9) units of the amount. The value must be between -999,999,999 and +999,999,999 inclusive. If units is positive, nanos must be positive or zero. If units is zero, nanos can be positive, zero, or negative. If units is negative, nanos must be negative or zero. For example $-1.75 is represented as units=-1 and nanos=-750,000,000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#nanos GoogleBillingBudget#nanos}
+        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#units GoogleBillingBudget#units}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b9a4d4c4ef85cbc7670cee6e9430b2d49fb78e31c9bd5c474791546be0f150a)
@@ -907,7 +907,7 @@ class GoogleBillingBudgetAmountSpecifiedAmount:
     def currency_code(self) -> typing.Optional[builtins.str]:
         '''The 3-letter currency code defined in ISO 4217.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#currency_code GoogleBillingBudget#currency_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#currency_code GoogleBillingBudget#currency_code}
         '''
         result = self._values.get("currency_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -923,7 +923,7 @@ class GoogleBillingBudgetAmountSpecifiedAmount:
         zero. For example $-1.75 is represented as units=-1 and
         nanos=-750,000,000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#nanos GoogleBillingBudget#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#nanos GoogleBillingBudget#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -932,7 +932,7 @@ class GoogleBillingBudgetAmountSpecifiedAmount:
     def units(self) -> typing.Optional[builtins.str]:
         '''The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#units GoogleBillingBudget#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#units GoogleBillingBudget#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1080,15 +1080,15 @@ class GoogleBillingBudgetBudgetFilter:
         subaccounts: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param calendar_period: A CalendarPeriod represents the abstract concept of a recurring time period that has a canonical start. Grammatically, "the start of the current CalendarPeriod". All calendar times begin at 12 AM US and Canadian Pacific Time (UTC-8). Exactly one of 'calendar_period', 'custom_period' must be provided. Possible values: ["MONTH", "QUARTER", "YEAR", "CALENDAR_PERIOD_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#calendar_period GoogleBillingBudget#calendar_period}
-        :param credit_types: Optional. If creditTypesTreatment is INCLUDE_SPECIFIED_CREDITS, this is a list of credit types to be subtracted from gross cost to determine the spend for threshold calculations. See a list of acceptable credit type values. If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#credit_types GoogleBillingBudget#credit_types}
-        :param credit_types_treatment: Specifies how credits should be treated when determining spend for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#credit_types_treatment GoogleBillingBudget#credit_types_treatment}
-        :param custom_period: custom_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#custom_period GoogleBillingBudget#custom_period}
-        :param labels: A single label and value pair specifying that usage from only this set of labeled resources should be included in the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#labels GoogleBillingBudget#labels}
-        :param projects: A set of projects of the form projects/{project_number}, specifying that usage from only this set of projects should be included in the budget. If omitted, the report will include all usage for the billing account, regardless of which project the usage occurred on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#projects GoogleBillingBudget#projects}
-        :param resource_ancestors: A set of folder and organization names of the form folders/{folderId} or organizations/{organizationId}, specifying that usage from only this set of folders and organizations should be included in the budget. If omitted, the budget includes all usage that the billing account pays for. If the folder or organization contains projects that are paid for by a different Cloud Billing account, the budget doesn't apply to those projects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#resource_ancestors GoogleBillingBudget#resource_ancestors}
-        :param services: A set of services of the form services/{service_id}, specifying that usage from only this set of services should be included in the budget. If omitted, the report will include usage for all the services. The service names are available through the Catalog API: https://cloud.google.com/billing/v1/how-tos/catalog-api. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#services GoogleBillingBudget#services}
-        :param subaccounts: A set of subaccounts of the form billingAccounts/{account_id}, specifying that usage from only this set of subaccounts should be included in the budget. If a subaccount is set to the name of the parent account, usage from the parent account will be included. If the field is omitted, the report will include usage from the parent account and all subaccounts, if they exist. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#subaccounts GoogleBillingBudget#subaccounts}
+        :param calendar_period: A CalendarPeriod represents the abstract concept of a recurring time period that has a canonical start. Grammatically, "the start of the current CalendarPeriod". All calendar times begin at 12 AM US and Canadian Pacific Time (UTC-8). Exactly one of 'calendar_period', 'custom_period' must be provided. Possible values: ["MONTH", "QUARTER", "YEAR", "CALENDAR_PERIOD_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#calendar_period GoogleBillingBudget#calendar_period}
+        :param credit_types: Optional. If creditTypesTreatment is INCLUDE_SPECIFIED_CREDITS, this is a list of credit types to be subtracted from gross cost to determine the spend for threshold calculations. See a list of acceptable credit type values. If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#credit_types GoogleBillingBudget#credit_types}
+        :param credit_types_treatment: Specifies how credits should be treated when determining spend for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#credit_types_treatment GoogleBillingBudget#credit_types_treatment}
+        :param custom_period: custom_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#custom_period GoogleBillingBudget#custom_period}
+        :param labels: A single label and value pair specifying that usage from only this set of labeled resources should be included in the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#labels GoogleBillingBudget#labels}
+        :param projects: A set of projects of the form projects/{project_number}, specifying that usage from only this set of projects should be included in the budget. If omitted, the report will include all usage for the billing account, regardless of which project the usage occurred on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#projects GoogleBillingBudget#projects}
+        :param resource_ancestors: A set of folder and organization names of the form folders/{folderId} or organizations/{organizationId}, specifying that usage from only this set of folders and organizations should be included in the budget. If omitted, the budget includes all usage that the billing account pays for. If the folder or organization contains projects that are paid for by a different Cloud Billing account, the budget doesn't apply to those projects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#resource_ancestors GoogleBillingBudget#resource_ancestors}
+        :param services: A set of services of the form services/{service_id}, specifying that usage from only this set of services should be included in the budget. If omitted, the report will include usage for all the services. The service names are available through the Catalog API: https://cloud.google.com/billing/v1/how-tos/catalog-api. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#services GoogleBillingBudget#services}
+        :param subaccounts: A set of subaccounts of the form billingAccounts/{account_id}, specifying that usage from only this set of subaccounts should be included in the budget. If a subaccount is set to the name of the parent account, usage from the parent account will be included. If the field is omitted, the report will include usage from the parent account and all subaccounts, if they exist. **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#subaccounts GoogleBillingBudget#subaccounts}
         '''
         if isinstance(custom_period, dict):
             custom_period = GoogleBillingBudgetBudgetFilterCustomPeriod(**custom_period)
@@ -1132,7 +1132,7 @@ class GoogleBillingBudgetBudgetFilter:
 
         Exactly one of 'calendar_period', 'custom_period' must be provided. Possible values: ["MONTH", "QUARTER", "YEAR", "CALENDAR_PERIOD_UNSPECIFIED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#calendar_period GoogleBillingBudget#calendar_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#calendar_period GoogleBillingBudget#calendar_period}
         '''
         result = self._values.get("calendar_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1147,7 +1147,7 @@ class GoogleBillingBudgetBudgetFilter:
 
         **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#credit_types GoogleBillingBudget#credit_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#credit_types GoogleBillingBudget#credit_types}
         '''
         result = self._values.get("credit_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1156,7 +1156,7 @@ class GoogleBillingBudgetBudgetFilter:
     def credit_types_treatment(self) -> typing.Optional[builtins.str]:
         '''Specifies how credits should be treated when determining spend for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#credit_types_treatment GoogleBillingBudget#credit_types_treatment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#credit_types_treatment GoogleBillingBudget#credit_types_treatment}
         '''
         result = self._values.get("credit_types_treatment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1167,7 +1167,7 @@ class GoogleBillingBudgetBudgetFilter:
     ) -> typing.Optional["GoogleBillingBudgetBudgetFilterCustomPeriod"]:
         '''custom_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#custom_period GoogleBillingBudget#custom_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#custom_period GoogleBillingBudget#custom_period}
         '''
         result = self._values.get("custom_period")
         return typing.cast(typing.Optional["GoogleBillingBudgetBudgetFilterCustomPeriod"], result)
@@ -1176,7 +1176,7 @@ class GoogleBillingBudgetBudgetFilter:
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A single label and value pair specifying that usage from only this set of labeled resources should be included in the budget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#labels GoogleBillingBudget#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#labels GoogleBillingBudget#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1189,7 +1189,7 @@ class GoogleBillingBudgetBudgetFilter:
         all usage for the billing account, regardless of which project
         the usage occurred on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#projects GoogleBillingBudget#projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#projects GoogleBillingBudget#projects}
         '''
         result = self._values.get("projects")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1201,7 +1201,7 @@ class GoogleBillingBudgetBudgetFilter:
         If omitted, the budget includes all usage that the billing account pays for. If the folder or organization
         contains projects that are paid for by a different Cloud Billing account, the budget doesn't apply to those projects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#resource_ancestors GoogleBillingBudget#resource_ancestors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#resource_ancestors GoogleBillingBudget#resource_ancestors}
         '''
         result = self._values.get("resource_ancestors")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1215,7 +1215,7 @@ class GoogleBillingBudgetBudgetFilter:
         through the Catalog API:
         https://cloud.google.com/billing/v1/how-tos/catalog-api.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#services GoogleBillingBudget#services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#services GoogleBillingBudget#services}
         '''
         result = self._values.get("services")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1231,7 +1231,7 @@ class GoogleBillingBudgetBudgetFilter:
 
         **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#subaccounts GoogleBillingBudget#subaccounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#subaccounts GoogleBillingBudget#subaccounts}
         '''
         result = self._values.get("subaccounts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1261,8 +1261,8 @@ class GoogleBillingBudgetBudgetFilterCustomPeriod:
         end_date: typing.Optional[typing.Union["GoogleBillingBudgetBudgetFilterCustomPeriodEndDate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#start_date GoogleBillingBudget#start_date}
-        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#end_date GoogleBillingBudget#end_date}
+        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#start_date GoogleBillingBudget#start_date}
+        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#end_date GoogleBillingBudget#end_date}
         '''
         if isinstance(start_date, dict):
             start_date = GoogleBillingBudgetBudgetFilterCustomPeriodStartDate(**start_date)
@@ -1282,7 +1282,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriod:
     def start_date(self) -> "GoogleBillingBudgetBudgetFilterCustomPeriodStartDate":
         '''start_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#start_date GoogleBillingBudget#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#start_date GoogleBillingBudget#start_date}
         '''
         result = self._values.get("start_date")
         assert result is not None, "Required property 'start_date' is missing"
@@ -1294,7 +1294,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriod:
     ) -> typing.Optional["GoogleBillingBudgetBudgetFilterCustomPeriodEndDate"]:
         '''end_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#end_date GoogleBillingBudget#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#end_date GoogleBillingBudget#end_date}
         '''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional["GoogleBillingBudgetBudgetFilterCustomPeriodEndDate"], result)
@@ -1325,9 +1325,9 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodEndDate:
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
-        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
-        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
+        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
+        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50b743ccc24ee85343240e3d0e35ea0c8362f19c1849726cf62b19a4c598ee50)
@@ -1344,7 +1344,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodEndDate:
     def day(self) -> jsii.Number:
         '''Day of a month. Must be from 1 to 31 and valid for the year and month.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -1354,7 +1354,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodEndDate:
     def month(self) -> jsii.Number:
         '''Month of a year. Must be from 1 to 12.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
         '''
         result = self._values.get("month")
         assert result is not None, "Required property 'month' is missing"
@@ -1364,7 +1364,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodEndDate:
     def year(self) -> jsii.Number:
         '''Year of the date. Must be from 1 to 9999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
         '''
         result = self._values.get("year")
         assert result is not None, "Required property 'year' is missing"
@@ -1500,9 +1500,9 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodOutputReference(
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
-        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
-        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
+        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
+        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
         '''
         value = GoogleBillingBudgetBudgetFilterCustomPeriodEndDate(
             day=day, month=month, year=year
@@ -1519,9 +1519,9 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodOutputReference(
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
-        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
-        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
+        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
+        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
         '''
         value = GoogleBillingBudgetBudgetFilterCustomPeriodStartDate(
             day=day, month=month, year=year
@@ -1593,9 +1593,9 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodStartDate:
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
-        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
-        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
+        :param day: Day of a month. Must be from 1 to 31 and valid for the year and month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
+        :param month: Month of a year. Must be from 1 to 12. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
+        :param year: Year of the date. Must be from 1 to 9999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50b4608751836a7be2fbb389d6f2160df1f272e6ef3f5bd35750157c9ddd70f0)
@@ -1612,7 +1612,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodStartDate:
     def day(self) -> jsii.Number:
         '''Day of a month. Must be from 1 to 31 and valid for the year and month.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#day GoogleBillingBudget#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -1622,7 +1622,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodStartDate:
     def month(self) -> jsii.Number:
         '''Month of a year. Must be from 1 to 12.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#month GoogleBillingBudget#month}
         '''
         result = self._values.get("month")
         assert result is not None, "Required property 'month' is missing"
@@ -1632,7 +1632,7 @@ class GoogleBillingBudgetBudgetFilterCustomPeriodStartDate:
     def year(self) -> jsii.Number:
         '''Year of the date. Must be from 1 to 9999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#year GoogleBillingBudget#year}
         '''
         result = self._values.get("year")
         assert result is not None, "Required property 'year' is missing"
@@ -1767,8 +1767,8 @@ class GoogleBillingBudgetBudgetFilterOutputReference(
         end_date: typing.Optional[typing.Union[GoogleBillingBudgetBudgetFilterCustomPeriodEndDate, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#start_date GoogleBillingBudget#start_date}
-        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#end_date GoogleBillingBudget#end_date}
+        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#start_date GoogleBillingBudget#start_date}
+        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#end_date GoogleBillingBudget#end_date}
         '''
         value = GoogleBillingBudgetBudgetFilterCustomPeriod(
             start_date=start_date, end_date=end_date
@@ -2031,15 +2031,15 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param amount: amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#amount GoogleBillingBudget#amount}
-        :param billing_account: ID of the billing account to set a budget on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#billing_account GoogleBillingBudget#billing_account}
-        :param all_updates_rule: all_updates_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#all_updates_rule GoogleBillingBudget#all_updates_rule}
-        :param budget_filter: budget_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#budget_filter GoogleBillingBudget#budget_filter}
-        :param display_name: User data for display name in UI. Must be <= 60 chars. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#display_name GoogleBillingBudget#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#id GoogleBillingBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ownership_scope: The ownership scope of the budget. The ownership scope and users' IAM permissions determine who has full access to the budget's data. Possible values: ["OWNERSHIP_SCOPE_UNSPECIFIED", "ALL_USERS", "BILLING_ACCOUNT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#ownership_scope GoogleBillingBudget#ownership_scope}
-        :param threshold_rules: threshold_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#threshold_rules GoogleBillingBudget#threshold_rules}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#timeouts GoogleBillingBudget#timeouts}
+        :param amount: amount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#amount GoogleBillingBudget#amount}
+        :param billing_account: ID of the billing account to set a budget on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#billing_account GoogleBillingBudget#billing_account}
+        :param all_updates_rule: all_updates_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#all_updates_rule GoogleBillingBudget#all_updates_rule}
+        :param budget_filter: budget_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#budget_filter GoogleBillingBudget#budget_filter}
+        :param display_name: User data for display name in UI. Must be <= 60 chars. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#display_name GoogleBillingBudget#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#id GoogleBillingBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ownership_scope: The ownership scope of the budget. The ownership scope and users' IAM permissions determine who has full access to the budget's data. Possible values: ["OWNERSHIP_SCOPE_UNSPECIFIED", "ALL_USERS", "BILLING_ACCOUNT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#ownership_scope GoogleBillingBudget#ownership_scope}
+        :param threshold_rules: threshold_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#threshold_rules GoogleBillingBudget#threshold_rules}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#timeouts GoogleBillingBudget#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2170,7 +2170,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def amount(self) -> GoogleBillingBudgetAmount:
         '''amount block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#amount GoogleBillingBudget#amount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#amount GoogleBillingBudget#amount}
         '''
         result = self._values.get("amount")
         assert result is not None, "Required property 'amount' is missing"
@@ -2180,7 +2180,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing_account(self) -> builtins.str:
         '''ID of the billing account to set a budget on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#billing_account GoogleBillingBudget#billing_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#billing_account GoogleBillingBudget#billing_account}
         '''
         result = self._values.get("billing_account")
         assert result is not None, "Required property 'billing_account' is missing"
@@ -2190,7 +2190,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def all_updates_rule(self) -> typing.Optional[GoogleBillingBudgetAllUpdatesRule]:
         '''all_updates_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#all_updates_rule GoogleBillingBudget#all_updates_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#all_updates_rule GoogleBillingBudget#all_updates_rule}
         '''
         result = self._values.get("all_updates_rule")
         return typing.cast(typing.Optional[GoogleBillingBudgetAllUpdatesRule], result)
@@ -2199,7 +2199,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def budget_filter(self) -> typing.Optional[GoogleBillingBudgetBudgetFilter]:
         '''budget_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#budget_filter GoogleBillingBudget#budget_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#budget_filter GoogleBillingBudget#budget_filter}
         '''
         result = self._values.get("budget_filter")
         return typing.cast(typing.Optional[GoogleBillingBudgetBudgetFilter], result)
@@ -2208,14 +2208,14 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User data for display name in UI. Must be <= 60 chars.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#display_name GoogleBillingBudget#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#display_name GoogleBillingBudget#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#id GoogleBillingBudget#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#id GoogleBillingBudget#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2230,7 +2230,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The ownership scope and users'
         IAM permissions determine who has full access to the budget's data. Possible values: ["OWNERSHIP_SCOPE_UNSPECIFIED", "ALL_USERS", "BILLING_ACCOUNT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#ownership_scope GoogleBillingBudget#ownership_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#ownership_scope GoogleBillingBudget#ownership_scope}
         '''
         result = self._values.get("ownership_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2241,7 +2241,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBillingBudgetThresholdRules"]]]:
         '''threshold_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#threshold_rules GoogleBillingBudget#threshold_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#threshold_rules GoogleBillingBudget#threshold_rules}
         '''
         result = self._values.get("threshold_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBillingBudgetThresholdRules"]]], result)
@@ -2250,7 +2250,7 @@ class GoogleBillingBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleBillingBudgetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#timeouts GoogleBillingBudget#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#timeouts GoogleBillingBudget#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleBillingBudgetTimeouts"], result)
@@ -2283,8 +2283,8 @@ class GoogleBillingBudgetThresholdRules:
         spend_basis: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param threshold_percent: Send an alert when this threshold is exceeded. This is a 1.0-based percentage, so 0.5 = 50%. Must be >= 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#threshold_percent GoogleBillingBudget#threshold_percent}
-        :param spend_basis: The type of basis used to determine if spend has passed the threshold. Default value: "CURRENT_SPEND" Possible values: ["CURRENT_SPEND", "FORECASTED_SPEND"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#spend_basis GoogleBillingBudget#spend_basis}
+        :param threshold_percent: Send an alert when this threshold is exceeded. This is a 1.0-based percentage, so 0.5 = 50%. Must be >= 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#threshold_percent GoogleBillingBudget#threshold_percent}
+        :param spend_basis: The type of basis used to determine if spend has passed the threshold. Default value: "CURRENT_SPEND" Possible values: ["CURRENT_SPEND", "FORECASTED_SPEND"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#spend_basis GoogleBillingBudget#spend_basis}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2884dfd304939f84a14b72bc8c7d1592d12d9c48d1b1b929df6624a9a0a8646a)
@@ -2303,7 +2303,7 @@ class GoogleBillingBudgetThresholdRules:
         This is a
         1.0-based percentage, so 0.5 = 50%. Must be >= 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#threshold_percent GoogleBillingBudget#threshold_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#threshold_percent GoogleBillingBudget#threshold_percent}
         '''
         result = self._values.get("threshold_percent")
         assert result is not None, "Required property 'threshold_percent' is missing"
@@ -2313,7 +2313,7 @@ class GoogleBillingBudgetThresholdRules:
     def spend_basis(self) -> typing.Optional[builtins.str]:
         '''The type of basis used to determine if spend has passed the threshold. Default value: "CURRENT_SPEND" Possible values: ["CURRENT_SPEND", "FORECASTED_SPEND"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#spend_basis GoogleBillingBudget#spend_basis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#spend_basis GoogleBillingBudget#spend_basis}
         '''
         result = self._values.get("spend_basis")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2519,9 +2519,9 @@ class GoogleBillingBudgetTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#create GoogleBillingBudget#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#delete GoogleBillingBudget#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#update GoogleBillingBudget#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#create GoogleBillingBudget#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#delete GoogleBillingBudget#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#update GoogleBillingBudget#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe667b31e4d8f1fc562c50e0afdd9c380f4abe8098aa0e7470bdda4e915feb33)
@@ -2538,19 +2538,19 @@ class GoogleBillingBudgetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#create GoogleBillingBudget#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#create GoogleBillingBudget#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#delete GoogleBillingBudget#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#delete GoogleBillingBudget#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_billing_budget#update GoogleBillingBudget#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_billing_budget#update GoogleBillingBudget#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

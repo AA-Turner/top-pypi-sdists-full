@@ -1,7 +1,7 @@
 r'''
 # `data_google_firebase_android_app_config`
 
-Refer to the Terraform Registry for docs: [`data_google_firebase_android_app_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config).
+Refer to the Terraform Registry for docs: [`data_google_firebase_android_app_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleFirebaseAndroidAppConfigA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleFirebaseAndroidAppConfig.DataGoogleFirebaseAndroidAppConfigA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config google_firebase_android_app_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config google_firebase_android_app_config}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataGoogleFirebaseAndroidAppConfigA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config google_firebase_android_app_config} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config google_firebase_android_app_config} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_id: The id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#app_id DataGoogleFirebaseAndroidAppConfigA#app_id}
-        :param project: The project id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#project DataGoogleFirebaseAndroidAppConfigA#project}
+        :param app_id: The id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#app_id DataGoogleFirebaseAndroidAppConfigA#app_id}
+        :param project: The project id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#project DataGoogleFirebaseAndroidAppConfigA#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataGoogleFirebaseAndroidAppConfigA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleFirebaseAndroidAppConfigA to import.
-        :param import_from_id: The id of the existing DataGoogleFirebaseAndroidAppConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleFirebaseAndroidAppConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleFirebaseAndroidAppConfigA to import is found.
         '''
         if __debug__:
@@ -221,8 +221,8 @@ class DataGoogleFirebaseAndroidAppConfigAConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_id: The id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#app_id DataGoogleFirebaseAndroidAppConfigA#app_id}
-        :param project: The project id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#project DataGoogleFirebaseAndroidAppConfigA#project}
+        :param app_id: The id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#app_id DataGoogleFirebaseAndroidAppConfigA#app_id}
+        :param project: The project id of the Firebase Android App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#project DataGoogleFirebaseAndroidAppConfigA#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -325,7 +325,7 @@ class DataGoogleFirebaseAndroidAppConfigAConfig(_cdktf_9a9027ec.TerraformMetaArg
     def app_id(self) -> builtins.str:
         '''The id of the Firebase Android App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#app_id DataGoogleFirebaseAndroidAppConfigA#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#app_id DataGoogleFirebaseAndroidAppConfigA#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -335,7 +335,7 @@ class DataGoogleFirebaseAndroidAppConfigAConfig(_cdktf_9a9027ec.TerraformMetaArg
     def project(self) -> typing.Optional[builtins.str]:
         '''The project id of the Firebase Android App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_firebase_android_app_config#project DataGoogleFirebaseAndroidAppConfigA#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_android_app_config#project DataGoogleFirebaseAndroidAppConfigA#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)

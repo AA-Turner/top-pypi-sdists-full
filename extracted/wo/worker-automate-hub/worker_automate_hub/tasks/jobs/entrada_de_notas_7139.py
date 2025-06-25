@@ -6,10 +6,11 @@ import time
 import uuid
 import win32clipboard
 import difflib
-
+import re
 import pyautogui
 import pytesseract
 from PIL import Image, ImageEnhance
+from datetime import datetime
 from pywinauto.application import Application
 from pywinauto_recorder.player import set_combobox
 from pywinauto.keyboard import send_keys
@@ -434,6 +435,8 @@ async def entrada_de_notas_7139(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
+        
+        window.child_window(title="Manter Natureza de Operação selecionada", control_type="CheckBox").click()
 
         await worker_sleep(2)
         console.print("Clicando em OK... \n")

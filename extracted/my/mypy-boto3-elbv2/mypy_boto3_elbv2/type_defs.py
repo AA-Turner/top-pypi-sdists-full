@@ -135,11 +135,14 @@ __all__ = (
     "DescribeTargetHealthInputWaitExtraTypeDef",
     "DescribeTargetHealthInputWaitTypeDef",
     "DescribeTargetHealthOutputTypeDef",
+    "DescribeTrustStoreAssociationsInputPaginateTypeDef",
     "DescribeTrustStoreAssociationsInputTypeDef",
     "DescribeTrustStoreAssociationsOutputTypeDef",
     "DescribeTrustStoreRevocationTypeDef",
+    "DescribeTrustStoreRevocationsInputPaginateTypeDef",
     "DescribeTrustStoreRevocationsInputTypeDef",
     "DescribeTrustStoreRevocationsOutputTypeDef",
+    "DescribeTrustStoresInputPaginateTypeDef",
     "DescribeTrustStoresInputTypeDef",
     "DescribeTrustStoresOutputTypeDef",
     "FixedResponseActionConfigTypeDef",
@@ -957,6 +960,23 @@ class DescribeSSLPoliciesInputPaginateTypeDef(TypedDict):
 class DescribeTargetGroupsInputPaginateTypeDef(TypedDict):
     LoadBalancerArn: NotRequired[str]
     TargetGroupArns: NotRequired[Sequence[str]]
+    Names: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeTrustStoreAssociationsInputPaginateTypeDef(TypedDict):
+    TrustStoreArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeTrustStoreRevocationsInputPaginateTypeDef(TypedDict):
+    TrustStoreArn: str
+    RevocationIds: NotRequired[Sequence[int]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeTrustStoresInputPaginateTypeDef(TypedDict):
+    TrustStoreArns: NotRequired[Sequence[str]]
     Names: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 

@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: sphinx-prompt
-Version: 1.9.0
+Version: 1.10.0
 Summary: Sphinx directive to add unselectable prompt
-Home-page: https://github.com/sbrunner/sphinx-prompt
 License: BSD-3-Clause
 Keywords: sphinx,shell,prompt
 Author: Stéphane Brunner
 Author-email: stephane.brunner@gmail.com
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Plugins
 Classifier: Environment :: Web Environment
@@ -17,19 +16,22 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Typing :: Typed
-Requires-Dist: Sphinx (>=8.0.0,<9.0.0)
+Requires-Dist: Sphinx
 Requires-Dist: certifi
 Requires-Dist: docutils
 Requires-Dist: idna
+Requires-Dist: jinja2
 Requires-Dist: pygments
+Requires-Dist: requests (==2.32.4)
 Requires-Dist: urllib3
+Project-URL: Bug Tracker, https://github.com/sbrunner/sphinx-prompt/issues
 Project-URL: Repository, https://github.com/sbrunner/sphinx-prompt
 Description-Content-Type: text/markdown
 

@@ -969,7 +969,7 @@ class TypeScriptProject(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -1825,7 +1825,7 @@ class TypeScriptProjectOptions(_NodeProjectOptions_d12f6f3b):
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -4072,7 +4072,7 @@ class TypeScriptProjectOptions(_NodeProjectOptions_d12f6f3b):
     def eslint(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Setup eslint.
 
-        :default: true
+        :default: - true, unless biome is enabled
 
         :stability: experimental
         '''
@@ -4420,7 +4420,7 @@ class TypeScriptAppProject(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -4895,7 +4895,7 @@ class TypeScriptLibraryProject(
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -5648,7 +5648,7 @@ class TypeScriptLibraryProjectOptions(TypeScriptProjectOptions):
         :param docgen: (experimental) Docgen by Typedoc. Default: false
         :param docs_directory: (experimental) Docs directory. Default: "docs"
         :param entrypoint_types: (experimental) The .d.ts file that includes the type declarations for this module. Default: - .d.ts file derived from the project's entrypoint (usually lib/index.d.ts)
-        :param eslint: (experimental) Setup eslint. Default: true
+        :param eslint: (experimental) Setup eslint. Default: - true, unless biome is enabled
         :param eslint_options: (experimental) Eslint options. Default: - opinionated default options
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
@@ -7897,7 +7897,7 @@ class TypeScriptLibraryProjectOptions(TypeScriptProjectOptions):
     def eslint(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Setup eslint.
 
-        :default: true
+        :default: - true, unless biome is enabled
 
         :stability: experimental
         '''

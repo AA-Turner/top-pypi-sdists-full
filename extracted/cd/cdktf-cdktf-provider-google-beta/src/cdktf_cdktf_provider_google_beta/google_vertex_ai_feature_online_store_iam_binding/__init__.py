@@ -1,7 +1,7 @@
 r'''
 # `google_vertex_ai_feature_online_store_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_vertex_ai_feature_online_store_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding).
+Refer to the Terraform Registry for docs: [`google_vertex_ai_feature_online_store_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleVertexAiFeatureOnlineStoreIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleVertexAiFeatureOnlineStoreIamBinding.GoogleVertexAiFeatureOnlineStoreIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding google_vertex_ai_feature_online_store_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding google_vertex_ai_feature_online_store_iam_binding}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleVertexAiFeatureOnlineStoreIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding google_vertex_ai_feature_online_store_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding google_vertex_ai_feature_online_store_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param feature_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#feature_online_store GoogleVertexAiFeatureOnlineStoreIamBinding#feature_online_store}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#members GoogleVertexAiFeatureOnlineStoreIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#role GoogleVertexAiFeatureOnlineStoreIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#condition GoogleVertexAiFeatureOnlineStoreIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#id GoogleVertexAiFeatureOnlineStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#project GoogleVertexAiFeatureOnlineStoreIamBinding#project}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#region GoogleVertexAiFeatureOnlineStoreIamBinding#region}.
+        :param feature_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#feature_online_store GoogleVertexAiFeatureOnlineStoreIamBinding#feature_online_store}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#members GoogleVertexAiFeatureOnlineStoreIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#role GoogleVertexAiFeatureOnlineStoreIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#condition GoogleVertexAiFeatureOnlineStoreIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#id GoogleVertexAiFeatureOnlineStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#project GoogleVertexAiFeatureOnlineStoreIamBinding#project}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#region GoogleVertexAiFeatureOnlineStoreIamBinding#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleVertexAiFeatureOnlineStoreIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleVertexAiFeatureOnlineStoreIamBinding to import.
-        :param import_from_id: The id of the existing GoogleVertexAiFeatureOnlineStoreIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleVertexAiFeatureOnlineStoreIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleVertexAiFeatureOnlineStoreIamBinding to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GoogleVertexAiFeatureOnlineStoreIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#expression GoogleVertexAiFeatureOnlineStoreIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#title GoogleVertexAiFeatureOnlineStoreIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#description GoogleVertexAiFeatureOnlineStoreIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#expression GoogleVertexAiFeatureOnlineStoreIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#title GoogleVertexAiFeatureOnlineStoreIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#description GoogleVertexAiFeatureOnlineStoreIamBinding#description}.
         '''
         value = GoogleVertexAiFeatureOnlineStoreIamBindingCondition(
             expression=expression, title=title, description=description
@@ -320,9 +320,9 @@ class GoogleVertexAiFeatureOnlineStoreIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#expression GoogleVertexAiFeatureOnlineStoreIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#title GoogleVertexAiFeatureOnlineStoreIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#description GoogleVertexAiFeatureOnlineStoreIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#expression GoogleVertexAiFeatureOnlineStoreIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#title GoogleVertexAiFeatureOnlineStoreIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#description GoogleVertexAiFeatureOnlineStoreIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13b7856ad2e29f2dc103ca65dcf2c0f8fdb6c37e8b78e2c4854ecc1200ee1550)
@@ -338,21 +338,21 @@ class GoogleVertexAiFeatureOnlineStoreIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#expression GoogleVertexAiFeatureOnlineStoreIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#expression GoogleVertexAiFeatureOnlineStoreIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#title GoogleVertexAiFeatureOnlineStoreIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#title GoogleVertexAiFeatureOnlineStoreIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#description GoogleVertexAiFeatureOnlineStoreIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#description GoogleVertexAiFeatureOnlineStoreIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,13 +510,13 @@ class GoogleVertexAiFeatureOnlineStoreIamBindingConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param feature_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#feature_online_store GoogleVertexAiFeatureOnlineStoreIamBinding#feature_online_store}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#members GoogleVertexAiFeatureOnlineStoreIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#role GoogleVertexAiFeatureOnlineStoreIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#condition GoogleVertexAiFeatureOnlineStoreIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#id GoogleVertexAiFeatureOnlineStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#project GoogleVertexAiFeatureOnlineStoreIamBinding#project}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#region GoogleVertexAiFeatureOnlineStoreIamBinding#region}.
+        :param feature_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#feature_online_store GoogleVertexAiFeatureOnlineStoreIamBinding#feature_online_store}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#members GoogleVertexAiFeatureOnlineStoreIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#role GoogleVertexAiFeatureOnlineStoreIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#condition GoogleVertexAiFeatureOnlineStoreIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#id GoogleVertexAiFeatureOnlineStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#project GoogleVertexAiFeatureOnlineStoreIamBinding#project}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#region GoogleVertexAiFeatureOnlineStoreIamBinding#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -632,21 +632,21 @@ class GoogleVertexAiFeatureOnlineStoreIamBindingConfig(
 
     @builtins.property
     def feature_online_store(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#feature_online_store GoogleVertexAiFeatureOnlineStoreIamBinding#feature_online_store}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#feature_online_store GoogleVertexAiFeatureOnlineStoreIamBinding#feature_online_store}.'''
         result = self._values.get("feature_online_store")
         assert result is not None, "Required property 'feature_online_store' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#members GoogleVertexAiFeatureOnlineStoreIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#members GoogleVertexAiFeatureOnlineStoreIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#role GoogleVertexAiFeatureOnlineStoreIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#role GoogleVertexAiFeatureOnlineStoreIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -657,14 +657,14 @@ class GoogleVertexAiFeatureOnlineStoreIamBindingConfig(
     ) -> typing.Optional[GoogleVertexAiFeatureOnlineStoreIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#condition GoogleVertexAiFeatureOnlineStoreIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#condition GoogleVertexAiFeatureOnlineStoreIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleVertexAiFeatureOnlineStoreIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#id GoogleVertexAiFeatureOnlineStoreIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#id GoogleVertexAiFeatureOnlineStoreIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -674,13 +674,13 @@ class GoogleVertexAiFeatureOnlineStoreIamBindingConfig(
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#project GoogleVertexAiFeatureOnlineStoreIamBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#project GoogleVertexAiFeatureOnlineStoreIamBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#region GoogleVertexAiFeatureOnlineStoreIamBinding#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vertex_ai_feature_online_store_iam_binding#region GoogleVertexAiFeatureOnlineStoreIamBinding#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 

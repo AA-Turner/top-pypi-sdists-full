@@ -931,8 +931,16 @@ class MetricsCollector:
                 process=process_id,
                 start_time=startTime,
                 end_time=endTime,
-                stdout=[TimestampedOutput.from_content(stdout)] if stdout else None,
-                stderr=[TimestampedOutput.from_content(stderr)] if stderr else None,
+                stdout=(
+                    [TimestampedOutput.from_content(stdout)]
+                    if stdout and stdout != "[]"
+                    else None
+                ),
+                stderr=(
+                    [TimestampedOutput.from_content(stderr)]
+                    if stderr and stdout != "[]"
+                    else None
+                ),
                 state=state,
                 exception=(
                     SerializableException.from_exception(exception)
@@ -1752,10 +1760,13 @@ class MetricsCollector:
                             spark, task_state_to_pipeline_status(state)
                         )
                     except Exception as exc:
-                        if "(org.apache.spark.SparkSQLException) [OPERATION_CANCELED]" in str(exc):
+                        if (
+                            "(org.apache.spark.SparkSQLException) [OPERATION_CANCELED]"
+                            in str(exc)
+                        ):
                             raise exc
                         else:
-                            logging.error(f'Finally block threw exception: {exc}')
+                            logging.error(f"Finally block threw exception: {exc}")
 
             else:
                 ret = f(spark)

@@ -1,7 +1,7 @@
 r'''
 # `google_firebase_apple_app`
 
-Refer to the Terraform Registry for docs: [`google_firebase_apple_app`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app).
+Refer to the Terraform Registry for docs: [`google_firebase_apple_app`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFirebaseAppleApp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFirebaseAppleApp.GoogleFirebaseAppleApp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app google_firebase_apple_app}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app google_firebase_apple_app}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleFirebaseAppleApp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app google_firebase_apple_app} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app google_firebase_apple_app} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bundle_id: The canonical bundle ID of the Apple app as it would appear in the Apple AppStore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#bundle_id GoogleFirebaseAppleApp#bundle_id}
-        :param display_name: The user-assigned display name of the App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#display_name GoogleFirebaseAppleApp#display_name}
-        :param api_key_id: The globally unique, Google-assigned identifier (UID) for the Firebase API key associated with the AppleApp. If apiKeyId is not set during creation, then Firebase automatically associates an apiKeyId with the AppleApp. This auto-associated key may be an existing valid key or, if no valid key exists, a new one will be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#api_key_id GoogleFirebaseAppleApp#api_key_id}
-        :param app_store_id: The automatically generated Apple ID assigned to the Apple app by Apple in the Apple App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#app_store_id GoogleFirebaseAppleApp#app_store_id}
-        :param deletion_policy: (Optional) Set to 'ABANDON' to allow the Apple to be untracked from terraform state rather than deleted upon 'terraform destroy'. This is useful because the Apple may be serving traffic. Set to 'DELETE' to delete the Apple. Defaults to 'DELETE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#deletion_policy GoogleFirebaseAppleApp#deletion_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#id GoogleFirebaseAppleApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#project GoogleFirebaseAppleApp#project}.
-        :param team_id: The Apple Developer Team ID associated with the App in the App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#team_id GoogleFirebaseAppleApp#team_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#timeouts GoogleFirebaseAppleApp#timeouts}
+        :param bundle_id: The canonical bundle ID of the Apple app as it would appear in the Apple AppStore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#bundle_id GoogleFirebaseAppleApp#bundle_id}
+        :param display_name: The user-assigned display name of the App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#display_name GoogleFirebaseAppleApp#display_name}
+        :param api_key_id: The globally unique, Google-assigned identifier (UID) for the Firebase API key associated with the AppleApp. If apiKeyId is not set during creation, then Firebase automatically associates an apiKeyId with the AppleApp. This auto-associated key may be an existing valid key or, if no valid key exists, a new one will be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#api_key_id GoogleFirebaseAppleApp#api_key_id}
+        :param app_store_id: The automatically generated Apple ID assigned to the Apple app by Apple in the Apple App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#app_store_id GoogleFirebaseAppleApp#app_store_id}
+        :param deletion_policy: (Optional) Set to 'ABANDON' to allow the Apple to be untracked from terraform state rather than deleted upon 'terraform destroy'. This is useful because the Apple may be serving traffic. Set to 'DELETE' to delete the Apple. Defaults to 'DELETE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#deletion_policy GoogleFirebaseAppleApp#deletion_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#id GoogleFirebaseAppleApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#project GoogleFirebaseAppleApp#project}.
+        :param team_id: The Apple Developer Team ID associated with the App in the App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#team_id GoogleFirebaseAppleApp#team_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#timeouts GoogleFirebaseAppleApp#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleFirebaseAppleApp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFirebaseAppleApp to import.
-        :param import_from_id: The id of the existing GoogleFirebaseAppleApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFirebaseAppleApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFirebaseAppleApp to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class GoogleFirebaseAppleApp(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#create GoogleFirebaseAppleApp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#delete GoogleFirebaseAppleApp#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#update GoogleFirebaseAppleApp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#create GoogleFirebaseAppleApp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#delete GoogleFirebaseAppleApp#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#update GoogleFirebaseAppleApp#update}.
         '''
         value = GoogleFirebaseAppleAppTimeouts(
             create=create, delete=delete, update=update
@@ -408,15 +408,15 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bundle_id: The canonical bundle ID of the Apple app as it would appear in the Apple AppStore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#bundle_id GoogleFirebaseAppleApp#bundle_id}
-        :param display_name: The user-assigned display name of the App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#display_name GoogleFirebaseAppleApp#display_name}
-        :param api_key_id: The globally unique, Google-assigned identifier (UID) for the Firebase API key associated with the AppleApp. If apiKeyId is not set during creation, then Firebase automatically associates an apiKeyId with the AppleApp. This auto-associated key may be an existing valid key or, if no valid key exists, a new one will be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#api_key_id GoogleFirebaseAppleApp#api_key_id}
-        :param app_store_id: The automatically generated Apple ID assigned to the Apple app by Apple in the Apple App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#app_store_id GoogleFirebaseAppleApp#app_store_id}
-        :param deletion_policy: (Optional) Set to 'ABANDON' to allow the Apple to be untracked from terraform state rather than deleted upon 'terraform destroy'. This is useful because the Apple may be serving traffic. Set to 'DELETE' to delete the Apple. Defaults to 'DELETE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#deletion_policy GoogleFirebaseAppleApp#deletion_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#id GoogleFirebaseAppleApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#project GoogleFirebaseAppleApp#project}.
-        :param team_id: The Apple Developer Team ID associated with the App in the App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#team_id GoogleFirebaseAppleApp#team_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#timeouts GoogleFirebaseAppleApp#timeouts}
+        :param bundle_id: The canonical bundle ID of the Apple app as it would appear in the Apple AppStore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#bundle_id GoogleFirebaseAppleApp#bundle_id}
+        :param display_name: The user-assigned display name of the App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#display_name GoogleFirebaseAppleApp#display_name}
+        :param api_key_id: The globally unique, Google-assigned identifier (UID) for the Firebase API key associated with the AppleApp. If apiKeyId is not set during creation, then Firebase automatically associates an apiKeyId with the AppleApp. This auto-associated key may be an existing valid key or, if no valid key exists, a new one will be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#api_key_id GoogleFirebaseAppleApp#api_key_id}
+        :param app_store_id: The automatically generated Apple ID assigned to the Apple app by Apple in the Apple App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#app_store_id GoogleFirebaseAppleApp#app_store_id}
+        :param deletion_policy: (Optional) Set to 'ABANDON' to allow the Apple to be untracked from terraform state rather than deleted upon 'terraform destroy'. This is useful because the Apple may be serving traffic. Set to 'DELETE' to delete the Apple. Defaults to 'DELETE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#deletion_policy GoogleFirebaseAppleApp#deletion_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#id GoogleFirebaseAppleApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#project GoogleFirebaseAppleApp#project}.
+        :param team_id: The Apple Developer Team ID associated with the App in the App Store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#team_id GoogleFirebaseAppleApp#team_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#timeouts GoogleFirebaseAppleApp#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -541,7 +541,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bundle_id(self) -> builtins.str:
         '''The canonical bundle ID of the Apple app as it would appear in the Apple AppStore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#bundle_id GoogleFirebaseAppleApp#bundle_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#bundle_id GoogleFirebaseAppleApp#bundle_id}
         '''
         result = self._values.get("bundle_id")
         assert result is not None, "Required property 'bundle_id' is missing"
@@ -551,7 +551,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The user-assigned display name of the App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#display_name GoogleFirebaseAppleApp#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#display_name GoogleFirebaseAppleApp#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -564,7 +564,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If apiKeyId is not set during creation, then Firebase automatically associates an apiKeyId with the AppleApp.
         This auto-associated key may be an existing valid key or, if no valid key exists, a new one will be provisioned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#api_key_id GoogleFirebaseAppleApp#api_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#api_key_id GoogleFirebaseAppleApp#api_key_id}
         '''
         result = self._values.get("api_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -573,7 +573,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_store_id(self) -> typing.Optional[builtins.str]:
         '''The automatically generated Apple ID assigned to the Apple app by Apple in the Apple App Store.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#app_store_id GoogleFirebaseAppleApp#app_store_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#app_store_id GoogleFirebaseAppleApp#app_store_id}
         '''
         result = self._values.get("app_store_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -585,14 +585,14 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This is useful because the Apple may be
         serving traffic. Set to 'DELETE' to delete the Apple. Defaults to 'DELETE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#deletion_policy GoogleFirebaseAppleApp#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#deletion_policy GoogleFirebaseAppleApp#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#id GoogleFirebaseAppleApp#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#id GoogleFirebaseAppleApp#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -602,7 +602,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#project GoogleFirebaseAppleApp#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#project GoogleFirebaseAppleApp#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -610,7 +610,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_id(self) -> typing.Optional[builtins.str]:
         '''The Apple Developer Team ID associated with the App in the App Store.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#team_id GoogleFirebaseAppleApp#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#team_id GoogleFirebaseAppleApp#team_id}
         '''
         result = self._values.get("team_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -619,7 +619,7 @@ class GoogleFirebaseAppleAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleFirebaseAppleAppTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#timeouts GoogleFirebaseAppleApp#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#timeouts GoogleFirebaseAppleApp#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFirebaseAppleAppTimeouts"], result)
@@ -650,9 +650,9 @@ class GoogleFirebaseAppleAppTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#create GoogleFirebaseAppleApp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#delete GoogleFirebaseAppleApp#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#update GoogleFirebaseAppleApp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#create GoogleFirebaseAppleApp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#delete GoogleFirebaseAppleApp#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#update GoogleFirebaseAppleApp#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b76728ee2bcfd8fbe7ccc251f4b55a35ecb516b2ee2bf43277faf7792722fbd3)
@@ -669,19 +669,19 @@ class GoogleFirebaseAppleAppTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#create GoogleFirebaseAppleApp#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#create GoogleFirebaseAppleApp#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#delete GoogleFirebaseAppleApp#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#delete GoogleFirebaseAppleApp#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_apple_app#update GoogleFirebaseAppleApp#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_apple_app#update GoogleFirebaseAppleApp#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

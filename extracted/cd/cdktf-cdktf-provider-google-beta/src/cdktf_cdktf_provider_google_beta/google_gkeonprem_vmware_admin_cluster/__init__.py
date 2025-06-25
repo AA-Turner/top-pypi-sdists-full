@@ -1,7 +1,7 @@
 r'''
 # `google_gkeonprem_vmware_admin_cluster`
 
-Refer to the Terraform Registry for docs: [`google_gkeonprem_vmware_admin_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster).
+Refer to the Terraform Registry for docs: [`google_gkeonprem_vmware_admin_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleGkeonpremVmwareAdminCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleGkeonpremVmwareAdminCluster.GoogleGkeonpremVmwareAdminCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster google_gkeonprem_vmware_admin_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster google_gkeonprem_vmware_admin_cluster}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class GoogleGkeonpremVmwareAdminCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster google_gkeonprem_vmware_admin_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster google_gkeonprem_vmware_admin_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#location GoogleGkeonpremVmwareAdminCluster#location}
-        :param name: The VMware admin cluster resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#name GoogleGkeonpremVmwareAdminCluster#name}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#network_config GoogleGkeonpremVmwareAdminCluster#network_config}
-        :param addon_node: addon_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addon_node GoogleGkeonpremVmwareAdminCluster#addon_node}
-        :param annotations: Annotations on the VMware Admin Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#annotations GoogleGkeonpremVmwareAdminCluster#annotations}
-        :param anti_affinity_groups: anti_affinity_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#anti_affinity_groups GoogleGkeonpremVmwareAdminCluster#anti_affinity_groups}
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#authorization GoogleGkeonpremVmwareAdminCluster#authorization}
-        :param auto_repair_config: auto_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_repair_config GoogleGkeonpremVmwareAdminCluster#auto_repair_config}
-        :param bootstrap_cluster_membership: The bootstrap cluster this VMware admin cluster belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#bootstrap_cluster_membership GoogleGkeonpremVmwareAdminCluster#bootstrap_cluster_membership}
-        :param control_plane_node: control_plane_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node GoogleGkeonpremVmwareAdminCluster#control_plane_node}
-        :param description: A human readable description of this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#description GoogleGkeonpremVmwareAdminCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#id GoogleGkeonpremVmwareAdminCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_type: The OS image type for the VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#image_type GoogleGkeonpremVmwareAdminCluster#image_type}
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#load_balancer GoogleGkeonpremVmwareAdminCluster#load_balancer}
-        :param on_prem_version: The Anthos clusters on the VMware version for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#on_prem_version GoogleGkeonpremVmwareAdminCluster#on_prem_version}
-        :param platform_config: platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#platform_config GoogleGkeonpremVmwareAdminCluster#platform_config}
-        :param private_registry_config: private_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#private_registry_config GoogleGkeonpremVmwareAdminCluster#private_registry_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#project GoogleGkeonpremVmwareAdminCluster#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#timeouts GoogleGkeonpremVmwareAdminCluster#timeouts}
-        :param vcenter: vcenter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter GoogleGkeonpremVmwareAdminCluster#vcenter}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#location GoogleGkeonpremVmwareAdminCluster#location}
+        :param name: The VMware admin cluster resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#name GoogleGkeonpremVmwareAdminCluster#name}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#network_config GoogleGkeonpremVmwareAdminCluster#network_config}
+        :param addon_node: addon_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addon_node GoogleGkeonpremVmwareAdminCluster#addon_node}
+        :param annotations: Annotations on the VMware Admin Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#annotations GoogleGkeonpremVmwareAdminCluster#annotations}
+        :param anti_affinity_groups: anti_affinity_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#anti_affinity_groups GoogleGkeonpremVmwareAdminCluster#anti_affinity_groups}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#authorization GoogleGkeonpremVmwareAdminCluster#authorization}
+        :param auto_repair_config: auto_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_repair_config GoogleGkeonpremVmwareAdminCluster#auto_repair_config}
+        :param bootstrap_cluster_membership: The bootstrap cluster this VMware admin cluster belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#bootstrap_cluster_membership GoogleGkeonpremVmwareAdminCluster#bootstrap_cluster_membership}
+        :param control_plane_node: control_plane_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node GoogleGkeonpremVmwareAdminCluster#control_plane_node}
+        :param description: A human readable description of this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#description GoogleGkeonpremVmwareAdminCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#id GoogleGkeonpremVmwareAdminCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_type: The OS image type for the VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#image_type GoogleGkeonpremVmwareAdminCluster#image_type}
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#load_balancer GoogleGkeonpremVmwareAdminCluster#load_balancer}
+        :param on_prem_version: The Anthos clusters on the VMware version for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#on_prem_version GoogleGkeonpremVmwareAdminCluster#on_prem_version}
+        :param platform_config: platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#platform_config GoogleGkeonpremVmwareAdminCluster#platform_config}
+        :param private_registry_config: private_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#private_registry_config GoogleGkeonpremVmwareAdminCluster#private_registry_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#project GoogleGkeonpremVmwareAdminCluster#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#timeouts GoogleGkeonpremVmwareAdminCluster#timeouts}
+        :param vcenter: vcenter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter GoogleGkeonpremVmwareAdminCluster#vcenter}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class GoogleGkeonpremVmwareAdminCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleGkeonpremVmwareAdminCluster to import.
-        :param import_from_id: The id of the existing GoogleGkeonpremVmwareAdminCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleGkeonpremVmwareAdminCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleGkeonpremVmwareAdminCluster to import is found.
         '''
         if __debug__:
@@ -178,7 +178,7 @@ class GoogleGkeonpremVmwareAdminCluster(
         auto_resize_config: typing.Optional[typing.Union["GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_resize_config: auto_resize_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_resize_config GoogleGkeonpremVmwareAdminCluster#auto_resize_config}
+        :param auto_resize_config: auto_resize_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_resize_config GoogleGkeonpremVmwareAdminCluster#auto_resize_config}
         '''
         value = GoogleGkeonpremVmwareAdminClusterAddonNode(
             auto_resize_config=auto_resize_config
@@ -193,7 +193,7 @@ class GoogleGkeonpremVmwareAdminCluster(
         aag_config_disabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param aag_config_disabled: Spread nodes across at least three physical hosts (requires at least three hosts). Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#aag_config_disabled GoogleGkeonpremVmwareAdminCluster#aag_config_disabled}
+        :param aag_config_disabled: Spread nodes across at least three physical hosts (requires at least three hosts). Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#aag_config_disabled GoogleGkeonpremVmwareAdminCluster#aag_config_disabled}
         '''
         value = GoogleGkeonpremVmwareAdminClusterAntiAffinityGroups(
             aag_config_disabled=aag_config_disabled
@@ -208,7 +208,7 @@ class GoogleGkeonpremVmwareAdminCluster(
         viewer_users: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleGkeonpremVmwareAdminClusterAuthorizationViewerUsers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param viewer_users: viewer_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#viewer_users GoogleGkeonpremVmwareAdminCluster#viewer_users}
+        :param viewer_users: viewer_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#viewer_users GoogleGkeonpremVmwareAdminCluster#viewer_users}
         '''
         value = GoogleGkeonpremVmwareAdminClusterAuthorization(
             viewer_users=viewer_users
@@ -223,7 +223,7 @@ class GoogleGkeonpremVmwareAdminCluster(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether auto repair is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: Whether auto repair is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         value = GoogleGkeonpremVmwareAdminClusterAutoRepairConfig(enabled=enabled)
 
@@ -238,9 +238,9 @@ class GoogleGkeonpremVmwareAdminCluster(
         replicas: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpus: The number of vCPUs for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cpus GoogleGkeonpremVmwareAdminCluster#cpus}
-        :param memory: The number of mebibytes of memory for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#memory GoogleGkeonpremVmwareAdminCluster#memory}
-        :param replicas: The number of control plane nodes for this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#replicas GoogleGkeonpremVmwareAdminCluster#replicas}
+        :param cpus: The number of vCPUs for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cpus GoogleGkeonpremVmwareAdminCluster#cpus}
+        :param memory: The number of mebibytes of memory for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#memory GoogleGkeonpremVmwareAdminCluster#memory}
+        :param replicas: The number of control plane nodes for this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#replicas GoogleGkeonpremVmwareAdminCluster#replicas}
         '''
         value = GoogleGkeonpremVmwareAdminClusterControlPlaneNode(
             cpus=cpus, memory=memory, replicas=replicas
@@ -258,10 +258,10 @@ class GoogleGkeonpremVmwareAdminCluster(
         metal_lb_config: typing.Optional[typing.Union["GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vip_config GoogleGkeonpremVmwareAdminCluster#vip_config}
-        :param f5_config: f5_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#f5_config GoogleGkeonpremVmwareAdminCluster#f5_config}
-        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#manual_lb_config GoogleGkeonpremVmwareAdminCluster#manual_lb_config}
-        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#metal_lb_config GoogleGkeonpremVmwareAdminCluster#metal_lb_config}
+        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vip_config GoogleGkeonpremVmwareAdminCluster#vip_config}
+        :param f5_config: f5_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#f5_config GoogleGkeonpremVmwareAdminCluster#f5_config}
+        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#manual_lb_config GoogleGkeonpremVmwareAdminCluster#manual_lb_config}
+        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#metal_lb_config GoogleGkeonpremVmwareAdminCluster#metal_lb_config}
         '''
         value = GoogleGkeonpremVmwareAdminClusterLoadBalancer(
             vip_config=vip_config,
@@ -285,13 +285,13 @@ class GoogleGkeonpremVmwareAdminCluster(
         vcenter_network: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#pod_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#pod_address_cidr_blocks}
-        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported.. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#service_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#service_address_cidr_blocks}
-        :param dhcp_ip_config: dhcp_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dhcp_ip_config GoogleGkeonpremVmwareAdminCluster#dhcp_ip_config}
-        :param ha_control_plane_config: ha_control_plane_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ha_control_plane_config GoogleGkeonpremVmwareAdminCluster#ha_control_plane_config}
-        :param host_config: host_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#host_config GoogleGkeonpremVmwareAdminCluster#host_config}
-        :param static_ip_config: static_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#static_ip_config GoogleGkeonpremVmwareAdminCluster#static_ip_config}
-        :param vcenter_network: vcenter_network specifies vCenter network name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter_network GoogleGkeonpremVmwareAdminCluster#vcenter_network}
+        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#pod_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#pod_address_cidr_blocks}
+        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported.. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#service_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#service_address_cidr_blocks}
+        :param dhcp_ip_config: dhcp_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dhcp_ip_config GoogleGkeonpremVmwareAdminCluster#dhcp_ip_config}
+        :param ha_control_plane_config: ha_control_plane_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ha_control_plane_config GoogleGkeonpremVmwareAdminCluster#ha_control_plane_config}
+        :param host_config: host_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#host_config GoogleGkeonpremVmwareAdminCluster#host_config}
+        :param static_ip_config: static_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#static_ip_config GoogleGkeonpremVmwareAdminCluster#static_ip_config}
+        :param vcenter_network: vcenter_network specifies vCenter network name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter_network GoogleGkeonpremVmwareAdminCluster#vcenter_network}
         '''
         value = GoogleGkeonpremVmwareAdminClusterNetworkConfig(
             pod_address_cidr_blocks=pod_address_cidr_blocks,
@@ -312,7 +312,7 @@ class GoogleGkeonpremVmwareAdminCluster(
         required_platform_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param required_platform_version: The required platform version e.g. 1.13.1. If the current platform version is lower than the target version, the platform version will be updated to the target version. If the target version is not installed in the platform (bundle versions), download the target version bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#required_platform_version GoogleGkeonpremVmwareAdminCluster#required_platform_version}
+        :param required_platform_version: The required platform version e.g. 1.13.1. If the current platform version is lower than the target version, the platform version will be updated to the target version. If the target version is not installed in the platform (bundle versions), download the target version bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#required_platform_version GoogleGkeonpremVmwareAdminCluster#required_platform_version}
         '''
         value = GoogleGkeonpremVmwareAdminClusterPlatformConfig(
             required_platform_version=required_platform_version
@@ -328,8 +328,8 @@ class GoogleGkeonpremVmwareAdminCluster(
         ca_cert: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: The registry address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
-        :param ca_cert: The CA certificate public key for private registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert GoogleGkeonpremVmwareAdminCluster#ca_cert}
+        :param address: The registry address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        :param ca_cert: The CA certificate public key for private registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert GoogleGkeonpremVmwareAdminCluster#ca_cert}
         '''
         value = GoogleGkeonpremVmwareAdminClusterPrivateRegistryConfig(
             address=address, ca_cert=ca_cert
@@ -346,9 +346,9 @@ class GoogleGkeonpremVmwareAdminCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#create GoogleGkeonpremVmwareAdminCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#delete GoogleGkeonpremVmwareAdminCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#update GoogleGkeonpremVmwareAdminCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#create GoogleGkeonpremVmwareAdminCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#delete GoogleGkeonpremVmwareAdminCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#update GoogleGkeonpremVmwareAdminCluster#update}.
         '''
         value = GoogleGkeonpremVmwareAdminClusterTimeouts(
             create=create, delete=delete, update=update
@@ -371,15 +371,15 @@ class GoogleGkeonpremVmwareAdminCluster(
         storage_policy_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: The vCenter IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
-        :param ca_cert_data: Contains the vCenter CA certificate public key for SSL verification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert_data GoogleGkeonpremVmwareAdminCluster#ca_cert_data}
-        :param cluster: The name of the vCenter cluster for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cluster GoogleGkeonpremVmwareAdminCluster#cluster}
-        :param datacenter: The name of the vCenter datacenter for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datacenter GoogleGkeonpremVmwareAdminCluster#datacenter}
-        :param data_disk: The name of the virtual machine disk (VMDK) for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#data_disk GoogleGkeonpremVmwareAdminCluster#data_disk}
-        :param datastore: The name of the vCenter datastore for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datastore GoogleGkeonpremVmwareAdminCluster#datastore}
-        :param folder: The name of the vCenter folder for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#folder GoogleGkeonpremVmwareAdminCluster#folder}
-        :param resource_pool: The name of the vCenter resource pool for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#resource_pool GoogleGkeonpremVmwareAdminCluster#resource_pool}
-        :param storage_policy_name: The name of the vCenter storage policy for the user cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#storage_policy_name GoogleGkeonpremVmwareAdminCluster#storage_policy_name}
+        :param address: The vCenter IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        :param ca_cert_data: Contains the vCenter CA certificate public key for SSL verification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert_data GoogleGkeonpremVmwareAdminCluster#ca_cert_data}
+        :param cluster: The name of the vCenter cluster for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cluster GoogleGkeonpremVmwareAdminCluster#cluster}
+        :param datacenter: The name of the vCenter datacenter for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datacenter GoogleGkeonpremVmwareAdminCluster#datacenter}
+        :param data_disk: The name of the virtual machine disk (VMDK) for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#data_disk GoogleGkeonpremVmwareAdminCluster#data_disk}
+        :param datastore: The name of the vCenter datastore for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datastore GoogleGkeonpremVmwareAdminCluster#datastore}
+        :param folder: The name of the vCenter folder for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#folder GoogleGkeonpremVmwareAdminCluster#folder}
+        :param resource_pool: The name of the vCenter resource pool for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#resource_pool GoogleGkeonpremVmwareAdminCluster#resource_pool}
+        :param storage_policy_name: The name of the vCenter storage policy for the user cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#storage_policy_name GoogleGkeonpremVmwareAdminCluster#storage_policy_name}
         '''
         value = GoogleGkeonpremVmwareAdminClusterVcenter(
             address=address,
@@ -852,7 +852,7 @@ class GoogleGkeonpremVmwareAdminClusterAddonNode:
         auto_resize_config: typing.Optional[typing.Union["GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_resize_config: auto_resize_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_resize_config GoogleGkeonpremVmwareAdminCluster#auto_resize_config}
+        :param auto_resize_config: auto_resize_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_resize_config GoogleGkeonpremVmwareAdminCluster#auto_resize_config}
         '''
         if isinstance(auto_resize_config, dict):
             auto_resize_config = GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig(**auto_resize_config)
@@ -869,7 +869,7 @@ class GoogleGkeonpremVmwareAdminClusterAddonNode:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig"]:
         '''auto_resize_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_resize_config GoogleGkeonpremVmwareAdminCluster#auto_resize_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_resize_config GoogleGkeonpremVmwareAdminCluster#auto_resize_config}
         '''
         result = self._values.get("auto_resize_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig"], result)
@@ -898,7 +898,7 @@ class GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether to enable controle plane node auto resizing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: Whether to enable controle plane node auto resizing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9147e4692f85c5677a9cbf2f033b3ee4e8caf052f277e139b627a8b69e45fd1a)
@@ -911,7 +911,7 @@ class GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether to enable controle plane node auto resizing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1016,7 +1016,7 @@ class GoogleGkeonpremVmwareAdminClusterAddonNodeOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether to enable controle plane node auto resizing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: Whether to enable controle plane node auto resizing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         value = GoogleGkeonpremVmwareAdminClusterAddonNodeAutoResizeConfig(
             enabled=enabled
@@ -1072,7 +1072,7 @@ class GoogleGkeonpremVmwareAdminClusterAntiAffinityGroups:
         aag_config_disabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param aag_config_disabled: Spread nodes across at least three physical hosts (requires at least three hosts). Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#aag_config_disabled GoogleGkeonpremVmwareAdminCluster#aag_config_disabled}
+        :param aag_config_disabled: Spread nodes across at least three physical hosts (requires at least three hosts). Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#aag_config_disabled GoogleGkeonpremVmwareAdminCluster#aag_config_disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78e1a2d69c9d9b242c72f9853bd738c45063a24dd7ab1a05565f583bf706e0d3)
@@ -1087,7 +1087,7 @@ class GoogleGkeonpremVmwareAdminClusterAntiAffinityGroups:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Spread nodes across at least three physical hosts (requires at least three hosts). Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#aag_config_disabled GoogleGkeonpremVmwareAdminCluster#aag_config_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#aag_config_disabled GoogleGkeonpremVmwareAdminCluster#aag_config_disabled}
         '''
         result = self._values.get("aag_config_disabled")
         assert result is not None, "Required property 'aag_config_disabled' is missing"
@@ -1179,7 +1179,7 @@ class GoogleGkeonpremVmwareAdminClusterAuthorization:
         viewer_users: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleGkeonpremVmwareAdminClusterAuthorizationViewerUsers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param viewer_users: viewer_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#viewer_users GoogleGkeonpremVmwareAdminCluster#viewer_users}
+        :param viewer_users: viewer_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#viewer_users GoogleGkeonpremVmwareAdminCluster#viewer_users}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab9260766fcb0626dbdd4281e97327f70f7ac372361471b5894390e09c14190a)
@@ -1194,7 +1194,7 @@ class GoogleGkeonpremVmwareAdminClusterAuthorization:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleGkeonpremVmwareAdminClusterAuthorizationViewerUsers"]]]:
         '''viewer_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#viewer_users GoogleGkeonpremVmwareAdminCluster#viewer_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#viewer_users GoogleGkeonpremVmwareAdminCluster#viewer_users}
         '''
         result = self._values.get("viewer_users")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleGkeonpremVmwareAdminClusterAuthorizationViewerUsers"]]], result)
@@ -1288,7 +1288,7 @@ class GoogleGkeonpremVmwareAdminClusterAuthorizationOutputReference(
 class GoogleGkeonpremVmwareAdminClusterAuthorizationViewerUsers:
     def __init__(self, *, username: builtins.str) -> None:
         '''
-        :param username: The name of the user, e.g. 'my-gcp-id@gmail.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#username GoogleGkeonpremVmwareAdminCluster#username}
+        :param username: The name of the user, e.g. 'my-gcp-id@gmail.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#username GoogleGkeonpremVmwareAdminCluster#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d35e4087ab809aa9a5dcb72e0fc67aad3b5f65e7b3e8dd3c1dbe3453feb3fcc0)
@@ -1301,7 +1301,7 @@ class GoogleGkeonpremVmwareAdminClusterAuthorizationViewerUsers:
     def username(self) -> builtins.str:
         '''The name of the user, e.g. 'my-gcp-id@gmail.com'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#username GoogleGkeonpremVmwareAdminCluster#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#username GoogleGkeonpremVmwareAdminCluster#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1485,7 +1485,7 @@ class GoogleGkeonpremVmwareAdminClusterAutoRepairConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether auto repair is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: Whether auto repair is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d02b4f8ef13970359c7daae7f81490cd4447b129aa5fc5489ad7580aefdf7f30)
@@ -1498,7 +1498,7 @@ class GoogleGkeonpremVmwareAdminClusterAutoRepairConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether auto repair is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1649,26 +1649,26 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#location GoogleGkeonpremVmwareAdminCluster#location}
-        :param name: The VMware admin cluster resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#name GoogleGkeonpremVmwareAdminCluster#name}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#network_config GoogleGkeonpremVmwareAdminCluster#network_config}
-        :param addon_node: addon_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addon_node GoogleGkeonpremVmwareAdminCluster#addon_node}
-        :param annotations: Annotations on the VMware Admin Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#annotations GoogleGkeonpremVmwareAdminCluster#annotations}
-        :param anti_affinity_groups: anti_affinity_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#anti_affinity_groups GoogleGkeonpremVmwareAdminCluster#anti_affinity_groups}
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#authorization GoogleGkeonpremVmwareAdminCluster#authorization}
-        :param auto_repair_config: auto_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_repair_config GoogleGkeonpremVmwareAdminCluster#auto_repair_config}
-        :param bootstrap_cluster_membership: The bootstrap cluster this VMware admin cluster belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#bootstrap_cluster_membership GoogleGkeonpremVmwareAdminCluster#bootstrap_cluster_membership}
-        :param control_plane_node: control_plane_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node GoogleGkeonpremVmwareAdminCluster#control_plane_node}
-        :param description: A human readable description of this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#description GoogleGkeonpremVmwareAdminCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#id GoogleGkeonpremVmwareAdminCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_type: The OS image type for the VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#image_type GoogleGkeonpremVmwareAdminCluster#image_type}
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#load_balancer GoogleGkeonpremVmwareAdminCluster#load_balancer}
-        :param on_prem_version: The Anthos clusters on the VMware version for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#on_prem_version GoogleGkeonpremVmwareAdminCluster#on_prem_version}
-        :param platform_config: platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#platform_config GoogleGkeonpremVmwareAdminCluster#platform_config}
-        :param private_registry_config: private_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#private_registry_config GoogleGkeonpremVmwareAdminCluster#private_registry_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#project GoogleGkeonpremVmwareAdminCluster#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#timeouts GoogleGkeonpremVmwareAdminCluster#timeouts}
-        :param vcenter: vcenter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter GoogleGkeonpremVmwareAdminCluster#vcenter}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#location GoogleGkeonpremVmwareAdminCluster#location}
+        :param name: The VMware admin cluster resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#name GoogleGkeonpremVmwareAdminCluster#name}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#network_config GoogleGkeonpremVmwareAdminCluster#network_config}
+        :param addon_node: addon_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addon_node GoogleGkeonpremVmwareAdminCluster#addon_node}
+        :param annotations: Annotations on the VMware Admin Cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#annotations GoogleGkeonpremVmwareAdminCluster#annotations}
+        :param anti_affinity_groups: anti_affinity_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#anti_affinity_groups GoogleGkeonpremVmwareAdminCluster#anti_affinity_groups}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#authorization GoogleGkeonpremVmwareAdminCluster#authorization}
+        :param auto_repair_config: auto_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_repair_config GoogleGkeonpremVmwareAdminCluster#auto_repair_config}
+        :param bootstrap_cluster_membership: The bootstrap cluster this VMware admin cluster belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#bootstrap_cluster_membership GoogleGkeonpremVmwareAdminCluster#bootstrap_cluster_membership}
+        :param control_plane_node: control_plane_node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node GoogleGkeonpremVmwareAdminCluster#control_plane_node}
+        :param description: A human readable description of this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#description GoogleGkeonpremVmwareAdminCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#id GoogleGkeonpremVmwareAdminCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_type: The OS image type for the VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#image_type GoogleGkeonpremVmwareAdminCluster#image_type}
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#load_balancer GoogleGkeonpremVmwareAdminCluster#load_balancer}
+        :param on_prem_version: The Anthos clusters on the VMware version for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#on_prem_version GoogleGkeonpremVmwareAdminCluster#on_prem_version}
+        :param platform_config: platform_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#platform_config GoogleGkeonpremVmwareAdminCluster#platform_config}
+        :param private_registry_config: private_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#private_registry_config GoogleGkeonpremVmwareAdminCluster#private_registry_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#project GoogleGkeonpremVmwareAdminCluster#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#timeouts GoogleGkeonpremVmwareAdminCluster#timeouts}
+        :param vcenter: vcenter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter GoogleGkeonpremVmwareAdminCluster#vcenter}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1845,7 +1845,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def location(self) -> builtins.str:
         '''The location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#location GoogleGkeonpremVmwareAdminCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#location GoogleGkeonpremVmwareAdminCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1855,7 +1855,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def name(self) -> builtins.str:
         '''The VMware admin cluster resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#name GoogleGkeonpremVmwareAdminCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#name GoogleGkeonpremVmwareAdminCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1865,7 +1865,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def network_config(self) -> "GoogleGkeonpremVmwareAdminClusterNetworkConfig":
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#network_config GoogleGkeonpremVmwareAdminCluster#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#network_config GoogleGkeonpremVmwareAdminCluster#network_config}
         '''
         result = self._values.get("network_config")
         assert result is not None, "Required property 'network_config' is missing"
@@ -1875,7 +1875,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def addon_node(self) -> typing.Optional[GoogleGkeonpremVmwareAdminClusterAddonNode]:
         '''addon_node block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addon_node GoogleGkeonpremVmwareAdminCluster#addon_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addon_node GoogleGkeonpremVmwareAdminCluster#addon_node}
         '''
         result = self._values.get("addon_node")
         return typing.cast(typing.Optional[GoogleGkeonpremVmwareAdminClusterAddonNode], result)
@@ -1897,7 +1897,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#annotations GoogleGkeonpremVmwareAdminCluster#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#annotations GoogleGkeonpremVmwareAdminCluster#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1908,7 +1908,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[GoogleGkeonpremVmwareAdminClusterAntiAffinityGroups]:
         '''anti_affinity_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#anti_affinity_groups GoogleGkeonpremVmwareAdminCluster#anti_affinity_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#anti_affinity_groups GoogleGkeonpremVmwareAdminCluster#anti_affinity_groups}
         '''
         result = self._values.get("anti_affinity_groups")
         return typing.cast(typing.Optional[GoogleGkeonpremVmwareAdminClusterAntiAffinityGroups], result)
@@ -1919,7 +1919,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[GoogleGkeonpremVmwareAdminClusterAuthorization]:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#authorization GoogleGkeonpremVmwareAdminCluster#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#authorization GoogleGkeonpremVmwareAdminCluster#authorization}
         '''
         result = self._values.get("authorization")
         return typing.cast(typing.Optional[GoogleGkeonpremVmwareAdminClusterAuthorization], result)
@@ -1930,7 +1930,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[GoogleGkeonpremVmwareAdminClusterAutoRepairConfig]:
         '''auto_repair_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_repair_config GoogleGkeonpremVmwareAdminCluster#auto_repair_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#auto_repair_config GoogleGkeonpremVmwareAdminCluster#auto_repair_config}
         '''
         result = self._values.get("auto_repair_config")
         return typing.cast(typing.Optional[GoogleGkeonpremVmwareAdminClusterAutoRepairConfig], result)
@@ -1939,7 +1939,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def bootstrap_cluster_membership(self) -> typing.Optional[builtins.str]:
         '''The bootstrap cluster this VMware admin cluster belongs to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#bootstrap_cluster_membership GoogleGkeonpremVmwareAdminCluster#bootstrap_cluster_membership}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#bootstrap_cluster_membership GoogleGkeonpremVmwareAdminCluster#bootstrap_cluster_membership}
         '''
         result = self._values.get("bootstrap_cluster_membership")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1950,7 +1950,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterControlPlaneNode"]:
         '''control_plane_node block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node GoogleGkeonpremVmwareAdminCluster#control_plane_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node GoogleGkeonpremVmwareAdminCluster#control_plane_node}
         '''
         result = self._values.get("control_plane_node")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterControlPlaneNode"], result)
@@ -1959,14 +1959,14 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def description(self) -> typing.Optional[builtins.str]:
         '''A human readable description of this VMware admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#description GoogleGkeonpremVmwareAdminCluster#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#description GoogleGkeonpremVmwareAdminCluster#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#id GoogleGkeonpremVmwareAdminCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#id GoogleGkeonpremVmwareAdminCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1978,7 +1978,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def image_type(self) -> typing.Optional[builtins.str]:
         '''The OS image type for the VMware admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#image_type GoogleGkeonpremVmwareAdminCluster#image_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#image_type GoogleGkeonpremVmwareAdminCluster#image_type}
         '''
         result = self._values.get("image_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1989,7 +1989,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancer"]:
         '''load_balancer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#load_balancer GoogleGkeonpremVmwareAdminCluster#load_balancer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#load_balancer GoogleGkeonpremVmwareAdminCluster#load_balancer}
         '''
         result = self._values.get("load_balancer")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancer"], result)
@@ -1998,7 +1998,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def on_prem_version(self) -> typing.Optional[builtins.str]:
         '''The Anthos clusters on the VMware version for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#on_prem_version GoogleGkeonpremVmwareAdminCluster#on_prem_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#on_prem_version GoogleGkeonpremVmwareAdminCluster#on_prem_version}
         '''
         result = self._values.get("on_prem_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2009,7 +2009,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterPlatformConfig"]:
         '''platform_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#platform_config GoogleGkeonpremVmwareAdminCluster#platform_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#platform_config GoogleGkeonpremVmwareAdminCluster#platform_config}
         '''
         result = self._values.get("platform_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterPlatformConfig"], result)
@@ -2020,14 +2020,14 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterPrivateRegistryConfig"]:
         '''private_registry_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#private_registry_config GoogleGkeonpremVmwareAdminCluster#private_registry_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#private_registry_config GoogleGkeonpremVmwareAdminCluster#private_registry_config}
         '''
         result = self._values.get("private_registry_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterPrivateRegistryConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#project GoogleGkeonpremVmwareAdminCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#project GoogleGkeonpremVmwareAdminCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2035,7 +2035,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#timeouts GoogleGkeonpremVmwareAdminCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#timeouts GoogleGkeonpremVmwareAdminCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterTimeouts"], result)
@@ -2044,7 +2044,7 @@ class GoogleGkeonpremVmwareAdminClusterConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def vcenter(self) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterVcenter"]:
         '''vcenter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter GoogleGkeonpremVmwareAdminCluster#vcenter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter GoogleGkeonpremVmwareAdminCluster#vcenter}
         '''
         result = self._values.get("vcenter")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterVcenter"], result)
@@ -2075,9 +2075,9 @@ class GoogleGkeonpremVmwareAdminClusterControlPlaneNode:
         replicas: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpus: The number of vCPUs for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cpus GoogleGkeonpremVmwareAdminCluster#cpus}
-        :param memory: The number of mebibytes of memory for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#memory GoogleGkeonpremVmwareAdminCluster#memory}
-        :param replicas: The number of control plane nodes for this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#replicas GoogleGkeonpremVmwareAdminCluster#replicas}
+        :param cpus: The number of vCPUs for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cpus GoogleGkeonpremVmwareAdminCluster#cpus}
+        :param memory: The number of mebibytes of memory for the control-plane node of the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#memory GoogleGkeonpremVmwareAdminCluster#memory}
+        :param replicas: The number of control plane nodes for this VMware admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#replicas GoogleGkeonpremVmwareAdminCluster#replicas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a066765a7dd1e91e4f13d609752858bb680e49003435002cffc75a71dcb5e0e)
@@ -2096,7 +2096,7 @@ class GoogleGkeonpremVmwareAdminClusterControlPlaneNode:
     def cpus(self) -> typing.Optional[jsii.Number]:
         '''The number of vCPUs for the control-plane node of the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cpus GoogleGkeonpremVmwareAdminCluster#cpus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cpus GoogleGkeonpremVmwareAdminCluster#cpus}
         '''
         result = self._values.get("cpus")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2105,7 +2105,7 @@ class GoogleGkeonpremVmwareAdminClusterControlPlaneNode:
     def memory(self) -> typing.Optional[jsii.Number]:
         '''The number of mebibytes of memory for the control-plane node of the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#memory GoogleGkeonpremVmwareAdminCluster#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#memory GoogleGkeonpremVmwareAdminCluster#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2114,7 +2114,7 @@ class GoogleGkeonpremVmwareAdminClusterControlPlaneNode:
     def replicas(self) -> typing.Optional[jsii.Number]:
         '''The number of control plane nodes for this VMware admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#replicas GoogleGkeonpremVmwareAdminCluster#replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#replicas GoogleGkeonpremVmwareAdminCluster#replicas}
         '''
         result = self._values.get("replicas")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2396,10 +2396,10 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancer:
         metal_lb_config: typing.Optional[typing.Union["GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vip_config GoogleGkeonpremVmwareAdminCluster#vip_config}
-        :param f5_config: f5_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#f5_config GoogleGkeonpremVmwareAdminCluster#f5_config}
-        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#manual_lb_config GoogleGkeonpremVmwareAdminCluster#manual_lb_config}
-        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#metal_lb_config GoogleGkeonpremVmwareAdminCluster#metal_lb_config}
+        :param vip_config: vip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vip_config GoogleGkeonpremVmwareAdminCluster#vip_config}
+        :param f5_config: f5_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#f5_config GoogleGkeonpremVmwareAdminCluster#f5_config}
+        :param manual_lb_config: manual_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#manual_lb_config GoogleGkeonpremVmwareAdminCluster#manual_lb_config}
+        :param metal_lb_config: metal_lb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#metal_lb_config GoogleGkeonpremVmwareAdminCluster#metal_lb_config}
         '''
         if isinstance(vip_config, dict):
             vip_config = GoogleGkeonpremVmwareAdminClusterLoadBalancerVipConfig(**vip_config)
@@ -2429,7 +2429,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancer:
     def vip_config(self) -> "GoogleGkeonpremVmwareAdminClusterLoadBalancerVipConfig":
         '''vip_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vip_config GoogleGkeonpremVmwareAdminCluster#vip_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vip_config GoogleGkeonpremVmwareAdminCluster#vip_config}
         '''
         result = self._values.get("vip_config")
         assert result is not None, "Required property 'vip_config' is missing"
@@ -2441,7 +2441,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancer:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config"]:
         '''f5_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#f5_config GoogleGkeonpremVmwareAdminCluster#f5_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#f5_config GoogleGkeonpremVmwareAdminCluster#f5_config}
         '''
         result = self._values.get("f5_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config"], result)
@@ -2452,7 +2452,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancer:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig"]:
         '''manual_lb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#manual_lb_config GoogleGkeonpremVmwareAdminCluster#manual_lb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#manual_lb_config GoogleGkeonpremVmwareAdminCluster#manual_lb_config}
         '''
         result = self._values.get("manual_lb_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig"], result)
@@ -2463,7 +2463,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancer:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig"]:
         '''metal_lb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#metal_lb_config GoogleGkeonpremVmwareAdminCluster#metal_lb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#metal_lb_config GoogleGkeonpremVmwareAdminCluster#metal_lb_config}
         '''
         result = self._values.get("metal_lb_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig"], result)
@@ -2498,9 +2498,9 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config:
         snat_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: The load balancer's IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
-        :param partition: he preexisting partition to be used by the load balancer. T his partition is usually created for the admin cluster for example: 'my-f5-admin-partition'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#partition GoogleGkeonpremVmwareAdminCluster#partition}
-        :param snat_pool: The pool name. Only necessary, if using SNAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#snat_pool GoogleGkeonpremVmwareAdminCluster#snat_pool}
+        :param address: The load balancer's IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        :param partition: he preexisting partition to be used by the load balancer. T his partition is usually created for the admin cluster for example: 'my-f5-admin-partition'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#partition GoogleGkeonpremVmwareAdminCluster#partition}
+        :param snat_pool: The pool name. Only necessary, if using SNAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#snat_pool GoogleGkeonpremVmwareAdminCluster#snat_pool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72a84a9659d9a6aa838c7981cecc8a99803b2a1e7010e82de4bf9d1fecfd72d7)
@@ -2519,7 +2519,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config:
     def address(self) -> typing.Optional[builtins.str]:
         '''The load balancer's IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2532,7 +2532,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config:
         his partition is usually created for the admin cluster for example:
         'my-f5-admin-partition'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#partition GoogleGkeonpremVmwareAdminCluster#partition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#partition GoogleGkeonpremVmwareAdminCluster#partition}
         '''
         result = self._values.get("partition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2541,7 +2541,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config:
     def snat_pool(self) -> typing.Optional[builtins.str]:
         '''The pool name. Only necessary, if using SNAT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#snat_pool GoogleGkeonpremVmwareAdminCluster#snat_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#snat_pool GoogleGkeonpremVmwareAdminCluster#snat_pool}
         '''
         result = self._values.get("snat_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2681,11 +2681,11 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig:
         konnectivity_server_node_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param addons_node_port: NodePort for add-ons server in the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_node_port GoogleGkeonpremVmwareAdminCluster#addons_node_port}
-        :param control_plane_node_port: NodePort for control plane service. The Kubernetes API server in the admin cluster is implemented as a Service of type NodePort (ex. 30968). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node_port GoogleGkeonpremVmwareAdminCluster#control_plane_node_port}
-        :param ingress_http_node_port: NodePort for ingress service's http. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 32527). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_http_node_port GoogleGkeonpremVmwareAdminCluster#ingress_http_node_port}
-        :param ingress_https_node_port: NodePort for ingress service's https. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 30139). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_https_node_port GoogleGkeonpremVmwareAdminCluster#ingress_https_node_port}
-        :param konnectivity_server_node_port: NodePort for konnectivity server service running as a sidecar in each kube-apiserver pod (ex. 30564). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#konnectivity_server_node_port GoogleGkeonpremVmwareAdminCluster#konnectivity_server_node_port}
+        :param addons_node_port: NodePort for add-ons server in the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_node_port GoogleGkeonpremVmwareAdminCluster#addons_node_port}
+        :param control_plane_node_port: NodePort for control plane service. The Kubernetes API server in the admin cluster is implemented as a Service of type NodePort (ex. 30968). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node_port GoogleGkeonpremVmwareAdminCluster#control_plane_node_port}
+        :param ingress_http_node_port: NodePort for ingress service's http. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 32527). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_http_node_port GoogleGkeonpremVmwareAdminCluster#ingress_http_node_port}
+        :param ingress_https_node_port: NodePort for ingress service's https. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 30139). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_https_node_port GoogleGkeonpremVmwareAdminCluster#ingress_https_node_port}
+        :param konnectivity_server_node_port: NodePort for konnectivity server service running as a sidecar in each kube-apiserver pod (ex. 30564). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#konnectivity_server_node_port GoogleGkeonpremVmwareAdminCluster#konnectivity_server_node_port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e80377f93f5d03975e63a98fb8780f7f9d3ff14e6d024f623d6d9aef03543925)
@@ -2710,7 +2710,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig:
     def addons_node_port(self) -> typing.Optional[jsii.Number]:
         '''NodePort for add-ons server in the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_node_port GoogleGkeonpremVmwareAdminCluster#addons_node_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_node_port GoogleGkeonpremVmwareAdminCluster#addons_node_port}
         '''
         result = self._values.get("addons_node_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2722,7 +2722,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig:
         The Kubernetes API server in the admin
         cluster is implemented as a Service of type NodePort (ex. 30968).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node_port GoogleGkeonpremVmwareAdminCluster#control_plane_node_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node_port GoogleGkeonpremVmwareAdminCluster#control_plane_node_port}
         '''
         result = self._values.get("control_plane_node_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2734,7 +2734,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig:
         The ingress service in the admin
         cluster is implemented as a Service of type NodePort (ex. 32527).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_http_node_port GoogleGkeonpremVmwareAdminCluster#ingress_http_node_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_http_node_port GoogleGkeonpremVmwareAdminCluster#ingress_http_node_port}
         '''
         result = self._values.get("ingress_http_node_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2746,7 +2746,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig:
         The ingress service in the admin
         cluster is implemented as a Service of type NodePort (ex. 30139).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_https_node_port GoogleGkeonpremVmwareAdminCluster#ingress_https_node_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_https_node_port GoogleGkeonpremVmwareAdminCluster#ingress_https_node_port}
         '''
         result = self._values.get("ingress_https_node_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2755,7 +2755,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig:
     def konnectivity_server_node_port(self) -> typing.Optional[jsii.Number]:
         '''NodePort for konnectivity server service running as a sidecar in each kube-apiserver pod (ex. 30564).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#konnectivity_server_node_port GoogleGkeonpremVmwareAdminCluster#konnectivity_server_node_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#konnectivity_server_node_port GoogleGkeonpremVmwareAdminCluster#konnectivity_server_node_port}
         '''
         result = self._values.get("konnectivity_server_node_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2927,7 +2927,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Metal LB is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: Metal LB is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c5638e864531b37659840e7d38b15e75c3a0608231e321256400b1ca23e0e60)
@@ -2942,7 +2942,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Metal LB is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3052,9 +3052,9 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerOutputReference(
         snat_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: The load balancer's IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
-        :param partition: he preexisting partition to be used by the load balancer. T his partition is usually created for the admin cluster for example: 'my-f5-admin-partition'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#partition GoogleGkeonpremVmwareAdminCluster#partition}
-        :param snat_pool: The pool name. Only necessary, if using SNAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#snat_pool GoogleGkeonpremVmwareAdminCluster#snat_pool}
+        :param address: The load balancer's IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        :param partition: he preexisting partition to be used by the load balancer. T his partition is usually created for the admin cluster for example: 'my-f5-admin-partition'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#partition GoogleGkeonpremVmwareAdminCluster#partition}
+        :param snat_pool: The pool name. Only necessary, if using SNAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#snat_pool GoogleGkeonpremVmwareAdminCluster#snat_pool}
         '''
         value = GoogleGkeonpremVmwareAdminClusterLoadBalancerF5Config(
             address=address, partition=partition, snat_pool=snat_pool
@@ -3073,11 +3073,11 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerOutputReference(
         konnectivity_server_node_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param addons_node_port: NodePort for add-ons server in the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_node_port GoogleGkeonpremVmwareAdminCluster#addons_node_port}
-        :param control_plane_node_port: NodePort for control plane service. The Kubernetes API server in the admin cluster is implemented as a Service of type NodePort (ex. 30968). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node_port GoogleGkeonpremVmwareAdminCluster#control_plane_node_port}
-        :param ingress_http_node_port: NodePort for ingress service's http. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 32527). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_http_node_port GoogleGkeonpremVmwareAdminCluster#ingress_http_node_port}
-        :param ingress_https_node_port: NodePort for ingress service's https. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 30139). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_https_node_port GoogleGkeonpremVmwareAdminCluster#ingress_https_node_port}
-        :param konnectivity_server_node_port: NodePort for konnectivity server service running as a sidecar in each kube-apiserver pod (ex. 30564). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#konnectivity_server_node_port GoogleGkeonpremVmwareAdminCluster#konnectivity_server_node_port}
+        :param addons_node_port: NodePort for add-ons server in the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_node_port GoogleGkeonpremVmwareAdminCluster#addons_node_port}
+        :param control_plane_node_port: NodePort for control plane service. The Kubernetes API server in the admin cluster is implemented as a Service of type NodePort (ex. 30968). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_node_port GoogleGkeonpremVmwareAdminCluster#control_plane_node_port}
+        :param ingress_http_node_port: NodePort for ingress service's http. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 32527). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_http_node_port GoogleGkeonpremVmwareAdminCluster#ingress_http_node_port}
+        :param ingress_https_node_port: NodePort for ingress service's https. The ingress service in the admin cluster is implemented as a Service of type NodePort (ex. 30139). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ingress_https_node_port GoogleGkeonpremVmwareAdminCluster#ingress_https_node_port}
+        :param konnectivity_server_node_port: NodePort for konnectivity server service running as a sidecar in each kube-apiserver pod (ex. 30564). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#konnectivity_server_node_port GoogleGkeonpremVmwareAdminCluster#konnectivity_server_node_port}
         '''
         value = GoogleGkeonpremVmwareAdminClusterLoadBalancerManualLbConfig(
             addons_node_port=addons_node_port,
@@ -3096,7 +3096,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Metal LB is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: Metal LB is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         value = GoogleGkeonpremVmwareAdminClusterLoadBalancerMetalLbConfig(
             enabled=enabled
@@ -3112,8 +3112,8 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerOutputReference(
         addons_vip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_vip GoogleGkeonpremVmwareAdminCluster#control_plane_vip}
-        :param addons_vip: The VIP to configure the load balancer for add-ons. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_vip GoogleGkeonpremVmwareAdminCluster#addons_vip}
+        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_vip GoogleGkeonpremVmwareAdminCluster#control_plane_vip}
+        :param addons_vip: The VIP to configure the load balancer for add-ons. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_vip GoogleGkeonpremVmwareAdminCluster#addons_vip}
         '''
         value = GoogleGkeonpremVmwareAdminClusterLoadBalancerVipConfig(
             control_plane_vip=control_plane_vip, addons_vip=addons_vip
@@ -3220,8 +3220,8 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerVipConfig:
         addons_vip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_vip GoogleGkeonpremVmwareAdminCluster#control_plane_vip}
-        :param addons_vip: The VIP to configure the load balancer for add-ons. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_vip GoogleGkeonpremVmwareAdminCluster#addons_vip}
+        :param control_plane_vip: The VIP which you previously set aside for the Kubernetes API of this VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_vip GoogleGkeonpremVmwareAdminCluster#control_plane_vip}
+        :param addons_vip: The VIP to configure the load balancer for add-ons. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_vip GoogleGkeonpremVmwareAdminCluster#addons_vip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96a202040fe549f3c97343565cd86cd82300afeaa983f0c9d3ad56915dbcd16f)
@@ -3237,7 +3237,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerVipConfig:
     def control_plane_vip(self) -> builtins.str:
         '''The VIP which you previously set aside for the Kubernetes API of this VMware Admin Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_vip GoogleGkeonpremVmwareAdminCluster#control_plane_vip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_vip GoogleGkeonpremVmwareAdminCluster#control_plane_vip}
         '''
         result = self._values.get("control_plane_vip")
         assert result is not None, "Required property 'control_plane_vip' is missing"
@@ -3247,7 +3247,7 @@ class GoogleGkeonpremVmwareAdminClusterLoadBalancerVipConfig:
     def addons_vip(self) -> typing.Optional[builtins.str]:
         '''The VIP to configure the load balancer for add-ons.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_vip GoogleGkeonpremVmwareAdminCluster#addons_vip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#addons_vip GoogleGkeonpremVmwareAdminCluster#addons_vip}
         '''
         result = self._values.get("addons_vip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3366,13 +3366,13 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
         vcenter_network: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#pod_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#pod_address_cidr_blocks}
-        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported.. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#service_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#service_address_cidr_blocks}
-        :param dhcp_ip_config: dhcp_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dhcp_ip_config GoogleGkeonpremVmwareAdminCluster#dhcp_ip_config}
-        :param ha_control_plane_config: ha_control_plane_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ha_control_plane_config GoogleGkeonpremVmwareAdminCluster#ha_control_plane_config}
-        :param host_config: host_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#host_config GoogleGkeonpremVmwareAdminCluster#host_config}
-        :param static_ip_config: static_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#static_ip_config GoogleGkeonpremVmwareAdminCluster#static_ip_config}
-        :param vcenter_network: vcenter_network specifies vCenter network name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter_network GoogleGkeonpremVmwareAdminCluster#vcenter_network}
+        :param pod_address_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#pod_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#pod_address_cidr_blocks}
+        :param service_address_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these ranges. Only a single range is supported.. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#service_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#service_address_cidr_blocks}
+        :param dhcp_ip_config: dhcp_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dhcp_ip_config GoogleGkeonpremVmwareAdminCluster#dhcp_ip_config}
+        :param ha_control_plane_config: ha_control_plane_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ha_control_plane_config GoogleGkeonpremVmwareAdminCluster#ha_control_plane_config}
+        :param host_config: host_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#host_config GoogleGkeonpremVmwareAdminCluster#host_config}
+        :param static_ip_config: static_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#static_ip_config GoogleGkeonpremVmwareAdminCluster#static_ip_config}
+        :param vcenter_network: vcenter_network specifies vCenter network name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter_network GoogleGkeonpremVmwareAdminCluster#vcenter_network}
         '''
         if isinstance(dhcp_ip_config, dict):
             dhcp_ip_config = GoogleGkeonpremVmwareAdminClusterNetworkConfigDhcpIpConfig(**dhcp_ip_config)
@@ -3412,7 +3412,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
 
         Only a single range is supported. This field cannot be changed after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#pod_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#pod_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#pod_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#pod_address_cidr_blocks}
         '''
         result = self._values.get("pod_address_cidr_blocks")
         assert result is not None, "Required property 'pod_address_cidr_blocks' is missing"
@@ -3425,7 +3425,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
         Only a single range is supported.. This field
         cannot be changed after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#service_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#service_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#service_address_cidr_blocks GoogleGkeonpremVmwareAdminCluster#service_address_cidr_blocks}
         '''
         result = self._values.get("service_address_cidr_blocks")
         assert result is not None, "Required property 'service_address_cidr_blocks' is missing"
@@ -3437,7 +3437,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigDhcpIpConfig"]:
         '''dhcp_ip_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dhcp_ip_config GoogleGkeonpremVmwareAdminCluster#dhcp_ip_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dhcp_ip_config GoogleGkeonpremVmwareAdminCluster#dhcp_ip_config}
         '''
         result = self._values.get("dhcp_ip_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigDhcpIpConfig"], result)
@@ -3448,7 +3448,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfig"]:
         '''ha_control_plane_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ha_control_plane_config GoogleGkeonpremVmwareAdminCluster#ha_control_plane_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ha_control_plane_config GoogleGkeonpremVmwareAdminCluster#ha_control_plane_config}
         '''
         result = self._values.get("ha_control_plane_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfig"], result)
@@ -3459,7 +3459,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig"]:
         '''host_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#host_config GoogleGkeonpremVmwareAdminCluster#host_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#host_config GoogleGkeonpremVmwareAdminCluster#host_config}
         '''
         result = self._values.get("host_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig"], result)
@@ -3470,7 +3470,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfig"]:
         '''static_ip_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#static_ip_config GoogleGkeonpremVmwareAdminCluster#static_ip_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#static_ip_config GoogleGkeonpremVmwareAdminCluster#static_ip_config}
         '''
         result = self._values.get("static_ip_config")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfig"], result)
@@ -3479,7 +3479,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfig:
     def vcenter_network(self) -> typing.Optional[builtins.str]:
         '''vcenter_network specifies vCenter network name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter_network GoogleGkeonpremVmwareAdminCluster#vcenter_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#vcenter_network GoogleGkeonpremVmwareAdminCluster#vcenter_network}
         '''
         result = self._values.get("vcenter_network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3508,7 +3508,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigDhcpIpConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: enabled is a flag to mark if DHCP IP allocation is used for VMware admin clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: enabled is a flag to mark if DHCP IP allocation is used for VMware admin clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0806230e801e56ee5dc27372bd451e45118b5b905b148f807415e43842e966df)
@@ -3521,7 +3521,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigDhcpIpConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''enabled is a flag to mark if DHCP IP allocation is used for VMware admin clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3611,7 +3611,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfig:
         control_plane_ip_block: typing.Optional[typing.Union["GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlock", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param control_plane_ip_block: control_plane_ip_block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_ip_block GoogleGkeonpremVmwareAdminCluster#control_plane_ip_block}
+        :param control_plane_ip_block: control_plane_ip_block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_ip_block GoogleGkeonpremVmwareAdminCluster#control_plane_ip_block}
         '''
         if isinstance(control_plane_ip_block, dict):
             control_plane_ip_block = GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlock(**control_plane_ip_block)
@@ -3628,7 +3628,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfig:
     ) -> typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlock"]:
         '''control_plane_ip_block block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_ip_block GoogleGkeonpremVmwareAdminCluster#control_plane_ip_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_ip_block GoogleGkeonpremVmwareAdminCluster#control_plane_ip_block}
         '''
         result = self._values.get("control_plane_ip_block")
         return typing.cast(typing.Optional["GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlock"], result)
@@ -3659,9 +3659,9 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
         netmask: builtins.str,
     ) -> None:
         '''
-        :param gateway: The network gateway used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
-        :param ips: ips block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
-        :param netmask: The netmask used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
+        :param gateway: The network gateway used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
+        :param ips: ips block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
+        :param netmask: The netmask used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff4b718db0c0d911ee23d8f4e12c27feb6e5c57f6dd63f3f0d70babda8a20939)
@@ -3678,7 +3678,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
     def gateway(self) -> builtins.str:
         '''The network gateway used by the VMware Admin Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
         '''
         result = self._values.get("gateway")
         assert result is not None, "Required property 'gateway' is missing"
@@ -3690,7 +3690,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlockIps"]]:
         '''ips block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
         '''
         result = self._values.get("ips")
         assert result is not None, "Required property 'ips' is missing"
@@ -3700,7 +3700,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
     def netmask(self) -> builtins.str:
         '''The netmask used by the VMware Admin Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
         '''
         result = self._values.get("netmask")
         assert result is not None, "Required property 'netmask' is missing"
@@ -3731,8 +3731,8 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
         hostname: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip: IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
-        :param hostname: Hostname of the machine. VM's name will be used if this field is empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
+        :param ip: IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
+        :param hostname: Hostname of the machine. VM's name will be used if this field is empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__834edbe1f8dc81e826f43e6cbfd6c81aabeffb5ae8f3590aa15b1324fd4e5760)
@@ -3748,7 +3748,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
     def ip(self) -> builtins.str:
         '''IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
         '''
         result = self._values.get("ip")
         assert result is not None, "Required property 'ip' is missing"
@@ -3758,7 +3758,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlP
     def hostname(self) -> typing.Optional[builtins.str]:
         '''Hostname of the machine. VM's name will be used if this field is empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4078,9 +4078,9 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigOutputRe
         netmask: builtins.str,
     ) -> None:
         '''
-        :param gateway: The network gateway used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
-        :param ips: ips block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
-        :param netmask: The netmask used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
+        :param gateway: The network gateway used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
+        :param ips: ips block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
+        :param netmask: The netmask used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
         '''
         value = GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlock(
             gateway=gateway, ips=ips, netmask=netmask
@@ -4142,9 +4142,9 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig:
         ntp_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param dns_search_domains: DNS search domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_search_domains GoogleGkeonpremVmwareAdminCluster#dns_search_domains}
-        :param dns_servers: DNS servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_servers GoogleGkeonpremVmwareAdminCluster#dns_servers}
-        :param ntp_servers: NTP servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ntp_servers GoogleGkeonpremVmwareAdminCluster#ntp_servers}
+        :param dns_search_domains: DNS search domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_search_domains GoogleGkeonpremVmwareAdminCluster#dns_search_domains}
+        :param dns_servers: DNS servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_servers GoogleGkeonpremVmwareAdminCluster#dns_servers}
+        :param ntp_servers: NTP servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ntp_servers GoogleGkeonpremVmwareAdminCluster#ntp_servers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65906c3c0e8fe5135afb766e5bc40a23c8444c8f9839059a756f5f943514e9ec)
@@ -4163,7 +4163,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig:
     def dns_search_domains(self) -> typing.Optional[typing.List[builtins.str]]:
         '''DNS search domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_search_domains GoogleGkeonpremVmwareAdminCluster#dns_search_domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_search_domains GoogleGkeonpremVmwareAdminCluster#dns_search_domains}
         '''
         result = self._values.get("dns_search_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4172,7 +4172,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig:
     def dns_servers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''DNS servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_servers GoogleGkeonpremVmwareAdminCluster#dns_servers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_servers GoogleGkeonpremVmwareAdminCluster#dns_servers}
         '''
         result = self._values.get("dns_servers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4181,7 +4181,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig:
     def ntp_servers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''NTP servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ntp_servers GoogleGkeonpremVmwareAdminCluster#ntp_servers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ntp_servers GoogleGkeonpremVmwareAdminCluster#ntp_servers}
         '''
         result = self._values.get("ntp_servers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4326,7 +4326,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: enabled is a flag to mark if DHCP IP allocation is used for VMware admin clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
+        :param enabled: enabled is a flag to mark if DHCP IP allocation is used for VMware admin clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#enabled GoogleGkeonpremVmwareAdminCluster#enabled}
         '''
         value = GoogleGkeonpremVmwareAdminClusterNetworkConfigDhcpIpConfig(
             enabled=enabled
@@ -4341,7 +4341,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigOutputReference(
         control_plane_ip_block: typing.Optional[typing.Union[GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfigControlPlaneIpBlock, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param control_plane_ip_block: control_plane_ip_block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_ip_block GoogleGkeonpremVmwareAdminCluster#control_plane_ip_block}
+        :param control_plane_ip_block: control_plane_ip_block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#control_plane_ip_block GoogleGkeonpremVmwareAdminCluster#control_plane_ip_block}
         '''
         value = GoogleGkeonpremVmwareAdminClusterNetworkConfigHaControlPlaneConfig(
             control_plane_ip_block=control_plane_ip_block
@@ -4358,9 +4358,9 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigOutputReference(
         ntp_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param dns_search_domains: DNS search domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_search_domains GoogleGkeonpremVmwareAdminCluster#dns_search_domains}
-        :param dns_servers: DNS servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_servers GoogleGkeonpremVmwareAdminCluster#dns_servers}
-        :param ntp_servers: NTP servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ntp_servers GoogleGkeonpremVmwareAdminCluster#ntp_servers}
+        :param dns_search_domains: DNS search domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_search_domains GoogleGkeonpremVmwareAdminCluster#dns_search_domains}
+        :param dns_servers: DNS servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#dns_servers GoogleGkeonpremVmwareAdminCluster#dns_servers}
+        :param ntp_servers: NTP servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ntp_servers GoogleGkeonpremVmwareAdminCluster#ntp_servers}
         '''
         value = GoogleGkeonpremVmwareAdminClusterNetworkConfigHostConfig(
             dns_search_domains=dns_search_domains,
@@ -4377,7 +4377,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigOutputReference(
         ip_blocks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ip_blocks: ip_blocks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip_blocks GoogleGkeonpremVmwareAdminCluster#ip_blocks}
+        :param ip_blocks: ip_blocks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip_blocks GoogleGkeonpremVmwareAdminCluster#ip_blocks}
         '''
         value = GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfig(
             ip_blocks=ip_blocks
@@ -4546,7 +4546,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfig:
         ip_blocks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ip_blocks: ip_blocks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip_blocks GoogleGkeonpremVmwareAdminCluster#ip_blocks}
+        :param ip_blocks: ip_blocks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip_blocks GoogleGkeonpremVmwareAdminCluster#ip_blocks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac8c11a6f8bb0d2e6cc386042d7e05d5b0f5b2fda4a765f1165773d4da6ea6e9)
@@ -4561,7 +4561,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks"]]]:
         '''ip_blocks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip_blocks GoogleGkeonpremVmwareAdminCluster#ip_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip_blocks GoogleGkeonpremVmwareAdminCluster#ip_blocks}
         '''
         result = self._values.get("ip_blocks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks"]]], result)
@@ -4592,9 +4592,9 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks:
         netmask: builtins.str,
     ) -> None:
         '''
-        :param gateway: The network gateway used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
-        :param ips: ips block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
-        :param netmask: The netmask used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
+        :param gateway: The network gateway used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
+        :param ips: ips block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
+        :param netmask: The netmask used by the VMware Admin Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e52f6a17af40be2a22e8708b90d903382d4d8d280c54d95caeb7666a1c978a50)
@@ -4611,7 +4611,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks:
     def gateway(self) -> builtins.str:
         '''The network gateway used by the VMware Admin Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#gateway GoogleGkeonpremVmwareAdminCluster#gateway}
         '''
         result = self._values.get("gateway")
         assert result is not None, "Required property 'gateway' is missing"
@@ -4623,7 +4623,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocksIps"]]:
         '''ips block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ips GoogleGkeonpremVmwareAdminCluster#ips}
         '''
         result = self._values.get("ips")
         assert result is not None, "Required property 'ips' is missing"
@@ -4633,7 +4633,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocks:
     def netmask(self) -> builtins.str:
         '''The netmask used by the VMware Admin Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#netmask GoogleGkeonpremVmwareAdminCluster#netmask}
         '''
         result = self._values.get("netmask")
         assert result is not None, "Required property 'netmask' is missing"
@@ -4664,8 +4664,8 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocksIps:
         hostname: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip: IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
-        :param hostname: Hostname of the machine. VM's name will be used if this field is empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
+        :param ip: IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
+        :param hostname: Hostname of the machine. VM's name will be used if this field is empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09571110b18a8de90682c286bf50b8e4316e6046453d1eb492774888fb8974cd)
@@ -4681,7 +4681,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocksIps:
     def ip(self) -> builtins.str:
         '''IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ip GoogleGkeonpremVmwareAdminCluster#ip}
         '''
         result = self._values.get("ip")
         assert result is not None, "Required property 'ip' is missing"
@@ -4691,7 +4691,7 @@ class GoogleGkeonpremVmwareAdminClusterNetworkConfigStaticIpConfigIpBlocksIps:
     def hostname(self) -> typing.Optional[builtins.str]:
         '''Hostname of the machine. VM's name will be used if this field is empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#hostname GoogleGkeonpremVmwareAdminCluster#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5162,7 +5162,7 @@ class GoogleGkeonpremVmwareAdminClusterPlatformConfig:
         required_platform_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param required_platform_version: The required platform version e.g. 1.13.1. If the current platform version is lower than the target version, the platform version will be updated to the target version. If the target version is not installed in the platform (bundle versions), download the target version bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#required_platform_version GoogleGkeonpremVmwareAdminCluster#required_platform_version}
+        :param required_platform_version: The required platform version e.g. 1.13.1. If the current platform version is lower than the target version, the platform version will be updated to the target version. If the target version is not installed in the platform (bundle versions), download the target version bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#required_platform_version GoogleGkeonpremVmwareAdminCluster#required_platform_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f52583dde948153ba6ddbdefe3ba4380d183ca8a018c86b261f41149d92d1179)
@@ -5175,7 +5175,7 @@ class GoogleGkeonpremVmwareAdminClusterPlatformConfig:
     def required_platform_version(self) -> typing.Optional[builtins.str]:
         '''The required platform version e.g. 1.13.1. If the current platform version is lower than the target version, the platform version will be updated to the target version. If the target version is not installed in the platform (bundle versions), download the target version bundle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#required_platform_version GoogleGkeonpremVmwareAdminCluster#required_platform_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#required_platform_version GoogleGkeonpremVmwareAdminCluster#required_platform_version}
         '''
         result = self._values.get("required_platform_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6070,8 +6070,8 @@ class GoogleGkeonpremVmwareAdminClusterPrivateRegistryConfig:
         ca_cert: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: The registry address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
-        :param ca_cert: The CA certificate public key for private registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert GoogleGkeonpremVmwareAdminCluster#ca_cert}
+        :param address: The registry address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        :param ca_cert: The CA certificate public key for private registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert GoogleGkeonpremVmwareAdminCluster#ca_cert}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__230753e315e10e54dbd6558d987f28b0ca0195575d49b80df744a1fb547c4ac2)
@@ -6087,7 +6087,7 @@ class GoogleGkeonpremVmwareAdminClusterPrivateRegistryConfig:
     def address(self) -> typing.Optional[builtins.str]:
         '''The registry address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6096,7 +6096,7 @@ class GoogleGkeonpremVmwareAdminClusterPrivateRegistryConfig:
     def ca_cert(self) -> typing.Optional[builtins.str]:
         '''The CA certificate public key for private registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert GoogleGkeonpremVmwareAdminCluster#ca_cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert GoogleGkeonpremVmwareAdminCluster#ca_cert}
         '''
         result = self._values.get("ca_cert")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6524,9 +6524,9 @@ class GoogleGkeonpremVmwareAdminClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#create GoogleGkeonpremVmwareAdminCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#delete GoogleGkeonpremVmwareAdminCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#update GoogleGkeonpremVmwareAdminCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#create GoogleGkeonpremVmwareAdminCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#delete GoogleGkeonpremVmwareAdminCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#update GoogleGkeonpremVmwareAdminCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f28238de09019ca7a020ab55c689fb354993dcaab87cb269bb9865a7e6b70ff)
@@ -6543,19 +6543,19 @@ class GoogleGkeonpremVmwareAdminClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#create GoogleGkeonpremVmwareAdminCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#create GoogleGkeonpremVmwareAdminCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#delete GoogleGkeonpremVmwareAdminCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#delete GoogleGkeonpremVmwareAdminCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#update GoogleGkeonpremVmwareAdminCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#update GoogleGkeonpremVmwareAdminCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6702,15 +6702,15 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
         storage_policy_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: The vCenter IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
-        :param ca_cert_data: Contains the vCenter CA certificate public key for SSL verification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert_data GoogleGkeonpremVmwareAdminCluster#ca_cert_data}
-        :param cluster: The name of the vCenter cluster for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cluster GoogleGkeonpremVmwareAdminCluster#cluster}
-        :param datacenter: The name of the vCenter datacenter for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datacenter GoogleGkeonpremVmwareAdminCluster#datacenter}
-        :param data_disk: The name of the virtual machine disk (VMDK) for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#data_disk GoogleGkeonpremVmwareAdminCluster#data_disk}
-        :param datastore: The name of the vCenter datastore for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datastore GoogleGkeonpremVmwareAdminCluster#datastore}
-        :param folder: The name of the vCenter folder for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#folder GoogleGkeonpremVmwareAdminCluster#folder}
-        :param resource_pool: The name of the vCenter resource pool for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#resource_pool GoogleGkeonpremVmwareAdminCluster#resource_pool}
-        :param storage_policy_name: The name of the vCenter storage policy for the user cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#storage_policy_name GoogleGkeonpremVmwareAdminCluster#storage_policy_name}
+        :param address: The vCenter IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        :param ca_cert_data: Contains the vCenter CA certificate public key for SSL verification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert_data GoogleGkeonpremVmwareAdminCluster#ca_cert_data}
+        :param cluster: The name of the vCenter cluster for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cluster GoogleGkeonpremVmwareAdminCluster#cluster}
+        :param datacenter: The name of the vCenter datacenter for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datacenter GoogleGkeonpremVmwareAdminCluster#datacenter}
+        :param data_disk: The name of the virtual machine disk (VMDK) for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#data_disk GoogleGkeonpremVmwareAdminCluster#data_disk}
+        :param datastore: The name of the vCenter datastore for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datastore GoogleGkeonpremVmwareAdminCluster#datastore}
+        :param folder: The name of the vCenter folder for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#folder GoogleGkeonpremVmwareAdminCluster#folder}
+        :param resource_pool: The name of the vCenter resource pool for the admin cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#resource_pool GoogleGkeonpremVmwareAdminCluster#resource_pool}
+        :param storage_policy_name: The name of the vCenter storage policy for the user cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#storage_policy_name GoogleGkeonpremVmwareAdminCluster#storage_policy_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eea491353290c2b77c5d7d11a295ec57982b785d227570a541332c3098d29b2d)
@@ -6747,7 +6747,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def address(self) -> typing.Optional[builtins.str]:
         '''The vCenter IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#address GoogleGkeonpremVmwareAdminCluster#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6756,7 +6756,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def ca_cert_data(self) -> typing.Optional[builtins.str]:
         '''Contains the vCenter CA certificate public key for SSL verification.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert_data GoogleGkeonpremVmwareAdminCluster#ca_cert_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#ca_cert_data GoogleGkeonpremVmwareAdminCluster#ca_cert_data}
         '''
         result = self._values.get("ca_cert_data")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6765,7 +6765,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def cluster(self) -> typing.Optional[builtins.str]:
         '''The name of the vCenter cluster for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cluster GoogleGkeonpremVmwareAdminCluster#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#cluster GoogleGkeonpremVmwareAdminCluster#cluster}
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6774,7 +6774,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def datacenter(self) -> typing.Optional[builtins.str]:
         '''The name of the vCenter datacenter for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datacenter GoogleGkeonpremVmwareAdminCluster#datacenter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datacenter GoogleGkeonpremVmwareAdminCluster#datacenter}
         '''
         result = self._values.get("datacenter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6783,7 +6783,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def data_disk(self) -> typing.Optional[builtins.str]:
         '''The name of the virtual machine disk (VMDK) for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#data_disk GoogleGkeonpremVmwareAdminCluster#data_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#data_disk GoogleGkeonpremVmwareAdminCluster#data_disk}
         '''
         result = self._values.get("data_disk")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6792,7 +6792,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def datastore(self) -> typing.Optional[builtins.str]:
         '''The name of the vCenter datastore for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datastore GoogleGkeonpremVmwareAdminCluster#datastore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#datastore GoogleGkeonpremVmwareAdminCluster#datastore}
         '''
         result = self._values.get("datastore")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6801,7 +6801,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def folder(self) -> typing.Optional[builtins.str]:
         '''The name of the vCenter folder for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#folder GoogleGkeonpremVmwareAdminCluster#folder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#folder GoogleGkeonpremVmwareAdminCluster#folder}
         '''
         result = self._values.get("folder")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6810,7 +6810,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def resource_pool(self) -> typing.Optional[builtins.str]:
         '''The name of the vCenter resource pool for the admin cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#resource_pool GoogleGkeonpremVmwareAdminCluster#resource_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#resource_pool GoogleGkeonpremVmwareAdminCluster#resource_pool}
         '''
         result = self._values.get("resource_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6819,7 +6819,7 @@ class GoogleGkeonpremVmwareAdminClusterVcenter:
     def storage_policy_name(self) -> typing.Optional[builtins.str]:
         '''The name of the vCenter storage policy for the user cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gkeonprem_vmware_admin_cluster#storage_policy_name GoogleGkeonpremVmwareAdminCluster#storage_policy_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gkeonprem_vmware_admin_cluster#storage_policy_name GoogleGkeonpremVmwareAdminCluster#storage_policy_name}
         '''
         result = self._values.get("storage_policy_name")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_analytics_hub_listing`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_analytics_hub_listing`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing).
+Refer to the Terraform Registry for docs: [`google_bigquery_analytics_hub_listing`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,18 +44,18 @@ class GoogleBigqueryAnalyticsHubListing(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBigqueryAnalyticsHubListing.GoogleBigqueryAnalyticsHubListing",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing google_bigquery_analytics_hub_listing}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing google_bigquery_analytics_hub_listing}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        bigquery_dataset: typing.Union["GoogleBigqueryAnalyticsHubListingBigqueryDataset", typing.Dict[builtins.str, typing.Any]],
         data_exchange_id: builtins.str,
         display_name: builtins.str,
         listing_id: builtins.str,
         location: builtins.str,
+        bigquery_dataset: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingBigqueryDataset", typing.Dict[builtins.str, typing.Any]]] = None,
         categories: typing.Optional[typing.Sequence[builtins.str]] = None,
         data_provider: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingDataProvider", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
@@ -66,6 +66,7 @@ class GoogleBigqueryAnalyticsHubListing(
         primary_contact: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
         publisher: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingPublisher", typing.Dict[builtins.str, typing.Any]]] = None,
+        pubsub_topic: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingPubsubTopic", typing.Dict[builtins.str, typing.Any]]] = None,
         request_access: typing.Optional[builtins.str] = None,
         restricted_export_config: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingRestrictedExportConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -77,28 +78,29 @@ class GoogleBigqueryAnalyticsHubListing(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing google_bigquery_analytics_hub_listing} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing google_bigquery_analytics_hub_listing} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#bigquery_dataset GoogleBigqueryAnalyticsHubListing#bigquery_dataset}
-        :param data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#data_exchange_id GoogleBigqueryAnalyticsHubListing#data_exchange_id}
-        :param display_name: Human-readable display name of the listing. The display name must contain only Unicode letters, numbers (0-9), underscores (_), dashes (-), spaces ( ), ampersands (&) and can't start or end with spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#display_name GoogleBigqueryAnalyticsHubListing#display_name}
-        :param listing_id: The ID of the listing. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#listing_id GoogleBigqueryAnalyticsHubListing#listing_id}
-        :param location: The name of the location this data exchange listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#location GoogleBigqueryAnalyticsHubListing#location}
-        :param categories: Categories of the listing. Up to two categories are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#categories GoogleBigqueryAnalyticsHubListing#categories}
-        :param data_provider: data_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#data_provider GoogleBigqueryAnalyticsHubListing#data_provider}
-        :param description: Short description of the listing. The description must not contain Unicode non-characters and C0 and C1 control codes except tabs (HT), new lines (LF), carriage returns (CR), and page breaks (FF). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#description GoogleBigqueryAnalyticsHubListing#description}
-        :param documentation: Documentation describing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#documentation GoogleBigqueryAnalyticsHubListing#documentation}
-        :param icon: Base64 encoded image representing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#icon GoogleBigqueryAnalyticsHubListing#icon}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#id GoogleBigqueryAnalyticsHubListing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_linked_dataset_query_user_email: If true, subscriber email logging is enabled and all queries on the linked dataset will log the email address of the querying user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#log_linked_dataset_query_user_email GoogleBigqueryAnalyticsHubListing#log_linked_dataset_query_user_email}
-        :param primary_contact: Email or URL of the primary point of contact of the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#project GoogleBigqueryAnalyticsHubListing#project}.
-        :param publisher: publisher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#publisher GoogleBigqueryAnalyticsHubListing#publisher}
-        :param request_access: Email or URL of the request access of the listing. Subscribers can use this reference to request access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#request_access GoogleBigqueryAnalyticsHubListing#request_access}
-        :param restricted_export_config: restricted_export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#restricted_export_config GoogleBigqueryAnalyticsHubListing#restricted_export_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#timeouts GoogleBigqueryAnalyticsHubListing#timeouts}
+        :param data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_exchange_id GoogleBigqueryAnalyticsHubListing#data_exchange_id}
+        :param display_name: Human-readable display name of the listing. The display name must contain only Unicode letters, numbers (0-9), underscores (_), dashes (-), spaces ( ), ampersands (&) and can't start or end with spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#display_name GoogleBigqueryAnalyticsHubListing#display_name}
+        :param listing_id: The ID of the listing. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#listing_id GoogleBigqueryAnalyticsHubListing#listing_id}
+        :param location: The name of the location this data exchange listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#location GoogleBigqueryAnalyticsHubListing#location}
+        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#bigquery_dataset GoogleBigqueryAnalyticsHubListing#bigquery_dataset}
+        :param categories: Categories of the listing. Up to two categories are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#categories GoogleBigqueryAnalyticsHubListing#categories}
+        :param data_provider: data_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_provider GoogleBigqueryAnalyticsHubListing#data_provider}
+        :param description: Short description of the listing. The description must not contain Unicode non-characters and C0 and C1 control codes except tabs (HT), new lines (LF), carriage returns (CR), and page breaks (FF). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#description GoogleBigqueryAnalyticsHubListing#description}
+        :param documentation: Documentation describing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#documentation GoogleBigqueryAnalyticsHubListing#documentation}
+        :param icon: Base64 encoded image representing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#icon GoogleBigqueryAnalyticsHubListing#icon}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#id GoogleBigqueryAnalyticsHubListing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_linked_dataset_query_user_email: If true, subscriber email logging is enabled and all queries on the linked dataset will log the email address of the querying user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#log_linked_dataset_query_user_email GoogleBigqueryAnalyticsHubListing#log_linked_dataset_query_user_email}
+        :param primary_contact: Email or URL of the primary point of contact of the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#project GoogleBigqueryAnalyticsHubListing#project}.
+        :param publisher: publisher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#publisher GoogleBigqueryAnalyticsHubListing#publisher}
+        :param pubsub_topic: pubsub_topic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#pubsub_topic GoogleBigqueryAnalyticsHubListing#pubsub_topic}
+        :param request_access: Email or URL of the request access of the listing. Subscribers can use this reference to request access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#request_access GoogleBigqueryAnalyticsHubListing#request_access}
+        :param restricted_export_config: restricted_export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#restricted_export_config GoogleBigqueryAnalyticsHubListing#restricted_export_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#timeouts GoogleBigqueryAnalyticsHubListing#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,11 +114,11 @@ class GoogleBigqueryAnalyticsHubListing(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = GoogleBigqueryAnalyticsHubListingConfig(
-            bigquery_dataset=bigquery_dataset,
             data_exchange_id=data_exchange_id,
             display_name=display_name,
             listing_id=listing_id,
             location=location,
+            bigquery_dataset=bigquery_dataset,
             categories=categories,
             data_provider=data_provider,
             description=description,
@@ -127,6 +129,7 @@ class GoogleBigqueryAnalyticsHubListing(
             primary_contact=primary_contact,
             project=project,
             publisher=publisher,
+            pubsub_topic=pubsub_topic,
             request_access=request_access,
             restricted_export_config=restricted_export_config,
             timeouts=timeouts,
@@ -154,7 +157,7 @@ class GoogleBigqueryAnalyticsHubListing(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBigqueryAnalyticsHubListing to import.
-        :param import_from_id: The id of the existing GoogleBigqueryAnalyticsHubListing that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBigqueryAnalyticsHubListing that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBigqueryAnalyticsHubListing to import is found.
         '''
         if __debug__:
@@ -173,8 +176,8 @@ class GoogleBigqueryAnalyticsHubListing(
         selected_resources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResources", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param dataset: Resource name of the dataset source for this listing. e.g. projects/myproject/datasets/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#dataset GoogleBigqueryAnalyticsHubListing#dataset}
-        :param selected_resources: selected_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#selected_resources GoogleBigqueryAnalyticsHubListing#selected_resources}
+        :param dataset: Resource name of the dataset source for this listing. e.g. projects/myproject/datasets/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#dataset GoogleBigqueryAnalyticsHubListing#dataset}
+        :param selected_resources: selected_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#selected_resources GoogleBigqueryAnalyticsHubListing#selected_resources}
         '''
         value = GoogleBigqueryAnalyticsHubListingBigqueryDataset(
             dataset=dataset, selected_resources=selected_resources
@@ -190,8 +193,8 @@ class GoogleBigqueryAnalyticsHubListing(
         primary_contact: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
-        :param primary_contact: Email or URL of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        :param name: Name of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
+        :param primary_contact: Email or URL of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         value = GoogleBigqueryAnalyticsHubListingDataProvider(
             name=name, primary_contact=primary_contact
@@ -207,14 +210,31 @@ class GoogleBigqueryAnalyticsHubListing(
         primary_contact: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
-        :param primary_contact: Email or URL of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        :param name: Name of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
+        :param primary_contact: Email or URL of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         value = GoogleBigqueryAnalyticsHubListingPublisher(
             name=name, primary_contact=primary_contact
         )
 
         return typing.cast(None, jsii.invoke(self, "putPublisher", [value]))
+
+    @jsii.member(jsii_name="putPubsubTopic")
+    def put_pubsub_topic(
+        self,
+        *,
+        topic: builtins.str,
+        data_affinity_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param topic: Resource name of the Pub/Sub topic source for this listing. e.g. projects/myproject/topics/topicId. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#topic GoogleBigqueryAnalyticsHubListing#topic}
+        :param data_affinity_regions: Region hint on where the data might be published. Data affinity regions are modifiable. See https://cloud.google.com/about/locations for full listing of possible Cloud regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_affinity_regions GoogleBigqueryAnalyticsHubListing#data_affinity_regions}
+        '''
+        value = GoogleBigqueryAnalyticsHubListingPubsubTopic(
+            topic=topic, data_affinity_regions=data_affinity_regions
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putPubsubTopic", [value]))
 
     @jsii.member(jsii_name="putRestrictedExportConfig")
     def put_restricted_export_config(
@@ -224,8 +244,8 @@ class GoogleBigqueryAnalyticsHubListing(
         restrict_query_result: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: If true, enable restricted export. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#enabled GoogleBigqueryAnalyticsHubListing#enabled}
-        :param restrict_query_result: If true, restrict export of query result derived from restricted linked dataset table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#restrict_query_result GoogleBigqueryAnalyticsHubListing#restrict_query_result}
+        :param enabled: If true, enable restricted export. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#enabled GoogleBigqueryAnalyticsHubListing#enabled}
+        :param restrict_query_result: If true, restrict export of query result derived from restricted linked dataset table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#restrict_query_result GoogleBigqueryAnalyticsHubListing#restrict_query_result}
         '''
         value = GoogleBigqueryAnalyticsHubListingRestrictedExportConfig(
             enabled=enabled, restrict_query_result=restrict_query_result
@@ -242,15 +262,19 @@ class GoogleBigqueryAnalyticsHubListing(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#create GoogleBigqueryAnalyticsHubListing#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#delete GoogleBigqueryAnalyticsHubListing#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#update GoogleBigqueryAnalyticsHubListing#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#create GoogleBigqueryAnalyticsHubListing#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#delete GoogleBigqueryAnalyticsHubListing#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#update GoogleBigqueryAnalyticsHubListing#update}.
         '''
         value = GoogleBigqueryAnalyticsHubListingTimeouts(
             create=create, delete=delete, update=update
         )
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetBigqueryDataset")
+    def reset_bigquery_dataset(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBigqueryDataset", []))
 
     @jsii.member(jsii_name="resetCategories")
     def reset_categories(self) -> None:
@@ -291,6 +315,10 @@ class GoogleBigqueryAnalyticsHubListing(
     @jsii.member(jsii_name="resetPublisher")
     def reset_publisher(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPublisher", []))
+
+    @jsii.member(jsii_name="resetPubsubTopic")
+    def reset_pubsub_topic(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPubsubTopic", []))
 
     @jsii.member(jsii_name="resetRequestAccess")
     def reset_request_access(self) -> None:
@@ -340,6 +368,13 @@ class GoogleBigqueryAnalyticsHubListing(
     @jsii.member(jsii_name="publisher")
     def publisher(self) -> "GoogleBigqueryAnalyticsHubListingPublisherOutputReference":
         return typing.cast("GoogleBigqueryAnalyticsHubListingPublisherOutputReference", jsii.get(self, "publisher"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pubsubTopic")
+    def pubsub_topic(
+        self,
+    ) -> "GoogleBigqueryAnalyticsHubListingPubsubTopicOutputReference":
+        return typing.cast("GoogleBigqueryAnalyticsHubListingPubsubTopicOutputReference", jsii.get(self, "pubsubTopic"))
 
     @builtins.property
     @jsii.member(jsii_name="restrictedExportConfig")
@@ -435,6 +470,13 @@ class GoogleBigqueryAnalyticsHubListing(
         self,
     ) -> typing.Optional["GoogleBigqueryAnalyticsHubListingPublisher"]:
         return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingPublisher"], jsii.get(self, "publisherInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pubsubTopicInput")
+    def pubsub_topic_input(
+        self,
+    ) -> typing.Optional["GoogleBigqueryAnalyticsHubListingPubsubTopic"]:
+        return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingPubsubTopic"], jsii.get(self, "pubsubTopicInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requestAccessInput")
@@ -630,8 +672,8 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDataset:
         selected_resources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResources", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param dataset: Resource name of the dataset source for this listing. e.g. projects/myproject/datasets/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#dataset GoogleBigqueryAnalyticsHubListing#dataset}
-        :param selected_resources: selected_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#selected_resources GoogleBigqueryAnalyticsHubListing#selected_resources}
+        :param dataset: Resource name of the dataset source for this listing. e.g. projects/myproject/datasets/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#dataset GoogleBigqueryAnalyticsHubListing#dataset}
+        :param selected_resources: selected_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#selected_resources GoogleBigqueryAnalyticsHubListing#selected_resources}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cba5184b6f5dac8efba253aa46a3de2fb7d90a8c6f444fbe8dc7938f2bb1fbc8)
@@ -647,7 +689,7 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDataset:
     def dataset(self) -> builtins.str:
         '''Resource name of the dataset source for this listing. e.g. projects/myproject/datasets/123.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#dataset GoogleBigqueryAnalyticsHubListing#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#dataset GoogleBigqueryAnalyticsHubListing#dataset}
         '''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
@@ -659,7 +701,7 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDataset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResources"]]]:
         '''selected_resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#selected_resources GoogleBigqueryAnalyticsHubListing#selected_resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#selected_resources GoogleBigqueryAnalyticsHubListing#selected_resources}
         '''
         result = self._values.get("selected_resources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResources"]]], result)
@@ -770,7 +812,7 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDatasetOutputReference(
 class GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResources:
     def __init__(self, *, table: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param table: Format: For table: projects/{projectId}/datasets/{datasetId}/tables/{tableId} Example:"projects/test_project/datasets/test_dataset/tables/test_table". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#table GoogleBigqueryAnalyticsHubListing#table}
+        :param table: Format: For table: projects/{projectId}/datasets/{datasetId}/tables/{tableId} Example:"projects/test_project/datasets/test_dataset/tables/test_table". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#table GoogleBigqueryAnalyticsHubListing#table}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fcda91e78009bffa5b393ba6a54ffe04beefc4d1eb02793b70c62bac4cf26f11)
@@ -783,7 +825,7 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResources:
     def table(self) -> typing.Optional[builtins.str]:
         '''Format: For table: projects/{projectId}/datasets/{datasetId}/tables/{tableId} Example:"projects/test_project/datasets/test_dataset/tables/test_table".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#table GoogleBigqueryAnalyticsHubListing#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#table GoogleBigqueryAnalyticsHubListing#table}
         '''
         result = self._values.get("table")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -969,11 +1011,11 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResourcesOutputRef
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "bigquery_dataset": "bigqueryDataset",
         "data_exchange_id": "dataExchangeId",
         "display_name": "displayName",
         "listing_id": "listingId",
         "location": "location",
+        "bigquery_dataset": "bigqueryDataset",
         "categories": "categories",
         "data_provider": "dataProvider",
         "description": "description",
@@ -984,6 +1026,7 @@ class GoogleBigqueryAnalyticsHubListingBigqueryDatasetSelectedResourcesOutputRef
         "primary_contact": "primaryContact",
         "project": "project",
         "publisher": "publisher",
+        "pubsub_topic": "pubsubTopic",
         "request_access": "requestAccess",
         "restricted_export_config": "restrictedExportConfig",
         "timeouts": "timeouts",
@@ -1000,11 +1043,11 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        bigquery_dataset: typing.Union[GoogleBigqueryAnalyticsHubListingBigqueryDataset, typing.Dict[builtins.str, typing.Any]],
         data_exchange_id: builtins.str,
         display_name: builtins.str,
         listing_id: builtins.str,
         location: builtins.str,
+        bigquery_dataset: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingBigqueryDataset, typing.Dict[builtins.str, typing.Any]]] = None,
         categories: typing.Optional[typing.Sequence[builtins.str]] = None,
         data_provider: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingDataProvider", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
@@ -1015,6 +1058,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
         primary_contact: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
         publisher: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingPublisher", typing.Dict[builtins.str, typing.Any]]] = None,
+        pubsub_topic: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingPubsubTopic", typing.Dict[builtins.str, typing.Any]]] = None,
         request_access: typing.Optional[builtins.str] = None,
         restricted_export_config: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingRestrictedExportConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["GoogleBigqueryAnalyticsHubListingTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1027,24 +1071,25 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#bigquery_dataset GoogleBigqueryAnalyticsHubListing#bigquery_dataset}
-        :param data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#data_exchange_id GoogleBigqueryAnalyticsHubListing#data_exchange_id}
-        :param display_name: Human-readable display name of the listing. The display name must contain only Unicode letters, numbers (0-9), underscores (_), dashes (-), spaces ( ), ampersands (&) and can't start or end with spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#display_name GoogleBigqueryAnalyticsHubListing#display_name}
-        :param listing_id: The ID of the listing. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#listing_id GoogleBigqueryAnalyticsHubListing#listing_id}
-        :param location: The name of the location this data exchange listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#location GoogleBigqueryAnalyticsHubListing#location}
-        :param categories: Categories of the listing. Up to two categories are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#categories GoogleBigqueryAnalyticsHubListing#categories}
-        :param data_provider: data_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#data_provider GoogleBigqueryAnalyticsHubListing#data_provider}
-        :param description: Short description of the listing. The description must not contain Unicode non-characters and C0 and C1 control codes except tabs (HT), new lines (LF), carriage returns (CR), and page breaks (FF). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#description GoogleBigqueryAnalyticsHubListing#description}
-        :param documentation: Documentation describing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#documentation GoogleBigqueryAnalyticsHubListing#documentation}
-        :param icon: Base64 encoded image representing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#icon GoogleBigqueryAnalyticsHubListing#icon}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#id GoogleBigqueryAnalyticsHubListing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_linked_dataset_query_user_email: If true, subscriber email logging is enabled and all queries on the linked dataset will log the email address of the querying user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#log_linked_dataset_query_user_email GoogleBigqueryAnalyticsHubListing#log_linked_dataset_query_user_email}
-        :param primary_contact: Email or URL of the primary point of contact of the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#project GoogleBigqueryAnalyticsHubListing#project}.
-        :param publisher: publisher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#publisher GoogleBigqueryAnalyticsHubListing#publisher}
-        :param request_access: Email or URL of the request access of the listing. Subscribers can use this reference to request access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#request_access GoogleBigqueryAnalyticsHubListing#request_access}
-        :param restricted_export_config: restricted_export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#restricted_export_config GoogleBigqueryAnalyticsHubListing#restricted_export_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#timeouts GoogleBigqueryAnalyticsHubListing#timeouts}
+        :param data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_exchange_id GoogleBigqueryAnalyticsHubListing#data_exchange_id}
+        :param display_name: Human-readable display name of the listing. The display name must contain only Unicode letters, numbers (0-9), underscores (_), dashes (-), spaces ( ), ampersands (&) and can't start or end with spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#display_name GoogleBigqueryAnalyticsHubListing#display_name}
+        :param listing_id: The ID of the listing. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#listing_id GoogleBigqueryAnalyticsHubListing#listing_id}
+        :param location: The name of the location this data exchange listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#location GoogleBigqueryAnalyticsHubListing#location}
+        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#bigquery_dataset GoogleBigqueryAnalyticsHubListing#bigquery_dataset}
+        :param categories: Categories of the listing. Up to two categories are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#categories GoogleBigqueryAnalyticsHubListing#categories}
+        :param data_provider: data_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_provider GoogleBigqueryAnalyticsHubListing#data_provider}
+        :param description: Short description of the listing. The description must not contain Unicode non-characters and C0 and C1 control codes except tabs (HT), new lines (LF), carriage returns (CR), and page breaks (FF). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#description GoogleBigqueryAnalyticsHubListing#description}
+        :param documentation: Documentation describing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#documentation GoogleBigqueryAnalyticsHubListing#documentation}
+        :param icon: Base64 encoded image representing the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#icon GoogleBigqueryAnalyticsHubListing#icon}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#id GoogleBigqueryAnalyticsHubListing#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_linked_dataset_query_user_email: If true, subscriber email logging is enabled and all queries on the linked dataset will log the email address of the querying user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#log_linked_dataset_query_user_email GoogleBigqueryAnalyticsHubListing#log_linked_dataset_query_user_email}
+        :param primary_contact: Email or URL of the primary point of contact of the listing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#project GoogleBigqueryAnalyticsHubListing#project}.
+        :param publisher: publisher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#publisher GoogleBigqueryAnalyticsHubListing#publisher}
+        :param pubsub_topic: pubsub_topic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#pubsub_topic GoogleBigqueryAnalyticsHubListing#pubsub_topic}
+        :param request_access: Email or URL of the request access of the listing. Subscribers can use this reference to request access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#request_access GoogleBigqueryAnalyticsHubListing#request_access}
+        :param restricted_export_config: restricted_export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#restricted_export_config GoogleBigqueryAnalyticsHubListing#restricted_export_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#timeouts GoogleBigqueryAnalyticsHubListing#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1054,6 +1099,8 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
             data_provider = GoogleBigqueryAnalyticsHubListingDataProvider(**data_provider)
         if isinstance(publisher, dict):
             publisher = GoogleBigqueryAnalyticsHubListingPublisher(**publisher)
+        if isinstance(pubsub_topic, dict):
+            pubsub_topic = GoogleBigqueryAnalyticsHubListingPubsubTopic(**pubsub_topic)
         if isinstance(restricted_export_config, dict):
             restricted_export_config = GoogleBigqueryAnalyticsHubListingRestrictedExportConfig(**restricted_export_config)
         if isinstance(timeouts, dict):
@@ -1067,11 +1114,11 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument bigquery_dataset", value=bigquery_dataset, expected_type=type_hints["bigquery_dataset"])
             check_type(argname="argument data_exchange_id", value=data_exchange_id, expected_type=type_hints["data_exchange_id"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument listing_id", value=listing_id, expected_type=type_hints["listing_id"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument bigquery_dataset", value=bigquery_dataset, expected_type=type_hints["bigquery_dataset"])
             check_type(argname="argument categories", value=categories, expected_type=type_hints["categories"])
             check_type(argname="argument data_provider", value=data_provider, expected_type=type_hints["data_provider"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1082,11 +1129,11 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
             check_type(argname="argument primary_contact", value=primary_contact, expected_type=type_hints["primary_contact"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument publisher", value=publisher, expected_type=type_hints["publisher"])
+            check_type(argname="argument pubsub_topic", value=pubsub_topic, expected_type=type_hints["pubsub_topic"])
             check_type(argname="argument request_access", value=request_access, expected_type=type_hints["request_access"])
             check_type(argname="argument restricted_export_config", value=restricted_export_config, expected_type=type_hints["restricted_export_config"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bigquery_dataset": bigquery_dataset,
             "data_exchange_id": data_exchange_id,
             "display_name": display_name,
             "listing_id": listing_id,
@@ -1106,6 +1153,8 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if bigquery_dataset is not None:
+            self._values["bigquery_dataset"] = bigquery_dataset
         if categories is not None:
             self._values["categories"] = categories
         if data_provider is not None:
@@ -1126,6 +1175,8 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
             self._values["project"] = project
         if publisher is not None:
             self._values["publisher"] = publisher
+        if pubsub_topic is not None:
+            self._values["pubsub_topic"] = pubsub_topic
         if request_access is not None:
             self._values["request_access"] = request_access
         if restricted_export_config is not None:
@@ -1198,22 +1249,12 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def bigquery_dataset(self) -> GoogleBigqueryAnalyticsHubListingBigqueryDataset:
-        '''bigquery_dataset block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#bigquery_dataset GoogleBigqueryAnalyticsHubListing#bigquery_dataset}
-        '''
-        result = self._values.get("bigquery_dataset")
-        assert result is not None, "Required property 'bigquery_dataset' is missing"
-        return typing.cast(GoogleBigqueryAnalyticsHubListingBigqueryDataset, result)
-
-    @builtins.property
     def data_exchange_id(self) -> builtins.str:
         '''The ID of the data exchange.
 
         Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#data_exchange_id GoogleBigqueryAnalyticsHubListing#data_exchange_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_exchange_id GoogleBigqueryAnalyticsHubListing#data_exchange_id}
         '''
         result = self._values.get("data_exchange_id")
         assert result is not None, "Required property 'data_exchange_id' is missing"
@@ -1225,7 +1266,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
         The display name must contain only Unicode letters, numbers (0-9), underscores (_), dashes (-), spaces ( ), ampersands (&) and can't start or end with spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#display_name GoogleBigqueryAnalyticsHubListing#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#display_name GoogleBigqueryAnalyticsHubListing#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1237,7 +1278,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
         Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#listing_id GoogleBigqueryAnalyticsHubListing#listing_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#listing_id GoogleBigqueryAnalyticsHubListing#listing_id}
         '''
         result = self._values.get("listing_id")
         assert result is not None, "Required property 'listing_id' is missing"
@@ -1247,17 +1288,28 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def location(self) -> builtins.str:
         '''The name of the location this data exchange listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#location GoogleBigqueryAnalyticsHubListing#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#location GoogleBigqueryAnalyticsHubListing#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def bigquery_dataset(
+        self,
+    ) -> typing.Optional[GoogleBigqueryAnalyticsHubListingBigqueryDataset]:
+        '''bigquery_dataset block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#bigquery_dataset GoogleBigqueryAnalyticsHubListing#bigquery_dataset}
+        '''
+        result = self._values.get("bigquery_dataset")
+        return typing.cast(typing.Optional[GoogleBigqueryAnalyticsHubListingBigqueryDataset], result)
+
+    @builtins.property
     def categories(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Categories of the listing. Up to two categories are allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#categories GoogleBigqueryAnalyticsHubListing#categories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#categories GoogleBigqueryAnalyticsHubListing#categories}
         '''
         result = self._values.get("categories")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1268,7 +1320,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleBigqueryAnalyticsHubListingDataProvider"]:
         '''data_provider block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#data_provider GoogleBigqueryAnalyticsHubListing#data_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_provider GoogleBigqueryAnalyticsHubListing#data_provider}
         '''
         result = self._values.get("data_provider")
         return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingDataProvider"], result)
@@ -1279,7 +1331,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
         The description must not contain Unicode non-characters and C0 and C1 control codes except tabs (HT), new lines (LF), carriage returns (CR), and page breaks (FF).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#description GoogleBigqueryAnalyticsHubListing#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#description GoogleBigqueryAnalyticsHubListing#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1288,7 +1340,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def documentation(self) -> typing.Optional[builtins.str]:
         '''Documentation describing the listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#documentation GoogleBigqueryAnalyticsHubListing#documentation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#documentation GoogleBigqueryAnalyticsHubListing#documentation}
         '''
         result = self._values.get("documentation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1297,14 +1349,14 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def icon(self) -> typing.Optional[builtins.str]:
         '''Base64 encoded image representing the listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#icon GoogleBigqueryAnalyticsHubListing#icon}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#icon GoogleBigqueryAnalyticsHubListing#icon}
         '''
         result = self._values.get("icon")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#id GoogleBigqueryAnalyticsHubListing#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#id GoogleBigqueryAnalyticsHubListing#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1318,7 +1370,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, subscriber email logging is enabled and all queries on the linked dataset will log the email address of the querying user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#log_linked_dataset_query_user_email GoogleBigqueryAnalyticsHubListing#log_linked_dataset_query_user_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#log_linked_dataset_query_user_email GoogleBigqueryAnalyticsHubListing#log_linked_dataset_query_user_email}
         '''
         result = self._values.get("log_linked_dataset_query_user_email")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1327,14 +1379,14 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def primary_contact(self) -> typing.Optional[builtins.str]:
         '''Email or URL of the primary point of contact of the listing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         result = self._values.get("primary_contact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#project GoogleBigqueryAnalyticsHubListing#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#project GoogleBigqueryAnalyticsHubListing#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1344,16 +1396,27 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleBigqueryAnalyticsHubListingPublisher"]:
         '''publisher block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#publisher GoogleBigqueryAnalyticsHubListing#publisher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#publisher GoogleBigqueryAnalyticsHubListing#publisher}
         '''
         result = self._values.get("publisher")
         return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingPublisher"], result)
 
     @builtins.property
+    def pubsub_topic(
+        self,
+    ) -> typing.Optional["GoogleBigqueryAnalyticsHubListingPubsubTopic"]:
+        '''pubsub_topic block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#pubsub_topic GoogleBigqueryAnalyticsHubListing#pubsub_topic}
+        '''
+        result = self._values.get("pubsub_topic")
+        return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingPubsubTopic"], result)
+
+    @builtins.property
     def request_access(self) -> typing.Optional[builtins.str]:
         '''Email or URL of the request access of the listing. Subscribers can use this reference to request access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#request_access GoogleBigqueryAnalyticsHubListing#request_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#request_access GoogleBigqueryAnalyticsHubListing#request_access}
         '''
         result = self._values.get("request_access")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1364,7 +1427,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["GoogleBigqueryAnalyticsHubListingRestrictedExportConfig"]:
         '''restricted_export_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#restricted_export_config GoogleBigqueryAnalyticsHubListing#restricted_export_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#restricted_export_config GoogleBigqueryAnalyticsHubListing#restricted_export_config}
         '''
         result = self._values.get("restricted_export_config")
         return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingRestrictedExportConfig"], result)
@@ -1373,7 +1436,7 @@ class GoogleBigqueryAnalyticsHubListingConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["GoogleBigqueryAnalyticsHubListingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#timeouts GoogleBigqueryAnalyticsHubListing#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#timeouts GoogleBigqueryAnalyticsHubListing#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleBigqueryAnalyticsHubListingTimeouts"], result)
@@ -1403,8 +1466,8 @@ class GoogleBigqueryAnalyticsHubListingDataProvider:
         primary_contact: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
-        :param primary_contact: Email or URL of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        :param name: Name of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
+        :param primary_contact: Email or URL of the data provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16a6fd7afc595083d937c8fd2af6eae161bfd7b8b442798e093deb4b6d960e57)
@@ -1420,7 +1483,7 @@ class GoogleBigqueryAnalyticsHubListingDataProvider:
     def name(self) -> builtins.str:
         '''Name of the data provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1430,7 +1493,7 @@ class GoogleBigqueryAnalyticsHubListingDataProvider:
     def primary_contact(self) -> typing.Optional[builtins.str]:
         '''Email or URL of the data provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         result = self._values.get("primary_contact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1536,8 +1599,8 @@ class GoogleBigqueryAnalyticsHubListingPublisher:
         primary_contact: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
-        :param primary_contact: Email or URL of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        :param name: Name of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
+        :param primary_contact: Email or URL of the listing publisher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef6855c91baed0b582ed75d400bdf30f6dc374cfa623188fd8324cdf1b48dbb7)
@@ -1553,7 +1616,7 @@ class GoogleBigqueryAnalyticsHubListingPublisher:
     def name(self) -> builtins.str:
         '''Name of the listing publisher.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#name GoogleBigqueryAnalyticsHubListing#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1563,7 +1626,7 @@ class GoogleBigqueryAnalyticsHubListingPublisher:
     def primary_contact(self) -> typing.Optional[builtins.str]:
         '''Email or URL of the listing publisher.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#primary_contact GoogleBigqueryAnalyticsHubListing#primary_contact}
         '''
         result = self._values.get("primary_contact")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1657,6 +1720,142 @@ class GoogleBigqueryAnalyticsHubListingPublisherOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-google-beta.googleBigqueryAnalyticsHubListing.GoogleBigqueryAnalyticsHubListingPubsubTopic",
+    jsii_struct_bases=[],
+    name_mapping={"topic": "topic", "data_affinity_regions": "dataAffinityRegions"},
+)
+class GoogleBigqueryAnalyticsHubListingPubsubTopic:
+    def __init__(
+        self,
+        *,
+        topic: builtins.str,
+        data_affinity_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param topic: Resource name of the Pub/Sub topic source for this listing. e.g. projects/myproject/topics/topicId. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#topic GoogleBigqueryAnalyticsHubListing#topic}
+        :param data_affinity_regions: Region hint on where the data might be published. Data affinity regions are modifiable. See https://cloud.google.com/about/locations for full listing of possible Cloud regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_affinity_regions GoogleBigqueryAnalyticsHubListing#data_affinity_regions}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d2dd85630131004d3daddfad7581b29e4ebb6f84acfaafeabcd917375672b44)
+            check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
+            check_type(argname="argument data_affinity_regions", value=data_affinity_regions, expected_type=type_hints["data_affinity_regions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "topic": topic,
+        }
+        if data_affinity_regions is not None:
+            self._values["data_affinity_regions"] = data_affinity_regions
+
+    @builtins.property
+    def topic(self) -> builtins.str:
+        '''Resource name of the Pub/Sub topic source for this listing. e.g. projects/myproject/topics/topicId.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#topic GoogleBigqueryAnalyticsHubListing#topic}
+        '''
+        result = self._values.get("topic")
+        assert result is not None, "Required property 'topic' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_affinity_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Region hint on where the data might be published.
+
+        Data affinity regions are modifiable.
+        See https://cloud.google.com/about/locations for full listing of possible Cloud regions.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#data_affinity_regions GoogleBigqueryAnalyticsHubListing#data_affinity_regions}
+        '''
+        result = self._values.get("data_affinity_regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GoogleBigqueryAnalyticsHubListingPubsubTopic(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class GoogleBigqueryAnalyticsHubListingPubsubTopicOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google-beta.googleBigqueryAnalyticsHubListing.GoogleBigqueryAnalyticsHubListingPubsubTopicOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4fc14767c3cf617941dd6593cf60bd1672ef24940b08d43dd4a46eaa6978c8a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetDataAffinityRegions")
+    def reset_data_affinity_regions(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDataAffinityRegions", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAffinityRegionsInput")
+    def data_affinity_regions_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "dataAffinityRegionsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="topicInput")
+    def topic_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "topicInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAffinityRegions")
+    def data_affinity_regions(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "dataAffinityRegions"))
+
+    @data_affinity_regions.setter
+    def data_affinity_regions(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d481ee7bddf2cd4463abd37d272f8cc1efdc7eb62f1395d5ed9e4b4d18518a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataAffinityRegions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="topic")
+    def topic(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "topic"))
+
+    @topic.setter
+    def topic(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bc73f1bab5b9e8a257e866058c88dd9b60484ed5043ec9ca7dee373e9f084bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "topic", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[GoogleBigqueryAnalyticsHubListingPubsubTopic]:
+        return typing.cast(typing.Optional[GoogleBigqueryAnalyticsHubListingPubsubTopic], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[GoogleBigqueryAnalyticsHubListingPubsubTopic],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f4e0cdf55321f6cae38a85a4e72bed79acb70ea86ce040929fb7c7735758ed0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-google-beta.googleBigqueryAnalyticsHubListing.GoogleBigqueryAnalyticsHubListingRestrictedExportConfig",
     jsii_struct_bases=[],
     name_mapping={
@@ -1672,8 +1871,8 @@ class GoogleBigqueryAnalyticsHubListingRestrictedExportConfig:
         restrict_query_result: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: If true, enable restricted export. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#enabled GoogleBigqueryAnalyticsHubListing#enabled}
-        :param restrict_query_result: If true, restrict export of query result derived from restricted linked dataset table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#restrict_query_result GoogleBigqueryAnalyticsHubListing#restrict_query_result}
+        :param enabled: If true, enable restricted export. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#enabled GoogleBigqueryAnalyticsHubListing#enabled}
+        :param restrict_query_result: If true, restrict export of query result derived from restricted linked dataset table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#restrict_query_result GoogleBigqueryAnalyticsHubListing#restrict_query_result}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ade80ac6cac36e30dc717aaab22a84764b1b957cd955666efe81685812ac982)
@@ -1691,7 +1890,7 @@ class GoogleBigqueryAnalyticsHubListingRestrictedExportConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, enable restricted export.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#enabled GoogleBigqueryAnalyticsHubListing#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#enabled GoogleBigqueryAnalyticsHubListing#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1702,7 +1901,7 @@ class GoogleBigqueryAnalyticsHubListingRestrictedExportConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, restrict export of query result derived from restricted linked dataset table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#restrict_query_result GoogleBigqueryAnalyticsHubListing#restrict_query_result}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#restrict_query_result GoogleBigqueryAnalyticsHubListing#restrict_query_result}
         '''
         result = self._values.get("restrict_query_result")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1830,9 +2029,9 @@ class GoogleBigqueryAnalyticsHubListingTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#create GoogleBigqueryAnalyticsHubListing#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#delete GoogleBigqueryAnalyticsHubListing#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#update GoogleBigqueryAnalyticsHubListing#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#create GoogleBigqueryAnalyticsHubListing#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#delete GoogleBigqueryAnalyticsHubListing#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#update GoogleBigqueryAnalyticsHubListing#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5097e4d0b563172304dd6c1fc502e2d4bd880701da5c2bf2e9300d0ffb10e12a)
@@ -1849,19 +2048,19 @@ class GoogleBigqueryAnalyticsHubListingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#create GoogleBigqueryAnalyticsHubListing#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#create GoogleBigqueryAnalyticsHubListing#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#delete GoogleBigqueryAnalyticsHubListing#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#delete GoogleBigqueryAnalyticsHubListing#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_analytics_hub_listing#update GoogleBigqueryAnalyticsHubListing#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_analytics_hub_listing#update GoogleBigqueryAnalyticsHubListing#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1990,6 +2189,8 @@ __all__ = [
     "GoogleBigqueryAnalyticsHubListingDataProviderOutputReference",
     "GoogleBigqueryAnalyticsHubListingPublisher",
     "GoogleBigqueryAnalyticsHubListingPublisherOutputReference",
+    "GoogleBigqueryAnalyticsHubListingPubsubTopic",
+    "GoogleBigqueryAnalyticsHubListingPubsubTopicOutputReference",
     "GoogleBigqueryAnalyticsHubListingRestrictedExportConfig",
     "GoogleBigqueryAnalyticsHubListingRestrictedExportConfigOutputReference",
     "GoogleBigqueryAnalyticsHubListingTimeouts",
@@ -2002,11 +2203,11 @@ def _typecheckingstub__74f1f2677cbe3d7372e4162c32a922d59f80ad350f54b4f5717154c71
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    bigquery_dataset: typing.Union[GoogleBigqueryAnalyticsHubListingBigqueryDataset, typing.Dict[builtins.str, typing.Any]],
     data_exchange_id: builtins.str,
     display_name: builtins.str,
     listing_id: builtins.str,
     location: builtins.str,
+    bigquery_dataset: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingBigqueryDataset, typing.Dict[builtins.str, typing.Any]]] = None,
     categories: typing.Optional[typing.Sequence[builtins.str]] = None,
     data_provider: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingDataProvider, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
@@ -2017,6 +2218,7 @@ def _typecheckingstub__74f1f2677cbe3d7372e4162c32a922d59f80ad350f54b4f5717154c71
     primary_contact: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
     publisher: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingPublisher, typing.Dict[builtins.str, typing.Any]]] = None,
+    pubsub_topic: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingPubsubTopic, typing.Dict[builtins.str, typing.Any]]] = None,
     request_access: typing.Optional[builtins.str] = None,
     restricted_export_config: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingRestrictedExportConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2226,11 +2428,11 @@ def _typecheckingstub__7b367299b584303edcf955004e12a3ce60a97c165fef439299e059ab9
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    bigquery_dataset: typing.Union[GoogleBigqueryAnalyticsHubListingBigqueryDataset, typing.Dict[builtins.str, typing.Any]],
     data_exchange_id: builtins.str,
     display_name: builtins.str,
     listing_id: builtins.str,
     location: builtins.str,
+    bigquery_dataset: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingBigqueryDataset, typing.Dict[builtins.str, typing.Any]]] = None,
     categories: typing.Optional[typing.Sequence[builtins.str]] = None,
     data_provider: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingDataProvider, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
@@ -2241,6 +2443,7 @@ def _typecheckingstub__7b367299b584303edcf955004e12a3ce60a97c165fef439299e059ab9
     primary_contact: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
     publisher: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingPublisher, typing.Dict[builtins.str, typing.Any]]] = None,
+    pubsub_topic: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingPubsubTopic, typing.Dict[builtins.str, typing.Any]]] = None,
     request_access: typing.Optional[builtins.str] = None,
     restricted_export_config: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingRestrictedExportConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[GoogleBigqueryAnalyticsHubListingTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2310,6 +2513,39 @@ def _typecheckingstub__99861882318dce7832326de652d0d717f974e3185bee0445068d35b01
 
 def _typecheckingstub__9b47b9776facae2fddbea909028572c1d0f11077ca666e00966ef30de0ded31b(
     value: typing.Optional[GoogleBigqueryAnalyticsHubListingPublisher],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d2dd85630131004d3daddfad7581b29e4ebb6f84acfaafeabcd917375672b44(
+    *,
+    topic: builtins.str,
+    data_affinity_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4fc14767c3cf617941dd6593cf60bd1672ef24940b08d43dd4a46eaa6978c8a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d481ee7bddf2cd4463abd37d272f8cc1efdc7eb62f1395d5ed9e4b4d18518a9(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bc73f1bab5b9e8a257e866058c88dd9b60484ed5043ec9ca7dee373e9f084bf(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f4e0cdf55321f6cae38a85a4e72bed79acb70ea86ce040929fb7c7735758ed0(
+    value: typing.Optional[GoogleBigqueryAnalyticsHubListingPubsubTopic],
 ) -> None:
     """Type checking stubs"""
     pass

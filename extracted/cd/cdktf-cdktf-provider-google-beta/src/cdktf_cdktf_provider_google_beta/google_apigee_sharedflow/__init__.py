@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_sharedflow`
 
-Refer to the Terraform Registry for docs: [`google_apigee_sharedflow`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow).
+Refer to the Terraform Registry for docs: [`google_apigee_sharedflow`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApigeeSharedflow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApigeeSharedflow.GoogleApigeeSharedflow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow google_apigee_sharedflow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow google_apigee_sharedflow}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleApigeeSharedflow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow google_apigee_sharedflow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow google_apigee_sharedflow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param config_bundle: Path to the config zip bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#config_bundle GoogleApigeeSharedflow#config_bundle}
-        :param name: The ID of the shared flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#name GoogleApigeeSharedflow#name}
-        :param org_id: The Apigee Organization name associated with the Apigee instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#org_id GoogleApigeeSharedflow#org_id}
-        :param detect_md5_hash: A hash of local config bundle in string, user needs to use a Terraform Hash function of their choice. A change in hash will trigger an update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#detect_md5hash GoogleApigeeSharedflow#detect_md5hash}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#id GoogleApigeeSharedflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#timeouts GoogleApigeeSharedflow#timeouts}
+        :param config_bundle: Path to the config zip bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#config_bundle GoogleApigeeSharedflow#config_bundle}
+        :param name: The ID of the shared flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#name GoogleApigeeSharedflow#name}
+        :param org_id: The Apigee Organization name associated with the Apigee instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#org_id GoogleApigeeSharedflow#org_id}
+        :param detect_md5_hash: A hash of local config bundle in string, user needs to use a Terraform Hash function of their choice. A change in hash will trigger an update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#detect_md5hash GoogleApigeeSharedflow#detect_md5hash}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#id GoogleApigeeSharedflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#timeouts GoogleApigeeSharedflow#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleApigeeSharedflow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApigeeSharedflow to import.
-        :param import_from_id: The id of the existing GoogleApigeeSharedflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApigeeSharedflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApigeeSharedflow to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GoogleApigeeSharedflow(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#create GoogleApigeeSharedflow#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#delete GoogleApigeeSharedflow#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#update GoogleApigeeSharedflow#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#create GoogleApigeeSharedflow#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#delete GoogleApigeeSharedflow#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#update GoogleApigeeSharedflow#update}.
         '''
         value = GoogleApigeeSharedflowTimeouts(
             create=create, delete=delete, update=update
@@ -336,12 +336,12 @@ class GoogleApigeeSharedflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param config_bundle: Path to the config zip bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#config_bundle GoogleApigeeSharedflow#config_bundle}
-        :param name: The ID of the shared flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#name GoogleApigeeSharedflow#name}
-        :param org_id: The Apigee Organization name associated with the Apigee instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#org_id GoogleApigeeSharedflow#org_id}
-        :param detect_md5_hash: A hash of local config bundle in string, user needs to use a Terraform Hash function of their choice. A change in hash will trigger an update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#detect_md5hash GoogleApigeeSharedflow#detect_md5hash}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#id GoogleApigeeSharedflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#timeouts GoogleApigeeSharedflow#timeouts}
+        :param config_bundle: Path to the config zip bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#config_bundle GoogleApigeeSharedflow#config_bundle}
+        :param name: The ID of the shared flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#name GoogleApigeeSharedflow#name}
+        :param org_id: The Apigee Organization name associated with the Apigee instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#org_id GoogleApigeeSharedflow#org_id}
+        :param detect_md5_hash: A hash of local config bundle in string, user needs to use a Terraform Hash function of their choice. A change in hash will trigger an update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#detect_md5hash GoogleApigeeSharedflow#detect_md5hash}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#id GoogleApigeeSharedflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#timeouts GoogleApigeeSharedflow#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -456,7 +456,7 @@ class GoogleApigeeSharedflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config_bundle(self) -> builtins.str:
         '''Path to the config zip bundle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#config_bundle GoogleApigeeSharedflow#config_bundle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#config_bundle GoogleApigeeSharedflow#config_bundle}
         '''
         result = self._values.get("config_bundle")
         assert result is not None, "Required property 'config_bundle' is missing"
@@ -466,7 +466,7 @@ class GoogleApigeeSharedflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The ID of the shared flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#name GoogleApigeeSharedflow#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#name GoogleApigeeSharedflow#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -476,7 +476,7 @@ class GoogleApigeeSharedflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The Apigee Organization name associated with the Apigee instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#org_id GoogleApigeeSharedflow#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#org_id GoogleApigeeSharedflow#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -488,14 +488,14 @@ class GoogleApigeeSharedflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A change in hash will trigger an update.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#detect_md5hash GoogleApigeeSharedflow#detect_md5hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#detect_md5hash GoogleApigeeSharedflow#detect_md5hash}
         '''
         result = self._values.get("detect_md5_hash")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#id GoogleApigeeSharedflow#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#id GoogleApigeeSharedflow#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -507,7 +507,7 @@ class GoogleApigeeSharedflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleApigeeSharedflowTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#timeouts GoogleApigeeSharedflow#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#timeouts GoogleApigeeSharedflow#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApigeeSharedflowTimeouts"], result)
@@ -692,9 +692,9 @@ class GoogleApigeeSharedflowTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#create GoogleApigeeSharedflow#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#delete GoogleApigeeSharedflow#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#update GoogleApigeeSharedflow#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#create GoogleApigeeSharedflow#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#delete GoogleApigeeSharedflow#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#update GoogleApigeeSharedflow#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7d4506f9e4a420ce2773314d1799249ee94fbdffd6f9d01b0255bcb2e12d006)
@@ -711,19 +711,19 @@ class GoogleApigeeSharedflowTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#create GoogleApigeeSharedflow#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#create GoogleApigeeSharedflow#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#delete GoogleApigeeSharedflow#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#delete GoogleApigeeSharedflow#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_sharedflow#update GoogleApigeeSharedflow#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_sharedflow#update GoogleApigeeSharedflow#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

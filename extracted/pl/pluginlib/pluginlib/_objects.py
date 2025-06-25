@@ -1,4 +1,4 @@
-# Copyright 2014 - 2022 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -11,12 +11,12 @@ This module contains pluginlib object classes
 """
 
 from collections import OrderedDict
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
-from pluginlib._util import BASESTRING, CachingDict, DictWithDotNotation, OPERATORS
+from pluginlib._util import CachingDict, DictWithDotNotation, OPERATORS
 
 
-class BlacklistEntry(object):
+class BlacklistEntry:
     """
     Args:
         plugin_type(str): Parent type
@@ -42,7 +42,7 @@ class BlacklistEntry(object):
 
             BlacklistEntry('parser', 'json', '>=', '1.0')
 
-    ``version`` is evaluated using :py:func:`pkg_resources.parse_version`
+    ``version`` is evaluated using :py:func:`packaging.version.parse`
     and should conform to `PEP 440`_
 
     .. _PEP 440: https://www.python.org/dev/peps/pep-0440/
@@ -69,18 +69,18 @@ class BlacklistEntry(object):
             self.version = version
             self.operator = operator
 
-        if self.version is not None and not isinstance(self.version, BASESTRING):
-            raise TypeError('version must be a string, received %s' % type(self.version).__name__)
+        if self.version is not None and not isinstance(self.version, str):
+            raise TypeError(f'version must be a string, received {type(self.version).__name__}')
 
         if self.operator is None:
             self.operator = '=='
         elif self.operator not in OPERATORS:
-            raise AttributeError("Unsupported operator '%s'" % self.operator)
+            raise AttributeError(f"Unsupported operator '{self.operator}'")
 
     def __repr__(self):
 
         attrs = (self.type, self.name, self.operator, self.version)
-        return '%s(%s)' % (self.__class__.__name__, ', '.join([repr(attr) for attr in attrs]))
+        return f'{self.__class__.__name__}({", ".join([repr(attr) for attr in attrs])})'
 
 
 class GroupDict(DictWithDotNotation):
@@ -114,8 +114,7 @@ class GroupDict(DictWithDotNotation):
                 if key in type_filter:
                     yield key, val
         else:
-            for key, val in self.items():
-                yield key, val
+            yield from self.items()
 
     def _filter(self, blacklist=None, newest_only=False, type_filter=None, **kwargs):
         """
@@ -177,7 +176,7 @@ class TypeDict(GroupDict):
     _bl_empty = None  # Not callable, but never called since _skip_empty is True
 
     def __init__(self, parent, *args, **kwargs):
-        super(TypeDict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._parent = parent
 
 
@@ -190,7 +189,7 @@ class PluginDict(CachingDict):
         """
         Return list of keys sorted by version
 
-        Sorting is done based on :py:func:`pkg_resources.parse_version`
+        Sorting is done based on :py:func:`packaging.version.parse`
         """
 
         try:

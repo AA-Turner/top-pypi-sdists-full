@@ -1,7 +1,7 @@
 r'''
 # `google_scc_v2_organization_source`
 
-Refer to the Terraform Registry for docs: [`google_scc_v2_organization_source`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source).
+Refer to the Terraform Registry for docs: [`google_scc_v2_organization_source`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSccV2OrganizationSource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSccV2OrganizationSource.GoogleSccV2OrganizationSource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source google_scc_v2_organization_source}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source google_scc_v2_organization_source}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleSccV2OrganizationSource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source google_scc_v2_organization_source} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source google_scc_v2_organization_source} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The source’s display name. A source’s display name must be unique amongst its siblings, for example, two sources with the same parent can't share the same display name. The display name must start and end with a letter or digit, may contain letters, digits, spaces, hyphens, and underscores, and can be no longer than 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#display_name GoogleSccV2OrganizationSource#display_name}
-        :param organization: The organization whose Cloud Security Command Center the Source lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#organization GoogleSccV2OrganizationSource#organization}
-        :param description: The description of the source (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#description GoogleSccV2OrganizationSource#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#id GoogleSccV2OrganizationSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#timeouts GoogleSccV2OrganizationSource#timeouts}
+        :param display_name: The source’s display name. A source’s display name must be unique amongst its siblings, for example, two sources with the same parent can't share the same display name. The display name must start and end with a letter or digit, may contain letters, digits, spaces, hyphens, and underscores, and can be no longer than 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#display_name GoogleSccV2OrganizationSource#display_name}
+        :param organization: The organization whose Cloud Security Command Center the Source lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#organization GoogleSccV2OrganizationSource#organization}
+        :param description: The description of the source (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#description GoogleSccV2OrganizationSource#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#id GoogleSccV2OrganizationSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#timeouts GoogleSccV2OrganizationSource#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleSccV2OrganizationSource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSccV2OrganizationSource to import.
-        :param import_from_id: The id of the existing GoogleSccV2OrganizationSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSccV2OrganizationSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSccV2OrganizationSource to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class GoogleSccV2OrganizationSource(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#create GoogleSccV2OrganizationSource#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#delete GoogleSccV2OrganizationSource#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#update GoogleSccV2OrganizationSource#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#create GoogleSccV2OrganizationSource#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#delete GoogleSccV2OrganizationSource#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#update GoogleSccV2OrganizationSource#update}.
         '''
         value = GoogleSccV2OrganizationSourceTimeouts(
             create=create, delete=delete, update=update
@@ -299,11 +299,11 @@ class GoogleSccV2OrganizationSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The source’s display name. A source’s display name must be unique amongst its siblings, for example, two sources with the same parent can't share the same display name. The display name must start and end with a letter or digit, may contain letters, digits, spaces, hyphens, and underscores, and can be no longer than 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#display_name GoogleSccV2OrganizationSource#display_name}
-        :param organization: The organization whose Cloud Security Command Center the Source lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#organization GoogleSccV2OrganizationSource#organization}
-        :param description: The description of the source (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#description GoogleSccV2OrganizationSource#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#id GoogleSccV2OrganizationSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#timeouts GoogleSccV2OrganizationSource#timeouts}
+        :param display_name: The source’s display name. A source’s display name must be unique amongst its siblings, for example, two sources with the same parent can't share the same display name. The display name must start and end with a letter or digit, may contain letters, digits, spaces, hyphens, and underscores, and can be no longer than 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#display_name GoogleSccV2OrganizationSource#display_name}
+        :param organization: The organization whose Cloud Security Command Center the Source lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#organization GoogleSccV2OrganizationSource#organization}
+        :param description: The description of the source (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#description GoogleSccV2OrganizationSource#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#id GoogleSccV2OrganizationSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#timeouts GoogleSccV2OrganizationSource#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -422,7 +422,7 @@ class GoogleSccV2OrganizationSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments
         with a letter or digit, may contain letters, digits, spaces, hyphens,
         and underscores, and can be no longer than 32 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#display_name GoogleSccV2OrganizationSource#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#display_name GoogleSccV2OrganizationSource#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -432,7 +432,7 @@ class GoogleSccV2OrganizationSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def organization(self) -> builtins.str:
         '''The organization whose Cloud Security Command Center the Source lives in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#organization GoogleSccV2OrganizationSource#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#organization GoogleSccV2OrganizationSource#organization}
         '''
         result = self._values.get("organization")
         assert result is not None, "Required property 'organization' is missing"
@@ -442,14 +442,14 @@ class GoogleSccV2OrganizationSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the source (max of 1024 characters).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#description GoogleSccV2OrganizationSource#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#description GoogleSccV2OrganizationSource#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#id GoogleSccV2OrganizationSource#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#id GoogleSccV2OrganizationSource#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -461,7 +461,7 @@ class GoogleSccV2OrganizationSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["GoogleSccV2OrganizationSourceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#timeouts GoogleSccV2OrganizationSource#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#timeouts GoogleSccV2OrganizationSource#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSccV2OrganizationSourceTimeouts"], result)
@@ -492,9 +492,9 @@ class GoogleSccV2OrganizationSourceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#create GoogleSccV2OrganizationSource#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#delete GoogleSccV2OrganizationSource#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#update GoogleSccV2OrganizationSource#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#create GoogleSccV2OrganizationSource#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#delete GoogleSccV2OrganizationSource#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#update GoogleSccV2OrganizationSource#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__476303884dfb3282124a13622c1a36421103c3538461efb750bb990961dd8cce)
@@ -511,19 +511,19 @@ class GoogleSccV2OrganizationSourceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#create GoogleSccV2OrganizationSource#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#create GoogleSccV2OrganizationSource#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#delete GoogleSccV2OrganizationSource#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#delete GoogleSccV2OrganizationSource#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_v2_organization_source#update GoogleSccV2OrganizationSource#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source#update GoogleSccV2OrganizationSource#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

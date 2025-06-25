@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binance
-Version: 0.3.50
+Version: 0.3.51
 Summary: binance crypto exchange api client
 Project-URL: Homepage, https://github.com/ccxt/ccxt
 Project-URL: Issues, https://github.com/ccxt/ccxt

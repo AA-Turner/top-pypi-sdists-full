@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 import tempfile
 import time
@@ -44,6 +45,7 @@ class Optimizer:
         self.local_aiservice_client = LocalAiServiceClient() if self.experiment_id else None
         self.replay_tests_dir = None
         self.functions_checkpoint: CodeflashRunCheckpoint | None = None
+        self.current_function_optimizer: FunctionOptimizer | None = None
 
     def create_function_optimizer(
         self,
@@ -86,6 +88,11 @@ class Optimizer:
             return
         if not env_utils.check_formatter_installed(self.args.formatter_cmds):
             return
+
+        if self.args.no_draft and is_pr_draft():
+            logger.warning("PR is in draft mode, skipping optimization")
+            return
+
         function_optimizer = None
         file_to_funcs_to_optimize: dict[Path, list[FunctionToOptimize]]
         num_optimizable_functions: int
@@ -259,7 +266,9 @@ class Optimizer:
                             function_to_tests,
                             validated_original_code[original_module_path].source_code,
                         )
-
+                    self.current_function_optimizer = (
+                        function_optimizer  # needed to clean up from the outside of this function
+                    )
                     best_optimization = function_optimizer.optimize_function()
                     if self.functions_checkpoint:
                         self.functions_checkpoint.add_function_to_checkpoint(
@@ -287,6 +296,9 @@ class Optimizer:
     def cleanup_temporary_paths(self) -> None:
         from codeflash.code_utils.code_utils import cleanup_paths
 
+        if self.current_function_optimizer:
+            self.current_function_optimizer.cleanup_generated_files()
+
         cleanup_paths([self.test_cfg.concolic_test_root_dir, self.replay_tests_dir])
 
 
@@ -301,3 +313,18 @@ def run_with_args(args: Namespace) -> None:
             optimizer.cleanup_temporary_paths()
 
         raise SystemExit from None
+
+
+def is_pr_draft() -> bool:
+    """Check if the PR is draft. in the github action context."""
+    try:
+        event_path = os.getenv("GITHUB_EVENT_PATH")
+        pr_number = get_pr_number()
+        if pr_number is not None and event_path:
+            with Path(event_path).open() as f:
+                event_data = json.load(f)
+            return bool(event_data["pull_request"]["draft"])
+        return False  # noqa
+    except Exception as e:
+        logger.warning(f"Error checking if PR is draft: {e}")
+        return False

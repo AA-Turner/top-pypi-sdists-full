@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timedelta
-from inspect import iscoroutinefunction
+from datetime import datetime
+from inspect import isclass, iscoroutinefunction
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Generic,
+    Literal,
     Optional,
     TypeVar,
     Union,
@@ -15,8 +16,9 @@ from typing import (
 
 from asgiref.sync import async_to_sync, sync_to_async
 from django.db.models.enums import TextChoices
+from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
-from typing_extensions import ParamSpec, Self
+from typing_extensions import Concatenate, ParamSpec, Self
 
 from .exceptions import ResultDoesNotExist
 from .utils import (
@@ -34,21 +36,29 @@ MAX_PRIORITY = 100
 DEFAULT_PRIORITY = 0
 
 TASK_REFRESH_ATTRS = {
-    "_exception_class",
-    "_traceback",
+    "errors",
     "_return_value",
     "finished_at",
     "started_at",
+    "last_attempted_at",
     "status",
     "enqueued_at",
+    "worker_ids",
 }
 
 
 class ResultStatus(TextChoices):
-    NEW = ("NEW", _("New"))
+    READY = ("READY", _("Ready"))
+    """The task has just been enqueued, or is ready to be executed again (eg for a retry)."""
+
     RUNNING = ("RUNNING", _("Running"))
+    """The task is currently running."""
+
     FAILED = ("FAILED", _("Failed"))
+    """The task has finished running, but resulted in an error."""
+
     SUCCEEDED = ("SUCCEEDED", _("Succeeded"))
+    """The task has finished running successfully."""
 
 
 T = TypeVar("T")
@@ -78,6 +88,11 @@ class Task(Generic[P, T]):
     immediately, or whatever the backend decides
     """
 
+    takes_context: bool = False
+    """
+    Whether the task receives the task context when executed.
+    """
+
     def __post_init__(self) -> None:
         self.get_backend().validate_task(self)
 
@@ -93,7 +108,7 @@ class Task(Generic[P, T]):
         *,
         priority: Optional[int] = None,
         queue_name: Optional[str] = None,
-        run_after: Optional[Union[datetime, timedelta]] = None,
+        run_after: Optional[datetime] = None,
         backend: Optional[str] = None,
     ) -> Self:
         """
@@ -188,18 +203,37 @@ def task(
     queue_name: str = DEFAULT_QUEUE_NAME,
     backend: str = DEFAULT_TASK_BACKEND_ALIAS,
     enqueue_on_commit: Optional[bool] = None,
+    takes_context: Literal[False] = False,
 ) -> Callable[[Callable[P, T]], Task[P, T]]: ...
 
 
-# Implementation
+# Decorator with context and arguments
+# e.g. @task(takes_context=True, ...)
+@overload
 def task(
+    *,
+    priority: int = DEFAULT_PRIORITY,
+    queue_name: str = DEFAULT_QUEUE_NAME,
+    backend: str = DEFAULT_TASK_BACKEND_ALIAS,
+    enqueue_on_commit: Optional[bool] = None,
+    takes_context: Literal[True],
+) -> Callable[[Callable[Concatenate["TaskContext", P], T]], Task[P, T]]: ...
+
+
+# Implementation
+def task(  # type: ignore[misc]
     function: Optional[Callable[P, T]] = None,
     *,
     priority: int = DEFAULT_PRIORITY,
     queue_name: str = DEFAULT_QUEUE_NAME,
     backend: str = DEFAULT_TASK_BACKEND_ALIAS,
     enqueue_on_commit: Optional[bool] = None,
-) -> Union[Task[P, T], Callable[[Callable[P, T]], Task[P, T]]]:
+    takes_context: bool = False,
+) -> Union[
+    Task[P, T],
+    Callable[[Callable[P, T]], Task[P, T]],
+    Callable[[Callable[Concatenate["TaskContext", P], T]], Task[P, T]],
+]:
     """
     A decorator used to create a task.
     """
@@ -212,12 +246,33 @@ def task(
             queue_name=queue_name,
             backend=backend,
             enqueue_on_commit=enqueue_on_commit,
+            takes_context=takes_context,
         )
 
     if function:
         return wrapper(function)
 
     return wrapper
+
+
+@dataclass(frozen=True)
+class TaskError:
+    exception_class_path: str
+    traceback: str
+
+    @property
+    def exception_class(self) -> type[BaseException]:
+        # Lazy resolve the exception class
+        exception_class = import_string(self.exception_class_path)
+
+        if not isclass(exception_class) or not issubclass(
+            exception_class, BaseException
+        ):
+            raise ValueError(
+                f"{self.exception_class_path!r} does not reference a valid exception."
+            )
+
+        return exception_class
 
 
 @dataclass(frozen=True)
@@ -240,6 +295,9 @@ class TaskResult(Generic[T]):
     finished_at: Optional[datetime]
     """The time this task was finished"""
 
+    last_attempted_at: Optional[datetime]
+    """The time this task was last attempted to be run"""
+
     args: list
     """The arguments to pass to the task function"""
 
@@ -249,15 +307,18 @@ class TaskResult(Generic[T]):
     backend: str
     """The name of the backend the task will run on"""
 
-    _exception_class: Optional[type[BaseException]] = field(init=False, default=None)
-    _traceback: Optional[str] = field(init=False, default=None)
+    errors: list[TaskError]
+    """The errors raised when running the task"""
+
+    worker_ids: list[str]
+    """The workers which have processed the task"""
 
     _return_value: Optional[T] = field(init=False, default=None)
 
     @property
     def return_value(self) -> Optional[T]:
         """
-        Get the return value of the task.
+        The return value of the task.
 
         If the task didn't succeed, an exception is raised.
         This is to distinguish against the task returning None.
@@ -270,25 +331,13 @@ class TaskResult(Generic[T]):
             raise ValueError("Task has not finished yet")
 
     @property
-    def exception_class(self) -> Optional[type[BaseException]]:
-        """The exception raised by the task function"""
-        if not self.is_finished:
-            raise ValueError("Task has not finished yet")
-
-        return self._exception_class
-
-    @property
-    def traceback(self) -> Optional[str]:
-        """The traceback of the exception if the task failed"""
-        if not self.is_finished:
-            raise ValueError("Task has not finished yet")
-
-        return self._traceback
-
-    @property
     def is_finished(self) -> bool:
         """Has the task finished?"""
         return self.status in {ResultStatus.FAILED, ResultStatus.SUCCEEDED}
+
+    @property
+    def attempts(self) -> int:
+        return len(self.worker_ids)
 
     def refresh(self) -> None:
         """
@@ -307,3 +356,12 @@ class TaskResult(Generic[T]):
 
         for attr in TASK_REFRESH_ATTRS:
             object.__setattr__(self, attr, getattr(refreshed_task, attr))
+
+
+@dataclass(frozen=True)
+class TaskContext:
+    task_result: TaskResult
+
+    @property
+    def attempt(self) -> int:
+        return self.task_result.attempts

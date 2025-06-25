@@ -51,11 +51,8 @@ inherits = "release"
 lto = "fat"
 
 
-[workspace]
-resolver = "2"
-
 [workspace.package]
-version = "0.0.47"
+version = "0.0.48"
 authors = [
   "Jesse K. Rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -67,6 +64,9 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/jessekrubin/ry"
 keywords = ["python", "pyo3", "ryo3"]
 categories = ["api-bindings"]
+
+[workspace]
+resolver = "2"
 
 [workspace.dependencies]
 # ======
@@ -125,7 +125,7 @@ ahash = "0.8.12"
 anyhow = "1.0"
 brotli = "8.0.1"
 bytes = "1.10.1"
-bzip2 = "0.5.2"
+bzip2 = "0.6.0"
 dirs = { version = "6.0.0", features = [] }
 fnv = "1.0.7"
 flate2 = "1.1.2"
@@ -139,7 +139,7 @@ jiff = { version = "0.2.14", features = ["default", "serde", "perf-inline"] }
 jiter = { version = "0.10.0", features = ["python"] }
 parking_lot = "0.12.3"
 regex = "1.11.1"
-reqwest = { version = "0.12.19", features = ["brotli", "charset", "cookies", "deflate", "gzip", "http2", "macos-system-configuration", "multipart", "rustls-tls-native-roots", "stream", "zstd"], default-features = false }
+reqwest = { version = "0.12.19", features = ["brotli", "charset", "cookies", "deflate", "gzip", "http2", "macos-system-configuration", "multipart", "json", "rustls-tls-native-roots", "stream", "zstd"], default-features = false }
 same-file = "1.0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.17"

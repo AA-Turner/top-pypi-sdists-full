@@ -1,7 +1,7 @@
 r'''
 # `google_storage_managed_folder`
 
-Refer to the Terraform Registry for docs: [`google_storage_managed_folder`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder).
+Refer to the Terraform Registry for docs: [`google_storage_managed_folder`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleStorageManagedFolder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleStorageManagedFolder.GoogleStorageManagedFolder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder google_storage_managed_folder}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder google_storage_managed_folder}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleStorageManagedFolder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder google_storage_managed_folder} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder google_storage_managed_folder} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: The name of the bucket that contains the managed folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#bucket GoogleStorageManagedFolder#bucket}
-        :param name: The name of the managed folder expressed as a path. Must include trailing '/'. For example, 'example_dir/example_dir2/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#name GoogleStorageManagedFolder#name}
-        :param force_destroy: Allows the deletion of a managed folder even if contains objects. If a non-empty managed folder is deleted, any objects within the folder will remain in a simulated folder with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#force_destroy GoogleStorageManagedFolder#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#id GoogleStorageManagedFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#timeouts GoogleStorageManagedFolder#timeouts}
+        :param bucket: The name of the bucket that contains the managed folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#bucket GoogleStorageManagedFolder#bucket}
+        :param name: The name of the managed folder expressed as a path. Must include trailing '/'. For example, 'example_dir/example_dir2/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#name GoogleStorageManagedFolder#name}
+        :param force_destroy: Allows the deletion of a managed folder even if contains objects. If a non-empty managed folder is deleted, any objects within the folder will remain in a simulated folder with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#force_destroy GoogleStorageManagedFolder#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#id GoogleStorageManagedFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#timeouts GoogleStorageManagedFolder#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleStorageManagedFolder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleStorageManagedFolder to import.
-        :param import_from_id: The id of the existing GoogleStorageManagedFolder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleStorageManagedFolder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleStorageManagedFolder to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class GoogleStorageManagedFolder(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#create GoogleStorageManagedFolder#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#delete GoogleStorageManagedFolder#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#update GoogleStorageManagedFolder#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#create GoogleStorageManagedFolder#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#delete GoogleStorageManagedFolder#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#update GoogleStorageManagedFolder#update}.
         '''
         value = GoogleStorageManagedFolderTimeouts(
             create=create, delete=delete, update=update
@@ -319,11 +319,11 @@ class GoogleStorageManagedFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: The name of the bucket that contains the managed folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#bucket GoogleStorageManagedFolder#bucket}
-        :param name: The name of the managed folder expressed as a path. Must include trailing '/'. For example, 'example_dir/example_dir2/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#name GoogleStorageManagedFolder#name}
-        :param force_destroy: Allows the deletion of a managed folder even if contains objects. If a non-empty managed folder is deleted, any objects within the folder will remain in a simulated folder with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#force_destroy GoogleStorageManagedFolder#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#id GoogleStorageManagedFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#timeouts GoogleStorageManagedFolder#timeouts}
+        :param bucket: The name of the bucket that contains the managed folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#bucket GoogleStorageManagedFolder#bucket}
+        :param name: The name of the managed folder expressed as a path. Must include trailing '/'. For example, 'example_dir/example_dir2/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#name GoogleStorageManagedFolder#name}
+        :param force_destroy: Allows the deletion of a managed folder even if contains objects. If a non-empty managed folder is deleted, any objects within the folder will remain in a simulated folder with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#force_destroy GoogleStorageManagedFolder#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#id GoogleStorageManagedFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#timeouts GoogleStorageManagedFolder#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -436,7 +436,7 @@ class GoogleStorageManagedFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket(self) -> builtins.str:
         '''The name of the bucket that contains the managed folder.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#bucket GoogleStorageManagedFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#bucket GoogleStorageManagedFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -446,7 +446,7 @@ class GoogleStorageManagedFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the managed folder expressed as a path. Must include trailing '/'. For example, 'example_dir/example_dir2/'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#name GoogleStorageManagedFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#name GoogleStorageManagedFolder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -462,14 +462,14 @@ class GoogleStorageManagedFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         within the folder will remain in a simulated folder with the
         same name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#force_destroy GoogleStorageManagedFolder#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#force_destroy GoogleStorageManagedFolder#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#id GoogleStorageManagedFolder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#id GoogleStorageManagedFolder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -481,7 +481,7 @@ class GoogleStorageManagedFolderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleStorageManagedFolderTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#timeouts GoogleStorageManagedFolder#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#timeouts GoogleStorageManagedFolder#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleStorageManagedFolderTimeouts"], result)
@@ -512,9 +512,9 @@ class GoogleStorageManagedFolderTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#create GoogleStorageManagedFolder#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#delete GoogleStorageManagedFolder#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#update GoogleStorageManagedFolder#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#create GoogleStorageManagedFolder#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#delete GoogleStorageManagedFolder#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#update GoogleStorageManagedFolder#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76a1167bbd637bbef05feac375e9bd74b003bf597c20799570ea2056c3ad5b9f)
@@ -531,19 +531,19 @@ class GoogleStorageManagedFolderTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#create GoogleStorageManagedFolder#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#create GoogleStorageManagedFolder#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#delete GoogleStorageManagedFolder#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#delete GoogleStorageManagedFolder#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_managed_folder#update GoogleStorageManagedFolder#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_storage_managed_folder#update GoogleStorageManagedFolder#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

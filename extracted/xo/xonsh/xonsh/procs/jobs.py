@@ -115,7 +115,7 @@ def proc_untraced_waitpid(proc, hang, task=None, raise_child_process_error=False
         proc.signal = None
         info["signal"] = None
 
-    info["signal_name"] = f'{info["signal"]} {get_signal_name(info["signal"])}'.strip()
+    info["signal_name"] = f"{info['signal']} {get_signal_name(info['signal'])}".strip()
     return info
 
 
@@ -234,15 +234,8 @@ if ON_WINDOWS:
         proc = active_task["obj"]
         _continue(active_task)
         while proc.returncode is None:
-            try:
+            with contextlib.suppress(subprocess.TimeoutExpired, KeyboardInterrupt):
                 proc.wait(0.01)
-            except subprocess.TimeoutExpired:
-                pass
-            except KeyboardInterrupt:
-                try:
-                    _kill(active_task)
-                except subprocess.CalledProcessError:
-                    pass  # ignore error if process closed before we got here
         return wait_for_active_job(last_task=active_task)
 
 else:

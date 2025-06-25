@@ -1,7 +1,7 @@
 r'''
 # `google_filestore_snapshot`
 
-Refer to the Terraform Registry for docs: [`google_filestore_snapshot`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot).
+Refer to the Terraform Registry for docs: [`google_filestore_snapshot`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFilestoreSnapshot(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFilestoreSnapshot.GoogleFilestoreSnapshot",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot google_filestore_snapshot}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot google_filestore_snapshot}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleFilestoreSnapshot(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot google_filestore_snapshot} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot google_filestore_snapshot} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: The resource name of the filestore instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#instance GoogleFilestoreSnapshot#instance}
-        :param location: The name of the location of the instance. This can be a region for ENTERPRISE tier instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#location GoogleFilestoreSnapshot#location}
-        :param name: The resource name of the snapshot. The name must be unique within the specified instance. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#name GoogleFilestoreSnapshot#name}
-        :param description: A description of the snapshot with 2048 characters or less. Requests with longer descriptions will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#description GoogleFilestoreSnapshot#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#id GoogleFilestoreSnapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#labels GoogleFilestoreSnapshot#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#project GoogleFilestoreSnapshot#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#timeouts GoogleFilestoreSnapshot#timeouts}
+        :param instance: The resource name of the filestore instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#instance GoogleFilestoreSnapshot#instance}
+        :param location: The name of the location of the instance. This can be a region for ENTERPRISE tier instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#location GoogleFilestoreSnapshot#location}
+        :param name: The resource name of the snapshot. The name must be unique within the specified instance. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#name GoogleFilestoreSnapshot#name}
+        :param description: A description of the snapshot with 2048 characters or less. Requests with longer descriptions will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#description GoogleFilestoreSnapshot#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#id GoogleFilestoreSnapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#labels GoogleFilestoreSnapshot#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#project GoogleFilestoreSnapshot#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#timeouts GoogleFilestoreSnapshot#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleFilestoreSnapshot(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFilestoreSnapshot to import.
-        :param import_from_id: The id of the existing GoogleFilestoreSnapshot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFilestoreSnapshot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFilestoreSnapshot to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GoogleFilestoreSnapshot(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#create GoogleFilestoreSnapshot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#delete GoogleFilestoreSnapshot#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#update GoogleFilestoreSnapshot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#create GoogleFilestoreSnapshot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#delete GoogleFilestoreSnapshot#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#update GoogleFilestoreSnapshot#update}.
         '''
         value = GoogleFilestoreSnapshotTimeouts(
             create=create, delete=delete, update=update
@@ -395,14 +395,14 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: The resource name of the filestore instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#instance GoogleFilestoreSnapshot#instance}
-        :param location: The name of the location of the instance. This can be a region for ENTERPRISE tier instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#location GoogleFilestoreSnapshot#location}
-        :param name: The resource name of the snapshot. The name must be unique within the specified instance. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#name GoogleFilestoreSnapshot#name}
-        :param description: A description of the snapshot with 2048 characters or less. Requests with longer descriptions will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#description GoogleFilestoreSnapshot#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#id GoogleFilestoreSnapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#labels GoogleFilestoreSnapshot#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#project GoogleFilestoreSnapshot#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#timeouts GoogleFilestoreSnapshot#timeouts}
+        :param instance: The resource name of the filestore instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#instance GoogleFilestoreSnapshot#instance}
+        :param location: The name of the location of the instance. This can be a region for ENTERPRISE tier instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#location GoogleFilestoreSnapshot#location}
+        :param name: The resource name of the snapshot. The name must be unique within the specified instance. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#name GoogleFilestoreSnapshot#name}
+        :param description: A description of the snapshot with 2048 characters or less. Requests with longer descriptions will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#description GoogleFilestoreSnapshot#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#id GoogleFilestoreSnapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#labels GoogleFilestoreSnapshot#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#project GoogleFilestoreSnapshot#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#timeouts GoogleFilestoreSnapshot#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -523,7 +523,7 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The resource name of the filestore instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#instance GoogleFilestoreSnapshot#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#instance GoogleFilestoreSnapshot#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -533,7 +533,7 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The name of the location of the instance. This can be a region for ENTERPRISE tier instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#location GoogleFilestoreSnapshot#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#location GoogleFilestoreSnapshot#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -550,7 +550,7 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#name GoogleFilestoreSnapshot#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#name GoogleFilestoreSnapshot#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -560,14 +560,14 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the snapshot with 2048 characters or less. Requests with longer descriptions will be rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#description GoogleFilestoreSnapshot#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#description GoogleFilestoreSnapshot#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#id GoogleFilestoreSnapshot#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#id GoogleFilestoreSnapshot#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -582,14 +582,14 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#labels GoogleFilestoreSnapshot#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#labels GoogleFilestoreSnapshot#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#project GoogleFilestoreSnapshot#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#project GoogleFilestoreSnapshot#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -597,7 +597,7 @@ class GoogleFilestoreSnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleFilestoreSnapshotTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#timeouts GoogleFilestoreSnapshot#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#timeouts GoogleFilestoreSnapshot#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFilestoreSnapshotTimeouts"], result)
@@ -628,9 +628,9 @@ class GoogleFilestoreSnapshotTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#create GoogleFilestoreSnapshot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#delete GoogleFilestoreSnapshot#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#update GoogleFilestoreSnapshot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#create GoogleFilestoreSnapshot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#delete GoogleFilestoreSnapshot#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#update GoogleFilestoreSnapshot#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21815e603def9403febd665de2f8b515d5ec944641e5cd6bf690878b7b210fa3)
@@ -647,19 +647,19 @@ class GoogleFilestoreSnapshotTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#create GoogleFilestoreSnapshot#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#create GoogleFilestoreSnapshot#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#delete GoogleFilestoreSnapshot#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#delete GoogleFilestoreSnapshot#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_filestore_snapshot#update GoogleFilestoreSnapshot#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_filestore_snapshot#update GoogleFilestoreSnapshot#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

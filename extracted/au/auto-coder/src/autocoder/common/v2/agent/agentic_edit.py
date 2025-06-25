@@ -111,6 +111,8 @@ from autocoder.common.conversations.get_conversation_manager import (
     reset_conversation_manager
 )
 from autocoder.common.conversations import ConversationManagerConfig
+from autocoder.common.pull_requests import create_pull_request, detect_platform_from_repo
+from autocoder.common.auto_coder_lang import get_message, get_message_with_format
 
 
 # --- Tool Display Customization is now handled by agentic_tool_display.py ---
@@ -1050,7 +1052,7 @@ class AgenticEdit:
         {% endfor %}  
         </user_rule_or_document_files>              
         
-        Make sure you always start your task by using the read_file tool to get the relevant RULE files listed in index.md based on the user's specific requirements.        
+        You should decide based on the user's requirements whether to use the read_file tool to get the relevant files listed in index.md.        
         {% endif %}
 
 
@@ -1920,76 +1922,186 @@ class AgenticEdit:
     def apply_changes(self):
         """
         Apply all tracked file changes to the original project directory.
+        """                            
+        if not self.args.skip_commit:
+            try:
+                file_name = os.path.basename(self.args.file)
+                commit_result = git_utils.commit_changes(
+                    self.args.source_dir,
+                    f"{self.args.query}\nauto_coder_{file_name}",
+                )
+                
+                get_event_manager(self.args.event_file).write_result(
+                    EventContentCreator.create_result(
+                        content={
+                            "have_commit":commit_result.success,
+                            "commit_hash":commit_result.commit_hash,
+                            "diff_file_num":len(commit_result.changed_files),
+                            "event_file":self.args.event_file                                
+                        }), metadata=EventMetadata(
+                        action_file=self.args.file,
+                        is_streaming=False,
+                        path="/agent/edit/apply_changes",
+                        stream_out_type="/agent/edit").to_dict())
+                
+                action_yml_file_manager = ActionYmlFileManager(
+                    self.args.source_dir)
+                action_file_name = os.path.basename(self.args.file)
+                add_updated_urls = []
+                commit_result.changed_files
+                for file in commit_result.changed_files:
+                    add_updated_urls.append(
+                        os.path.join(self.args.source_dir, file))
+
+                self.args.add_updated_urls = add_updated_urls
+                update_yaml_success = action_yml_file_manager.update_yaml_field(
+                    action_file_name, "add_updated_urls", add_updated_urls)
+                if not update_yaml_success:
+                    self.printer.print_in_terminal(
+                        "yaml_save_error", style="red", yaml_file=action_file_name)
+
+                if self.args.enable_active_context:
+                    active_context_manager = ActiveContextManager(
+                        self.llm, self.args.source_dir)
+                    task_id = active_context_manager.process_changes(
+                        self.args)
+                    self.printer.print_in_terminal("active_context_background_task",
+                                                    style="blue",
+                                                    task_id=task_id)
+                git_utils.print_commit_info(commit_result=commit_result)
+                
+                # 检查是否需要创建 Pull Request
+                if self.conversation_config and self.conversation_config.pull_request:
+                    self._create_pull_request(commit_result)
+                    
+            except Exception as e:                
+                self.printer.print_str_in_terminal(
+                    str(e),
+                    style="red"
+                )        
+            
+    def _create_pull_request(self, commit_result):
         """
-        diff_file_num = 0
-        if self.shadow_manager:
-            for (file_path, change) in self.get_all_file_changes().items():
-                # Ensure the directory exists before writing the file
-                dir_path = os.path.dirname(file_path)
-                if dir_path: # Ensure dir_path is not empty (for files in root)
-                    os.makedirs(dir_path, exist_ok=True)
-
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(change.content)
-            diff_file_num = len(self.get_all_file_changes())  
-        else:          
-            changes = self.checkpoint_manager.get_changes_by_group(self.args.event_file)
-            diff_file_num = len(changes)
+        创建 Pull Request（如果配置启用）
+        
+        Args:
+            commit_result: Git commit 结果对象
+        """
+        try:
+            # 获取当前分支名
+            current_branch = git_utils.get_current_branch(self.args.source_dir)
+            if not current_branch:
+                logger.warning(get_message("/agent/edit/pull_request/branch_name_failed"))
+                return                        
             
-        if diff_file_num > 0:
-            if not self.args.skip_commit:
-                try:
-                    file_name = os.path.basename(self.args.file)
-                    commit_result = git_utils.commit_changes(
-                        self.args.source_dir,
-                        f"{self.args.query}\nauto_coder_{file_name}",
-                    )
-                    
-                    get_event_manager(self.args.event_file).write_result(
-                        EventContentCreator.create_result(
-                            content={
-                                "have_commit":commit_result.success,
-                                "commit_hash":commit_result.commit_hash,
-                                "diff_file_num":diff_file_num,
-                                "event_file":self.args.event_file                                
-                            }), metadata=EventMetadata(
-                            action_file=self.args.file,
-                            is_streaming=False,
-                            path="/agent/edit/apply_changes",
-                            stream_out_type="/agent/edit").to_dict())
-                    
-                    action_yml_file_manager = ActionYmlFileManager(
-                        self.args.source_dir)
-                    action_file_name = os.path.basename(self.args.file)
-                    add_updated_urls = []
-                    commit_result.changed_files
-                    for file in commit_result.changed_files:
-                        add_updated_urls.append(
-                            os.path.join(self.args.source_dir, file))
-
-                    self.args.add_updated_urls = add_updated_urls
-                    update_yaml_success = action_yml_file_manager.update_yaml_field(
-                        action_file_name, "add_updated_urls", add_updated_urls)
-                    if not update_yaml_success:
-                        self.printer.print_in_terminal(
-                            "yaml_save_error", style="red", yaml_file=action_file_name)
-
-                    if self.args.enable_active_context:
-                        active_context_manager = ActiveContextManager(
-                            self.llm, self.args.source_dir)
-                        task_id = active_context_manager.process_changes(
-                            self.args)
-                        self.printer.print_in_terminal("active_context_background_task",
-                                                       style="blue",
-                                                       task_id=task_id)
-                    git_utils.print_commit_info(commit_result=commit_result)
-                except Exception as e:
-                    self.printer.print_str_in_terminal(
-                        self.git_require_msg(
-                            source_dir=self.args.source_dir, error=str(e)),
-                        style="red"
-                    )        
+            # 准备 PR 标题和描述
+            query = self.args.query or get_message("/agent/edit/pull_request/default_query")
+            pr_title = get_message_with_format("/agent/edit/pull_request/title", query=query[0:40])
             
+            # 构建 PR 描述
+            file_list = ""
+            if commit_result.changed_files:
+                for file_path in commit_result.changed_files:
+                    file_list += f"- `{file_path}`\n"
+            
+            pr_description = get_message_with_format(
+                "/agent/edit/pull_request/description",
+                query=query,
+                file_count=len(commit_result.changed_files or []),
+                commit_hash=commit_result.commit_hash,
+                file_list=file_list.strip(),
+                source_branch=current_branch,
+                target_branch="main",
+                timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
+            )
+
+            # 创建 Pull Request
+            logger.info(get_message_with_format("/agent/edit/pull_request/creating", title=pr_title))
+            
+            result = create_pull_request(
+                repo_path=self.args.source_dir,
+                title=pr_title,                
+                description=pr_description,                
+            )
+            
+            if result.success:
+                logger.info(get_message("/agent/edit/pull_request/success"))
+                logger.info(f"PR URL: {result.pr_url}")
+                logger.info(f"PR 编号: {result.pr_number}")
+                
+                # 打印成功信息到终端
+                self.printer.print_str_in_terminal(
+                    get_message("/agent/edit/pull_request/success"),
+                    style="green"
+                )
+                self.printer.print_str_in_terminal(f"PR URL: {result.pr_url}")
+                self.printer.print_str_in_terminal(f"PR 编号: {result.pr_number}")
+                
+                # 写入事件日志
+                get_event_manager(self.args.event_file).write_result(
+                    EventContentCreator.create_result(
+                        content={
+                            "success": True,
+                            "pr_url": result.pr_url,
+                            "pr_number": result.pr_number,
+                            "source_branch": current_branch,
+                            "target_branch": "main",
+                            "platform": result.platform.value if result.platform else "unknown"
+                        }), 
+                    metadata=EventMetadata(
+                        action_file=self.args.file,
+                        is_streaming=False,
+                        path="/agent/edit/pull_request_created",
+                        stream_out_type="/agent/edit"
+                    ).to_dict()
+                )
+                
+            else:
+                error_msg = get_message_with_format("/agent/edit/pull_request/failed", error=result.error_message)
+                logger.error(error_msg)
+                
+                # 打印错误信息到终端
+                self.printer.print_str_in_terminal(error_msg, style="red")
+                
+                # 写入错误事件日志
+                get_event_manager(self.args.event_file).write_error(
+                    EventContentCreator.create_error(
+                        error_code="PR_CREATION_FAILED",
+                        error_message=result.error_message,
+                        details={
+                            "source_branch": current_branch,
+                            "target_branch": "main"
+                        }
+                    ).to_dict(),
+                    metadata=EventMetadata(
+                        action_file=self.args.file,
+                        is_streaming=False,
+                        path="/agent/edit/pull_request_error",
+                        stream_out_type="/agent/edit"
+                    ).to_dict()
+                )
+                
+        except Exception as e:
+            error_msg = get_message_with_format("/agent/edit/pull_request/exception", error=str(e))
+            logger.exception(error_msg)
+            
+            # 打印异常信息到终端
+            self.printer.print_str_in_terminal(error_msg, style="red")
+            
+            # 写入异常事件日志
+            get_event_manager(self.args.event_file).write_error(
+                EventContentCreator.create_error(
+                    error_code="PR_CREATION_EXCEPTION",
+                    error_message=get_message_with_format("/agent/edit/pull_request/exception", error=str(e)),
+                    details={"exception_type": type(e).__name__}
+                ).to_dict(),
+                metadata=EventMetadata(
+                    action_file=self.args.file,
+                    is_streaming=False,
+                    path="/agent/edit/pull_request_exception",
+                    stream_out_type="/agent/edit"
+                ).to_dict()
+            )
 
     def run_in_terminal(self, request: AgenticEditRequest):
         """
@@ -2239,6 +2351,8 @@ class AgenticEdit:
         try:
             event_stream = self.analyze(request)
             for agent_event in event_stream:
+                if isinstance(agent_event, CompletionEvent):
+                    self.apply_changes()
                 yield agent_event
                 
         except Exception as e:

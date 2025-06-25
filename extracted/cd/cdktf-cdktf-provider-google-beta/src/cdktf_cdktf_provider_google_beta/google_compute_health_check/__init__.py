@@ -1,7 +1,7 @@
 r'''
 # `google_compute_health_check`
 
-Refer to the Terraform Registry for docs: [`google_compute_health_check`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check).
+Refer to the Terraform Registry for docs: [`google_compute_health_check`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeHealthCheck(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeHealthCheck.GoogleComputeHealthCheck",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check google_compute_health_check}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check google_compute_health_check}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class GoogleComputeHealthCheck(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check google_compute_health_check} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check google_compute_health_check} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#name GoogleComputeHealthCheck#name}
-        :param check_interval_sec: How often (in seconds) to send a health check. The default value is 5 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#check_interval_sec GoogleComputeHealthCheck#check_interval_sec}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#description GoogleComputeHealthCheck#description}
-        :param grpc_health_check: grpc_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_health_check GoogleComputeHealthCheck#grpc_health_check}
-        :param grpc_tls_health_check: grpc_tls_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_tls_health_check GoogleComputeHealthCheck#grpc_tls_health_check}
-        :param healthy_threshold: A so-far unhealthy instance will be marked healthy after this many consecutive successes. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#healthy_threshold GoogleComputeHealthCheck#healthy_threshold}
-        :param http2_health_check: http2_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#http2_health_check GoogleComputeHealthCheck#http2_health_check}
-        :param http_health_check: http_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#http_health_check GoogleComputeHealthCheck#http_health_check}
-        :param https_health_check: https_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#https_health_check GoogleComputeHealthCheck#https_health_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#id GoogleComputeHealthCheck#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#log_config GoogleComputeHealthCheck#log_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#project GoogleComputeHealthCheck#project}.
-        :param source_regions: The list of cloud regions from which health checks are performed. If any regions are specified, then exactly 3 regions should be specified. The region names must be valid names of Google Cloud regions. This can only be set for global health check. If this list is non-empty, then there are restrictions on what other health check fields are supported and what other resources can use this health check: - SSL, HTTP2, and GRPC protocols are not supported. - The TCP request field is not supported. - The proxyHeader field for HTTP, HTTPS, and TCP is not supported. - The checkIntervalSec field must be at least 30. - The health check cannot be used with BackendService nor with managed instance group auto-healing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#source_regions GoogleComputeHealthCheck#source_regions}
-        :param ssl_health_check: ssl_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#ssl_health_check GoogleComputeHealthCheck#ssl_health_check}
-        :param tcp_health_check: tcp_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#tcp_health_check GoogleComputeHealthCheck#tcp_health_check}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#timeouts GoogleComputeHealthCheck#timeouts}
-        :param timeout_sec: How long (in seconds) to wait before claiming failure. The default value is 5 seconds. It is invalid for timeoutSec to have greater value than checkIntervalSec. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#timeout_sec GoogleComputeHealthCheck#timeout_sec}
-        :param unhealthy_threshold: A so-far healthy instance will be marked unhealthy after this many consecutive failures. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#unhealthy_threshold GoogleComputeHealthCheck#unhealthy_threshold}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#name GoogleComputeHealthCheck#name}
+        :param check_interval_sec: How often (in seconds) to send a health check. The default value is 5 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#check_interval_sec GoogleComputeHealthCheck#check_interval_sec}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#description GoogleComputeHealthCheck#description}
+        :param grpc_health_check: grpc_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_health_check GoogleComputeHealthCheck#grpc_health_check}
+        :param grpc_tls_health_check: grpc_tls_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_tls_health_check GoogleComputeHealthCheck#grpc_tls_health_check}
+        :param healthy_threshold: A so-far unhealthy instance will be marked healthy after this many consecutive successes. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#healthy_threshold GoogleComputeHealthCheck#healthy_threshold}
+        :param http2_health_check: http2_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#http2_health_check GoogleComputeHealthCheck#http2_health_check}
+        :param http_health_check: http_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#http_health_check GoogleComputeHealthCheck#http_health_check}
+        :param https_health_check: https_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#https_health_check GoogleComputeHealthCheck#https_health_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#id GoogleComputeHealthCheck#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#log_config GoogleComputeHealthCheck#log_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#project GoogleComputeHealthCheck#project}.
+        :param source_regions: The list of cloud regions from which health checks are performed. If any regions are specified, then exactly 3 regions should be specified. The region names must be valid names of Google Cloud regions. This can only be set for global health check. If this list is non-empty, then there are restrictions on what other health check fields are supported and what other resources can use this health check: - SSL, HTTP2, and GRPC protocols are not supported. - The TCP request field is not supported. - The proxyHeader field for HTTP, HTTPS, and TCP is not supported. - The checkIntervalSec field must be at least 30. - The health check cannot be used with BackendService nor with managed instance group auto-healing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#source_regions GoogleComputeHealthCheck#source_regions}
+        :param ssl_health_check: ssl_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#ssl_health_check GoogleComputeHealthCheck#ssl_health_check}
+        :param tcp_health_check: tcp_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#tcp_health_check GoogleComputeHealthCheck#tcp_health_check}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#timeouts GoogleComputeHealthCheck#timeouts}
+        :param timeout_sec: How long (in seconds) to wait before claiming failure. The default value is 5 seconds. It is invalid for timeoutSec to have greater value than checkIntervalSec. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#timeout_sec GoogleComputeHealthCheck#timeout_sec}
+        :param unhealthy_threshold: A so-far healthy instance will be marked unhealthy after this many consecutive failures. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#unhealthy_threshold GoogleComputeHealthCheck#unhealthy_threshold}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class GoogleComputeHealthCheck(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeHealthCheck to import.
-        :param import_from_id: The id of the existing GoogleComputeHealthCheck that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeHealthCheck that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeHealthCheck to import is found.
         '''
         if __debug__:
@@ -175,10 +175,10 @@ class GoogleComputeHealthCheck(
         port_specification: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
-        :param port: The port number for the health check request. Must be specified if portName and portSpecification are not set or if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
+        :param port: The port number for the health check request. Must be specified if portName and portSpecification are not set or if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         value = GoogleComputeHealthCheckGrpcHealthCheck(
             grpc_service_name=grpc_service_name,
@@ -198,9 +198,9 @@ class GoogleComputeHealthCheck(
         port_specification: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
-        :param port: The port number for the health check request. Must be specified if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': Not supported for GRPC with TLS health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC with TLS health check follows behavior specified in the 'port' field. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
+        :param port: The port number for the health check request. Must be specified if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': Not supported for GRPC with TLS health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC with TLS health check follows behavior specified in the 'port' field. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         value = GoogleComputeHealthCheckGrpcTlsHealthCheck(
             grpc_service_name=grpc_service_name,
@@ -223,13 +223,13 @@ class GoogleComputeHealthCheck(
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: The value of the host header in the HTTP2 health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
-        :param port: The TCP port number for the HTTP2 health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP2 health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request_path: The request path of the HTTP2 health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param host: The value of the host header in the HTTP2 health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        :param port: The TCP port number for the HTTP2 health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP2 health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request_path: The request path of the HTTP2 health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         value = GoogleComputeHealthCheckHttp2HealthCheck(
             host=host,
@@ -256,13 +256,13 @@ class GoogleComputeHealthCheck(
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: The value of the host header in the HTTP health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
-        :param port: The TCP port number for the HTTP health check request. The default value is 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request_path: The request path of the HTTP health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param host: The value of the host header in the HTTP health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        :param port: The TCP port number for the HTTP health check request. The default value is 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request_path: The request path of the HTTP health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         value = GoogleComputeHealthCheckHttpHealthCheck(
             host=host,
@@ -289,13 +289,13 @@ class GoogleComputeHealthCheck(
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: The value of the host header in the HTTPS health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
-        :param port: The TCP port number for the HTTPS health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTPS health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request_path: The request path of the HTTPS health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param host: The value of the host header in the HTTPS health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        :param port: The TCP port number for the HTTPS health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTPS health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request_path: The request path of the HTTPS health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         value = GoogleComputeHealthCheckHttpsHealthCheck(
             host=host,
@@ -316,7 +316,7 @@ class GoogleComputeHealthCheck(
         enable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable: Indicates whether or not to export logs. This is false by default, which means no health check logging will be done. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#enable GoogleComputeHealthCheck#enable}
+        :param enable: Indicates whether or not to export logs. This is false by default, which means no health check logging will be done. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#enable GoogleComputeHealthCheck#enable}
         '''
         value = GoogleComputeHealthCheckLogConfig(enable=enable)
 
@@ -334,12 +334,12 @@ class GoogleComputeHealthCheck(
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: The TCP port number for the SSL health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, SSL health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request: The application data to send once the SSL connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param port: The TCP port number for the SSL health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, SSL health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request: The application data to send once the SSL connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         value = GoogleComputeHealthCheckSslHealthCheck(
             port=port,
@@ -364,12 +364,12 @@ class GoogleComputeHealthCheck(
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: The TCP port number for the TCP health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, TCP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request: The application data to send once the TCP connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param port: The TCP port number for the TCP health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, TCP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request: The application data to send once the TCP connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         value = GoogleComputeHealthCheckTcpHealthCheck(
             port=port,
@@ -391,9 +391,9 @@ class GoogleComputeHealthCheck(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#create GoogleComputeHealthCheck#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#delete GoogleComputeHealthCheck#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#update GoogleComputeHealthCheck#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#create GoogleComputeHealthCheck#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#delete GoogleComputeHealthCheck#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#update GoogleComputeHealthCheck#update}.
         '''
         value = GoogleComputeHealthCheckTimeouts(
             create=create, delete=delete, update=update
@@ -840,24 +840,24 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#name GoogleComputeHealthCheck#name}
-        :param check_interval_sec: How often (in seconds) to send a health check. The default value is 5 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#check_interval_sec GoogleComputeHealthCheck#check_interval_sec}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#description GoogleComputeHealthCheck#description}
-        :param grpc_health_check: grpc_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_health_check GoogleComputeHealthCheck#grpc_health_check}
-        :param grpc_tls_health_check: grpc_tls_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_tls_health_check GoogleComputeHealthCheck#grpc_tls_health_check}
-        :param healthy_threshold: A so-far unhealthy instance will be marked healthy after this many consecutive successes. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#healthy_threshold GoogleComputeHealthCheck#healthy_threshold}
-        :param http2_health_check: http2_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#http2_health_check GoogleComputeHealthCheck#http2_health_check}
-        :param http_health_check: http_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#http_health_check GoogleComputeHealthCheck#http_health_check}
-        :param https_health_check: https_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#https_health_check GoogleComputeHealthCheck#https_health_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#id GoogleComputeHealthCheck#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#log_config GoogleComputeHealthCheck#log_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#project GoogleComputeHealthCheck#project}.
-        :param source_regions: The list of cloud regions from which health checks are performed. If any regions are specified, then exactly 3 regions should be specified. The region names must be valid names of Google Cloud regions. This can only be set for global health check. If this list is non-empty, then there are restrictions on what other health check fields are supported and what other resources can use this health check: - SSL, HTTP2, and GRPC protocols are not supported. - The TCP request field is not supported. - The proxyHeader field for HTTP, HTTPS, and TCP is not supported. - The checkIntervalSec field must be at least 30. - The health check cannot be used with BackendService nor with managed instance group auto-healing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#source_regions GoogleComputeHealthCheck#source_regions}
-        :param ssl_health_check: ssl_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#ssl_health_check GoogleComputeHealthCheck#ssl_health_check}
-        :param tcp_health_check: tcp_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#tcp_health_check GoogleComputeHealthCheck#tcp_health_check}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#timeouts GoogleComputeHealthCheck#timeouts}
-        :param timeout_sec: How long (in seconds) to wait before claiming failure. The default value is 5 seconds. It is invalid for timeoutSec to have greater value than checkIntervalSec. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#timeout_sec GoogleComputeHealthCheck#timeout_sec}
-        :param unhealthy_threshold: A so-far healthy instance will be marked unhealthy after this many consecutive failures. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#unhealthy_threshold GoogleComputeHealthCheck#unhealthy_threshold}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#name GoogleComputeHealthCheck#name}
+        :param check_interval_sec: How often (in seconds) to send a health check. The default value is 5 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#check_interval_sec GoogleComputeHealthCheck#check_interval_sec}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#description GoogleComputeHealthCheck#description}
+        :param grpc_health_check: grpc_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_health_check GoogleComputeHealthCheck#grpc_health_check}
+        :param grpc_tls_health_check: grpc_tls_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_tls_health_check GoogleComputeHealthCheck#grpc_tls_health_check}
+        :param healthy_threshold: A so-far unhealthy instance will be marked healthy after this many consecutive successes. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#healthy_threshold GoogleComputeHealthCheck#healthy_threshold}
+        :param http2_health_check: http2_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#http2_health_check GoogleComputeHealthCheck#http2_health_check}
+        :param http_health_check: http_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#http_health_check GoogleComputeHealthCheck#http_health_check}
+        :param https_health_check: https_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#https_health_check GoogleComputeHealthCheck#https_health_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#id GoogleComputeHealthCheck#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#log_config GoogleComputeHealthCheck#log_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#project GoogleComputeHealthCheck#project}.
+        :param source_regions: The list of cloud regions from which health checks are performed. If any regions are specified, then exactly 3 regions should be specified. The region names must be valid names of Google Cloud regions. This can only be set for global health check. If this list is non-empty, then there are restrictions on what other health check fields are supported and what other resources can use this health check: - SSL, HTTP2, and GRPC protocols are not supported. - The TCP request field is not supported. - The proxyHeader field for HTTP, HTTPS, and TCP is not supported. - The checkIntervalSec field must be at least 30. - The health check cannot be used with BackendService nor with managed instance group auto-healing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#source_regions GoogleComputeHealthCheck#source_regions}
+        :param ssl_health_check: ssl_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#ssl_health_check GoogleComputeHealthCheck#ssl_health_check}
+        :param tcp_health_check: tcp_health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#tcp_health_check GoogleComputeHealthCheck#tcp_health_check}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#timeouts GoogleComputeHealthCheck#timeouts}
+        :param timeout_sec: How long (in seconds) to wait before claiming failure. The default value is 5 seconds. It is invalid for timeoutSec to have greater value than checkIntervalSec. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#timeout_sec GoogleComputeHealthCheck#timeout_sec}
+        :param unhealthy_threshold: A so-far healthy instance will be marked unhealthy after this many consecutive failures. The default value is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#unhealthy_threshold GoogleComputeHealthCheck#unhealthy_threshold}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1034,7 +1034,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the
         last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#name GoogleComputeHealthCheck#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#name GoogleComputeHealthCheck#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1044,7 +1044,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def check_interval_sec(self) -> typing.Optional[jsii.Number]:
         '''How often (in seconds) to send a health check. The default value is 5 seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#check_interval_sec GoogleComputeHealthCheck#check_interval_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#check_interval_sec GoogleComputeHealthCheck#check_interval_sec}
         '''
         result = self._values.get("check_interval_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1053,7 +1053,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#description GoogleComputeHealthCheck#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#description GoogleComputeHealthCheck#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1064,7 +1064,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckGrpcHealthCheck"]:
         '''grpc_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_health_check GoogleComputeHealthCheck#grpc_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_health_check GoogleComputeHealthCheck#grpc_health_check}
         '''
         result = self._values.get("grpc_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckGrpcHealthCheck"], result)
@@ -1075,7 +1075,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckGrpcTlsHealthCheck"]:
         '''grpc_tls_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_tls_health_check GoogleComputeHealthCheck#grpc_tls_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_tls_health_check GoogleComputeHealthCheck#grpc_tls_health_check}
         '''
         result = self._values.get("grpc_tls_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckGrpcTlsHealthCheck"], result)
@@ -1084,7 +1084,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def healthy_threshold(self) -> typing.Optional[jsii.Number]:
         '''A so-far unhealthy instance will be marked healthy after this many consecutive successes. The default value is 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#healthy_threshold GoogleComputeHealthCheck#healthy_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#healthy_threshold GoogleComputeHealthCheck#healthy_threshold}
         '''
         result = self._values.get("healthy_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1095,7 +1095,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckHttp2HealthCheck"]:
         '''http2_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#http2_health_check GoogleComputeHealthCheck#http2_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#http2_health_check GoogleComputeHealthCheck#http2_health_check}
         '''
         result = self._values.get("http2_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckHttp2HealthCheck"], result)
@@ -1106,7 +1106,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckHttpHealthCheck"]:
         '''http_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#http_health_check GoogleComputeHealthCheck#http_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#http_health_check GoogleComputeHealthCheck#http_health_check}
         '''
         result = self._values.get("http_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckHttpHealthCheck"], result)
@@ -1117,14 +1117,14 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckHttpsHealthCheck"]:
         '''https_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#https_health_check GoogleComputeHealthCheck#https_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#https_health_check GoogleComputeHealthCheck#https_health_check}
         '''
         result = self._values.get("https_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckHttpsHealthCheck"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#id GoogleComputeHealthCheck#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#id GoogleComputeHealthCheck#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1136,14 +1136,14 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_config(self) -> typing.Optional["GoogleComputeHealthCheckLogConfig"]:
         '''log_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#log_config GoogleComputeHealthCheck#log_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#log_config GoogleComputeHealthCheck#log_config}
         '''
         result = self._values.get("log_config")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckLogConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#project GoogleComputeHealthCheck#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#project GoogleComputeHealthCheck#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1165,7 +1165,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - The health check cannot be used with BackendService nor with managed
           instance group auto-healing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#source_regions GoogleComputeHealthCheck#source_regions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#source_regions GoogleComputeHealthCheck#source_regions}
         '''
         result = self._values.get("source_regions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1176,7 +1176,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckSslHealthCheck"]:
         '''ssl_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#ssl_health_check GoogleComputeHealthCheck#ssl_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#ssl_health_check GoogleComputeHealthCheck#ssl_health_check}
         '''
         result = self._values.get("ssl_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckSslHealthCheck"], result)
@@ -1187,7 +1187,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeHealthCheckTcpHealthCheck"]:
         '''tcp_health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#tcp_health_check GoogleComputeHealthCheck#tcp_health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#tcp_health_check GoogleComputeHealthCheck#tcp_health_check}
         '''
         result = self._values.get("tcp_health_check")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckTcpHealthCheck"], result)
@@ -1196,7 +1196,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeHealthCheckTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#timeouts GoogleComputeHealthCheck#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#timeouts GoogleComputeHealthCheck#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeHealthCheckTimeouts"], result)
@@ -1208,7 +1208,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The default value is 5 seconds.  It is invalid for timeoutSec to have
         greater value than checkIntervalSec.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#timeout_sec GoogleComputeHealthCheck#timeout_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#timeout_sec GoogleComputeHealthCheck#timeout_sec}
         '''
         result = self._values.get("timeout_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1217,7 +1217,7 @@ class GoogleComputeHealthCheckConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def unhealthy_threshold(self) -> typing.Optional[jsii.Number]:
         '''A so-far healthy instance will be marked unhealthy after this many consecutive failures. The default value is 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#unhealthy_threshold GoogleComputeHealthCheck#unhealthy_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#unhealthy_threshold GoogleComputeHealthCheck#unhealthy_threshold}
         '''
         result = self._values.get("unhealthy_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1254,10 +1254,10 @@ class GoogleComputeHealthCheckGrpcHealthCheck:
         port_specification: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
-        :param port: The port number for the health check request. Must be specified if portName and portSpecification are not set or if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
+        :param port: The port number for the health check request. Must be specified if portName and portSpecification are not set or if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cc47a7a8ea077ea4d2183e4569788ea86779e3c6779ce2f48ce717a5da3613f)
@@ -1285,7 +1285,7 @@ class GoogleComputeHealthCheckGrpcHealthCheck:
         - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service.
           The grpcServiceName can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
         '''
         result = self._values.get("grpc_service_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1297,7 +1297,7 @@ class GoogleComputeHealthCheckGrpcHealthCheck:
         Must be specified if portName and portSpecification are not set
         or if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1306,7 +1306,7 @@ class GoogleComputeHealthCheckGrpcHealthCheck:
     def port_name(self) -> typing.Optional[builtins.str]:
         '''Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
         '''
         result = self._values.get("port_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1326,7 +1326,7 @@ class GoogleComputeHealthCheckGrpcHealthCheck:
         If not specified, gRPC health check follows behavior specified in 'port' and
         'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1483,9 +1483,9 @@ class GoogleComputeHealthCheckGrpcTlsHealthCheck:
         port_specification: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
-        :param port: The port number for the health check request. Must be specified if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': Not supported for GRPC with TLS health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC with TLS health check follows behavior specified in the 'port' field. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param grpc_service_name: The gRPC service name for the health check. The value of grpcServiceName has the following meanings by convention: - Empty serviceName means the overall status of all services at the backend. - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service. The grpcServiceName can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
+        :param port: The port number for the health check request. Must be specified if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': Not supported for GRPC with TLS health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, gRPC with TLS health check follows behavior specified in the 'port' field. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0345df2b8fbc0122124bde2cfafd38e4e0e66e6311e8ce0b714b909b00cd15c)
@@ -1510,7 +1510,7 @@ class GoogleComputeHealthCheckGrpcTlsHealthCheck:
         - Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service.
           The grpcServiceName can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#grpc_service_name GoogleComputeHealthCheck#grpc_service_name}
         '''
         result = self._values.get("grpc_service_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1521,7 +1521,7 @@ class GoogleComputeHealthCheckGrpcTlsHealthCheck:
 
         Must be specified if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1540,7 +1540,7 @@ class GoogleComputeHealthCheckGrpcTlsHealthCheck:
 
         If not specified, gRPC with TLS health check follows behavior specified in the 'port' field. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1684,13 +1684,13 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: The value of the host header in the HTTP2 health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
-        :param port: The TCP port number for the HTTP2 health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP2 health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request_path: The request path of the HTTP2 health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param host: The value of the host header in the HTTP2 health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        :param port: The TCP port number for the HTTP2 health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP2 health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request_path: The request path of the HTTP2 health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__788aaa43e1d8489c62b1c986e2dfbefbe9ddc7643fcda6510959ebf1937f470d)
@@ -1724,7 +1724,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
         If left empty (default value), the public IP on behalf of which this health
         check is performed will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1733,7 +1733,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The TCP port number for the HTTP2 health check request. The default value is 443.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1742,7 +1742,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
     def port_name(self) -> typing.Optional[builtins.str]:
         '''Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
         '''
         result = self._values.get("port_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1762,7 +1762,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
         If not specified, HTTP2 health check follows behavior specified in 'port' and
         'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1773,7 +1773,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
 
         Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
         '''
         result = self._values.get("proxy_header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1782,7 +1782,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
     def request_path(self) -> typing.Optional[builtins.str]:
         '''The request path of the HTTP2 health check request. The default value is /.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
         '''
         result = self._values.get("request_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1795,7 +1795,7 @@ class GoogleComputeHealthCheckHttp2HealthCheck:
         (the default value), any response will indicate health. The response data
         can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         result = self._values.get("response")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2023,13 +2023,13 @@ class GoogleComputeHealthCheckHttpHealthCheck:
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: The value of the host header in the HTTP health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
-        :param port: The TCP port number for the HTTP health check request. The default value is 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request_path: The request path of the HTTP health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param host: The value of the host header in the HTTP health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        :param port: The TCP port number for the HTTP health check request. The default value is 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request_path: The request path of the HTTP health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a02b6277bd4651179882e7987eb267e54be109eb5747a32ebe82e9bcd0f9a91)
@@ -2063,7 +2063,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
         If left empty (default value), the public IP on behalf of which this health
         check is performed will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2072,7 +2072,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The TCP port number for the HTTP health check request. The default value is 80.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2081,7 +2081,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
     def port_name(self) -> typing.Optional[builtins.str]:
         '''Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
         '''
         result = self._values.get("port_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2101,7 +2101,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
         If not specified, HTTP health check follows behavior specified in 'port' and
         'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2112,7 +2112,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
 
         Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
         '''
         result = self._values.get("proxy_header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2121,7 +2121,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
     def request_path(self) -> typing.Optional[builtins.str]:
         '''The request path of the HTTP health check request. The default value is /.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
         '''
         result = self._values.get("request_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2134,7 +2134,7 @@ class GoogleComputeHealthCheckHttpHealthCheck:
         (the default value), any response will indicate health. The response data
         can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         result = self._values.get("response")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2362,13 +2362,13 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: The value of the host header in the HTTPS health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
-        :param port: The TCP port number for the HTTPS health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTPS health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request_path: The request path of the HTTPS health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param host: The value of the host header in the HTTPS health check request. If left empty (default value), the public IP on behalf of which this health check is performed will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        :param port: The TCP port number for the HTTPS health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, HTTPS health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request_path: The request path of the HTTPS health check request. The default value is /. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__baecc98a5aec38e8fa7f660d843c336453513d7d520e2ec15755247b950afd77)
@@ -2402,7 +2402,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
         If left empty (default value), the public IP on behalf of which this health
         check is performed will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#host GoogleComputeHealthCheck#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2411,7 +2411,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The TCP port number for the HTTPS health check request. The default value is 443.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2420,7 +2420,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
     def port_name(self) -> typing.Optional[builtins.str]:
         '''Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
         '''
         result = self._values.get("port_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2440,7 +2440,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
         If not specified, HTTPS health check follows behavior specified in 'port' and
         'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2451,7 +2451,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
 
         Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
         '''
         result = self._values.get("proxy_header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2460,7 +2460,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
     def request_path(self) -> typing.Optional[builtins.str]:
         '''The request path of the HTTPS health check request. The default value is /.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request_path GoogleComputeHealthCheck#request_path}
         '''
         result = self._values.get("request_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2473,7 +2473,7 @@ class GoogleComputeHealthCheckHttpsHealthCheck:
         (the default value), any response will indicate health. The response data
         can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         result = self._values.get("response")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2687,7 +2687,7 @@ class GoogleComputeHealthCheckLogConfig:
         enable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable: Indicates whether or not to export logs. This is false by default, which means no health check logging will be done. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#enable GoogleComputeHealthCheck#enable}
+        :param enable: Indicates whether or not to export logs. This is false by default, which means no health check logging will be done. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#enable GoogleComputeHealthCheck#enable}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c12a88b52fa3f1b83fe907b95224938d717cd580201cc418ee89400ad8c0df1)
@@ -2705,7 +2705,7 @@ class GoogleComputeHealthCheckLogConfig:
         This is false by default,
         which means no health check logging will be done.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#enable GoogleComputeHealthCheck#enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#enable GoogleComputeHealthCheck#enable}
         '''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2808,12 +2808,12 @@ class GoogleComputeHealthCheckSslHealthCheck:
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: The TCP port number for the SSL health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, SSL health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request: The application data to send once the SSL connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param port: The TCP port number for the SSL health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, SSL health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request: The application data to send once the SSL connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7691bf7050ca7ac46c19d2080f4b29f26b1997a5ca96f024379ab43250267e59)
@@ -2841,7 +2841,7 @@ class GoogleComputeHealthCheckSslHealthCheck:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The TCP port number for the SSL health check request. The default value is 443.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2850,7 +2850,7 @@ class GoogleComputeHealthCheckSslHealthCheck:
     def port_name(self) -> typing.Optional[builtins.str]:
         '''Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
         '''
         result = self._values.get("port_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2870,7 +2870,7 @@ class GoogleComputeHealthCheckSslHealthCheck:
         If not specified, SSL health check follows behavior specified in 'port' and
         'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2881,7 +2881,7 @@ class GoogleComputeHealthCheckSslHealthCheck:
 
         Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
         '''
         result = self._values.get("proxy_header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2894,7 +2894,7 @@ class GoogleComputeHealthCheckSslHealthCheck:
         empty, the connection establishment alone will indicate health. The request
         data can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
         '''
         result = self._values.get("request")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2907,7 +2907,7 @@ class GoogleComputeHealthCheckSslHealthCheck:
         (the default value), any response will indicate health. The response data
         can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         result = self._values.get("response")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3110,12 +3110,12 @@ class GoogleComputeHealthCheckTcpHealthCheck:
         response: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: The TCP port number for the TCP health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
-        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
-        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, TCP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
-        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
-        :param request: The application data to send once the TCP connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
-        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        :param port: The TCP port number for the TCP health check request. The default value is 443. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        :param port_name: Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        :param port_specification: Specifies how port is selected for health checking, can be one of the following values:. - 'USE_FIXED_PORT': The port number in 'port' is used for health checking. - 'USE_NAMED_PORT': The 'portName' is used for health checking. - 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each network endpoint is used for health checking. For other backends, the port or named port specified in the Backend Service is used for health checking. If not specified, TCP health check follows behavior specified in 'port' and 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        :param proxy_header: Specifies the type of proxy header to append before sending data to the backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        :param request: The application data to send once the TCP connection has been established (default value is empty). If both request and response are empty, the connection establishment alone will indicate health. The request data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
+        :param response: The bytes to match against the beginning of the response data. If left empty (the default value), any response will indicate health. The response data can only be ASCII. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21aa9fdd13885cbe824a6cf3023650d7aa4f747b761778bf4fd9ce0af7467385)
@@ -3143,7 +3143,7 @@ class GoogleComputeHealthCheckTcpHealthCheck:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The TCP port number for the TCP health check request. The default value is 443.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port GoogleComputeHealthCheck#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3152,7 +3152,7 @@ class GoogleComputeHealthCheckTcpHealthCheck:
     def port_name(self) -> typing.Optional[builtins.str]:
         '''Port name as defined in InstanceGroup#NamedPort#name. If both port and port_name are defined, port takes precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_name GoogleComputeHealthCheck#port_name}
         '''
         result = self._values.get("port_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3172,7 +3172,7 @@ class GoogleComputeHealthCheckTcpHealthCheck:
         If not specified, TCP health check follows behavior specified in 'port' and
         'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#port_specification GoogleComputeHealthCheck#port_specification}
         '''
         result = self._values.get("port_specification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3183,7 +3183,7 @@ class GoogleComputeHealthCheckTcpHealthCheck:
 
         Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#proxy_header GoogleComputeHealthCheck#proxy_header}
         '''
         result = self._values.get("proxy_header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3196,7 +3196,7 @@ class GoogleComputeHealthCheckTcpHealthCheck:
         empty, the connection establishment alone will indicate health. The request
         data can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#request GoogleComputeHealthCheck#request}
         '''
         result = self._values.get("request")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3209,7 +3209,7 @@ class GoogleComputeHealthCheckTcpHealthCheck:
         (the default value), any response will indicate health. The response data
         can only be ASCII.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#response GoogleComputeHealthCheck#response}
         '''
         result = self._values.get("response")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3402,9 +3402,9 @@ class GoogleComputeHealthCheckTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#create GoogleComputeHealthCheck#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#delete GoogleComputeHealthCheck#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#update GoogleComputeHealthCheck#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#create GoogleComputeHealthCheck#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#delete GoogleComputeHealthCheck#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#update GoogleComputeHealthCheck#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4fd7e063ce9f4191a634f0f66cc25e10c134a54f3d03a66fbbc8c5899fc1996)
@@ -3421,19 +3421,19 @@ class GoogleComputeHealthCheckTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#create GoogleComputeHealthCheck#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#create GoogleComputeHealthCheck#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#delete GoogleComputeHealthCheck#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#delete GoogleComputeHealthCheck#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_health_check#update GoogleComputeHealthCheck#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_health_check#update GoogleComputeHealthCheck#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-settings
-Version: 2.10.0
+Version: 2.10.1
 Summary: Settings management using Pydantic
 Project-URL: Homepage, https://github.com/pydantic/pydantic-settings
 Project-URL: Funding, https://github.com/sponsors/samuelcolvin

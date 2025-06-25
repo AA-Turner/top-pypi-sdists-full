@@ -1,7 +1,7 @@
 r'''
 # `google_spanner_database_iam_member`
 
-Refer to the Terraform Registry for docs: [`google_spanner_database_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member).
+Refer to the Terraform Registry for docs: [`google_spanner_database_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSpannerDatabaseIamMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSpannerDatabaseIamMember.GoogleSpannerDatabaseIamMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member google_spanner_database_iam_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member google_spanner_database_iam_member}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleSpannerDatabaseIamMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member google_spanner_database_iam_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member google_spanner_database_iam_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#database GoogleSpannerDatabaseIamMember#database}.
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#instance GoogleSpannerDatabaseIamMember#instance}.
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#member GoogleSpannerDatabaseIamMember#member}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#role GoogleSpannerDatabaseIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#condition GoogleSpannerDatabaseIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#id GoogleSpannerDatabaseIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#project GoogleSpannerDatabaseIamMember#project}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#database GoogleSpannerDatabaseIamMember#database}.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#instance GoogleSpannerDatabaseIamMember#instance}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#member GoogleSpannerDatabaseIamMember#member}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#role GoogleSpannerDatabaseIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#condition GoogleSpannerDatabaseIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#id GoogleSpannerDatabaseIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#project GoogleSpannerDatabaseIamMember#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleSpannerDatabaseIamMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSpannerDatabaseIamMember to import.
-        :param import_from_id: The id of the existing GoogleSpannerDatabaseIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSpannerDatabaseIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSpannerDatabaseIamMember to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GoogleSpannerDatabaseIamMember(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#expression GoogleSpannerDatabaseIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#title GoogleSpannerDatabaseIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#description GoogleSpannerDatabaseIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#expression GoogleSpannerDatabaseIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#title GoogleSpannerDatabaseIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#description GoogleSpannerDatabaseIamMember#description}.
         '''
         value = GoogleSpannerDatabaseIamMemberCondition(
             expression=expression, title=title, description=description
@@ -314,9 +314,9 @@ class GoogleSpannerDatabaseIamMemberCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#expression GoogleSpannerDatabaseIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#title GoogleSpannerDatabaseIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#description GoogleSpannerDatabaseIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#expression GoogleSpannerDatabaseIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#title GoogleSpannerDatabaseIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#description GoogleSpannerDatabaseIamMember#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb1b8ea4bd6f740882336383905c7f0b5fca38a60aba886e05467921bbae2303)
@@ -332,21 +332,21 @@ class GoogleSpannerDatabaseIamMemberCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#expression GoogleSpannerDatabaseIamMember#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#expression GoogleSpannerDatabaseIamMember#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#title GoogleSpannerDatabaseIamMember#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#title GoogleSpannerDatabaseIamMember#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#description GoogleSpannerDatabaseIamMember#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#description GoogleSpannerDatabaseIamMember#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -502,13 +502,13 @@ class GoogleSpannerDatabaseIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#database GoogleSpannerDatabaseIamMember#database}.
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#instance GoogleSpannerDatabaseIamMember#instance}.
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#member GoogleSpannerDatabaseIamMember#member}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#role GoogleSpannerDatabaseIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#condition GoogleSpannerDatabaseIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#id GoogleSpannerDatabaseIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#project GoogleSpannerDatabaseIamMember#project}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#database GoogleSpannerDatabaseIamMember#database}.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#instance GoogleSpannerDatabaseIamMember#instance}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#member GoogleSpannerDatabaseIamMember#member}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#role GoogleSpannerDatabaseIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#condition GoogleSpannerDatabaseIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#id GoogleSpannerDatabaseIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#project GoogleSpannerDatabaseIamMember#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -623,28 +623,28 @@ class GoogleSpannerDatabaseIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#database GoogleSpannerDatabaseIamMember#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#database GoogleSpannerDatabaseIamMember#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#instance GoogleSpannerDatabaseIamMember#instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#instance GoogleSpannerDatabaseIamMember#instance}.'''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def member(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#member GoogleSpannerDatabaseIamMember#member}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#member GoogleSpannerDatabaseIamMember#member}.'''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#role GoogleSpannerDatabaseIamMember#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#role GoogleSpannerDatabaseIamMember#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -653,14 +653,14 @@ class GoogleSpannerDatabaseIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def condition(self) -> typing.Optional[GoogleSpannerDatabaseIamMemberCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#condition GoogleSpannerDatabaseIamMember#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#condition GoogleSpannerDatabaseIamMember#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleSpannerDatabaseIamMemberCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#id GoogleSpannerDatabaseIamMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#id GoogleSpannerDatabaseIamMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -670,7 +670,7 @@ class GoogleSpannerDatabaseIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_member#project GoogleSpannerDatabaseIamMember#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_member#project GoogleSpannerDatabaseIamMember#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

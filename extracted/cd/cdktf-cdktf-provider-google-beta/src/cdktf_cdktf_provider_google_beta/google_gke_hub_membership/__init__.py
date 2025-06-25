@@ -1,7 +1,7 @@
 r'''
 # `google_gke_hub_membership`
 
-Refer to the Terraform Registry for docs: [`google_gke_hub_membership`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership).
+Refer to the Terraform Registry for docs: [`google_gke_hub_membership`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleGkeHubMembership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleGkeHubMembership.GoogleGkeHubMembership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership google_gke_hub_membership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership google_gke_hub_membership}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleGkeHubMembership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership google_gke_hub_membership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership google_gke_hub_membership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param membership_id: The client-provided identifier of the membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#membership_id GoogleGkeHubMembership#membership_id}
-        :param authority: authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#authority GoogleGkeHubMembership#authority}
-        :param description: The name of this entity type to be displayed on the console. This field is unavailable in v1 of the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#description GoogleGkeHubMembership#description}
-        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#endpoint GoogleGkeHubMembership#endpoint}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#id GoogleGkeHubMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels to apply to this membership. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#labels GoogleGkeHubMembership#labels}
-        :param location: Location of the membership. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#location GoogleGkeHubMembership#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#project GoogleGkeHubMembership#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#timeouts GoogleGkeHubMembership#timeouts}
+        :param membership_id: The client-provided identifier of the membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#membership_id GoogleGkeHubMembership#membership_id}
+        :param authority: authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#authority GoogleGkeHubMembership#authority}
+        :param description: The name of this entity type to be displayed on the console. This field is unavailable in v1 of the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#description GoogleGkeHubMembership#description}
+        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#endpoint GoogleGkeHubMembership#endpoint}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#id GoogleGkeHubMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels to apply to this membership. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#labels GoogleGkeHubMembership#labels}
+        :param location: Location of the membership. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#location GoogleGkeHubMembership#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#project GoogleGkeHubMembership#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#timeouts GoogleGkeHubMembership#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleGkeHubMembership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleGkeHubMembership to import.
-        :param import_from_id: The id of the existing GoogleGkeHubMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleGkeHubMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleGkeHubMembership to import is found.
         '''
         if __debug__:
@@ -141,7 +141,7 @@ class GoogleGkeHubMembership(
     @jsii.member(jsii_name="putAuthority")
     def put_authority(self, *, issuer: builtins.str) -> None:
         '''
-        :param issuer: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://' and // be a valid with length <2000 characters. For example: 'https://container.googleapis.com/v1/projects/my-project/locations/us-west1/clusters/my-cluster'. If the cluster is provisioned with Terraform, this is '"https://container.googleapis.com/v1/${google_container_cluster.my-cluster.id}"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#issuer GoogleGkeHubMembership#issuer}
+        :param issuer: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://' and // be a valid with length <2000 characters. For example: 'https://container.googleapis.com/v1/projects/my-project/locations/us-west1/clusters/my-cluster'. If the cluster is provisioned with Terraform, this is '"https://container.googleapis.com/v1/${google_container_cluster.my-cluster.id}"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#issuer GoogleGkeHubMembership#issuer}
         '''
         value = GoogleGkeHubMembershipAuthority(issuer=issuer)
 
@@ -154,7 +154,7 @@ class GoogleGkeHubMembership(
         gke_cluster: typing.Optional[typing.Union["GoogleGkeHubMembershipEndpointGkeCluster", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param gke_cluster: gke_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#gke_cluster GoogleGkeHubMembership#gke_cluster}
+        :param gke_cluster: gke_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#gke_cluster GoogleGkeHubMembership#gke_cluster}
         '''
         value = GoogleGkeHubMembershipEndpoint(gke_cluster=gke_cluster)
 
@@ -169,9 +169,9 @@ class GoogleGkeHubMembership(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#create GoogleGkeHubMembership#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#delete GoogleGkeHubMembership#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#update GoogleGkeHubMembership#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#create GoogleGkeHubMembership#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#delete GoogleGkeHubMembership#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#update GoogleGkeHubMembership#update}.
         '''
         value = GoogleGkeHubMembershipTimeouts(
             create=create, delete=delete, update=update
@@ -384,7 +384,7 @@ class GoogleGkeHubMembership(
 class GoogleGkeHubMembershipAuthority:
     def __init__(self, *, issuer: builtins.str) -> None:
         '''
-        :param issuer: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://' and // be a valid with length <2000 characters. For example: 'https://container.googleapis.com/v1/projects/my-project/locations/us-west1/clusters/my-cluster'. If the cluster is provisioned with Terraform, this is '"https://container.googleapis.com/v1/${google_container_cluster.my-cluster.id}"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#issuer GoogleGkeHubMembership#issuer}
+        :param issuer: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://' and // be a valid with length <2000 characters. For example: 'https://container.googleapis.com/v1/projects/my-project/locations/us-west1/clusters/my-cluster'. If the cluster is provisioned with Terraform, this is '"https://container.googleapis.com/v1/${google_container_cluster.my-cluster.id}"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#issuer GoogleGkeHubMembership#issuer}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d00a7978eefa1701232ee5601f63dbf89e059ad36c28775a73cc82307fd0baaf)
@@ -400,7 +400,7 @@ class GoogleGkeHubMembershipAuthority:
         'issuer' must start with 'https://' and // be a valid
         with length <2000 characters. For example: 'https://container.googleapis.com/v1/projects/my-project/locations/us-west1/clusters/my-cluster'. If the cluster is provisioned with Terraform, this is '"https://container.googleapis.com/v1/${google_container_cluster.my-cluster.id}"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#issuer GoogleGkeHubMembership#issuer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#issuer GoogleGkeHubMembership#issuer}
         '''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
@@ -522,15 +522,15 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param membership_id: The client-provided identifier of the membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#membership_id GoogleGkeHubMembership#membership_id}
-        :param authority: authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#authority GoogleGkeHubMembership#authority}
-        :param description: The name of this entity type to be displayed on the console. This field is unavailable in v1 of the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#description GoogleGkeHubMembership#description}
-        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#endpoint GoogleGkeHubMembership#endpoint}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#id GoogleGkeHubMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels to apply to this membership. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#labels GoogleGkeHubMembership#labels}
-        :param location: Location of the membership. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#location GoogleGkeHubMembership#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#project GoogleGkeHubMembership#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#timeouts GoogleGkeHubMembership#timeouts}
+        :param membership_id: The client-provided identifier of the membership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#membership_id GoogleGkeHubMembership#membership_id}
+        :param authority: authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#authority GoogleGkeHubMembership#authority}
+        :param description: The name of this entity type to be displayed on the console. This field is unavailable in v1 of the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#description GoogleGkeHubMembership#description}
+        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#endpoint GoogleGkeHubMembership#endpoint}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#id GoogleGkeHubMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels to apply to this membership. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#labels GoogleGkeHubMembership#labels}
+        :param location: Location of the membership. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#location GoogleGkeHubMembership#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#project GoogleGkeHubMembership#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#timeouts GoogleGkeHubMembership#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -660,7 +660,7 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def membership_id(self) -> builtins.str:
         '''The client-provided identifier of the membership.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#membership_id GoogleGkeHubMembership#membership_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#membership_id GoogleGkeHubMembership#membership_id}
         '''
         result = self._values.get("membership_id")
         assert result is not None, "Required property 'membership_id' is missing"
@@ -670,7 +670,7 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authority(self) -> typing.Optional[GoogleGkeHubMembershipAuthority]:
         '''authority block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#authority GoogleGkeHubMembership#authority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#authority GoogleGkeHubMembership#authority}
         '''
         result = self._values.get("authority")
         return typing.cast(typing.Optional[GoogleGkeHubMembershipAuthority], result)
@@ -681,7 +681,7 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This field is unavailable in v1 of the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#description GoogleGkeHubMembership#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#description GoogleGkeHubMembership#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -690,14 +690,14 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def endpoint(self) -> typing.Optional["GoogleGkeHubMembershipEndpoint"]:
         '''endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#endpoint GoogleGkeHubMembership#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#endpoint GoogleGkeHubMembership#endpoint}
         '''
         result = self._values.get("endpoint")
         return typing.cast(typing.Optional["GoogleGkeHubMembershipEndpoint"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#id GoogleGkeHubMembership#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#id GoogleGkeHubMembership#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -712,7 +712,7 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#labels GoogleGkeHubMembership#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#labels GoogleGkeHubMembership#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -721,14 +721,14 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''Location of the membership. The default value is 'global'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#location GoogleGkeHubMembership#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#location GoogleGkeHubMembership#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#project GoogleGkeHubMembership#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#project GoogleGkeHubMembership#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -736,7 +736,7 @@ class GoogleGkeHubMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleGkeHubMembershipTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#timeouts GoogleGkeHubMembership#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#timeouts GoogleGkeHubMembership#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleGkeHubMembershipTimeouts"], result)
@@ -765,7 +765,7 @@ class GoogleGkeHubMembershipEndpoint:
         gke_cluster: typing.Optional[typing.Union["GoogleGkeHubMembershipEndpointGkeCluster", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param gke_cluster: gke_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#gke_cluster GoogleGkeHubMembership#gke_cluster}
+        :param gke_cluster: gke_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#gke_cluster GoogleGkeHubMembership#gke_cluster}
         '''
         if isinstance(gke_cluster, dict):
             gke_cluster = GoogleGkeHubMembershipEndpointGkeCluster(**gke_cluster)
@@ -782,7 +782,7 @@ class GoogleGkeHubMembershipEndpoint:
     ) -> typing.Optional["GoogleGkeHubMembershipEndpointGkeCluster"]:
         '''gke_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#gke_cluster GoogleGkeHubMembership#gke_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#gke_cluster GoogleGkeHubMembership#gke_cluster}
         '''
         result = self._values.get("gke_cluster")
         return typing.cast(typing.Optional["GoogleGkeHubMembershipEndpointGkeCluster"], result)
@@ -807,7 +807,7 @@ class GoogleGkeHubMembershipEndpoint:
 class GoogleGkeHubMembershipEndpointGkeCluster:
     def __init__(self, *, resource_link: builtins.str) -> None:
         '''
-        :param resource_link: Self-link of the GCP resource for the GKE cluster. For example: '//container.googleapis.com/projects/my-project/locations/us-west1-a/clusters/my-cluster'. It can be at the most 1000 characters in length. If the cluster is provisioned with Terraform, this can be '"//container.googleapis.com/${google_container_cluster.my-cluster.id}"' or 'google_container_cluster.my-cluster.id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#resource_link GoogleGkeHubMembership#resource_link}
+        :param resource_link: Self-link of the GCP resource for the GKE cluster. For example: '//container.googleapis.com/projects/my-project/locations/us-west1-a/clusters/my-cluster'. It can be at the most 1000 characters in length. If the cluster is provisioned with Terraform, this can be '"//container.googleapis.com/${google_container_cluster.my-cluster.id}"' or 'google_container_cluster.my-cluster.id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#resource_link GoogleGkeHubMembership#resource_link}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9fe90a4d47a42e9228eec00c2cf20008757ca78063d4364fe234d9ea92711e58)
@@ -825,7 +825,7 @@ class GoogleGkeHubMembershipEndpointGkeCluster:
         this can be '"//container.googleapis.com/${google_container_cluster.my-cluster.id}"' or
         'google_container_cluster.my-cluster.id'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#resource_link GoogleGkeHubMembership#resource_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#resource_link GoogleGkeHubMembership#resource_link}
         '''
         result = self._values.get("resource_link")
         assert result is not None, "Required property 'resource_link' is missing"
@@ -921,7 +921,7 @@ class GoogleGkeHubMembershipEndpointOutputReference(
     @jsii.member(jsii_name="putGkeCluster")
     def put_gke_cluster(self, *, resource_link: builtins.str) -> None:
         '''
-        :param resource_link: Self-link of the GCP resource for the GKE cluster. For example: '//container.googleapis.com/projects/my-project/locations/us-west1-a/clusters/my-cluster'. It can be at the most 1000 characters in length. If the cluster is provisioned with Terraform, this can be '"//container.googleapis.com/${google_container_cluster.my-cluster.id}"' or 'google_container_cluster.my-cluster.id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#resource_link GoogleGkeHubMembership#resource_link}
+        :param resource_link: Self-link of the GCP resource for the GKE cluster. For example: '//container.googleapis.com/projects/my-project/locations/us-west1-a/clusters/my-cluster'. It can be at the most 1000 characters in length. If the cluster is provisioned with Terraform, this can be '"//container.googleapis.com/${google_container_cluster.my-cluster.id}"' or 'google_container_cluster.my-cluster.id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#resource_link GoogleGkeHubMembership#resource_link}
         '''
         value = GoogleGkeHubMembershipEndpointGkeCluster(resource_link=resource_link)
 
@@ -973,9 +973,9 @@ class GoogleGkeHubMembershipTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#create GoogleGkeHubMembership#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#delete GoogleGkeHubMembership#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#update GoogleGkeHubMembership#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#create GoogleGkeHubMembership#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#delete GoogleGkeHubMembership#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#update GoogleGkeHubMembership#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5ebf0db730b643d246ff35dfb614559c4dec0839b82f49937a3ba816fb9a7a1)
@@ -992,19 +992,19 @@ class GoogleGkeHubMembershipTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#create GoogleGkeHubMembership#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#create GoogleGkeHubMembership#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#delete GoogleGkeHubMembership#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#delete GoogleGkeHubMembership#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_hub_membership#update GoogleGkeHubMembership#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_hub_membership#update GoogleGkeHubMembership#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

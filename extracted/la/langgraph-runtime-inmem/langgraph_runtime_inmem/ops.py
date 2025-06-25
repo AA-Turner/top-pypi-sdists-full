@@ -277,6 +277,7 @@ class Assistants(Authenticated):
             "metadata": metadata or {},
             "created_at": now,
             "name": name,
+            "description": description,
         }
         conn.store["assistants"].append(new_assistant)
         conn.store["assistant_versions"].append(new_version)
@@ -537,9 +538,14 @@ class Assistants(Authenticated):
         ]
 
         # Previously, the name was not included in the assistant_versions table. So we should add them here.
+        description = assistant.get("description")
         for v in versions:
             if "name" not in v:
                 v["name"] = assistant["name"]
+            if "description" not in v:
+                v["description"] = description
+            else:
+                description = v["description"]
 
         versions.sort(key=lambda x: x["version"], reverse=True)
 

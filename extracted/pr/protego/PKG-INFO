@@ -1,15 +1,17 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: Protego
-Version: 0.4.0
+Version: 0.5.0
 Summary: Pure-Python robots.txt parser with support for modern conventions
-Home-page: https://github.com/scrapy/protego
-Author: Anubhav Patel
-Author-email: anubhavp28@gmail.com
-License: BSD
-Keywords: robots.txt,parser,robots,rep
+Project-URL: Homepage, https://github.com/scrapy/protego
+Project-URL: Source, https://github.com/scrapy/protego
+Project-URL: Tracker, https://github.com/scrapy/protego/issues
+Project-URL: Release notes, https://github.com/scrapy/protego/blob/master/CHANGELOG.rst
+Author-email: Anubhav Patel <anubhavp28@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: parser,rep,robots,robots.txt
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -20,19 +22,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
-License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: requires-python
-Dynamic: summary
 
 =======
 Protego
@@ -42,8 +35,8 @@ Protego
    :target: https://pypi.python.org/pypi/protego
    :alt: Supported Python Versions
 
-.. image:: https://github.com/scrapy/protego/workflows/CI/badge.svg
-   :target: https://github.com/scrapy/protego/actions?query=workflow%3ACI
+.. image:: https://github.com/scrapy/protego/actions/workflows/tests-ubuntu.yml/badge.svg
+   :target: https://github.com/scrapy/protego/actions/workflows/tests-ubuntu.yml
    :alt: CI
 
 Protego is a pure-Python ``robots.txt`` parser with support for modern

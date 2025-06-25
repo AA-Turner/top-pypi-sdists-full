@@ -1412,6 +1412,10 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
                 connect_timeout=connect_timeout,
             )
         if r.status_code in (401, 403):
+            # Consider filtering sensitive headers
+            sensitive_headers = {"set-cookie", "cookie", "authorization", "x-api-key", "x-auth-token"}
+            safe_headers = {k: v for k, v in r.headers.items() if k.lower() not in sensitive_headers}
+            formatted_headers = "\n".join([f"  {k}: {v}" for k, v in safe_headers.items()])
             # If still authenticated, raise a nice exception
             raise ChalkCustomException(
                 f"""\
@@ -1428,7 +1432,13 @@ If these credentials look incorrect to you, try running
 
 >>> chalk login
 
-from the command line from '{os.getcwd()}'. If you are still having trouble, please contact Chalk support.""",
+from the command line from '{os.getcwd()}'. If you are still having trouble, please contact Chalk support.
+
+Additional Details:
+Response Status Code: {r.status_code}
+{f'Reason for Failure: {r.reason}' if r.reason else ''}
+Response Headers: {formatted_headers}
+""",
             )
         environment_override_warning = False
         is_service_account = self._client_id is not None and self._client_id.startswith("token-")

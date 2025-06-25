@@ -351,8 +351,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[ClaimGameServerInputTypeDef]
     ) -> ClaimGameServerOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/claim_game_server.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#claim_game_server)
@@ -368,7 +368,8 @@ class GameLiftClient(BaseClient):
 
     def create_build(self, **kwargs: Unpack[CreateBuildInputTypeDef]) -> CreateBuildOutputTypeDef:
         """
-        Creates a new Amazon GameLift build resource for your game server binary files.
+        Creates a new Amazon GameLift Servers build resource for your game server
+        binary files.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_build.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#create_build)
@@ -390,8 +391,8 @@ class GameLiftClient(BaseClient):
     ) -> CreateContainerGroupDefinitionOutputTypeDef:
         """
         Creates a <code>ContainerGroupDefinition</code> that describes a set of
-        containers for hosting your game server with Amazon GameLift managed containers
-        hosting.
+        containers for hosting your game server with Amazon GameLift Servers managed
+        containers hosting.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_container_group_definition.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#create_container_group_definition)
@@ -420,8 +421,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[CreateGameServerGroupInputTypeDef]
     ) -> CreateGameServerGroupOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_game_server_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#create_game_server_group)
@@ -501,7 +502,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[CreateScriptInputTypeDef]
     ) -> CreateScriptOutputTypeDef:
         """
-        Creates a new script record for your Amazon GameLift Realtime script.
+        Creates a new script record for your Amazon GameLift Servers Realtime script.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_script.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#create_script)
@@ -512,8 +513,8 @@ class GameLiftClient(BaseClient):
     ) -> CreateVpcPeeringAuthorizationOutputTypeDef:
         """
         Requests authorization to create or delete a peer connection between the VPC
-        for your Amazon GameLift fleet and a virtual private cloud (VPC) in your Amazon
-        Web Services account.
+        for your Amazon GameLift Servers fleet and a virtual private cloud (VPC) in
+        your Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_vpc_peering_authorization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#create_vpc_peering_authorization)
@@ -524,7 +525,8 @@ class GameLiftClient(BaseClient):
     ) -> Dict[str, Any]:
         """
         Establishes a VPC peering connection between a virtual private cloud (VPC) in
-        an Amazon Web Services account with the VPC for your Amazon GameLift fleet.
+        an Amazon Web Services account with the VPC for your Amazon GameLift Servers
+        fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_vpc_peering_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#create_vpc_peering_connection)
@@ -596,8 +598,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DeleteGameServerGroupInputTypeDef]
     ) -> DeleteGameServerGroupOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/delete_game_server_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#delete_game_server_group)
@@ -693,8 +695,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DeregisterGameServerInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/deregister_game_server.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#deregister_game_server)
@@ -725,7 +727,7 @@ class GameLiftClient(BaseClient):
     ) -> DescribeComputeOutputTypeDef:
         """
         Retrieves properties for a specific compute resource in an Amazon GameLift
-        fleet.
+        Servers fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_compute.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#describe_compute)
@@ -859,8 +861,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeGameServerInputTypeDef]
     ) -> DescribeGameServerOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_game_server.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#describe_game_server)
@@ -870,8 +872,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeGameServerGroupInputTypeDef]
     ) -> DescribeGameServerGroupOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_game_server_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#describe_game_server_group)
@@ -881,8 +883,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeGameServerInstancesInputTypeDef]
     ) -> DescribeGameServerInstancesOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_game_server_instances.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#describe_game_server_instances)
@@ -935,8 +937,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeInstancesInputTypeDef]
     ) -> DescribeInstancesOutputTypeDef:
         """
-        Retrieves information about the EC2 instances in an Amazon GameLift managed
-        fleet, including instance ID, connection data, and status.
+        Retrieves information about the EC2 instances in an Amazon GameLift Servers
+        managed fleet, including instance ID, connection data, and status.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_instances.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#describe_instances)
@@ -1036,7 +1038,7 @@ class GameLiftClient(BaseClient):
     ) -> GetComputeAccessOutputTypeDef:
         """
         Requests authorization to remotely connect to a hosting resource in a Amazon
-        GameLift managed fleet.
+        GameLift Servers managed fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/get_compute_access.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#get_compute_access)
@@ -1046,8 +1048,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[GetComputeAuthTokenInputTypeDef]
     ) -> GetComputeAuthTokenOutputTypeDef:
         """
-        Requests an authentication token from Amazon GameLift for a compute resource in
-        an Amazon GameLift fleet.
+        Requests an authentication token from Amazon GameLift Servers for a compute
+        resource in an Amazon GameLift Servers fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/get_compute_auth_token.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#get_compute_auth_token)
@@ -1058,7 +1060,7 @@ class GameLiftClient(BaseClient):
     ) -> GetGameSessionLogUrlOutputTypeDef:
         """
         Retrieves the location of stored game session logs for a specified game session
-        on Amazon GameLift managed fleets.
+        on Amazon GameLift Servers managed fleets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/get_game_session_log_url.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#get_game_session_log_url)
@@ -1069,7 +1071,7 @@ class GameLiftClient(BaseClient):
     ) -> GetInstanceAccessOutputTypeDef:
         """
         Requests authorization to remotely connect to an instance in an Amazon GameLift
-        managed fleet.
+        Servers managed fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/get_instance_access.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#get_instance_access)
@@ -1094,7 +1096,8 @@ class GameLiftClient(BaseClient):
 
     def list_compute(self, **kwargs: Unpack[ListComputeInputTypeDef]) -> ListComputeOutputTypeDef:
         """
-        Retrieves information on the compute resources in an Amazon GameLift fleet.
+        Retrieves information on the compute resources in an Amazon GameLift Servers
+        fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/list_compute.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#list_compute)
@@ -1165,8 +1168,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[ListGameServersInputTypeDef]
     ) -> ListGameServersOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/list_game_servers.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#list_game_servers)
@@ -1176,7 +1179,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[ListLocationsInputTypeDef]
     ) -> ListLocationsOutputTypeDef:
         """
-        Lists all custom and Amazon Web Services locations.
+        Lists all custom and Amazon Web Services locations where Amazon GameLift
+        Servers can host game servers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/list_locations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#list_locations)
@@ -1195,7 +1199,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Retrieves all tags assigned to a Amazon GameLift resource.
+        Retrieves all tags assigned to a Amazon GameLift Servers resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#list_tags_for_resource)
@@ -1215,7 +1219,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[RegisterComputeInputTypeDef]
     ) -> RegisterComputeOutputTypeDef:
         """
-        Registers a compute resource in an Amazon GameLift Anywhere fleet.
+        Registers a compute resource in an Amazon GameLift Servers Anywhere fleet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/register_compute.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#register_compute)
@@ -1225,8 +1229,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[RegisterGameServerInputTypeDef]
     ) -> RegisterGameServerOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/register_game_server.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#register_game_server)
@@ -1237,7 +1241,7 @@ class GameLiftClient(BaseClient):
     ) -> RequestUploadCredentialsOutputTypeDef:
         """
         Retrieves a fresh set of credentials for use when uploading a new set of game
-        build files to Amazon GameLift's Amazon S3.
+        build files to Amazon GameLift Servers's Amazon S3.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/request_upload_credentials.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#request_upload_credentials)
@@ -1257,8 +1261,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[ResumeGameServerGroupInputTypeDef]
     ) -> ResumeGameServerGroupOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/resume_game_server_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#resume_game_server_group)
@@ -1351,8 +1355,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[SuspendGameServerGroupInputTypeDef]
     ) -> SuspendGameServerGroupOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/suspend_game_server_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#suspend_game_server_group)
@@ -1360,7 +1364,7 @@ class GameLiftClient(BaseClient):
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        Assigns a tag to an Amazon GameLift resource.
+        Assigns a tag to an Amazon GameLift Servers resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/tag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#tag_resource)
@@ -1378,7 +1382,7 @@ class GameLiftClient(BaseClient):
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        Removes a tag assigned to a Amazon GameLift resource.
+        Removes a tag assigned to a Amazon GameLift Servers resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#untag_resource)
@@ -1456,8 +1460,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[UpdateGameServerInputTypeDef]
     ) -> UpdateGameServerOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/update_game_server.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#update_game_server)
@@ -1467,8 +1471,8 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[UpdateGameServerGroupInputTypeDef]
     ) -> UpdateGameServerGroupOutputTypeDef:
         """
-        <b>This operation is used with the Amazon GameLift FleetIQ solution and game
-        server groups.</b>.
+        <b>This operation is used with the Amazon GameLift Servers FleetIQ solution and
+        game server groups.</b>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/update_game_server_group.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#update_game_server_group)

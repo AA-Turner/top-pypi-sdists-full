@@ -1,7 +1,7 @@
 r'''
 # `google_container_node_pool`
 
-Refer to the Terraform Registry for docs: [`google_container_node_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool).
+Refer to the Terraform Registry for docs: [`google_container_node_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleContainerNodePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleContainerNodePool.GoogleContainerNodePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool google_container_node_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool google_container_node_pool}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class GoogleContainerNodePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool google_container_node_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool google_container_node_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cluster GoogleContainerNodePool#cluster}
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#autoscaling GoogleContainerNodePool#autoscaling}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#id GoogleContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#initial_node_count GoogleContainerNodePool#initial_node_count}
-        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#location GoogleContainerNodePool#location}
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#management GoogleContainerNodePool#management}
-        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
-        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#name GoogleContainerNodePool#name}
-        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#name_prefix GoogleContainerNodePool#name_prefix}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network_config GoogleContainerNodePool#network_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_config GoogleContainerNodePool#node_config}
-        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_count GoogleContainerNodePool#node_count}
-        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_locations GoogleContainerNodePool#node_locations}
-        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#placement_policy GoogleContainerNodePool#placement_policy}
-        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#project GoogleContainerNodePool#project}
-        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#queued_provisioning GoogleContainerNodePool#queued_provisioning}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#timeouts GoogleContainerNodePool#timeouts}
-        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#upgrade_settings GoogleContainerNodePool#upgrade_settings}
-        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#version GoogleContainerNodePool#version}
+        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cluster GoogleContainerNodePool#cluster}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#autoscaling GoogleContainerNodePool#autoscaling}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#id GoogleContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#initial_node_count GoogleContainerNodePool#initial_node_count}
+        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#location GoogleContainerNodePool#location}
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#management GoogleContainerNodePool#management}
+        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
+        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#name GoogleContainerNodePool#name}
+        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#name_prefix GoogleContainerNodePool#name_prefix}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network_config GoogleContainerNodePool#network_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_config GoogleContainerNodePool#node_config}
+        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_count GoogleContainerNodePool#node_count}
+        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_locations GoogleContainerNodePool#node_locations}
+        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#placement_policy GoogleContainerNodePool#placement_policy}
+        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#project GoogleContainerNodePool#project}
+        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#queued_provisioning GoogleContainerNodePool#queued_provisioning}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#timeouts GoogleContainerNodePool#timeouts}
+        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#upgrade_settings GoogleContainerNodePool#upgrade_settings}
+        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#version GoogleContainerNodePool#version}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class GoogleContainerNodePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleContainerNodePool to import.
-        :param import_from_id: The id of the existing GoogleContainerNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleContainerNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleContainerNodePool to import is found.
         '''
         if __debug__:
@@ -179,11 +179,11 @@ class GoogleContainerNodePool(
         total_min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#location_policy GoogleContainerNodePool#location_policy}
-        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_node_count GoogleContainerNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#min_node_count GoogleContainerNodePool#min_node_count}
-        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_max_node_count GoogleContainerNodePool#total_max_node_count}
-        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_min_node_count GoogleContainerNodePool#total_min_node_count}
+        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#location_policy GoogleContainerNodePool#location_policy}
+        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_node_count GoogleContainerNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#min_node_count GoogleContainerNodePool#min_node_count}
+        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_max_node_count GoogleContainerNodePool#total_max_node_count}
+        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_min_node_count GoogleContainerNodePool#total_min_node_count}
         '''
         value = GoogleContainerNodePoolAutoscaling(
             location_policy=location_policy,
@@ -203,8 +203,8 @@ class GoogleContainerNodePool(
         auto_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#auto_repair GoogleContainerNodePool#auto_repair}
-        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#auto_upgrade GoogleContainerNodePool#auto_upgrade}
+        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#auto_repair GoogleContainerNodePool#auto_repair}
+        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#auto_upgrade GoogleContainerNodePool#auto_upgrade}
         '''
         value = GoogleContainerNodePoolManagement(
             auto_repair=auto_repair, auto_upgrade=auto_upgrade
@@ -226,14 +226,14 @@ class GoogleContainerNodePool(
         pod_range: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#additional_node_network_configs GoogleContainerNodePool#additional_node_network_configs}
-        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#additional_pod_network_configs GoogleContainerNodePool#additional_pod_network_configs}
-        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#create_pod_range GoogleContainerNodePool#create_pod_range}
-        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_private_nodes GoogleContainerNodePool#enable_private_nodes}
-        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network_performance_config GoogleContainerNodePool#network_performance_config}
-        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_cidr_overprovision_config GoogleContainerNodePool#pod_cidr_overprovision_config}
-        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_ipv4_cidr_block GoogleContainerNodePool#pod_ipv4_cidr_block}
-        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_range GoogleContainerNodePool#pod_range}
+        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#additional_node_network_configs GoogleContainerNodePool#additional_node_network_configs}
+        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#additional_pod_network_configs GoogleContainerNodePool#additional_pod_network_configs}
+        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#create_pod_range GoogleContainerNodePool#create_pod_range}
+        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_private_nodes GoogleContainerNodePool#enable_private_nodes}
+        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network_performance_config GoogleContainerNodePool#network_performance_config}
+        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_cidr_overprovision_config GoogleContainerNodePool#pod_cidr_overprovision_config}
+        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_ipv4_cidr_block GoogleContainerNodePool#pod_ipv4_cidr_block}
+        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_range GoogleContainerNodePool#pod_range}
         '''
         value = GoogleContainerNodePoolNetworkConfig(
             additional_node_network_configs=additional_node_network_configs,
@@ -298,50 +298,50 @@ class GoogleContainerNodePool(
         workload_metadata_config: typing.Optional[typing.Union["GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#advanced_machine_features GoogleContainerNodePool#advanced_machine_features}
-        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#boot_disk_kms_key GoogleContainerNodePool#boot_disk_kms_key}
-        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#confidential_nodes GoogleContainerNodePool#confidential_nodes}
-        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#containerd_config GoogleContainerNodePool#containerd_config}
-        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_size_gb GoogleContainerNodePool#disk_size_gb}
-        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_type GoogleContainerNodePool#disk_type}
-        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_confidential_storage GoogleContainerNodePool#enable_confidential_storage}
-        :param ephemeral_storage_config: ephemeral_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#ephemeral_storage_config GoogleContainerNodePool#ephemeral_storage_config}
-        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#ephemeral_storage_local_ssd_config GoogleContainerNodePool#ephemeral_storage_local_ssd_config}
-        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#fast_socket GoogleContainerNodePool#fast_socket}
-        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#flex_start GoogleContainerNodePool#flex_start}
-        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gcfs_config GoogleContainerNodePool#gcfs_config}
-        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#guest_accelerator GoogleContainerNodePool#guest_accelerator}
-        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gvnic GoogleContainerNodePool#gvnic}
-        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#host_maintenance_policy GoogleContainerNodePool#host_maintenance_policy}
-        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_type GoogleContainerNodePool#image_type}
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#kubelet_config GoogleContainerNodePool#kubelet_config}
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#labels GoogleContainerNodePool#labels}
-        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#linux_node_config GoogleContainerNodePool#linux_node_config}
-        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_nvme_ssd_block_config GoogleContainerNodePool#local_nvme_ssd_block_config}
-        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
-        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_encryption_mode GoogleContainerNodePool#local_ssd_encryption_mode}
-        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#logging_variant GoogleContainerNodePool#logging_variant}
-        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#machine_type GoogleContainerNodePool#machine_type}
-        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_run_duration GoogleContainerNodePool#max_run_duration}
-        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#metadata GoogleContainerNodePool#metadata}
-        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#min_cpu_platform GoogleContainerNodePool#min_cpu_platform}
-        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_group GoogleContainerNodePool#node_group}
-        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#oauth_scopes GoogleContainerNodePool#oauth_scopes}
-        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#preemptible GoogleContainerNodePool#preemptible}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#reservation_affinity GoogleContainerNodePool#reservation_affinity}
-        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#resource_labels GoogleContainerNodePool#resource_labels}
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#resource_manager_tags GoogleContainerNodePool#resource_manager_tags}
-        :param sandbox_config: sandbox_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sandbox_config GoogleContainerNodePool#sandbox_config}
-        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secondary_boot_disks GoogleContainerNodePool#secondary_boot_disks}
-        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#service_account GoogleContainerNodePool#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#shielded_instance_config GoogleContainerNodePool#shielded_instance_config}
-        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sole_tenant_config GoogleContainerNodePool#sole_tenant_config}
-        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#spot GoogleContainerNodePool#spot}
-        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#storage_pools GoogleContainerNodePool#storage_pools}
-        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#tags GoogleContainerNodePool#tags}
-        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#taint GoogleContainerNodePool#taint}
-        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#windows_node_config GoogleContainerNodePool#windows_node_config}
-        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#workload_metadata_config GoogleContainerNodePool#workload_metadata_config}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#advanced_machine_features GoogleContainerNodePool#advanced_machine_features}
+        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#boot_disk_kms_key GoogleContainerNodePool#boot_disk_kms_key}
+        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#confidential_nodes GoogleContainerNodePool#confidential_nodes}
+        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#containerd_config GoogleContainerNodePool#containerd_config}
+        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_size_gb GoogleContainerNodePool#disk_size_gb}
+        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_type GoogleContainerNodePool#disk_type}
+        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_confidential_storage GoogleContainerNodePool#enable_confidential_storage}
+        :param ephemeral_storage_config: ephemeral_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#ephemeral_storage_config GoogleContainerNodePool#ephemeral_storage_config}
+        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#ephemeral_storage_local_ssd_config GoogleContainerNodePool#ephemeral_storage_local_ssd_config}
+        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#fast_socket GoogleContainerNodePool#fast_socket}
+        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#flex_start GoogleContainerNodePool#flex_start}
+        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gcfs_config GoogleContainerNodePool#gcfs_config}
+        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#guest_accelerator GoogleContainerNodePool#guest_accelerator}
+        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gvnic GoogleContainerNodePool#gvnic}
+        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#host_maintenance_policy GoogleContainerNodePool#host_maintenance_policy}
+        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_type GoogleContainerNodePool#image_type}
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#kubelet_config GoogleContainerNodePool#kubelet_config}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#labels GoogleContainerNodePool#labels}
+        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#linux_node_config GoogleContainerNodePool#linux_node_config}
+        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_nvme_ssd_block_config GoogleContainerNodePool#local_nvme_ssd_block_config}
+        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_encryption_mode GoogleContainerNodePool#local_ssd_encryption_mode}
+        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#logging_variant GoogleContainerNodePool#logging_variant}
+        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#machine_type GoogleContainerNodePool#machine_type}
+        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_run_duration GoogleContainerNodePool#max_run_duration}
+        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#metadata GoogleContainerNodePool#metadata}
+        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#min_cpu_platform GoogleContainerNodePool#min_cpu_platform}
+        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_group GoogleContainerNodePool#node_group}
+        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#oauth_scopes GoogleContainerNodePool#oauth_scopes}
+        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#preemptible GoogleContainerNodePool#preemptible}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#reservation_affinity GoogleContainerNodePool#reservation_affinity}
+        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#resource_labels GoogleContainerNodePool#resource_labels}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#resource_manager_tags GoogleContainerNodePool#resource_manager_tags}
+        :param sandbox_config: sandbox_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sandbox_config GoogleContainerNodePool#sandbox_config}
+        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secondary_boot_disks GoogleContainerNodePool#secondary_boot_disks}
+        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#service_account GoogleContainerNodePool#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#shielded_instance_config GoogleContainerNodePool#shielded_instance_config}
+        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sole_tenant_config GoogleContainerNodePool#sole_tenant_config}
+        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#spot GoogleContainerNodePool#spot}
+        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#storage_pools GoogleContainerNodePool#storage_pools}
+        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#tags GoogleContainerNodePool#tags}
+        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#taint GoogleContainerNodePool#taint}
+        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#windows_node_config GoogleContainerNodePool#windows_node_config}
+        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#workload_metadata_config GoogleContainerNodePool#workload_metadata_config}
         '''
         value = GoogleContainerNodePoolNodeConfig(
             advanced_machine_features=advanced_machine_features,
@@ -401,9 +401,9 @@ class GoogleContainerNodePool(
         tpu_topology: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
-        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#policy_name GoogleContainerNodePool#policy_name}
-        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#tpu_topology GoogleContainerNodePool#tpu_topology}
+        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
+        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#policy_name GoogleContainerNodePool#policy_name}
+        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#tpu_topology GoogleContainerNodePool#tpu_topology}
         '''
         value = GoogleContainerNodePoolPlacementPolicy(
             type=type, policy_name=policy_name, tpu_topology=tpu_topology
@@ -418,7 +418,7 @@ class GoogleContainerNodePool(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         value = GoogleContainerNodePoolQueuedProvisioning(enabled=enabled)
 
@@ -433,9 +433,9 @@ class GoogleContainerNodePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#create GoogleContainerNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#delete GoogleContainerNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#update GoogleContainerNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#create GoogleContainerNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#delete GoogleContainerNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#update GoogleContainerNodePool#update}.
         '''
         value = GoogleContainerNodePoolTimeouts(
             create=create, delete=delete, update=update
@@ -453,10 +453,10 @@ class GoogleContainerNodePool(
         strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#blue_green_settings GoogleContainerNodePool#blue_green_settings}
-        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_surge GoogleContainerNodePool#max_surge}
-        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_unavailable GoogleContainerNodePool#max_unavailable}
-        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#strategy GoogleContainerNodePool#strategy}
+        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#blue_green_settings GoogleContainerNodePool#blue_green_settings}
+        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_surge GoogleContainerNodePool#max_surge}
+        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_unavailable GoogleContainerNodePool#max_unavailable}
+        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#strategy GoogleContainerNodePool#strategy}
         '''
         value = GoogleContainerNodePoolUpgradeSettings(
             blue_green_settings=blue_green_settings,
@@ -875,11 +875,11 @@ class GoogleContainerNodePoolAutoscaling:
         total_min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#location_policy GoogleContainerNodePool#location_policy}
-        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_node_count GoogleContainerNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#min_node_count GoogleContainerNodePool#min_node_count}
-        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_max_node_count GoogleContainerNodePool#total_max_node_count}
-        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_min_node_count GoogleContainerNodePool#total_min_node_count}
+        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#location_policy GoogleContainerNodePool#location_policy}
+        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_node_count GoogleContainerNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#min_node_count GoogleContainerNodePool#min_node_count}
+        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_max_node_count GoogleContainerNodePool#total_max_node_count}
+        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_min_node_count GoogleContainerNodePool#total_min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62328d6aae5eae7f3d514da0e78b03c79612e2e5f431951301ae48f85e56bab6)
@@ -906,7 +906,7 @@ class GoogleContainerNodePoolAutoscaling:
 
         "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#location_policy GoogleContainerNodePool#location_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#location_policy GoogleContainerNodePool#location_policy}
         '''
         result = self._values.get("location_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -917,7 +917,7 @@ class GoogleContainerNodePoolAutoscaling:
 
         Must be >= min_node_count. Cannot be used with total limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_node_count GoogleContainerNodePool#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_node_count GoogleContainerNodePool#max_node_count}
         '''
         result = self._values.get("max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -928,7 +928,7 @@ class GoogleContainerNodePoolAutoscaling:
 
         Must be >=0 and <= max_node_count. Cannot be used with total limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#min_node_count GoogleContainerNodePool#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#min_node_count GoogleContainerNodePool#min_node_count}
         '''
         result = self._values.get("min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -939,7 +939,7 @@ class GoogleContainerNodePoolAutoscaling:
 
         Must be >= total_min_node_count. Cannot be used with per zone limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_max_node_count GoogleContainerNodePool#total_max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_max_node_count GoogleContainerNodePool#total_max_node_count}
         '''
         result = self._values.get("total_max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -950,7 +950,7 @@ class GoogleContainerNodePoolAutoscaling:
 
         Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_min_node_count GoogleContainerNodePool#total_min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_min_node_count GoogleContainerNodePool#total_min_node_count}
         '''
         result = self._values.get("total_min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1179,25 +1179,25 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cluster GoogleContainerNodePool#cluster}
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#autoscaling GoogleContainerNodePool#autoscaling}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#id GoogleContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#initial_node_count GoogleContainerNodePool#initial_node_count}
-        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#location GoogleContainerNodePool#location}
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#management GoogleContainerNodePool#management}
-        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
-        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#name GoogleContainerNodePool#name}
-        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#name_prefix GoogleContainerNodePool#name_prefix}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network_config GoogleContainerNodePool#network_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_config GoogleContainerNodePool#node_config}
-        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_count GoogleContainerNodePool#node_count}
-        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_locations GoogleContainerNodePool#node_locations}
-        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#placement_policy GoogleContainerNodePool#placement_policy}
-        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#project GoogleContainerNodePool#project}
-        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#queued_provisioning GoogleContainerNodePool#queued_provisioning}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#timeouts GoogleContainerNodePool#timeouts}
-        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#upgrade_settings GoogleContainerNodePool#upgrade_settings}
-        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#version GoogleContainerNodePool#version}
+        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cluster GoogleContainerNodePool#cluster}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#autoscaling GoogleContainerNodePool#autoscaling}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#id GoogleContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#initial_node_count GoogleContainerNodePool#initial_node_count}
+        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#location GoogleContainerNodePool#location}
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#management GoogleContainerNodePool#management}
+        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
+        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#name GoogleContainerNodePool#name}
+        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#name_prefix GoogleContainerNodePool#name_prefix}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network_config GoogleContainerNodePool#network_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_config GoogleContainerNodePool#node_config}
+        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_count GoogleContainerNodePool#node_count}
+        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_locations GoogleContainerNodePool#node_locations}
+        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#placement_policy GoogleContainerNodePool#placement_policy}
+        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#project GoogleContainerNodePool#project}
+        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#queued_provisioning GoogleContainerNodePool#queued_provisioning}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#timeouts GoogleContainerNodePool#timeouts}
+        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#upgrade_settings GoogleContainerNodePool#upgrade_settings}
+        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#version GoogleContainerNodePool#version}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1367,7 +1367,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cluster GoogleContainerNodePool#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cluster GoogleContainerNodePool#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -1377,14 +1377,14 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoscaling(self) -> typing.Optional[GoogleContainerNodePoolAutoscaling]:
         '''autoscaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#autoscaling GoogleContainerNodePool#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#autoscaling GoogleContainerNodePool#autoscaling}
         '''
         result = self._values.get("autoscaling")
         return typing.cast(typing.Optional[GoogleContainerNodePoolAutoscaling], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#id GoogleContainerNodePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#id GoogleContainerNodePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1398,7 +1398,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#initial_node_count GoogleContainerNodePool#initial_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#initial_node_count GoogleContainerNodePool#initial_node_count}
         '''
         result = self._values.get("initial_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1407,7 +1407,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location (region or zone) of the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#location GoogleContainerNodePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#location GoogleContainerNodePool#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1416,7 +1416,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def management(self) -> typing.Optional["GoogleContainerNodePoolManagement"]:
         '''management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#management GoogleContainerNodePool#management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#management GoogleContainerNodePool#management}
         '''
         result = self._values.get("management")
         return typing.cast(typing.Optional["GoogleContainerNodePoolManagement"], result)
@@ -1427,7 +1427,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1436,7 +1436,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the node pool. If left blank, Terraform will auto-generate a unique name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#name GoogleContainerNodePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#name GoogleContainerNodePool#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1445,7 +1445,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name_prefix(self) -> typing.Optional[builtins.str]:
         '''Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#name_prefix GoogleContainerNodePool#name_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#name_prefix GoogleContainerNodePool#name_prefix}
         '''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1454,7 +1454,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_config(self) -> typing.Optional["GoogleContainerNodePoolNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network_config GoogleContainerNodePool#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network_config GoogleContainerNodePool#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNetworkConfig"], result)
@@ -1463,7 +1463,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_config(self) -> typing.Optional["GoogleContainerNodePoolNodeConfig"]:
         '''node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_config GoogleContainerNodePool#node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_config GoogleContainerNodePool#node_config}
         '''
         result = self._values.get("node_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfig"], result)
@@ -1474,7 +1474,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_count GoogleContainerNodePool#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_count GoogleContainerNodePool#node_count}
         '''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1485,7 +1485,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_locations GoogleContainerNodePool#node_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_locations GoogleContainerNodePool#node_locations}
         '''
         result = self._values.get("node_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1496,7 +1496,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleContainerNodePoolPlacementPolicy"]:
         '''placement_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#placement_policy GoogleContainerNodePool#placement_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#placement_policy GoogleContainerNodePool#placement_policy}
         '''
         result = self._values.get("placement_policy")
         return typing.cast(typing.Optional["GoogleContainerNodePoolPlacementPolicy"], result)
@@ -1507,7 +1507,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If blank, the provider-configured project will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#project GoogleContainerNodePool#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#project GoogleContainerNodePool#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1518,7 +1518,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleContainerNodePoolQueuedProvisioning"]:
         '''queued_provisioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#queued_provisioning GoogleContainerNodePool#queued_provisioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#queued_provisioning GoogleContainerNodePool#queued_provisioning}
         '''
         result = self._values.get("queued_provisioning")
         return typing.cast(typing.Optional["GoogleContainerNodePoolQueuedProvisioning"], result)
@@ -1527,7 +1527,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleContainerNodePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#timeouts GoogleContainerNodePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#timeouts GoogleContainerNodePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleContainerNodePoolTimeouts"], result)
@@ -1538,7 +1538,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleContainerNodePoolUpgradeSettings"]:
         '''upgrade_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#upgrade_settings GoogleContainerNodePool#upgrade_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#upgrade_settings GoogleContainerNodePool#upgrade_settings}
         '''
         result = self._values.get("upgrade_settings")
         return typing.cast(typing.Optional["GoogleContainerNodePoolUpgradeSettings"], result)
@@ -1549,7 +1549,7 @@ class GoogleContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#version GoogleContainerNodePool#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#version GoogleContainerNodePool#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1579,8 +1579,8 @@ class GoogleContainerNodePoolManagement:
         auto_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#auto_repair GoogleContainerNodePool#auto_repair}
-        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#auto_upgrade GoogleContainerNodePool#auto_upgrade}
+        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#auto_repair GoogleContainerNodePool#auto_repair}
+        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#auto_upgrade GoogleContainerNodePool#auto_upgrade}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf662b569af6c32395030e1a62cb8531d6641c45b30b92fe348b218de7658497)
@@ -1598,7 +1598,7 @@ class GoogleContainerNodePoolManagement:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes will be automatically repaired. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#auto_repair GoogleContainerNodePool#auto_repair}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#auto_repair GoogleContainerNodePool#auto_repair}
         '''
         result = self._values.get("auto_repair")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1609,7 +1609,7 @@ class GoogleContainerNodePoolManagement:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes will be automatically upgraded. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#auto_upgrade GoogleContainerNodePool#auto_upgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#auto_upgrade GoogleContainerNodePool#auto_upgrade}
         '''
         result = self._values.get("auto_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1742,14 +1742,14 @@ class GoogleContainerNodePoolNetworkConfig:
         pod_range: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#additional_node_network_configs GoogleContainerNodePool#additional_node_network_configs}
-        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#additional_pod_network_configs GoogleContainerNodePool#additional_pod_network_configs}
-        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#create_pod_range GoogleContainerNodePool#create_pod_range}
-        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_private_nodes GoogleContainerNodePool#enable_private_nodes}
-        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network_performance_config GoogleContainerNodePool#network_performance_config}
-        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_cidr_overprovision_config GoogleContainerNodePool#pod_cidr_overprovision_config}
-        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_ipv4_cidr_block GoogleContainerNodePool#pod_ipv4_cidr_block}
-        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_range GoogleContainerNodePool#pod_range}
+        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#additional_node_network_configs GoogleContainerNodePool#additional_node_network_configs}
+        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#additional_pod_network_configs GoogleContainerNodePool#additional_pod_network_configs}
+        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#create_pod_range GoogleContainerNodePool#create_pod_range}
+        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_private_nodes GoogleContainerNodePool#enable_private_nodes}
+        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network_performance_config GoogleContainerNodePool#network_performance_config}
+        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_cidr_overprovision_config GoogleContainerNodePool#pod_cidr_overprovision_config}
+        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_ipv4_cidr_block GoogleContainerNodePool#pod_ipv4_cidr_block}
+        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_range GoogleContainerNodePool#pod_range}
         '''
         if isinstance(network_performance_config, dict):
             network_performance_config = GoogleContainerNodePoolNetworkConfigNetworkPerformanceConfig(**network_performance_config)
@@ -1789,7 +1789,7 @@ class GoogleContainerNodePoolNetworkConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs"]]]:
         '''additional_node_network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#additional_node_network_configs GoogleContainerNodePool#additional_node_network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#additional_node_network_configs GoogleContainerNodePool#additional_node_network_configs}
         '''
         result = self._values.get("additional_node_network_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs"]]], result)
@@ -1800,7 +1800,7 @@ class GoogleContainerNodePoolNetworkConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs"]]]:
         '''additional_pod_network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#additional_pod_network_configs GoogleContainerNodePool#additional_pod_network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#additional_pod_network_configs GoogleContainerNodePool#additional_pod_network_configs}
         '''
         result = self._values.get("additional_pod_network_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs"]]], result)
@@ -1813,7 +1813,7 @@ class GoogleContainerNodePoolNetworkConfig:
 
         Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#create_pod_range GoogleContainerNodePool#create_pod_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#create_pod_range GoogleContainerNodePool#create_pod_range}
         '''
         result = self._values.get("create_pod_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1824,7 +1824,7 @@ class GoogleContainerNodePoolNetworkConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether nodes have internal IP addresses only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_private_nodes GoogleContainerNodePool#enable_private_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_private_nodes GoogleContainerNodePool#enable_private_nodes}
         '''
         result = self._values.get("enable_private_nodes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1835,7 +1835,7 @@ class GoogleContainerNodePoolNetworkConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNetworkConfigNetworkPerformanceConfig"]:
         '''network_performance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network_performance_config GoogleContainerNodePool#network_performance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network_performance_config GoogleContainerNodePool#network_performance_config}
         '''
         result = self._values.get("network_performance_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNetworkConfigNetworkPerformanceConfig"], result)
@@ -1846,7 +1846,7 @@ class GoogleContainerNodePoolNetworkConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNetworkConfigPodCidrOverprovisionConfig"]:
         '''pod_cidr_overprovision_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_cidr_overprovision_config GoogleContainerNodePool#pod_cidr_overprovision_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_cidr_overprovision_config GoogleContainerNodePool#pod_cidr_overprovision_config}
         '''
         result = self._values.get("pod_cidr_overprovision_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNetworkConfigPodCidrOverprovisionConfig"], result)
@@ -1857,7 +1857,7 @@ class GoogleContainerNodePoolNetworkConfig:
 
         Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_ipv4_cidr_block GoogleContainerNodePool#pod_ipv4_cidr_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_ipv4_cidr_block GoogleContainerNodePool#pod_ipv4_cidr_block}
         '''
         result = self._values.get("pod_ipv4_cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1868,7 +1868,7 @@ class GoogleContainerNodePoolNetworkConfig:
 
         If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_range GoogleContainerNodePool#pod_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_range GoogleContainerNodePool#pod_range}
         '''
         result = self._values.get("pod_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1898,8 +1898,8 @@ class GoogleContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network: Name of the VPC where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network GoogleContainerNodePool#network}
-        :param subnetwork: Name of the subnetwork where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
+        :param network: Name of the VPC where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network GoogleContainerNodePool#network}
+        :param subnetwork: Name of the subnetwork where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69280f8038f3e51e8decfab988090ac457fee0010e5ebcbbefb7ec971036ec49)
@@ -1915,7 +1915,7 @@ class GoogleContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs:
     def network(self) -> typing.Optional[builtins.str]:
         '''Name of the VPC where the additional interface belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#network GoogleContainerNodePool#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#network GoogleContainerNodePool#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1924,7 +1924,7 @@ class GoogleContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''Name of the subnetwork where the additional interface belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2138,9 +2138,9 @@ class GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_pods_per_node: The maximum number of pods per node which use this pod network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
-        :param secondary_pod_range: The name of the secondary range on the subnet which provides IP address for this pod range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secondary_pod_range GoogleContainerNodePool#secondary_pod_range}
-        :param subnetwork: Name of the subnetwork where the additional pod network belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
+        :param max_pods_per_node: The maximum number of pods per node which use this pod network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
+        :param secondary_pod_range: The name of the secondary range on the subnet which provides IP address for this pod range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secondary_pod_range GoogleContainerNodePool#secondary_pod_range}
+        :param subnetwork: Name of the subnetwork where the additional pod network belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5593fb845ba5f92e05b5d61ad48e08e12cd9b918b57291b657cfbbfc32adbdb5)
@@ -2159,7 +2159,7 @@ class GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
     def max_pods_per_node(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of pods per node which use this pod network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_pods_per_node GoogleContainerNodePool#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2168,7 +2168,7 @@ class GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
     def secondary_pod_range(self) -> typing.Optional[builtins.str]:
         '''The name of the secondary range on the subnet which provides IP address for this pod range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secondary_pod_range GoogleContainerNodePool#secondary_pod_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secondary_pod_range GoogleContainerNodePool#secondary_pod_range}
         '''
         result = self._values.get("secondary_pod_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2177,7 +2177,7 @@ class GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''Name of the subnetwork where the additional pod network belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#subnetwork GoogleContainerNodePool#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2402,7 +2402,7 @@ class GoogleContainerNodePoolNetworkConfigAdditionalPodNetworkConfigsOutputRefer
 class GoogleContainerNodePoolNetworkConfigNetworkPerformanceConfig:
     def __init__(self, *, total_egress_bandwidth_tier: builtins.str) -> None:
         '''
-        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_egress_bandwidth_tier GoogleContainerNodePool#total_egress_bandwidth_tier}
+        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_egress_bandwidth_tier GoogleContainerNodePool#total_egress_bandwidth_tier}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45fa85b320937fd850dad502f53a6152a77ffeaa5054e33350415b99ae55f6c1)
@@ -2415,7 +2415,7 @@ class GoogleContainerNodePoolNetworkConfigNetworkPerformanceConfig:
     def total_egress_bandwidth_tier(self) -> builtins.str:
         '''Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_egress_bandwidth_tier GoogleContainerNodePool#total_egress_bandwidth_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_egress_bandwidth_tier GoogleContainerNodePool#total_egress_bandwidth_tier}
         '''
         result = self._values.get("total_egress_bandwidth_tier")
         assert result is not None, "Required property 'total_egress_bandwidth_tier' is missing"
@@ -2541,7 +2541,7 @@ class GoogleContainerNodePoolNetworkConfigOutputReference(
         total_egress_bandwidth_tier: builtins.str,
     ) -> None:
         '''
-        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#total_egress_bandwidth_tier GoogleContainerNodePool#total_egress_bandwidth_tier}
+        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#total_egress_bandwidth_tier GoogleContainerNodePool#total_egress_bandwidth_tier}
         '''
         value = GoogleContainerNodePoolNetworkConfigNetworkPerformanceConfig(
             total_egress_bandwidth_tier=total_egress_bandwidth_tier
@@ -2556,7 +2556,7 @@ class GoogleContainerNodePoolNetworkConfigOutputReference(
         disabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disabled GoogleContainerNodePool#disabled}.
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disabled GoogleContainerNodePool#disabled}.
         '''
         value = GoogleContainerNodePoolNetworkConfigPodCidrOverprovisionConfig(
             disabled=disabled
@@ -2762,7 +2762,7 @@ class GoogleContainerNodePoolNetworkConfigPodCidrOverprovisionConfig:
         disabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disabled GoogleContainerNodePool#disabled}.
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disabled GoogleContainerNodePool#disabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e36914cd390f1683b1de7950c1106aca4c170f1b24808fedc3448a1615cd2ac)
@@ -2773,7 +2773,7 @@ class GoogleContainerNodePoolNetworkConfigPodCidrOverprovisionConfig:
 
     @builtins.property
     def disabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disabled GoogleContainerNodePool#disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disabled GoogleContainerNodePool#disabled}.'''
         result = self._values.get("disabled")
         assert result is not None, "Required property 'disabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -2950,50 +2950,50 @@ class GoogleContainerNodePoolNodeConfig:
         workload_metadata_config: typing.Optional[typing.Union["GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#advanced_machine_features GoogleContainerNodePool#advanced_machine_features}
-        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#boot_disk_kms_key GoogleContainerNodePool#boot_disk_kms_key}
-        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#confidential_nodes GoogleContainerNodePool#confidential_nodes}
-        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#containerd_config GoogleContainerNodePool#containerd_config}
-        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_size_gb GoogleContainerNodePool#disk_size_gb}
-        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_type GoogleContainerNodePool#disk_type}
-        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_confidential_storage GoogleContainerNodePool#enable_confidential_storage}
-        :param ephemeral_storage_config: ephemeral_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#ephemeral_storage_config GoogleContainerNodePool#ephemeral_storage_config}
-        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#ephemeral_storage_local_ssd_config GoogleContainerNodePool#ephemeral_storage_local_ssd_config}
-        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#fast_socket GoogleContainerNodePool#fast_socket}
-        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#flex_start GoogleContainerNodePool#flex_start}
-        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gcfs_config GoogleContainerNodePool#gcfs_config}
-        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#guest_accelerator GoogleContainerNodePool#guest_accelerator}
-        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gvnic GoogleContainerNodePool#gvnic}
-        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#host_maintenance_policy GoogleContainerNodePool#host_maintenance_policy}
-        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_type GoogleContainerNodePool#image_type}
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#kubelet_config GoogleContainerNodePool#kubelet_config}
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#labels GoogleContainerNodePool#labels}
-        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#linux_node_config GoogleContainerNodePool#linux_node_config}
-        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_nvme_ssd_block_config GoogleContainerNodePool#local_nvme_ssd_block_config}
-        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
-        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_encryption_mode GoogleContainerNodePool#local_ssd_encryption_mode}
-        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#logging_variant GoogleContainerNodePool#logging_variant}
-        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#machine_type GoogleContainerNodePool#machine_type}
-        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_run_duration GoogleContainerNodePool#max_run_duration}
-        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#metadata GoogleContainerNodePool#metadata}
-        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#min_cpu_platform GoogleContainerNodePool#min_cpu_platform}
-        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_group GoogleContainerNodePool#node_group}
-        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#oauth_scopes GoogleContainerNodePool#oauth_scopes}
-        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#preemptible GoogleContainerNodePool#preemptible}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#reservation_affinity GoogleContainerNodePool#reservation_affinity}
-        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#resource_labels GoogleContainerNodePool#resource_labels}
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#resource_manager_tags GoogleContainerNodePool#resource_manager_tags}
-        :param sandbox_config: sandbox_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sandbox_config GoogleContainerNodePool#sandbox_config}
-        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secondary_boot_disks GoogleContainerNodePool#secondary_boot_disks}
-        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#service_account GoogleContainerNodePool#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#shielded_instance_config GoogleContainerNodePool#shielded_instance_config}
-        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sole_tenant_config GoogleContainerNodePool#sole_tenant_config}
-        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#spot GoogleContainerNodePool#spot}
-        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#storage_pools GoogleContainerNodePool#storage_pools}
-        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#tags GoogleContainerNodePool#tags}
-        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#taint GoogleContainerNodePool#taint}
-        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#windows_node_config GoogleContainerNodePool#windows_node_config}
-        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#workload_metadata_config GoogleContainerNodePool#workload_metadata_config}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#advanced_machine_features GoogleContainerNodePool#advanced_machine_features}
+        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#boot_disk_kms_key GoogleContainerNodePool#boot_disk_kms_key}
+        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#confidential_nodes GoogleContainerNodePool#confidential_nodes}
+        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#containerd_config GoogleContainerNodePool#containerd_config}
+        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_size_gb GoogleContainerNodePool#disk_size_gb}
+        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_type GoogleContainerNodePool#disk_type}
+        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_confidential_storage GoogleContainerNodePool#enable_confidential_storage}
+        :param ephemeral_storage_config: ephemeral_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#ephemeral_storage_config GoogleContainerNodePool#ephemeral_storage_config}
+        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#ephemeral_storage_local_ssd_config GoogleContainerNodePool#ephemeral_storage_local_ssd_config}
+        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#fast_socket GoogleContainerNodePool#fast_socket}
+        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#flex_start GoogleContainerNodePool#flex_start}
+        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gcfs_config GoogleContainerNodePool#gcfs_config}
+        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#guest_accelerator GoogleContainerNodePool#guest_accelerator}
+        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gvnic GoogleContainerNodePool#gvnic}
+        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#host_maintenance_policy GoogleContainerNodePool#host_maintenance_policy}
+        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_type GoogleContainerNodePool#image_type}
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#kubelet_config GoogleContainerNodePool#kubelet_config}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#labels GoogleContainerNodePool#labels}
+        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#linux_node_config GoogleContainerNodePool#linux_node_config}
+        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_nvme_ssd_block_config GoogleContainerNodePool#local_nvme_ssd_block_config}
+        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_encryption_mode GoogleContainerNodePool#local_ssd_encryption_mode}
+        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#logging_variant GoogleContainerNodePool#logging_variant}
+        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#machine_type GoogleContainerNodePool#machine_type}
+        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_run_duration GoogleContainerNodePool#max_run_duration}
+        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#metadata GoogleContainerNodePool#metadata}
+        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#min_cpu_platform GoogleContainerNodePool#min_cpu_platform}
+        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_group GoogleContainerNodePool#node_group}
+        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#oauth_scopes GoogleContainerNodePool#oauth_scopes}
+        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#preemptible GoogleContainerNodePool#preemptible}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#reservation_affinity GoogleContainerNodePool#reservation_affinity}
+        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#resource_labels GoogleContainerNodePool#resource_labels}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#resource_manager_tags GoogleContainerNodePool#resource_manager_tags}
+        :param sandbox_config: sandbox_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sandbox_config GoogleContainerNodePool#sandbox_config}
+        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secondary_boot_disks GoogleContainerNodePool#secondary_boot_disks}
+        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#service_account GoogleContainerNodePool#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#shielded_instance_config GoogleContainerNodePool#shielded_instance_config}
+        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sole_tenant_config GoogleContainerNodePool#sole_tenant_config}
+        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#spot GoogleContainerNodePool#spot}
+        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#storage_pools GoogleContainerNodePool#storage_pools}
+        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#tags GoogleContainerNodePool#tags}
+        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#taint GoogleContainerNodePool#taint}
+        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#windows_node_config GoogleContainerNodePool#windows_node_config}
+        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#workload_metadata_config GoogleContainerNodePool#workload_metadata_config}
         '''
         if isinstance(advanced_machine_features, dict):
             advanced_machine_features = GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures(**advanced_machine_features)
@@ -3173,7 +3173,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures"]:
         '''advanced_machine_features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#advanced_machine_features GoogleContainerNodePool#advanced_machine_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#advanced_machine_features GoogleContainerNodePool#advanced_machine_features}
         '''
         result = self._values.get("advanced_machine_features")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures"], result)
@@ -3182,7 +3182,7 @@ class GoogleContainerNodePoolNodeConfig:
     def boot_disk_kms_key(self) -> typing.Optional[builtins.str]:
         '''The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#boot_disk_kms_key GoogleContainerNodePool#boot_disk_kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#boot_disk_kms_key GoogleContainerNodePool#boot_disk_kms_key}
         '''
         result = self._values.get("boot_disk_kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3193,7 +3193,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigConfidentialNodes"]:
         '''confidential_nodes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#confidential_nodes GoogleContainerNodePool#confidential_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#confidential_nodes GoogleContainerNodePool#confidential_nodes}
         '''
         result = self._values.get("confidential_nodes")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigConfidentialNodes"], result)
@@ -3204,7 +3204,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigContainerdConfig"]:
         '''containerd_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#containerd_config GoogleContainerNodePool#containerd_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#containerd_config GoogleContainerNodePool#containerd_config}
         '''
         result = self._values.get("containerd_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigContainerdConfig"], result)
@@ -3213,7 +3213,7 @@ class GoogleContainerNodePoolNodeConfig:
     def disk_size_gb(self) -> typing.Optional[jsii.Number]:
         '''Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_size_gb GoogleContainerNodePool#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_size_gb GoogleContainerNodePool#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3222,7 +3222,7 @@ class GoogleContainerNodePoolNodeConfig:
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_type GoogleContainerNodePool#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_type GoogleContainerNodePool#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3233,7 +3233,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If enabled boot disks are configured with confidential mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_confidential_storage GoogleContainerNodePool#enable_confidential_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_confidential_storage GoogleContainerNodePool#enable_confidential_storage}
         '''
         result = self._values.get("enable_confidential_storage")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3244,7 +3244,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigEphemeralStorageConfig"]:
         '''ephemeral_storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#ephemeral_storage_config GoogleContainerNodePool#ephemeral_storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#ephemeral_storage_config GoogleContainerNodePool#ephemeral_storage_config}
         '''
         result = self._values.get("ephemeral_storage_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigEphemeralStorageConfig"], result)
@@ -3255,7 +3255,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig"]:
         '''ephemeral_storage_local_ssd_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#ephemeral_storage_local_ssd_config GoogleContainerNodePool#ephemeral_storage_local_ssd_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#ephemeral_storage_local_ssd_config GoogleContainerNodePool#ephemeral_storage_local_ssd_config}
         '''
         result = self._values.get("ephemeral_storage_local_ssd_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig"], result)
@@ -3266,7 +3266,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigFastSocket"]:
         '''fast_socket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#fast_socket GoogleContainerNodePool#fast_socket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#fast_socket GoogleContainerNodePool#fast_socket}
         '''
         result = self._values.get("fast_socket")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigFastSocket"], result)
@@ -3277,7 +3277,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables Flex Start provisioning model for the node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#flex_start GoogleContainerNodePool#flex_start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#flex_start GoogleContainerNodePool#flex_start}
         '''
         result = self._values.get("flex_start")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3288,7 +3288,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigGcfsConfig"]:
         '''gcfs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gcfs_config GoogleContainerNodePool#gcfs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gcfs_config GoogleContainerNodePool#gcfs_config}
         '''
         result = self._values.get("gcfs_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigGcfsConfig"], result)
@@ -3299,7 +3299,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigGuestAccelerator"]]]:
         '''guest_accelerator block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#guest_accelerator GoogleContainerNodePool#guest_accelerator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#guest_accelerator GoogleContainerNodePool#guest_accelerator}
         '''
         result = self._values.get("guest_accelerator")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigGuestAccelerator"]]], result)
@@ -3308,7 +3308,7 @@ class GoogleContainerNodePoolNodeConfig:
     def gvnic(self) -> typing.Optional["GoogleContainerNodePoolNodeConfigGvnic"]:
         '''gvnic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gvnic GoogleContainerNodePool#gvnic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gvnic GoogleContainerNodePool#gvnic}
         '''
         result = self._values.get("gvnic")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigGvnic"], result)
@@ -3319,7 +3319,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigHostMaintenancePolicy"]:
         '''host_maintenance_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#host_maintenance_policy GoogleContainerNodePool#host_maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#host_maintenance_policy GoogleContainerNodePool#host_maintenance_policy}
         '''
         result = self._values.get("host_maintenance_policy")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigHostMaintenancePolicy"], result)
@@ -3330,7 +3330,7 @@ class GoogleContainerNodePoolNodeConfig:
 
         Note that for a given image type, the latest version of it will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_type GoogleContainerNodePool#image_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_type GoogleContainerNodePool#image_type}
         '''
         result = self._values.get("image_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3341,7 +3341,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigKubeletConfig"]:
         '''kubelet_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#kubelet_config GoogleContainerNodePool#kubelet_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#kubelet_config GoogleContainerNodePool#kubelet_config}
         '''
         result = self._values.get("kubelet_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigKubeletConfig"], result)
@@ -3352,7 +3352,7 @@ class GoogleContainerNodePoolNodeConfig:
 
         These will added in addition to any default label(s) that Kubernetes may apply to the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#labels GoogleContainerNodePool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#labels GoogleContainerNodePool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3363,7 +3363,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigLinuxNodeConfig"]:
         '''linux_node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#linux_node_config GoogleContainerNodePool#linux_node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#linux_node_config GoogleContainerNodePool#linux_node_config}
         '''
         result = self._values.get("linux_node_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigLinuxNodeConfig"], result)
@@ -3374,7 +3374,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig"]:
         '''local_nvme_ssd_block_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_nvme_ssd_block_config GoogleContainerNodePool#local_nvme_ssd_block_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_nvme_ssd_block_config GoogleContainerNodePool#local_nvme_ssd_block_config}
         '''
         result = self._values.get("local_nvme_ssd_block_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig"], result)
@@ -3383,7 +3383,7 @@ class GoogleContainerNodePoolNodeConfig:
     def local_ssd_count(self) -> typing.Optional[jsii.Number]:
         '''The number of local SSD disks to be attached to the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3392,7 +3392,7 @@ class GoogleContainerNodePoolNodeConfig:
     def local_ssd_encryption_mode(self) -> typing.Optional[builtins.str]:
         '''LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_encryption_mode GoogleContainerNodePool#local_ssd_encryption_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_encryption_mode GoogleContainerNodePool#local_ssd_encryption_mode}
         '''
         result = self._values.get("local_ssd_encryption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3403,7 +3403,7 @@ class GoogleContainerNodePoolNodeConfig:
 
         Valid values include DEFAULT and MAX_THROUGHPUT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#logging_variant GoogleContainerNodePool#logging_variant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#logging_variant GoogleContainerNodePool#logging_variant}
         '''
         result = self._values.get("logging_variant")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3412,7 +3412,7 @@ class GoogleContainerNodePoolNodeConfig:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The name of a Google Compute Engine machine type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#machine_type GoogleContainerNodePool#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#machine_type GoogleContainerNodePool#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3421,7 +3421,7 @@ class GoogleContainerNodePoolNodeConfig:
     def max_run_duration(self) -> typing.Optional[builtins.str]:
         '''The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_run_duration GoogleContainerNodePool#max_run_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_run_duration GoogleContainerNodePool#max_run_duration}
         '''
         result = self._values.get("max_run_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3430,7 +3430,7 @@ class GoogleContainerNodePoolNodeConfig:
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The metadata key/value pairs assigned to instances in the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#metadata GoogleContainerNodePool#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#metadata GoogleContainerNodePool#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3441,7 +3441,7 @@ class GoogleContainerNodePoolNodeConfig:
 
         The instance may be scheduled on the specified or newer CPU platform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#min_cpu_platform GoogleContainerNodePool#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#min_cpu_platform GoogleContainerNodePool#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3452,7 +3452,7 @@ class GoogleContainerNodePoolNodeConfig:
 
         This is useful for running workloads on sole tenant nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_group GoogleContainerNodePool#node_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_group GoogleContainerNodePool#node_group}
         '''
         result = self._values.get("node_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3461,7 +3461,7 @@ class GoogleContainerNodePoolNodeConfig:
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The set of Google API scopes to be made available on all of the node VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#oauth_scopes GoogleContainerNodePool#oauth_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#oauth_scopes GoogleContainerNodePool#oauth_scopes}
         '''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3472,7 +3472,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes are created as preemptible VM instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#preemptible GoogleContainerNodePool#preemptible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#preemptible GoogleContainerNodePool#preemptible}
         '''
         result = self._values.get("preemptible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3483,7 +3483,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigReservationAffinity"]:
         '''reservation_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#reservation_affinity GoogleContainerNodePool#reservation_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#reservation_affinity GoogleContainerNodePool#reservation_affinity}
         '''
         result = self._values.get("reservation_affinity")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigReservationAffinity"], result)
@@ -3494,7 +3494,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The GCE resource labels (a map of key/value pairs) to be applied to the node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#resource_labels GoogleContainerNodePool#resource_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#resource_labels GoogleContainerNodePool#resource_labels}
         '''
         result = self._values.get("resource_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3507,7 +3507,7 @@ class GoogleContainerNodePoolNodeConfig:
 
         Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#resource_manager_tags GoogleContainerNodePool#resource_manager_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#resource_manager_tags GoogleContainerNodePool#resource_manager_tags}
         '''
         result = self._values.get("resource_manager_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3518,7 +3518,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigSandboxConfig"]:
         '''sandbox_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sandbox_config GoogleContainerNodePool#sandbox_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sandbox_config GoogleContainerNodePool#sandbox_config}
         '''
         result = self._values.get("sandbox_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigSandboxConfig"], result)
@@ -3529,7 +3529,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigSecondaryBootDisks"]]]:
         '''secondary_boot_disks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secondary_boot_disks GoogleContainerNodePool#secondary_boot_disks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secondary_boot_disks GoogleContainerNodePool#secondary_boot_disks}
         '''
         result = self._values.get("secondary_boot_disks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigSecondaryBootDisks"]]], result)
@@ -3538,7 +3538,7 @@ class GoogleContainerNodePoolNodeConfig:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''The Google Cloud Platform Service Account to be used by the node VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#service_account GoogleContainerNodePool#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#service_account GoogleContainerNodePool#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3549,7 +3549,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#shielded_instance_config GoogleContainerNodePool#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#shielded_instance_config GoogleContainerNodePool#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigShieldedInstanceConfig"], result)
@@ -3560,7 +3560,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigSoleTenantConfig"]:
         '''sole_tenant_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sole_tenant_config GoogleContainerNodePool#sole_tenant_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sole_tenant_config GoogleContainerNodePool#sole_tenant_config}
         '''
         result = self._values.get("sole_tenant_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigSoleTenantConfig"], result)
@@ -3571,7 +3571,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes are created as spot VM instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#spot GoogleContainerNodePool#spot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#spot GoogleContainerNodePool#spot}
         '''
         result = self._values.get("spot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3580,7 +3580,7 @@ class GoogleContainerNodePoolNodeConfig:
     def storage_pools(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of Storage Pools where boot disks are provisioned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#storage_pools GoogleContainerNodePool#storage_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#storage_pools GoogleContainerNodePool#storage_pools}
         '''
         result = self._values.get("storage_pools")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3589,7 +3589,7 @@ class GoogleContainerNodePoolNodeConfig:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of instance tags applied to all nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#tags GoogleContainerNodePool#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#tags GoogleContainerNodePool#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3600,7 +3600,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigTaint"]]]:
         '''taint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#taint GoogleContainerNodePool#taint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#taint GoogleContainerNodePool#taint}
         '''
         result = self._values.get("taint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigTaint"]]], result)
@@ -3611,7 +3611,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigWindowsNodeConfig"]:
         '''windows_node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#windows_node_config GoogleContainerNodePool#windows_node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#windows_node_config GoogleContainerNodePool#windows_node_config}
         '''
         result = self._values.get("windows_node_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigWindowsNodeConfig"], result)
@@ -3622,7 +3622,7 @@ class GoogleContainerNodePoolNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig"]:
         '''workload_metadata_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#workload_metadata_config GoogleContainerNodePool#workload_metadata_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#workload_metadata_config GoogleContainerNodePool#workload_metadata_config}
         '''
         result = self._values.get("workload_metadata_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig"], result)
@@ -3645,6 +3645,7 @@ class GoogleContainerNodePoolNodeConfig:
     name_mapping={
         "threads_per_core": "threadsPerCore",
         "enable_nested_virtualization": "enableNestedVirtualization",
+        "performance_monitoring_unit": "performanceMonitoringUnit",
     },
 )
 class GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures:
@@ -3653,20 +3654,25 @@ class GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures:
         *,
         threads_per_core: jsii.Number,
         enable_nested_virtualization: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        performance_monitoring_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#threads_per_core GoogleContainerNodePool#threads_per_core}
-        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_nested_virtualization GoogleContainerNodePool#enable_nested_virtualization}
+        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#threads_per_core GoogleContainerNodePool#threads_per_core}
+        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_nested_virtualization GoogleContainerNodePool#enable_nested_virtualization}
+        :param performance_monitoring_unit: Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#performance_monitoring_unit GoogleContainerNodePool#performance_monitoring_unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b84ff91dc1576bbc9fd54614b903df3470b664e8a73f1347af0ad77800bc5135)
             check_type(argname="argument threads_per_core", value=threads_per_core, expected_type=type_hints["threads_per_core"])
             check_type(argname="argument enable_nested_virtualization", value=enable_nested_virtualization, expected_type=type_hints["enable_nested_virtualization"])
+            check_type(argname="argument performance_monitoring_unit", value=performance_monitoring_unit, expected_type=type_hints["performance_monitoring_unit"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "threads_per_core": threads_per_core,
         }
         if enable_nested_virtualization is not None:
             self._values["enable_nested_virtualization"] = enable_nested_virtualization
+        if performance_monitoring_unit is not None:
+            self._values["performance_monitoring_unit"] = performance_monitoring_unit
 
     @builtins.property
     def threads_per_core(self) -> jsii.Number:
@@ -3674,7 +3680,7 @@ class GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures:
 
         To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#threads_per_core GoogleContainerNodePool#threads_per_core}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#threads_per_core GoogleContainerNodePool#threads_per_core}
         '''
         result = self._values.get("threads_per_core")
         assert result is not None, "Required property 'threads_per_core' is missing"
@@ -3686,10 +3692,19 @@ class GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the node should have nested virtualization enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_nested_virtualization GoogleContainerNodePool#enable_nested_virtualization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_nested_virtualization GoogleContainerNodePool#enable_nested_virtualization}
         '''
         result = self._values.get("enable_nested_virtualization")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def performance_monitoring_unit(self) -> typing.Optional[builtins.str]:
+        '''Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#performance_monitoring_unit GoogleContainerNodePool#performance_monitoring_unit}
+        '''
+        result = self._values.get("performance_monitoring_unit")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3727,12 +3742,21 @@ class GoogleContainerNodePoolNodeConfigAdvancedMachineFeaturesOutputReference(
     def reset_enable_nested_virtualization(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEnableNestedVirtualization", []))
 
+    @jsii.member(jsii_name="resetPerformanceMonitoringUnit")
+    def reset_performance_monitoring_unit(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPerformanceMonitoringUnit", []))
+
     @builtins.property
     @jsii.member(jsii_name="enableNestedVirtualizationInput")
     def enable_nested_virtualization_input(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enableNestedVirtualizationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="performanceMonitoringUnitInput")
+    def performance_monitoring_unit_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "performanceMonitoringUnitInput"))
 
     @builtins.property
     @jsii.member(jsii_name="threadsPerCoreInput")
@@ -3755,6 +3779,18 @@ class GoogleContainerNodePoolNodeConfigAdvancedMachineFeaturesOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__ca58f258a30281aa3abb57e3578ef76d20525330df9feb8cd537c6a1df05930e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableNestedVirtualization", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="performanceMonitoringUnit")
+    def performance_monitoring_unit(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "performanceMonitoringUnit"))
+
+    @performance_monitoring_unit.setter
+    def performance_monitoring_unit(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__992c6994e5d1b1926f030993b2f64634097b763a3a66cc6e49c0aae95ca73627)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "performanceMonitoringUnit", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="threadsPerCore")
@@ -3798,7 +3834,7 @@ class GoogleContainerNodePoolNodeConfigConfidentialNodes:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e772158230d40c8289e54ed2cf966b3b6ed2bd49b0788aea9c7898ab80c90c5)
@@ -3811,7 +3847,7 @@ class GoogleContainerNodePoolNodeConfigConfidentialNodes:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether Confidential Nodes feature is enabled for all nodes in this pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3901,7 +3937,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfig:
         private_registry_access_config: typing.Optional[typing.Union["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#private_registry_access_config GoogleContainerNodePool#private_registry_access_config}
+        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#private_registry_access_config GoogleContainerNodePool#private_registry_access_config}
         '''
         if isinstance(private_registry_access_config, dict):
             private_registry_access_config = GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig(**private_registry_access_config)
@@ -3918,7 +3954,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig"]:
         '''private_registry_access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#private_registry_access_config GoogleContainerNodePool#private_registry_access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#private_registry_access_config GoogleContainerNodePool#private_registry_access_config}
         '''
         result = self._values.get("private_registry_access_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig"], result)
@@ -3963,8 +3999,8 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigOutputReference(
         certificate_authority_domain_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
-        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#certificate_authority_domain_config GoogleContainerNodePool#certificate_authority_domain_config}
+        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#certificate_authority_domain_config GoogleContainerNodePool#certificate_authority_domain_config}
         '''
         value = GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig(
             enabled=enabled,
@@ -4025,8 +4061,8 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
         certificate_authority_domain_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
-        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#certificate_authority_domain_config GoogleContainerNodePool#certificate_authority_domain_config}
+        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#certificate_authority_domain_config GoogleContainerNodePool#certificate_authority_domain_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a974befeb0377290bc4c276ed50036d9ebcfd6641d02653a1cb5fd1d6178a6f9)
@@ -4042,7 +4078,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not private registries are configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -4054,7 +4090,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig"]]]:
         '''certificate_authority_domain_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#certificate_authority_domain_config GoogleContainerNodePool#certificate_authority_domain_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#certificate_authority_domain_config GoogleContainerNodePool#certificate_authority_domain_config}
         '''
         result = self._values.get("certificate_authority_domain_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig"]]], result)
@@ -4087,8 +4123,8 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
         gcp_secret_manager_certificate_config: typing.Union["GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param fqdns: List of fully-qualified-domain-names. IPv4s and port specification are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#fqdns GoogleContainerNodePool#fqdns}
-        :param gcp_secret_manager_certificate_config: gcp_secret_manager_certificate_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gcp_secret_manager_certificate_config GoogleContainerNodePool#gcp_secret_manager_certificate_config}
+        :param fqdns: List of fully-qualified-domain-names. IPv4s and port specification are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#fqdns GoogleContainerNodePool#fqdns}
+        :param gcp_secret_manager_certificate_config: gcp_secret_manager_certificate_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gcp_secret_manager_certificate_config GoogleContainerNodePool#gcp_secret_manager_certificate_config}
         '''
         if isinstance(gcp_secret_manager_certificate_config, dict):
             gcp_secret_manager_certificate_config = GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig(**gcp_secret_manager_certificate_config)
@@ -4105,7 +4141,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
     def fqdns(self) -> typing.List[builtins.str]:
         '''List of fully-qualified-domain-names. IPv4s and port specification are supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#fqdns GoogleContainerNodePool#fqdns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#fqdns GoogleContainerNodePool#fqdns}
         '''
         result = self._values.get("fqdns")
         assert result is not None, "Required property 'fqdns' is missing"
@@ -4117,7 +4153,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
     ) -> "GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig":
         '''gcp_secret_manager_certificate_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gcp_secret_manager_certificate_config GoogleContainerNodePool#gcp_secret_manager_certificate_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gcp_secret_manager_certificate_config GoogleContainerNodePool#gcp_secret_manager_certificate_config}
         '''
         result = self._values.get("gcp_secret_manager_certificate_config")
         assert result is not None, "Required property 'gcp_secret_manager_certificate_config' is missing"
@@ -4143,7 +4179,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
 class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig:
     def __init__(self, *, secret_uri: builtins.str) -> None:
         '''
-        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secret_uri GoogleContainerNodePool#secret_uri}
+        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secret_uri GoogleContainerNodePool#secret_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__466e4701426262db50e8ff5bbeb6f359e66e66becb055f1f2bca2ca47bd1dd48)
@@ -4156,7 +4192,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
     def secret_uri(self) -> builtins.str:
         '''URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secret_uri GoogleContainerNodePool#secret_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secret_uri GoogleContainerNodePool#secret_uri}
         '''
         result = self._values.get("secret_uri")
         assert result is not None, "Required property 'secret_uri' is missing"
@@ -4355,7 +4391,7 @@ class GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConf
         secret_uri: builtins.str,
     ) -> None:
         '''
-        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#secret_uri GoogleContainerNodePool#secret_uri}
+        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#secret_uri GoogleContainerNodePool#secret_uri}
         '''
         value = GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig(
             secret_uri=secret_uri
@@ -4667,7 +4703,7 @@ class GoogleContainerNodePoolNodeConfigEffectiveTaintsOutputReference(
 class GoogleContainerNodePoolNodeConfigEphemeralStorageConfig:
     def __init__(self, *, local_ssd_count: jsii.Number) -> None:
         '''
-        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e4de41b3a5eeca70b8a075b44132986bb2842de83e958f57914380eef48945d)
@@ -4682,7 +4718,7 @@ class GoogleContainerNodePoolNodeConfigEphemeralStorageConfig:
 
         Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         assert result is not None, "Required property 'local_ssd_count' is missing"
@@ -4771,8 +4807,8 @@ class GoogleContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig:
         data_cache_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
-        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#data_cache_count GoogleContainerNodePool#data_cache_count}
+        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#data_cache_count GoogleContainerNodePool#data_cache_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16f86c06e6e0824c95b22931800efe52d61eb7a619796f9ab47acacaefd1e8ad)
@@ -4790,7 +4826,7 @@ class GoogleContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig:
 
         Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         assert result is not None, "Required property 'local_ssd_count' is missing"
@@ -4800,7 +4836,7 @@ class GoogleContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig:
     def data_cache_count(self) -> typing.Optional[jsii.Number]:
         '''Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#data_cache_count GoogleContainerNodePool#data_cache_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#data_cache_count GoogleContainerNodePool#data_cache_count}
         '''
         result = self._values.get("data_cache_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4905,7 +4941,7 @@ class GoogleContainerNodePoolNodeConfigFastSocket:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09299d5aca2f4ea2902b5fe7e75bf014ca9c6326a178e4659f8aec0478a7918b)
@@ -4918,7 +4954,7 @@ class GoogleContainerNodePoolNodeConfigFastSocket:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not NCCL Fast Socket is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5008,7 +5044,7 @@ class GoogleContainerNodePoolNodeConfigGcfsConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1b709504c119dee33ef8ff6ab54d0395563750ab640de101fb3ead0f8d935e9)
@@ -5021,7 +5057,7 @@ class GoogleContainerNodePoolNodeConfigGcfsConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not GCFS is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5121,11 +5157,11 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
         gpu_sharing_config: typing.Optional[typing.Union["GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param count: The number of the accelerator cards exposed to an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#count GoogleContainerNodePool#count}
-        :param type: The accelerator type resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
-        :param gpu_driver_installation_config: gpu_driver_installation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_driver_installation_config GoogleContainerNodePool#gpu_driver_installation_config}
-        :param gpu_partition_size: Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_partition_size GoogleContainerNodePool#gpu_partition_size}
-        :param gpu_sharing_config: gpu_sharing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_sharing_config GoogleContainerNodePool#gpu_sharing_config}
+        :param count: The number of the accelerator cards exposed to an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#count GoogleContainerNodePool#count}
+        :param type: The accelerator type resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
+        :param gpu_driver_installation_config: gpu_driver_installation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_driver_installation_config GoogleContainerNodePool#gpu_driver_installation_config}
+        :param gpu_partition_size: Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_partition_size GoogleContainerNodePool#gpu_partition_size}
+        :param gpu_sharing_config: gpu_sharing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_sharing_config GoogleContainerNodePool#gpu_sharing_config}
         '''
         if isinstance(gpu_driver_installation_config, dict):
             gpu_driver_installation_config = GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig(**gpu_driver_installation_config)
@@ -5153,7 +5189,7 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
     def count(self) -> jsii.Number:
         '''The number of the accelerator cards exposed to an instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#count GoogleContainerNodePool#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#count GoogleContainerNodePool#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -5163,7 +5199,7 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
     def type(self) -> builtins.str:
         '''The accelerator type resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -5175,7 +5211,7 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig"]:
         '''gpu_driver_installation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_driver_installation_config GoogleContainerNodePool#gpu_driver_installation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_driver_installation_config GoogleContainerNodePool#gpu_driver_installation_config}
         '''
         result = self._values.get("gpu_driver_installation_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig"], result)
@@ -5184,7 +5220,7 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
     def gpu_partition_size(self) -> typing.Optional[builtins.str]:
         '''Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_partition_size GoogleContainerNodePool#gpu_partition_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_partition_size GoogleContainerNodePool#gpu_partition_size}
         '''
         result = self._values.get("gpu_partition_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5195,7 +5231,7 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig"]:
         '''gpu_sharing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_sharing_config GoogleContainerNodePool#gpu_sharing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_sharing_config GoogleContainerNodePool#gpu_sharing_config}
         '''
         result = self._values.get("gpu_sharing_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig"], result)
@@ -5220,7 +5256,7 @@ class GoogleContainerNodePoolNodeConfigGuestAccelerator:
 class GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig:
     def __init__(self, *, gpu_driver_version: builtins.str) -> None:
         '''
-        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_driver_version GoogleContainerNodePool#gpu_driver_version}
+        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_driver_version GoogleContainerNodePool#gpu_driver_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6da24334c663dd4353d24e2d2007f40b0552c1cdf3681de6d4ec103127ea6090)
@@ -5233,7 +5269,7 @@ class GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConf
     def gpu_driver_version(self) -> builtins.str:
         '''Mode for how the GPU driver is installed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_driver_version GoogleContainerNodePool#gpu_driver_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_driver_version GoogleContainerNodePool#gpu_driver_version}
         '''
         result = self._values.get("gpu_driver_version")
         assert result is not None, "Required property 'gpu_driver_version' is missing"
@@ -5322,8 +5358,8 @@ class GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig:
         max_shared_clients_per_gpu: jsii.Number,
     ) -> None:
         '''
-        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_sharing_strategy GoogleContainerNodePool#gpu_sharing_strategy}
-        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_shared_clients_per_gpu GoogleContainerNodePool#max_shared_clients_per_gpu}
+        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_sharing_strategy GoogleContainerNodePool#gpu_sharing_strategy}
+        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_shared_clients_per_gpu GoogleContainerNodePool#max_shared_clients_per_gpu}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__681761950d528de7826057d9ef1c2f105d6ede87838fa1e6c8a4d24479466885)
@@ -5340,7 +5376,7 @@ class GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig:
 
         Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_sharing_strategy GoogleContainerNodePool#gpu_sharing_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_sharing_strategy GoogleContainerNodePool#gpu_sharing_strategy}
         '''
         result = self._values.get("gpu_sharing_strategy")
         assert result is not None, "Required property 'gpu_sharing_strategy' is missing"
@@ -5350,7 +5386,7 @@ class GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig:
     def max_shared_clients_per_gpu(self) -> jsii.Number:
         '''The maximum number of containers that can share a GPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_shared_clients_per_gpu GoogleContainerNodePool#max_shared_clients_per_gpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_shared_clients_per_gpu GoogleContainerNodePool#max_shared_clients_per_gpu}
         '''
         result = self._values.get("max_shared_clients_per_gpu")
         assert result is not None, "Required property 'max_shared_clients_per_gpu' is missing"
@@ -5566,7 +5602,7 @@ class GoogleContainerNodePoolNodeConfigGuestAcceleratorOutputReference(
         gpu_driver_version: builtins.str,
     ) -> None:
         '''
-        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_driver_version GoogleContainerNodePool#gpu_driver_version}
+        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_driver_version GoogleContainerNodePool#gpu_driver_version}
         '''
         value = GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig(
             gpu_driver_version=gpu_driver_version
@@ -5582,8 +5618,8 @@ class GoogleContainerNodePoolNodeConfigGuestAcceleratorOutputReference(
         max_shared_clients_per_gpu: jsii.Number,
     ) -> None:
         '''
-        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#gpu_sharing_strategy GoogleContainerNodePool#gpu_sharing_strategy}
-        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_shared_clients_per_gpu GoogleContainerNodePool#max_shared_clients_per_gpu}
+        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#gpu_sharing_strategy GoogleContainerNodePool#gpu_sharing_strategy}
+        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_shared_clients_per_gpu GoogleContainerNodePool#max_shared_clients_per_gpu}
         '''
         value = GoogleContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig(
             gpu_sharing_strategy=gpu_sharing_strategy,
@@ -5713,7 +5749,7 @@ class GoogleContainerNodePoolNodeConfigGvnic:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a784eba60afd6892f06ce6edd56de6874823ff2cd61e7ad7a3102dd310100cf2)
@@ -5726,7 +5762,7 @@ class GoogleContainerNodePoolNodeConfigGvnic:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not gvnic is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5810,7 +5846,7 @@ class GoogleContainerNodePoolNodeConfigGvnicOutputReference(
 class GoogleContainerNodePoolNodeConfigHostMaintenancePolicy:
     def __init__(self, *, maintenance_interval: builtins.str) -> None:
         '''
-        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#maintenance_interval GoogleContainerNodePool#maintenance_interval}
+        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#maintenance_interval GoogleContainerNodePool#maintenance_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fea261c59267508d57da1d60973390de92bfd8fa666b533e957db8798e003a8)
@@ -5823,7 +5859,7 @@ class GoogleContainerNodePoolNodeConfigHostMaintenancePolicy:
     def maintenance_interval(self) -> builtins.str:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#maintenance_interval GoogleContainerNodePool#maintenance_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#maintenance_interval GoogleContainerNodePool#maintenance_interval}
         '''
         result = self._values.get("maintenance_interval")
         assert result is not None, "Required property 'maintenance_interval' is missing"
@@ -5932,18 +5968,18 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
         pod_pids_limit: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#allowed_unsafe_sysctls GoogleContainerNodePool#allowed_unsafe_sysctls}
-        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#container_log_max_files GoogleContainerNodePool#container_log_max_files}
-        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#container_log_max_size GoogleContainerNodePool#container_log_max_size}
-        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_cfs_quota GoogleContainerNodePool#cpu_cfs_quota}
-        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_cfs_quota_period GoogleContainerNodePool#cpu_cfs_quota_period}
-        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_manager_policy GoogleContainerNodePool#cpu_manager_policy}
-        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_gc_high_threshold_percent GoogleContainerNodePool#image_gc_high_threshold_percent}
-        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_gc_low_threshold_percent GoogleContainerNodePool#image_gc_low_threshold_percent}
-        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_maximum_gc_age GoogleContainerNodePool#image_maximum_gc_age}
-        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_minimum_gc_age GoogleContainerNodePool#image_minimum_gc_age}
-        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#insecure_kubelet_readonly_port_enabled GoogleContainerNodePool#insecure_kubelet_readonly_port_enabled}
-        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_pids_limit GoogleContainerNodePool#pod_pids_limit}
+        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#allowed_unsafe_sysctls GoogleContainerNodePool#allowed_unsafe_sysctls}
+        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#container_log_max_files GoogleContainerNodePool#container_log_max_files}
+        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#container_log_max_size GoogleContainerNodePool#container_log_max_size}
+        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_cfs_quota GoogleContainerNodePool#cpu_cfs_quota}
+        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_cfs_quota_period GoogleContainerNodePool#cpu_cfs_quota_period}
+        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_manager_policy GoogleContainerNodePool#cpu_manager_policy}
+        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_gc_high_threshold_percent GoogleContainerNodePool#image_gc_high_threshold_percent}
+        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_gc_low_threshold_percent GoogleContainerNodePool#image_gc_low_threshold_percent}
+        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_maximum_gc_age GoogleContainerNodePool#image_maximum_gc_age}
+        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_minimum_gc_age GoogleContainerNodePool#image_minimum_gc_age}
+        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#insecure_kubelet_readonly_port_enabled GoogleContainerNodePool#insecure_kubelet_readonly_port_enabled}
+        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_pids_limit GoogleContainerNodePool#pod_pids_limit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34db26051499479a18ff1e6dc64f594f6dcae2949fd17e7e3473c9b06d80726d)
@@ -5989,7 +6025,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def allowed_unsafe_sysctls(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#allowed_unsafe_sysctls GoogleContainerNodePool#allowed_unsafe_sysctls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#allowed_unsafe_sysctls GoogleContainerNodePool#allowed_unsafe_sysctls}
         '''
         result = self._values.get("allowed_unsafe_sysctls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5998,7 +6034,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def container_log_max_files(self) -> typing.Optional[jsii.Number]:
         '''Defines the maximum number of container log files that can be present for a container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#container_log_max_files GoogleContainerNodePool#container_log_max_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#container_log_max_files GoogleContainerNodePool#container_log_max_files}
         '''
         result = self._values.get("container_log_max_files")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6007,7 +6043,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def container_log_max_size(self) -> typing.Optional[builtins.str]:
         '''Defines the maximum size of the container log file before it is rotated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#container_log_max_size GoogleContainerNodePool#container_log_max_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#container_log_max_size GoogleContainerNodePool#container_log_max_size}
         '''
         result = self._values.get("container_log_max_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6018,7 +6054,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable CPU CFS quota enforcement for containers that specify CPU limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_cfs_quota GoogleContainerNodePool#cpu_cfs_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_cfs_quota GoogleContainerNodePool#cpu_cfs_quota}
         '''
         result = self._values.get("cpu_cfs_quota")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6027,7 +6063,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def cpu_cfs_quota_period(self) -> typing.Optional[builtins.str]:
         '''Set the CPU CFS quota period value 'cpu.cfs_period_us'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_cfs_quota_period GoogleContainerNodePool#cpu_cfs_quota_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_cfs_quota_period GoogleContainerNodePool#cpu_cfs_quota_period}
         '''
         result = self._values.get("cpu_cfs_quota_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6036,7 +6072,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def cpu_manager_policy(self) -> typing.Optional[builtins.str]:
         '''Control the CPU management policy on the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_manager_policy GoogleContainerNodePool#cpu_manager_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_manager_policy GoogleContainerNodePool#cpu_manager_policy}
         '''
         result = self._values.get("cpu_manager_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6045,7 +6081,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def image_gc_high_threshold_percent(self) -> typing.Optional[jsii.Number]:
         '''Defines the percent of disk usage after which image garbage collection is always run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_gc_high_threshold_percent GoogleContainerNodePool#image_gc_high_threshold_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_gc_high_threshold_percent GoogleContainerNodePool#image_gc_high_threshold_percent}
         '''
         result = self._values.get("image_gc_high_threshold_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6056,7 +6092,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
 
         Lowest disk usage to garbage collect to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_gc_low_threshold_percent GoogleContainerNodePool#image_gc_low_threshold_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_gc_low_threshold_percent GoogleContainerNodePool#image_gc_low_threshold_percent}
         '''
         result = self._values.get("image_gc_low_threshold_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6065,7 +6101,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def image_maximum_gc_age(self) -> typing.Optional[builtins.str]:
         '''Defines the maximum age an image can be unused before it is garbage collected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_maximum_gc_age GoogleContainerNodePool#image_maximum_gc_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_maximum_gc_age GoogleContainerNodePool#image_maximum_gc_age}
         '''
         result = self._values.get("image_maximum_gc_age")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6074,7 +6110,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def image_minimum_gc_age(self) -> typing.Optional[builtins.str]:
         '''Defines the minimum age for an unused image before it is garbage collected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_minimum_gc_age GoogleContainerNodePool#image_minimum_gc_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_minimum_gc_age GoogleContainerNodePool#image_minimum_gc_age}
         '''
         result = self._values.get("image_minimum_gc_age")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6085,7 +6121,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
 
         It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#insecure_kubelet_readonly_port_enabled GoogleContainerNodePool#insecure_kubelet_readonly_port_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#insecure_kubelet_readonly_port_enabled GoogleContainerNodePool#insecure_kubelet_readonly_port_enabled}
         '''
         result = self._values.get("insecure_kubelet_readonly_port_enabled")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6094,7 +6130,7 @@ class GoogleContainerNodePoolNodeConfigKubeletConfig:
     def pod_pids_limit(self) -> typing.Optional[jsii.Number]:
         '''Controls the maximum number of processes allowed to run in a pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_pids_limit GoogleContainerNodePool#pod_pids_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_pids_limit GoogleContainerNodePool#pod_pids_limit}
         '''
         result = self._values.get("pod_pids_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6428,9 +6464,9 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfig:
         sysctls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cgroup_mode GoogleContainerNodePool#cgroup_mode}
-        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepages_config GoogleContainerNodePool#hugepages_config}
-        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sysctls GoogleContainerNodePool#sysctls}
+        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cgroup_mode GoogleContainerNodePool#cgroup_mode}
+        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepages_config GoogleContainerNodePool#hugepages_config}
+        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sysctls GoogleContainerNodePool#sysctls}
         '''
         if isinstance(hugepages_config, dict):
             hugepages_config = GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig(**hugepages_config)
@@ -6451,7 +6487,7 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfig:
     def cgroup_mode(self) -> typing.Optional[builtins.str]:
         '''cgroupMode specifies the cgroup mode to be used on the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cgroup_mode GoogleContainerNodePool#cgroup_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cgroup_mode GoogleContainerNodePool#cgroup_mode}
         '''
         result = self._values.get("cgroup_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6462,7 +6498,7 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfig:
     ) -> typing.Optional["GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig"]:
         '''hugepages_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepages_config GoogleContainerNodePool#hugepages_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepages_config GoogleContainerNodePool#hugepages_config}
         '''
         result = self._values.get("hugepages_config")
         return typing.cast(typing.Optional["GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig"], result)
@@ -6471,7 +6507,7 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfig:
     def sysctls(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The Linux kernel parameters to be applied to the nodes and all pods running on the nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sysctls GoogleContainerNodePool#sysctls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sysctls GoogleContainerNodePool#sysctls}
         '''
         result = self._values.get("sysctls")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -6504,8 +6540,8 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig:
         hugepage_size2_m: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepage_size_1g GoogleContainerNodePool#hugepage_size_1g}
-        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepage_size_2m GoogleContainerNodePool#hugepage_size_2m}
+        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepage_size_1g GoogleContainerNodePool#hugepage_size_1g}
+        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepage_size_2m GoogleContainerNodePool#hugepage_size_2m}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__483ba27c4de3a3f4602022a1b9e1bd31df133a46b0d9df854d86c5e595b6b52f)
@@ -6521,7 +6557,7 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig:
     def hugepage_size1_g(self) -> typing.Optional[jsii.Number]:
         '''Amount of 1G hugepages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepage_size_1g GoogleContainerNodePool#hugepage_size_1g}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepage_size_1g GoogleContainerNodePool#hugepage_size_1g}
         '''
         result = self._values.get("hugepage_size1_g")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6530,7 +6566,7 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig:
     def hugepage_size2_m(self) -> typing.Optional[jsii.Number]:
         '''Amount of 2M hugepages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepage_size_2m GoogleContainerNodePool#hugepage_size_2m}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepage_size_2m GoogleContainerNodePool#hugepage_size_2m}
         '''
         result = self._values.get("hugepage_size2_m")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6655,8 +6691,8 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
         hugepage_size2_m: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepage_size_1g GoogleContainerNodePool#hugepage_size_1g}
-        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepage_size_2m GoogleContainerNodePool#hugepage_size_2m}
+        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepage_size_1g GoogleContainerNodePool#hugepage_size_1g}
+        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepage_size_2m GoogleContainerNodePool#hugepage_size_2m}
         '''
         value = GoogleContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig(
             hugepage_size1_g=hugepage_size1_g, hugepage_size2_m=hugepage_size2_m
@@ -6752,7 +6788,7 @@ class GoogleContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
 class GoogleContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig:
     def __init__(self, *, local_ssd_count: jsii.Number) -> None:
         '''
-        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b66f8fbe3ccad3b2c26fce5e237aac42e3bc074d8f82d5e1f27974291c0e1e6)
@@ -6767,7 +6803,7 @@ class GoogleContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig:
 
         Each local SSD is 375 GB in size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         assert result is not None, "Required property 'local_ssd_count' is missing"
@@ -6866,14 +6902,17 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         *,
         threads_per_core: jsii.Number,
         enable_nested_virtualization: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        performance_monitoring_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#threads_per_core GoogleContainerNodePool#threads_per_core}
-        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_nested_virtualization GoogleContainerNodePool#enable_nested_virtualization}
+        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#threads_per_core GoogleContainerNodePool#threads_per_core}
+        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_nested_virtualization GoogleContainerNodePool#enable_nested_virtualization}
+        :param performance_monitoring_unit: Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#performance_monitoring_unit GoogleContainerNodePool#performance_monitoring_unit}
         '''
         value = GoogleContainerNodePoolNodeConfigAdvancedMachineFeatures(
             threads_per_core=threads_per_core,
             enable_nested_virtualization=enable_nested_virtualization,
+            performance_monitoring_unit=performance_monitoring_unit,
         )
 
         return typing.cast(None, jsii.invoke(self, "putAdvancedMachineFeatures", [value]))
@@ -6885,7 +6924,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         value = GoogleContainerNodePoolNodeConfigConfidentialNodes(enabled=enabled)
 
@@ -6898,7 +6937,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         private_registry_access_config: typing.Optional[typing.Union[GoogleContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#private_registry_access_config GoogleContainerNodePool#private_registry_access_config}
+        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#private_registry_access_config GoogleContainerNodePool#private_registry_access_config}
         '''
         value = GoogleContainerNodePoolNodeConfigContainerdConfig(
             private_registry_access_config=private_registry_access_config
@@ -6909,7 +6948,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
     @jsii.member(jsii_name="putEphemeralStorageConfig")
     def put_ephemeral_storage_config(self, *, local_ssd_count: jsii.Number) -> None:
         '''
-        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         value = GoogleContainerNodePoolNodeConfigEphemeralStorageConfig(
             local_ssd_count=local_ssd_count
@@ -6925,8 +6964,8 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         data_cache_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
-        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#data_cache_count GoogleContainerNodePool#data_cache_count}
+        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#data_cache_count GoogleContainerNodePool#data_cache_count}
         '''
         value = GoogleContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig(
             local_ssd_count=local_ssd_count, data_cache_count=data_cache_count
@@ -6941,7 +6980,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         value = GoogleContainerNodePoolNodeConfigFastSocket(enabled=enabled)
 
@@ -6954,7 +6993,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         value = GoogleContainerNodePoolNodeConfigGcfsConfig(enabled=enabled)
 
@@ -6980,7 +7019,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         value = GoogleContainerNodePoolNodeConfigGvnic(enabled=enabled)
 
@@ -6993,7 +7032,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         maintenance_interval: builtins.str,
     ) -> None:
         '''
-        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#maintenance_interval GoogleContainerNodePool#maintenance_interval}
+        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#maintenance_interval GoogleContainerNodePool#maintenance_interval}
         '''
         value = GoogleContainerNodePoolNodeConfigHostMaintenancePolicy(
             maintenance_interval=maintenance_interval
@@ -7019,18 +7058,18 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         pod_pids_limit: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#allowed_unsafe_sysctls GoogleContainerNodePool#allowed_unsafe_sysctls}
-        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#container_log_max_files GoogleContainerNodePool#container_log_max_files}
-        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#container_log_max_size GoogleContainerNodePool#container_log_max_size}
-        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_cfs_quota GoogleContainerNodePool#cpu_cfs_quota}
-        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_cfs_quota_period GoogleContainerNodePool#cpu_cfs_quota_period}
-        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cpu_manager_policy GoogleContainerNodePool#cpu_manager_policy}
-        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_gc_high_threshold_percent GoogleContainerNodePool#image_gc_high_threshold_percent}
-        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_gc_low_threshold_percent GoogleContainerNodePool#image_gc_low_threshold_percent}
-        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_maximum_gc_age GoogleContainerNodePool#image_maximum_gc_age}
-        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#image_minimum_gc_age GoogleContainerNodePool#image_minimum_gc_age}
-        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#insecure_kubelet_readonly_port_enabled GoogleContainerNodePool#insecure_kubelet_readonly_port_enabled}
-        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#pod_pids_limit GoogleContainerNodePool#pod_pids_limit}
+        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#allowed_unsafe_sysctls GoogleContainerNodePool#allowed_unsafe_sysctls}
+        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#container_log_max_files GoogleContainerNodePool#container_log_max_files}
+        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#container_log_max_size GoogleContainerNodePool#container_log_max_size}
+        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_cfs_quota GoogleContainerNodePool#cpu_cfs_quota}
+        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_cfs_quota_period GoogleContainerNodePool#cpu_cfs_quota_period}
+        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cpu_manager_policy GoogleContainerNodePool#cpu_manager_policy}
+        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_gc_high_threshold_percent GoogleContainerNodePool#image_gc_high_threshold_percent}
+        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_gc_low_threshold_percent GoogleContainerNodePool#image_gc_low_threshold_percent}
+        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_maximum_gc_age GoogleContainerNodePool#image_maximum_gc_age}
+        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#image_minimum_gc_age GoogleContainerNodePool#image_minimum_gc_age}
+        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#insecure_kubelet_readonly_port_enabled GoogleContainerNodePool#insecure_kubelet_readonly_port_enabled}
+        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#pod_pids_limit GoogleContainerNodePool#pod_pids_limit}
         '''
         value = GoogleContainerNodePoolNodeConfigKubeletConfig(
             allowed_unsafe_sysctls=allowed_unsafe_sysctls,
@@ -7058,9 +7097,9 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         sysctls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#cgroup_mode GoogleContainerNodePool#cgroup_mode}
-        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#hugepages_config GoogleContainerNodePool#hugepages_config}
-        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sysctls GoogleContainerNodePool#sysctls}
+        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#cgroup_mode GoogleContainerNodePool#cgroup_mode}
+        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#hugepages_config GoogleContainerNodePool#hugepages_config}
+        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sysctls GoogleContainerNodePool#sysctls}
         '''
         value = GoogleContainerNodePoolNodeConfigLinuxNodeConfig(
             cgroup_mode=cgroup_mode, hugepages_config=hugepages_config, sysctls=sysctls
@@ -7071,7 +7110,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
     @jsii.member(jsii_name="putLocalNvmeSsdBlockConfig")
     def put_local_nvme_ssd_block_config(self, *, local_ssd_count: jsii.Number) -> None:
         '''
-        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
+        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#local_ssd_count GoogleContainerNodePool#local_ssd_count}
         '''
         value = GoogleContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig(
             local_ssd_count=local_ssd_count
@@ -7088,9 +7127,9 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#consume_reservation_type GoogleContainerNodePool#consume_reservation_type}
-        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
-        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
+        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#consume_reservation_type GoogleContainerNodePool#consume_reservation_type}
+        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
         '''
         value = GoogleContainerNodePoolNodeConfigReservationAffinity(
             consume_reservation_type=consume_reservation_type, key=key, values=values
@@ -7101,7 +7140,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
     @jsii.member(jsii_name="putSandboxConfig")
     def put_sandbox_config(self, *, sandbox_type: builtins.str) -> None:
         '''
-        :param sandbox_type: Type of the sandbox to use for the node (e.g. 'gvisor'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sandbox_type GoogleContainerNodePool#sandbox_type}
+        :param sandbox_type: Type of the sandbox to use for the node (e.g. 'gvisor'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sandbox_type GoogleContainerNodePool#sandbox_type}
         '''
         value = GoogleContainerNodePoolNodeConfigSandboxConfig(
             sandbox_type=sandbox_type
@@ -7130,8 +7169,8 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         enable_secure_boot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_integrity_monitoring GoogleContainerNodePool#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_secure_boot GoogleContainerNodePool#enable_secure_boot}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_integrity_monitoring GoogleContainerNodePool#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_secure_boot GoogleContainerNodePool#enable_secure_boot}
         '''
         value = GoogleContainerNodePoolNodeConfigShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -7147,7 +7186,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         node_affinity: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_affinity GoogleContainerNodePool#node_affinity}
+        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_affinity GoogleContainerNodePool#node_affinity}
         '''
         value = GoogleContainerNodePoolNodeConfigSoleTenantConfig(
             node_affinity=node_affinity
@@ -7175,7 +7214,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
         osversion: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#osversion GoogleContainerNodePool#osversion}
+        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#osversion GoogleContainerNodePool#osversion}
         '''
         value = GoogleContainerNodePoolNodeConfigWindowsNodeConfig(osversion=osversion)
 
@@ -7184,7 +7223,7 @@ class GoogleContainerNodePoolNodeConfigOutputReference(
     @jsii.member(jsii_name="putWorkloadMetadataConfig")
     def put_workload_metadata_config(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
+        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
         '''
         value = GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig(mode=mode)
 
@@ -8116,9 +8155,9 @@ class GoogleContainerNodePoolNodeConfigReservationAffinity:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#consume_reservation_type GoogleContainerNodePool#consume_reservation_type}
-        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
-        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
+        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#consume_reservation_type GoogleContainerNodePool#consume_reservation_type}
+        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4da75a11d74f34a2d86b26a212ef59bbd6ba8b2d25fefa448a97b453892b385e)
@@ -8137,7 +8176,7 @@ class GoogleContainerNodePoolNodeConfigReservationAffinity:
     def consume_reservation_type(self) -> builtins.str:
         '''Corresponds to the type of reservation consumption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#consume_reservation_type GoogleContainerNodePool#consume_reservation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#consume_reservation_type GoogleContainerNodePool#consume_reservation_type}
         '''
         result = self._values.get("consume_reservation_type")
         assert result is not None, "Required property 'consume_reservation_type' is missing"
@@ -8147,7 +8186,7 @@ class GoogleContainerNodePoolNodeConfigReservationAffinity:
     def key(self) -> typing.Optional[builtins.str]:
         '''The label key of a reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8156,7 +8195,7 @@ class GoogleContainerNodePoolNodeConfigReservationAffinity:
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The label values of the reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8278,7 +8317,7 @@ class GoogleContainerNodePoolNodeConfigReservationAffinityOutputReference(
 class GoogleContainerNodePoolNodeConfigSandboxConfig:
     def __init__(self, *, sandbox_type: builtins.str) -> None:
         '''
-        :param sandbox_type: Type of the sandbox to use for the node (e.g. 'gvisor'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sandbox_type GoogleContainerNodePool#sandbox_type}
+        :param sandbox_type: Type of the sandbox to use for the node (e.g. 'gvisor'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sandbox_type GoogleContainerNodePool#sandbox_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d5c575f7ae9cea24a8a831a10c5e8a5e52e78f25b2f52987ac889ff8b42c7d8)
@@ -8291,7 +8330,7 @@ class GoogleContainerNodePoolNodeConfigSandboxConfig:
     def sandbox_type(self) -> builtins.str:
         '''Type of the sandbox to use for the node (e.g. 'gvisor').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#sandbox_type GoogleContainerNodePool#sandbox_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#sandbox_type GoogleContainerNodePool#sandbox_type}
         '''
         result = self._values.get("sandbox_type")
         assert result is not None, "Required property 'sandbox_type' is missing"
@@ -8377,8 +8416,8 @@ class GoogleContainerNodePoolNodeConfigSecondaryBootDisks:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_image: Disk image to create the secondary boot disk from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_image GoogleContainerNodePool#disk_image}
-        :param mode: Mode for how the secondary boot disk is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
+        :param disk_image: Disk image to create the secondary boot disk from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_image GoogleContainerNodePool#disk_image}
+        :param mode: Mode for how the secondary boot disk is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a3ca0b39fabc6d130717f1708a3b55fcb47e12d98b94a845a55129b6b3f5a47)
@@ -8394,7 +8433,7 @@ class GoogleContainerNodePoolNodeConfigSecondaryBootDisks:
     def disk_image(self) -> builtins.str:
         '''Disk image to create the secondary boot disk from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#disk_image GoogleContainerNodePool#disk_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#disk_image GoogleContainerNodePool#disk_image}
         '''
         result = self._values.get("disk_image")
         assert result is not None, "Required property 'disk_image' is missing"
@@ -8404,7 +8443,7 @@ class GoogleContainerNodePoolNodeConfigSecondaryBootDisks:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Mode for how the secondary boot disk is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8612,8 +8651,8 @@ class GoogleContainerNodePoolNodeConfigShieldedInstanceConfig:
         enable_secure_boot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_integrity_monitoring GoogleContainerNodePool#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_secure_boot GoogleContainerNodePool#enable_secure_boot}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_integrity_monitoring GoogleContainerNodePool#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_secure_boot GoogleContainerNodePool#enable_secure_boot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d30d3e12add344b754741b55e899c279f80b43f7669599fa42aa919b682a354)
@@ -8631,7 +8670,7 @@ class GoogleContainerNodePoolNodeConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has integrity monitoring enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_integrity_monitoring GoogleContainerNodePool#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_integrity_monitoring GoogleContainerNodePool#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8642,7 +8681,7 @@ class GoogleContainerNodePoolNodeConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has Secure Boot enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enable_secure_boot GoogleContainerNodePool#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enable_secure_boot GoogleContainerNodePool#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8765,7 +8804,7 @@ class GoogleContainerNodePoolNodeConfigSoleTenantConfig:
         node_affinity: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_affinity GoogleContainerNodePool#node_affinity}
+        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_affinity GoogleContainerNodePool#node_affinity}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2ae0478176e7f4db4874d07c18ecda7da528b7dcf8c5ea47cd93b73940b34af)
@@ -8780,7 +8819,7 @@ class GoogleContainerNodePoolNodeConfigSoleTenantConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity"]]:
         '''node_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_affinity GoogleContainerNodePool#node_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_affinity GoogleContainerNodePool#node_affinity}
         '''
         result = self._values.get("node_affinity")
         assert result is not None, "Required property 'node_affinity' is missing"
@@ -8812,9 +8851,9 @@ class GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
-        :param operator: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#operator GoogleContainerNodePool#operator}
-        :param values: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
+        :param key: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        :param operator: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#operator GoogleContainerNodePool#operator}
+        :param values: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f94a27766ed8ae1f268d91b9c0c6fd2fe102a573dd2a5b5ce130f7a803c8ff8)
@@ -8831,7 +8870,7 @@ class GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
     def key(self) -> builtins.str:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -8841,7 +8880,7 @@ class GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
     def operator(self) -> builtins.str:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#operator GoogleContainerNodePool#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#operator GoogleContainerNodePool#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -8851,7 +8890,7 @@ class GoogleContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
     def values(self) -> typing.List[builtins.str]:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#values GoogleContainerNodePool#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
@@ -9136,9 +9175,9 @@ class GoogleContainerNodePoolNodeConfigTaint:
         value: builtins.str,
     ) -> None:
         '''
-        :param effect: Effect for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#effect GoogleContainerNodePool#effect}
-        :param key: Key for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
-        :param value: Value for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#value GoogleContainerNodePool#value}
+        :param effect: Effect for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#effect GoogleContainerNodePool#effect}
+        :param key: Key for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        :param value: Value for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#value GoogleContainerNodePool#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__224f81127254286dab77b4de47c1b26ca36daf23b5392f6fc288c9950e5e0749)
@@ -9155,7 +9194,7 @@ class GoogleContainerNodePoolNodeConfigTaint:
     def effect(self) -> builtins.str:
         '''Effect for taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#effect GoogleContainerNodePool#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#effect GoogleContainerNodePool#effect}
         '''
         result = self._values.get("effect")
         assert result is not None, "Required property 'effect' is missing"
@@ -9165,7 +9204,7 @@ class GoogleContainerNodePoolNodeConfigTaint:
     def key(self) -> builtins.str:
         '''Key for taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#key GoogleContainerNodePool#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -9175,7 +9214,7 @@ class GoogleContainerNodePoolNodeConfigTaint:
     def value(self) -> builtins.str:
         '''Value for taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#value GoogleContainerNodePool#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#value GoogleContainerNodePool#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -9389,7 +9428,7 @@ class GoogleContainerNodePoolNodeConfigTaintOutputReference(
 class GoogleContainerNodePoolNodeConfigWindowsNodeConfig:
     def __init__(self, *, osversion: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#osversion GoogleContainerNodePool#osversion}
+        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#osversion GoogleContainerNodePool#osversion}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41a5bf48cb6525e6525b18f21a989b089f8ba7491c8ad505113941344e508275)
@@ -9402,7 +9441,7 @@ class GoogleContainerNodePoolNodeConfigWindowsNodeConfig:
     def osversion(self) -> typing.Optional[builtins.str]:
         '''The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#osversion GoogleContainerNodePool#osversion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#osversion GoogleContainerNodePool#osversion}
         '''
         result = self._values.get("osversion")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9486,7 +9525,7 @@ class GoogleContainerNodePoolNodeConfigWindowsNodeConfigOutputReference(
 class GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
+        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b83ab657230f1126004d64d5867a5f41647747550c6d00c4e9ed4c0e2050f56)
@@ -9499,7 +9538,7 @@ class GoogleContainerNodePoolNodeConfigWorkloadMetadataConfig:
     def mode(self) -> builtins.str:
         '''Mode is the configuration for how to expose metadata to workloads running on the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#mode GoogleContainerNodePool#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -9590,9 +9629,9 @@ class GoogleContainerNodePoolPlacementPolicy:
         tpu_topology: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
-        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#policy_name GoogleContainerNodePool#policy_name}
-        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#tpu_topology GoogleContainerNodePool#tpu_topology}
+        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
+        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#policy_name GoogleContainerNodePool#policy_name}
+        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#tpu_topology GoogleContainerNodePool#tpu_topology}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66829d3b46e9e34ed947a48c35f153bcb2495c283653c64d6722bad05fa65f60)
@@ -9611,7 +9650,7 @@ class GoogleContainerNodePoolPlacementPolicy:
     def type(self) -> builtins.str:
         '''Type defines the type of placement policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#type GoogleContainerNodePool#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -9623,7 +9662,7 @@ class GoogleContainerNodePoolPlacementPolicy:
 
         The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#policy_name GoogleContainerNodePool#policy_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#policy_name GoogleContainerNodePool#policy_name}
         '''
         result = self._values.get("policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9632,7 +9671,7 @@ class GoogleContainerNodePoolPlacementPolicy:
     def tpu_topology(self) -> typing.Optional[builtins.str]:
         '''The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#tpu_topology GoogleContainerNodePool#tpu_topology}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#tpu_topology GoogleContainerNodePool#tpu_topology}
         '''
         result = self._values.get("tpu_topology")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9756,7 +9795,7 @@ class GoogleContainerNodePoolQueuedProvisioning:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d778a088e764622c77b7a6a9765085b0a051d37e7519385b82979564bff8c8f6)
@@ -9769,7 +9808,7 @@ class GoogleContainerNodePoolQueuedProvisioning:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#enabled GoogleContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -9861,9 +9900,9 @@ class GoogleContainerNodePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#create GoogleContainerNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#delete GoogleContainerNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#update GoogleContainerNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#create GoogleContainerNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#delete GoogleContainerNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#update GoogleContainerNodePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1ef94cdeb888213f7213948ef71334530b24d3f312bba6b881e35f29e1149fa)
@@ -9880,19 +9919,19 @@ class GoogleContainerNodePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#create GoogleContainerNodePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#create GoogleContainerNodePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#delete GoogleContainerNodePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#delete GoogleContainerNodePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#update GoogleContainerNodePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#update GoogleContainerNodePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10029,10 +10068,10 @@ class GoogleContainerNodePoolUpgradeSettings:
         strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#blue_green_settings GoogleContainerNodePool#blue_green_settings}
-        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_surge GoogleContainerNodePool#max_surge}
-        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_unavailable GoogleContainerNodePool#max_unavailable}
-        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#strategy GoogleContainerNodePool#strategy}
+        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#blue_green_settings GoogleContainerNodePool#blue_green_settings}
+        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_surge GoogleContainerNodePool#max_surge}
+        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_unavailable GoogleContainerNodePool#max_unavailable}
+        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#strategy GoogleContainerNodePool#strategy}
         '''
         if isinstance(blue_green_settings, dict):
             blue_green_settings = GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings(**blue_green_settings)
@@ -10058,7 +10097,7 @@ class GoogleContainerNodePoolUpgradeSettings:
     ) -> typing.Optional["GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings"]:
         '''blue_green_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#blue_green_settings GoogleContainerNodePool#blue_green_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#blue_green_settings GoogleContainerNodePool#blue_green_settings}
         '''
         result = self._values.get("blue_green_settings")
         return typing.cast(typing.Optional["GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings"], result)
@@ -10069,7 +10108,7 @@ class GoogleContainerNodePoolUpgradeSettings:
 
         Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_surge GoogleContainerNodePool#max_surge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_surge GoogleContainerNodePool#max_surge}
         '''
         result = self._values.get("max_surge")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10080,7 +10119,7 @@ class GoogleContainerNodePoolUpgradeSettings:
 
         Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#max_unavailable GoogleContainerNodePool#max_unavailable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#max_unavailable GoogleContainerNodePool#max_unavailable}
         '''
         result = self._values.get("max_unavailable")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10089,7 +10128,7 @@ class GoogleContainerNodePoolUpgradeSettings:
     def strategy(self) -> typing.Optional[builtins.str]:
         '''Update strategy for the given nodepool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#strategy GoogleContainerNodePool#strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#strategy GoogleContainerNodePool#strategy}
         '''
         result = self._values.get("strategy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10122,8 +10161,8 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings:
         node_pool_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#standard_rollout_policy GoogleContainerNodePool#standard_rollout_policy}
-        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_pool_soak_duration GoogleContainerNodePool#node_pool_soak_duration}
+        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#standard_rollout_policy GoogleContainerNodePool#standard_rollout_policy}
+        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_pool_soak_duration GoogleContainerNodePool#node_pool_soak_duration}
         '''
         if isinstance(standard_rollout_policy, dict):
             standard_rollout_policy = GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy(**standard_rollout_policy)
@@ -10143,7 +10182,7 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings:
     ) -> "GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy":
         '''standard_rollout_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#standard_rollout_policy GoogleContainerNodePool#standard_rollout_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#standard_rollout_policy GoogleContainerNodePool#standard_rollout_policy}
         '''
         result = self._values.get("standard_rollout_policy")
         assert result is not None, "Required property 'standard_rollout_policy' is missing"
@@ -10153,7 +10192,7 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings:
     def node_pool_soak_duration(self) -> typing.Optional[builtins.str]:
         '''Time needed after draining entire blue pool. After this period, blue pool will be cleaned up.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_pool_soak_duration GoogleContainerNodePool#node_pool_soak_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_pool_soak_duration GoogleContainerNodePool#node_pool_soak_duration}
         '''
         result = self._values.get("node_pool_soak_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10199,9 +10238,9 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsOutputReference(
         batch_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_node_count GoogleContainerNodePool#batch_node_count}
-        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_percentage GoogleContainerNodePool#batch_percentage}
-        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_soak_duration GoogleContainerNodePool#batch_soak_duration}
+        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_node_count GoogleContainerNodePool#batch_node_count}
+        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_percentage GoogleContainerNodePool#batch_percentage}
+        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_soak_duration GoogleContainerNodePool#batch_soak_duration}
         '''
         value = GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy(
             batch_node_count=batch_node_count,
@@ -10282,9 +10321,9 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPoli
         batch_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_node_count GoogleContainerNodePool#batch_node_count}
-        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_percentage GoogleContainerNodePool#batch_percentage}
-        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_soak_duration GoogleContainerNodePool#batch_soak_duration}
+        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_node_count GoogleContainerNodePool#batch_node_count}
+        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_percentage GoogleContainerNodePool#batch_percentage}
+        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_soak_duration GoogleContainerNodePool#batch_soak_duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfdea5ffda802d3bbb187f7224742a81e717e91a5ac5633bd713ccf96777649a)
@@ -10303,7 +10342,7 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPoli
     def batch_node_count(self) -> typing.Optional[jsii.Number]:
         '''Number of blue nodes to drain in a batch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_node_count GoogleContainerNodePool#batch_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_node_count GoogleContainerNodePool#batch_node_count}
         '''
         result = self._values.get("batch_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10312,7 +10351,7 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPoli
     def batch_percentage(self) -> typing.Optional[jsii.Number]:
         '''Percentage of the blue pool nodes to drain in a batch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_percentage GoogleContainerNodePool#batch_percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_percentage GoogleContainerNodePool#batch_percentage}
         '''
         result = self._values.get("batch_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10321,7 +10360,7 @@ class GoogleContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPoli
     def batch_soak_duration(self) -> typing.Optional[builtins.str]:
         '''Soak time after each batch gets drained.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#batch_soak_duration GoogleContainerNodePool#batch_soak_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#batch_soak_duration GoogleContainerNodePool#batch_soak_duration}
         '''
         result = self._values.get("batch_soak_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10467,8 +10506,8 @@ class GoogleContainerNodePoolUpgradeSettingsOutputReference(
         node_pool_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#standard_rollout_policy GoogleContainerNodePool#standard_rollout_policy}
-        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_node_pool#node_pool_soak_duration GoogleContainerNodePool#node_pool_soak_duration}
+        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#standard_rollout_policy GoogleContainerNodePool#standard_rollout_policy}
+        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_node_pool#node_pool_soak_duration GoogleContainerNodePool#node_pool_soak_duration}
         '''
         value = GoogleContainerNodePoolUpgradeSettingsBlueGreenSettings(
             standard_rollout_policy=standard_rollout_policy,
@@ -11225,6 +11264,7 @@ def _typecheckingstub__b84ff91dc1576bbc9fd54614b903df3470b664e8a73f1347af0ad7780
     *,
     threads_per_core: jsii.Number,
     enable_nested_virtualization: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    performance_monitoring_unit: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11238,6 +11278,12 @@ def _typecheckingstub__95636e02825a991f3f7147686878ebe9b25d0c3b188f89a60c85ccb46
 
 def _typecheckingstub__ca58f258a30281aa3abb57e3578ef76d20525330df9feb8cd537c6a1df05930e(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__992c6994e5d1b1926f030993b2f64634097b763a3a66cc6e49c0aae95ca73627(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

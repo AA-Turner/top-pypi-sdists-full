@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: caldav
-Version: 2.0.0
+Version: 2.0.1
 Summary: CalDAV (RFC4791) client library
 Project-URL: Repository, https://github.com/python-caldav/caldav
 Project-URL: Issues, https://github.com/python-caldav/caldav/issues
@@ -25,8 +25,8 @@ Classifier: Topic :: Office/Business :: Scheduling
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: icalendar>6.0.0
 Requires-Dist: lxml
-Requires-Dist: niquests
 Requires-Dist: recurring-ical-events>=2.0.0
+Requires-Dist: requests
 Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'

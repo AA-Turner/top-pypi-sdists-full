@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_connection`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_connection`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection).
+Refer to the Terraform Registry for docs: [`google_bigquery_connection`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleBigqueryConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBigqueryConnection.GoogleBigqueryConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection google_bigquery_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection google_bigquery_connection}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class GoogleBigqueryConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection google_bigquery_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection google_bigquery_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#aws GoogleBigqueryConnection#aws}
-        :param azure: azure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#azure GoogleBigqueryConnection#azure}
-        :param cloud_resource: cloud_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_resource GoogleBigqueryConnection#cloud_resource}
-        :param cloud_spanner: cloud_spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_spanner GoogleBigqueryConnection#cloud_spanner}
-        :param cloud_sql: cloud_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_sql GoogleBigqueryConnection#cloud_sql}
-        :param connection_id: Optional connection id that should be assigned to the created connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#connection_id GoogleBigqueryConnection#connection_id}
-        :param description: A descriptive description for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#description GoogleBigqueryConnection#description}
-        :param friendly_name: A descriptive name for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#friendly_name GoogleBigqueryConnection#friendly_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#id GoogleBigqueryConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: Optional. The Cloud KMS key that is used for encryption. Example: projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#kms_key_name GoogleBigqueryConnection#kms_key_name}
-        :param location: The geographic location where the connection should reside. Cloud SQL instance must be in the same location as the connection with following exceptions: Cloud SQL us-central1 maps to BigQuery US, Cloud SQL europe-west1 maps to BigQuery EU. Examples: US, EU, asia-northeast1, us-central1, europe-west1. Spanner Connections same as spanner region AWS allowed regions are aws-us-east-1 Azure allowed regions are azure-eastus2 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#location GoogleBigqueryConnection#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#project GoogleBigqueryConnection#project}.
-        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#spark GoogleBigqueryConnection#spark}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#timeouts GoogleBigqueryConnection#timeouts}
+        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#aws GoogleBigqueryConnection#aws}
+        :param azure: azure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#azure GoogleBigqueryConnection#azure}
+        :param cloud_resource: cloud_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_resource GoogleBigqueryConnection#cloud_resource}
+        :param cloud_spanner: cloud_spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_spanner GoogleBigqueryConnection#cloud_spanner}
+        :param cloud_sql: cloud_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_sql GoogleBigqueryConnection#cloud_sql}
+        :param connection_id: Optional connection id that should be assigned to the created connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#connection_id GoogleBigqueryConnection#connection_id}
+        :param description: A descriptive description for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#description GoogleBigqueryConnection#description}
+        :param friendly_name: A descriptive name for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#friendly_name GoogleBigqueryConnection#friendly_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#id GoogleBigqueryConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: Optional. The Cloud KMS key that is used for encryption. Example: projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#kms_key_name GoogleBigqueryConnection#kms_key_name}
+        :param location: The geographic location where the connection should reside. Cloud SQL instance must be in the same location as the connection with following exceptions: Cloud SQL us-central1 maps to BigQuery US, Cloud SQL europe-west1 maps to BigQuery EU. Examples: US, EU, asia-northeast1, us-central1, europe-west1. Spanner Connections same as spanner region AWS allowed regions are aws-us-east-1 Azure allowed regions are azure-eastus2 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#location GoogleBigqueryConnection#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#project GoogleBigqueryConnection#project}.
+        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#spark GoogleBigqueryConnection#spark}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#timeouts GoogleBigqueryConnection#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class GoogleBigqueryConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBigqueryConnection to import.
-        :param import_from_id: The id of the existing GoogleBigqueryConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBigqueryConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBigqueryConnection to import is found.
         '''
         if __debug__:
@@ -160,7 +160,7 @@ class GoogleBigqueryConnection(
         access_role: typing.Union["GoogleBigqueryConnectionAwsAccessRole", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param access_role: access_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#access_role GoogleBigqueryConnection#access_role}
+        :param access_role: access_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#access_role GoogleBigqueryConnection#access_role}
         '''
         value = GoogleBigqueryConnectionAws(access_role=access_role)
 
@@ -174,8 +174,8 @@ class GoogleBigqueryConnection(
         federated_application_client_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param customer_tenant_id: The id of customer's directory that host the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#customer_tenant_id GoogleBigqueryConnection#customer_tenant_id}
-        :param federated_application_client_id: The Azure Application (client) ID where the federated credentials will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#federated_application_client_id GoogleBigqueryConnection#federated_application_client_id}
+        :param customer_tenant_id: The id of customer's directory that host the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#customer_tenant_id GoogleBigqueryConnection#customer_tenant_id}
+        :param federated_application_client_id: The Azure Application (client) ID where the federated credentials will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#federated_application_client_id GoogleBigqueryConnection#federated_application_client_id}
         '''
         value = GoogleBigqueryConnectionAzure(
             customer_tenant_id=customer_tenant_id,
@@ -202,12 +202,12 @@ class GoogleBigqueryConnection(
         use_serverless_analytics: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database: Cloud Spanner database in the form 'project/instance/database'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
-        :param database_role: Cloud Spanner database role for fine-grained access control. The Cloud Spanner admin should have provisioned the database role with appropriate permissions, such as 'SELECT' and 'INSERT'. Other users should only use roles provided by their Cloud Spanner admins. The database role name must start with a letter, and can only contain letters, numbers, and underscores. For more details, see https://cloud.google.com/spanner/docs/fgac-about. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database_role GoogleBigqueryConnection#database_role}
-        :param max_parallelism: Allows setting max parallelism per query when executing on Spanner independent compute resources. If unspecified, default values of parallelism are chosen that are dependent on the Cloud Spanner instance configuration. 'useParallelism' and 'useDataBoost' must be set when setting max parallelism. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#max_parallelism GoogleBigqueryConnection#max_parallelism}
-        :param use_data_boost: If set, the request will be executed via Spanner independent compute resources. 'use_parallelism' must be set when using data boost. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_data_boost GoogleBigqueryConnection#use_data_boost}
-        :param use_parallelism: If parallelism should be used when reading from Cloud Spanner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_parallelism GoogleBigqueryConnection#use_parallelism}
-        :param use_serverless_analytics: If the serverless analytics service should be used to read data from Cloud Spanner. 'useParallelism' must be set when using serverless analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_serverless_analytics GoogleBigqueryConnection#use_serverless_analytics}
+        :param database: Cloud Spanner database in the form 'project/instance/database'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
+        :param database_role: Cloud Spanner database role for fine-grained access control. The Cloud Spanner admin should have provisioned the database role with appropriate permissions, such as 'SELECT' and 'INSERT'. Other users should only use roles provided by their Cloud Spanner admins. The database role name must start with a letter, and can only contain letters, numbers, and underscores. For more details, see https://cloud.google.com/spanner/docs/fgac-about. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database_role GoogleBigqueryConnection#database_role}
+        :param max_parallelism: Allows setting max parallelism per query when executing on Spanner independent compute resources. If unspecified, default values of parallelism are chosen that are dependent on the Cloud Spanner instance configuration. 'useParallelism' and 'useDataBoost' must be set when setting max parallelism. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#max_parallelism GoogleBigqueryConnection#max_parallelism}
+        :param use_data_boost: If set, the request will be executed via Spanner independent compute resources. 'use_parallelism' must be set when using data boost. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_data_boost GoogleBigqueryConnection#use_data_boost}
+        :param use_parallelism: If parallelism should be used when reading from Cloud Spanner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_parallelism GoogleBigqueryConnection#use_parallelism}
+        :param use_serverless_analytics: If the serverless analytics service should be used to read data from Cloud Spanner. 'useParallelism' must be set when using serverless analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_serverless_analytics GoogleBigqueryConnection#use_serverless_analytics}
         '''
         value = GoogleBigqueryConnectionCloudSpanner(
             database=database,
@@ -230,10 +230,10 @@ class GoogleBigqueryConnection(
         type: builtins.str,
     ) -> None:
         '''
-        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#credential GoogleBigqueryConnection#credential}
-        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
-        :param instance_id: Cloud SQL instance ID in the form project:location:instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#instance_id GoogleBigqueryConnection#instance_id}
-        :param type: Type of the Cloud SQL database. Possible values: ["DATABASE_TYPE_UNSPECIFIED", "POSTGRES", "MYSQL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#type GoogleBigqueryConnection#type}
+        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#credential GoogleBigqueryConnection#credential}
+        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
+        :param instance_id: Cloud SQL instance ID in the form project:location:instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#instance_id GoogleBigqueryConnection#instance_id}
+        :param type: Type of the Cloud SQL database. Possible values: ["DATABASE_TYPE_UNSPECIFIED", "POSTGRES", "MYSQL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#type GoogleBigqueryConnection#type}
         '''
         value = GoogleBigqueryConnectionCloudSql(
             credential=credential,
@@ -252,8 +252,8 @@ class GoogleBigqueryConnection(
         spark_history_server_config: typing.Optional[typing.Union["GoogleBigqueryConnectionSparkSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_service_config: metastore_service_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#metastore_service_config GoogleBigqueryConnection#metastore_service_config}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#spark_history_server_config GoogleBigqueryConnection#spark_history_server_config}
+        :param metastore_service_config: metastore_service_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#metastore_service_config GoogleBigqueryConnection#metastore_service_config}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#spark_history_server_config GoogleBigqueryConnection#spark_history_server_config}
         '''
         value = GoogleBigqueryConnectionSpark(
             metastore_service_config=metastore_service_config,
@@ -271,9 +271,9 @@ class GoogleBigqueryConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#create GoogleBigqueryConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#delete GoogleBigqueryConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#update GoogleBigqueryConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#create GoogleBigqueryConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#delete GoogleBigqueryConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#update GoogleBigqueryConnection#update}.
         '''
         value = GoogleBigqueryConnectionTimeouts(
             create=create, delete=delete, update=update
@@ -568,7 +568,7 @@ class GoogleBigqueryConnectionAws:
         access_role: typing.Union["GoogleBigqueryConnectionAwsAccessRole", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param access_role: access_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#access_role GoogleBigqueryConnection#access_role}
+        :param access_role: access_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#access_role GoogleBigqueryConnection#access_role}
         '''
         if isinstance(access_role, dict):
             access_role = GoogleBigqueryConnectionAwsAccessRole(**access_role)
@@ -583,7 +583,7 @@ class GoogleBigqueryConnectionAws:
     def access_role(self) -> "GoogleBigqueryConnectionAwsAccessRole":
         '''access_role block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#access_role GoogleBigqueryConnection#access_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#access_role GoogleBigqueryConnection#access_role}
         '''
         result = self._values.get("access_role")
         assert result is not None, "Required property 'access_role' is missing"
@@ -609,7 +609,7 @@ class GoogleBigqueryConnectionAws:
 class GoogleBigqueryConnectionAwsAccessRole:
     def __init__(self, *, iam_role_id: builtins.str) -> None:
         '''
-        :param iam_role_id: The user’s AWS IAM Role that trusts the Google-owned AWS IAM user Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#iam_role_id GoogleBigqueryConnection#iam_role_id}
+        :param iam_role_id: The user’s AWS IAM Role that trusts the Google-owned AWS IAM user Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#iam_role_id GoogleBigqueryConnection#iam_role_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41252fb7faf88a9032526b9e528602d70844b5d03300ad744e4a059f89dde696)
@@ -622,7 +622,7 @@ class GoogleBigqueryConnectionAwsAccessRole:
     def iam_role_id(self) -> builtins.str:
         '''The user’s AWS IAM Role that trusts the Google-owned AWS IAM user Connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#iam_role_id GoogleBigqueryConnection#iam_role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#iam_role_id GoogleBigqueryConnection#iam_role_id}
         '''
         result = self._values.get("iam_role_id")
         assert result is not None, "Required property 'iam_role_id' is missing"
@@ -721,7 +721,7 @@ class GoogleBigqueryConnectionAwsOutputReference(
     @jsii.member(jsii_name="putAccessRole")
     def put_access_role(self, *, iam_role_id: builtins.str) -> None:
         '''
-        :param iam_role_id: The user’s AWS IAM Role that trusts the Google-owned AWS IAM user Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#iam_role_id GoogleBigqueryConnection#iam_role_id}
+        :param iam_role_id: The user’s AWS IAM Role that trusts the Google-owned AWS IAM user Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#iam_role_id GoogleBigqueryConnection#iam_role_id}
         '''
         value = GoogleBigqueryConnectionAwsAccessRole(iam_role_id=iam_role_id)
 
@@ -771,8 +771,8 @@ class GoogleBigqueryConnectionAzure:
         federated_application_client_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param customer_tenant_id: The id of customer's directory that host the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#customer_tenant_id GoogleBigqueryConnection#customer_tenant_id}
-        :param federated_application_client_id: The Azure Application (client) ID where the federated credentials will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#federated_application_client_id GoogleBigqueryConnection#federated_application_client_id}
+        :param customer_tenant_id: The id of customer's directory that host the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#customer_tenant_id GoogleBigqueryConnection#customer_tenant_id}
+        :param federated_application_client_id: The Azure Application (client) ID where the federated credentials will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#federated_application_client_id GoogleBigqueryConnection#federated_application_client_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8187122932c0e3d7d7dac947a7f806302b50769c221599b672aca0089a4c5313)
@@ -788,7 +788,7 @@ class GoogleBigqueryConnectionAzure:
     def customer_tenant_id(self) -> builtins.str:
         '''The id of customer's directory that host the data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#customer_tenant_id GoogleBigqueryConnection#customer_tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#customer_tenant_id GoogleBigqueryConnection#customer_tenant_id}
         '''
         result = self._values.get("customer_tenant_id")
         assert result is not None, "Required property 'customer_tenant_id' is missing"
@@ -798,7 +798,7 @@ class GoogleBigqueryConnectionAzure:
     def federated_application_client_id(self) -> typing.Optional[builtins.str]:
         '''The Azure Application (client) ID where the federated credentials will be hosted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#federated_application_client_id GoogleBigqueryConnection#federated_application_client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#federated_application_client_id GoogleBigqueryConnection#federated_application_client_id}
         '''
         result = self._values.get("federated_application_client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1000,12 +1000,12 @@ class GoogleBigqueryConnectionCloudSpanner:
         use_serverless_analytics: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database: Cloud Spanner database in the form 'project/instance/database'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
-        :param database_role: Cloud Spanner database role for fine-grained access control. The Cloud Spanner admin should have provisioned the database role with appropriate permissions, such as 'SELECT' and 'INSERT'. Other users should only use roles provided by their Cloud Spanner admins. The database role name must start with a letter, and can only contain letters, numbers, and underscores. For more details, see https://cloud.google.com/spanner/docs/fgac-about. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database_role GoogleBigqueryConnection#database_role}
-        :param max_parallelism: Allows setting max parallelism per query when executing on Spanner independent compute resources. If unspecified, default values of parallelism are chosen that are dependent on the Cloud Spanner instance configuration. 'useParallelism' and 'useDataBoost' must be set when setting max parallelism. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#max_parallelism GoogleBigqueryConnection#max_parallelism}
-        :param use_data_boost: If set, the request will be executed via Spanner independent compute resources. 'use_parallelism' must be set when using data boost. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_data_boost GoogleBigqueryConnection#use_data_boost}
-        :param use_parallelism: If parallelism should be used when reading from Cloud Spanner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_parallelism GoogleBigqueryConnection#use_parallelism}
-        :param use_serverless_analytics: If the serverless analytics service should be used to read data from Cloud Spanner. 'useParallelism' must be set when using serverless analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_serverless_analytics GoogleBigqueryConnection#use_serverless_analytics}
+        :param database: Cloud Spanner database in the form 'project/instance/database'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
+        :param database_role: Cloud Spanner database role for fine-grained access control. The Cloud Spanner admin should have provisioned the database role with appropriate permissions, such as 'SELECT' and 'INSERT'. Other users should only use roles provided by their Cloud Spanner admins. The database role name must start with a letter, and can only contain letters, numbers, and underscores. For more details, see https://cloud.google.com/spanner/docs/fgac-about. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database_role GoogleBigqueryConnection#database_role}
+        :param max_parallelism: Allows setting max parallelism per query when executing on Spanner independent compute resources. If unspecified, default values of parallelism are chosen that are dependent on the Cloud Spanner instance configuration. 'useParallelism' and 'useDataBoost' must be set when setting max parallelism. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#max_parallelism GoogleBigqueryConnection#max_parallelism}
+        :param use_data_boost: If set, the request will be executed via Spanner independent compute resources. 'use_parallelism' must be set when using data boost. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_data_boost GoogleBigqueryConnection#use_data_boost}
+        :param use_parallelism: If parallelism should be used when reading from Cloud Spanner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_parallelism GoogleBigqueryConnection#use_parallelism}
+        :param use_serverless_analytics: If the serverless analytics service should be used to read data from Cloud Spanner. 'useParallelism' must be set when using serverless analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_serverless_analytics GoogleBigqueryConnection#use_serverless_analytics}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__439ae9e6c8e71d7d0cd428fa69c11a650b1a657f1ebeed802605035f5fa10bac)
@@ -1033,7 +1033,7 @@ class GoogleBigqueryConnectionCloudSpanner:
     def database(self) -> builtins.str:
         '''Cloud Spanner database in the form 'project/instance/database'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -1045,7 +1045,7 @@ class GoogleBigqueryConnectionCloudSpanner:
 
         The Cloud Spanner admin should have provisioned the database role with appropriate permissions, such as 'SELECT' and 'INSERT'. Other users should only use roles provided by their Cloud Spanner admins. The database role name must start with a letter, and can only contain letters, numbers, and underscores. For more details, see https://cloud.google.com/spanner/docs/fgac-about.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database_role GoogleBigqueryConnection#database_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database_role GoogleBigqueryConnection#database_role}
         '''
         result = self._values.get("database_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1056,7 +1056,7 @@ class GoogleBigqueryConnectionCloudSpanner:
 
         If unspecified, default values of parallelism are chosen that are dependent on the Cloud Spanner instance configuration. 'useParallelism' and 'useDataBoost' must be set when setting max parallelism.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#max_parallelism GoogleBigqueryConnection#max_parallelism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#max_parallelism GoogleBigqueryConnection#max_parallelism}
         '''
         result = self._values.get("max_parallelism")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1069,7 +1069,7 @@ class GoogleBigqueryConnectionCloudSpanner:
 
         'use_parallelism' must be set when using data boost.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_data_boost GoogleBigqueryConnection#use_data_boost}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_data_boost GoogleBigqueryConnection#use_data_boost}
         '''
         result = self._values.get("use_data_boost")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1080,7 +1080,7 @@ class GoogleBigqueryConnectionCloudSpanner:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If parallelism should be used when reading from Cloud Spanner.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_parallelism GoogleBigqueryConnection#use_parallelism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_parallelism GoogleBigqueryConnection#use_parallelism}
         '''
         result = self._values.get("use_parallelism")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1093,7 +1093,7 @@ class GoogleBigqueryConnectionCloudSpanner:
 
         'useParallelism' must be set when using serverless analytics.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#use_serverless_analytics GoogleBigqueryConnection#use_serverless_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#use_serverless_analytics GoogleBigqueryConnection#use_serverless_analytics}
         '''
         result = self._values.get("use_serverless_analytics")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1309,10 +1309,10 @@ class GoogleBigqueryConnectionCloudSql:
         type: builtins.str,
     ) -> None:
         '''
-        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#credential GoogleBigqueryConnection#credential}
-        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
-        :param instance_id: Cloud SQL instance ID in the form project:location:instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#instance_id GoogleBigqueryConnection#instance_id}
-        :param type: Type of the Cloud SQL database. Possible values: ["DATABASE_TYPE_UNSPECIFIED", "POSTGRES", "MYSQL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#type GoogleBigqueryConnection#type}
+        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#credential GoogleBigqueryConnection#credential}
+        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
+        :param instance_id: Cloud SQL instance ID in the form project:location:instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#instance_id GoogleBigqueryConnection#instance_id}
+        :param type: Type of the Cloud SQL database. Possible values: ["DATABASE_TYPE_UNSPECIFIED", "POSTGRES", "MYSQL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#type GoogleBigqueryConnection#type}
         '''
         if isinstance(credential, dict):
             credential = GoogleBigqueryConnectionCloudSqlCredential(**credential)
@@ -1333,7 +1333,7 @@ class GoogleBigqueryConnectionCloudSql:
     def credential(self) -> "GoogleBigqueryConnectionCloudSqlCredential":
         '''credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#credential GoogleBigqueryConnection#credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#credential GoogleBigqueryConnection#credential}
         '''
         result = self._values.get("credential")
         assert result is not None, "Required property 'credential' is missing"
@@ -1343,7 +1343,7 @@ class GoogleBigqueryConnectionCloudSql:
     def database(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#database GoogleBigqueryConnection#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -1353,7 +1353,7 @@ class GoogleBigqueryConnectionCloudSql:
     def instance_id(self) -> builtins.str:
         '''Cloud SQL instance ID in the form project:location:instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#instance_id GoogleBigqueryConnection#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#instance_id GoogleBigqueryConnection#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -1363,7 +1363,7 @@ class GoogleBigqueryConnectionCloudSql:
     def type(self) -> builtins.str:
         '''Type of the Cloud SQL database. Possible values: ["DATABASE_TYPE_UNSPECIFIED", "POSTGRES", "MYSQL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#type GoogleBigqueryConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#type GoogleBigqueryConnection#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1389,8 +1389,8 @@ class GoogleBigqueryConnectionCloudSql:
 class GoogleBigqueryConnectionCloudSqlCredential:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Password for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#password GoogleBigqueryConnection#password}
-        :param username: Username for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#username GoogleBigqueryConnection#username}
+        :param password: Password for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#password GoogleBigqueryConnection#password}
+        :param username: Username for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#username GoogleBigqueryConnection#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__710ed01888f92e2f079c66bc461dea61426ccc901ee76ee01a3cdde4487cb101)
@@ -1405,7 +1405,7 @@ class GoogleBigqueryConnectionCloudSqlCredential:
     def password(self) -> builtins.str:
         '''Password for database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#password GoogleBigqueryConnection#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#password GoogleBigqueryConnection#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -1415,7 +1415,7 @@ class GoogleBigqueryConnectionCloudSqlCredential:
     def username(self) -> builtins.str:
         '''Username for database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#username GoogleBigqueryConnection#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#username GoogleBigqueryConnection#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1528,8 +1528,8 @@ class GoogleBigqueryConnectionCloudSqlOutputReference(
     @jsii.member(jsii_name="putCredential")
     def put_credential(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Password for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#password GoogleBigqueryConnection#password}
-        :param username: Username for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#username GoogleBigqueryConnection#username}
+        :param password: Password for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#password GoogleBigqueryConnection#password}
+        :param username: Username for database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#username GoogleBigqueryConnection#username}
         '''
         value = GoogleBigqueryConnectionCloudSqlCredential(
             password=password, username=username
@@ -1682,20 +1682,20 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#aws GoogleBigqueryConnection#aws}
-        :param azure: azure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#azure GoogleBigqueryConnection#azure}
-        :param cloud_resource: cloud_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_resource GoogleBigqueryConnection#cloud_resource}
-        :param cloud_spanner: cloud_spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_spanner GoogleBigqueryConnection#cloud_spanner}
-        :param cloud_sql: cloud_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_sql GoogleBigqueryConnection#cloud_sql}
-        :param connection_id: Optional connection id that should be assigned to the created connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#connection_id GoogleBigqueryConnection#connection_id}
-        :param description: A descriptive description for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#description GoogleBigqueryConnection#description}
-        :param friendly_name: A descriptive name for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#friendly_name GoogleBigqueryConnection#friendly_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#id GoogleBigqueryConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: Optional. The Cloud KMS key that is used for encryption. Example: projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#kms_key_name GoogleBigqueryConnection#kms_key_name}
-        :param location: The geographic location where the connection should reside. Cloud SQL instance must be in the same location as the connection with following exceptions: Cloud SQL us-central1 maps to BigQuery US, Cloud SQL europe-west1 maps to BigQuery EU. Examples: US, EU, asia-northeast1, us-central1, europe-west1. Spanner Connections same as spanner region AWS allowed regions are aws-us-east-1 Azure allowed regions are azure-eastus2 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#location GoogleBigqueryConnection#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#project GoogleBigqueryConnection#project}.
-        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#spark GoogleBigqueryConnection#spark}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#timeouts GoogleBigqueryConnection#timeouts}
+        :param aws: aws block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#aws GoogleBigqueryConnection#aws}
+        :param azure: azure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#azure GoogleBigqueryConnection#azure}
+        :param cloud_resource: cloud_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_resource GoogleBigqueryConnection#cloud_resource}
+        :param cloud_spanner: cloud_spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_spanner GoogleBigqueryConnection#cloud_spanner}
+        :param cloud_sql: cloud_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_sql GoogleBigqueryConnection#cloud_sql}
+        :param connection_id: Optional connection id that should be assigned to the created connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#connection_id GoogleBigqueryConnection#connection_id}
+        :param description: A descriptive description for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#description GoogleBigqueryConnection#description}
+        :param friendly_name: A descriptive name for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#friendly_name GoogleBigqueryConnection#friendly_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#id GoogleBigqueryConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: Optional. The Cloud KMS key that is used for encryption. Example: projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#kms_key_name GoogleBigqueryConnection#kms_key_name}
+        :param location: The geographic location where the connection should reside. Cloud SQL instance must be in the same location as the connection with following exceptions: Cloud SQL us-central1 maps to BigQuery US, Cloud SQL europe-west1 maps to BigQuery EU. Examples: US, EU, asia-northeast1, us-central1, europe-west1. Spanner Connections same as spanner region AWS allowed regions are aws-us-east-1 Azure allowed regions are azure-eastus2 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#location GoogleBigqueryConnection#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#project GoogleBigqueryConnection#project}.
+        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#spark GoogleBigqueryConnection#spark}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#timeouts GoogleBigqueryConnection#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1848,7 +1848,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws(self) -> typing.Optional[GoogleBigqueryConnectionAws]:
         '''aws block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#aws GoogleBigqueryConnection#aws}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#aws GoogleBigqueryConnection#aws}
         '''
         result = self._values.get("aws")
         return typing.cast(typing.Optional[GoogleBigqueryConnectionAws], result)
@@ -1857,7 +1857,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def azure(self) -> typing.Optional[GoogleBigqueryConnectionAzure]:
         '''azure block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#azure GoogleBigqueryConnection#azure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#azure GoogleBigqueryConnection#azure}
         '''
         result = self._values.get("azure")
         return typing.cast(typing.Optional[GoogleBigqueryConnectionAzure], result)
@@ -1866,7 +1866,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_resource(self) -> typing.Optional[GoogleBigqueryConnectionCloudResource]:
         '''cloud_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_resource GoogleBigqueryConnection#cloud_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_resource GoogleBigqueryConnection#cloud_resource}
         '''
         result = self._values.get("cloud_resource")
         return typing.cast(typing.Optional[GoogleBigqueryConnectionCloudResource], result)
@@ -1875,7 +1875,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_spanner(self) -> typing.Optional[GoogleBigqueryConnectionCloudSpanner]:
         '''cloud_spanner block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_spanner GoogleBigqueryConnection#cloud_spanner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_spanner GoogleBigqueryConnection#cloud_spanner}
         '''
         result = self._values.get("cloud_spanner")
         return typing.cast(typing.Optional[GoogleBigqueryConnectionCloudSpanner], result)
@@ -1884,7 +1884,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_sql(self) -> typing.Optional[GoogleBigqueryConnectionCloudSql]:
         '''cloud_sql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#cloud_sql GoogleBigqueryConnection#cloud_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#cloud_sql GoogleBigqueryConnection#cloud_sql}
         '''
         result = self._values.get("cloud_sql")
         return typing.cast(typing.Optional[GoogleBigqueryConnectionCloudSql], result)
@@ -1893,7 +1893,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connection_id(self) -> typing.Optional[builtins.str]:
         '''Optional connection id that should be assigned to the created connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#connection_id GoogleBigqueryConnection#connection_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#connection_id GoogleBigqueryConnection#connection_id}
         '''
         result = self._values.get("connection_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1902,7 +1902,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A descriptive description for the connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#description GoogleBigqueryConnection#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#description GoogleBigqueryConnection#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1911,14 +1911,14 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def friendly_name(self) -> typing.Optional[builtins.str]:
         '''A descriptive name for the connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#friendly_name GoogleBigqueryConnection#friendly_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#friendly_name GoogleBigqueryConnection#friendly_name}
         '''
         result = self._values.get("friendly_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#id GoogleBigqueryConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#id GoogleBigqueryConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1932,7 +1932,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Example: projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#kms_key_name GoogleBigqueryConnection#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#kms_key_name GoogleBigqueryConnection#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1948,14 +1948,14 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         AWS allowed regions are aws-us-east-1
         Azure allowed regions are azure-eastus2
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#location GoogleBigqueryConnection#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#location GoogleBigqueryConnection#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#project GoogleBigqueryConnection#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#project GoogleBigqueryConnection#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1963,7 +1963,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark(self) -> typing.Optional["GoogleBigqueryConnectionSpark"]:
         '''spark block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#spark GoogleBigqueryConnection#spark}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#spark GoogleBigqueryConnection#spark}
         '''
         result = self._values.get("spark")
         return typing.cast(typing.Optional["GoogleBigqueryConnectionSpark"], result)
@@ -1972,7 +1972,7 @@ class GoogleBigqueryConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleBigqueryConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#timeouts GoogleBigqueryConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#timeouts GoogleBigqueryConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleBigqueryConnectionTimeouts"], result)
@@ -2005,8 +2005,8 @@ class GoogleBigqueryConnectionSpark:
         spark_history_server_config: typing.Optional[typing.Union["GoogleBigqueryConnectionSparkSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_service_config: metastore_service_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#metastore_service_config GoogleBigqueryConnection#metastore_service_config}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#spark_history_server_config GoogleBigqueryConnection#spark_history_server_config}
+        :param metastore_service_config: metastore_service_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#metastore_service_config GoogleBigqueryConnection#metastore_service_config}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#spark_history_server_config GoogleBigqueryConnection#spark_history_server_config}
         '''
         if isinstance(metastore_service_config, dict):
             metastore_service_config = GoogleBigqueryConnectionSparkMetastoreServiceConfig(**metastore_service_config)
@@ -2028,7 +2028,7 @@ class GoogleBigqueryConnectionSpark:
     ) -> typing.Optional["GoogleBigqueryConnectionSparkMetastoreServiceConfig"]:
         '''metastore_service_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#metastore_service_config GoogleBigqueryConnection#metastore_service_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#metastore_service_config GoogleBigqueryConnection#metastore_service_config}
         '''
         result = self._values.get("metastore_service_config")
         return typing.cast(typing.Optional["GoogleBigqueryConnectionSparkMetastoreServiceConfig"], result)
@@ -2039,7 +2039,7 @@ class GoogleBigqueryConnectionSpark:
     ) -> typing.Optional["GoogleBigqueryConnectionSparkSparkHistoryServerConfig"]:
         '''spark_history_server_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#spark_history_server_config GoogleBigqueryConnection#spark_history_server_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#spark_history_server_config GoogleBigqueryConnection#spark_history_server_config}
         '''
         result = self._values.get("spark_history_server_config")
         return typing.cast(typing.Optional["GoogleBigqueryConnectionSparkSparkHistoryServerConfig"], result)
@@ -2068,7 +2068,7 @@ class GoogleBigqueryConnectionSparkMetastoreServiceConfig:
         metastore_service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metastore_service: Resource name of an existing Dataproc Metastore service in the form of projects/[projectId]/locations/[region]/services/[serviceId]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#metastore_service GoogleBigqueryConnection#metastore_service}
+        :param metastore_service: Resource name of an existing Dataproc Metastore service in the form of projects/[projectId]/locations/[region]/services/[serviceId]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#metastore_service GoogleBigqueryConnection#metastore_service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c47fec2b743dd2c56fa5492ae39501c1ed11bd6a47fff1cb967cd5a7bf23816)
@@ -2081,7 +2081,7 @@ class GoogleBigqueryConnectionSparkMetastoreServiceConfig:
     def metastore_service(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Metastore service in the form of projects/[projectId]/locations/[region]/services/[serviceId].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#metastore_service GoogleBigqueryConnection#metastore_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#metastore_service GoogleBigqueryConnection#metastore_service}
         '''
         result = self._values.get("metastore_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2184,7 +2184,7 @@ class GoogleBigqueryConnectionSparkOutputReference(
         metastore_service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metastore_service: Resource name of an existing Dataproc Metastore service in the form of projects/[projectId]/locations/[region]/services/[serviceId]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#metastore_service GoogleBigqueryConnection#metastore_service}
+        :param metastore_service: Resource name of an existing Dataproc Metastore service in the form of projects/[projectId]/locations/[region]/services/[serviceId]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#metastore_service GoogleBigqueryConnection#metastore_service}
         '''
         value = GoogleBigqueryConnectionSparkMetastoreServiceConfig(
             metastore_service=metastore_service
@@ -2199,7 +2199,7 @@ class GoogleBigqueryConnectionSparkOutputReference(
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the connection if the form of projects/[projectId]/regions/[region]/clusters/[cluster_name]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#dataproc_cluster GoogleBigqueryConnection#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the connection if the form of projects/[projectId]/regions/[region]/clusters/[cluster_name]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#dataproc_cluster GoogleBigqueryConnection#dataproc_cluster}
         '''
         value = GoogleBigqueryConnectionSparkSparkHistoryServerConfig(
             dataproc_cluster=dataproc_cluster
@@ -2276,7 +2276,7 @@ class GoogleBigqueryConnectionSparkSparkHistoryServerConfig:
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the connection if the form of projects/[projectId]/regions/[region]/clusters/[cluster_name]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#dataproc_cluster GoogleBigqueryConnection#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the connection if the form of projects/[projectId]/regions/[region]/clusters/[cluster_name]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#dataproc_cluster GoogleBigqueryConnection#dataproc_cluster}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fd91d3869cfb6d40b566c64e75a278e4841d518ba80bb23e7099dc89068d2fc)
@@ -2289,7 +2289,7 @@ class GoogleBigqueryConnectionSparkSparkHistoryServerConfig:
     def dataproc_cluster(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Cluster to act as a Spark History Server for the connection if the form of projects/[projectId]/regions/[region]/clusters/[cluster_name].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#dataproc_cluster GoogleBigqueryConnection#dataproc_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#dataproc_cluster GoogleBigqueryConnection#dataproc_cluster}
         '''
         result = self._values.get("dataproc_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2379,9 +2379,9 @@ class GoogleBigqueryConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#create GoogleBigqueryConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#delete GoogleBigqueryConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#update GoogleBigqueryConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#create GoogleBigqueryConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#delete GoogleBigqueryConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#update GoogleBigqueryConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__877ba0c5cad5f7748ea58b2d9643b61ae6b995ed1c68e1b1bdf7723c80a1dbd2)
@@ -2398,19 +2398,19 @@ class GoogleBigqueryConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#create GoogleBigqueryConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#create GoogleBigqueryConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#delete GoogleBigqueryConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#delete GoogleBigqueryConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_connection#update GoogleBigqueryConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_connection#update GoogleBigqueryConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

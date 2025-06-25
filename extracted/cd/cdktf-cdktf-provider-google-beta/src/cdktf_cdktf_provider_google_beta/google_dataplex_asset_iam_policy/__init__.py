@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_asset_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_asset_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy).
+Refer to the Terraform Registry for docs: [`google_dataplex_asset_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataplexAssetIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataplexAssetIamPolicy.GoogleDataplexAssetIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy google_dataplex_asset_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy google_dataplex_asset_iam_policy}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleDataplexAssetIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy google_dataplex_asset_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy google_dataplex_asset_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param asset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#asset GoogleDataplexAssetIamPolicy#asset}.
-        :param dataplex_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#dataplex_zone GoogleDataplexAssetIamPolicy#dataplex_zone}.
-        :param lake: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#lake GoogleDataplexAssetIamPolicy#lake}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#policy_data GoogleDataplexAssetIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#id GoogleDataplexAssetIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#location GoogleDataplexAssetIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#project GoogleDataplexAssetIamPolicy#project}.
+        :param asset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#asset GoogleDataplexAssetIamPolicy#asset}.
+        :param dataplex_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#dataplex_zone GoogleDataplexAssetIamPolicy#dataplex_zone}.
+        :param lake: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#lake GoogleDataplexAssetIamPolicy#lake}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#policy_data GoogleDataplexAssetIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#id GoogleDataplexAssetIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#location GoogleDataplexAssetIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#project GoogleDataplexAssetIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleDataplexAssetIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataplexAssetIamPolicy to import.
-        :param import_from_id: The id of the existing GoogleDataplexAssetIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataplexAssetIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataplexAssetIamPolicy to import is found.
         '''
         if __debug__:
@@ -329,13 +329,13 @@ class GoogleDataplexAssetIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param asset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#asset GoogleDataplexAssetIamPolicy#asset}.
-        :param dataplex_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#dataplex_zone GoogleDataplexAssetIamPolicy#dataplex_zone}.
-        :param lake: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#lake GoogleDataplexAssetIamPolicy#lake}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#policy_data GoogleDataplexAssetIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#id GoogleDataplexAssetIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#location GoogleDataplexAssetIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#project GoogleDataplexAssetIamPolicy#project}.
+        :param asset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#asset GoogleDataplexAssetIamPolicy#asset}.
+        :param dataplex_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#dataplex_zone GoogleDataplexAssetIamPolicy#dataplex_zone}.
+        :param lake: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#lake GoogleDataplexAssetIamPolicy#lake}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#policy_data GoogleDataplexAssetIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#id GoogleDataplexAssetIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#location GoogleDataplexAssetIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#project GoogleDataplexAssetIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -448,35 +448,35 @@ class GoogleDataplexAssetIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def asset(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#asset GoogleDataplexAssetIamPolicy#asset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#asset GoogleDataplexAssetIamPolicy#asset}.'''
         result = self._values.get("asset")
         assert result is not None, "Required property 'asset' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dataplex_zone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#dataplex_zone GoogleDataplexAssetIamPolicy#dataplex_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#dataplex_zone GoogleDataplexAssetIamPolicy#dataplex_zone}.'''
         result = self._values.get("dataplex_zone")
         assert result is not None, "Required property 'dataplex_zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lake(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#lake GoogleDataplexAssetIamPolicy#lake}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#lake GoogleDataplexAssetIamPolicy#lake}.'''
         result = self._values.get("lake")
         assert result is not None, "Required property 'lake' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#policy_data GoogleDataplexAssetIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#policy_data GoogleDataplexAssetIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#id GoogleDataplexAssetIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#id GoogleDataplexAssetIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -486,13 +486,13 @@ class GoogleDataplexAssetIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#location GoogleDataplexAssetIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#location GoogleDataplexAssetIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_asset_iam_policy#project GoogleDataplexAssetIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_asset_iam_policy#project GoogleDataplexAssetIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

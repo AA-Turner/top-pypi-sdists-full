@@ -42,6 +42,7 @@ __all__ = (
     "ListResourceInventoryPaginatorName",
     "ListUsageForLicenseConfigurationPaginatorName",
     "PaginatorName",
+    "ProductCodeTypeType",
     "ReceivedStatusType",
     "RegionName",
     "RenewTypeType",
@@ -159,6 +160,7 @@ ListLicenseSpecificationsForResourcePaginatorName = Literal[
 ]
 ListResourceInventoryPaginatorName = Literal["list_resource_inventory"]
 ListUsageForLicenseConfigurationPaginatorName = Literal["list_usage_for_license_configuration"]
+ProductCodeTypeType = Literal["marketplace"]
 ReceivedStatusType = Literal[
     "ACTIVE",
     "DELETED",

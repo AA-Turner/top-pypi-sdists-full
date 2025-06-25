@@ -1,7 +1,7 @@
 r'''
 # `google_project_iam_custom_role`
 
-Refer to the Terraform Registry for docs: [`google_project_iam_custom_role`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role).
+Refer to the Terraform Registry for docs: [`google_project_iam_custom_role`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleProjectIamCustomRole(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleProjectIamCustomRole.GoogleProjectIamCustomRole",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role google_project_iam_custom_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role google_project_iam_custom_role}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleProjectIamCustomRole(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role google_project_iam_custom_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role google_project_iam_custom_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#permissions GoogleProjectIamCustomRole#permissions}
-        :param role_id: The camel case role id to use for this role. Cannot contain - characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#role_id GoogleProjectIamCustomRole#role_id}
-        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#title GoogleProjectIamCustomRole#title}
-        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#description GoogleProjectIamCustomRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#id GoogleProjectIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#project GoogleProjectIamCustomRole#project}
-        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#stage GoogleProjectIamCustomRole#stage}
+        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#permissions GoogleProjectIamCustomRole#permissions}
+        :param role_id: The camel case role id to use for this role. Cannot contain - characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#role_id GoogleProjectIamCustomRole#role_id}
+        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#title GoogleProjectIamCustomRole#title}
+        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#description GoogleProjectIamCustomRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#id GoogleProjectIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#project GoogleProjectIamCustomRole#project}
+        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#stage GoogleProjectIamCustomRole#stage}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleProjectIamCustomRole(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleProjectIamCustomRole to import.
-        :param import_from_id: The id of the existing GoogleProjectIamCustomRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleProjectIamCustomRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleProjectIamCustomRole to import is found.
         '''
         if __debug__:
@@ -338,13 +338,13 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#permissions GoogleProjectIamCustomRole#permissions}
-        :param role_id: The camel case role id to use for this role. Cannot contain - characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#role_id GoogleProjectIamCustomRole#role_id}
-        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#title GoogleProjectIamCustomRole#title}
-        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#description GoogleProjectIamCustomRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#id GoogleProjectIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#project GoogleProjectIamCustomRole#project}
-        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#stage GoogleProjectIamCustomRole#stage}
+        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#permissions GoogleProjectIamCustomRole#permissions}
+        :param role_id: The camel case role id to use for this role. Cannot contain - characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#role_id GoogleProjectIamCustomRole#role_id}
+        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#title GoogleProjectIamCustomRole#title}
+        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#description GoogleProjectIamCustomRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#id GoogleProjectIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#project GoogleProjectIamCustomRole#project}
+        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#stage GoogleProjectIamCustomRole#stage}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -462,7 +462,7 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         At least one permission must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#permissions GoogleProjectIamCustomRole#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#permissions GoogleProjectIamCustomRole#permissions}
         '''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
@@ -472,7 +472,7 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_id(self) -> builtins.str:
         '''The camel case role id to use for this role. Cannot contain - characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#role_id GoogleProjectIamCustomRole#role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#role_id GoogleProjectIamCustomRole#role_id}
         '''
         result = self._values.get("role_id")
         assert result is not None, "Required property 'role_id' is missing"
@@ -482,7 +482,7 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def title(self) -> builtins.str:
         '''A human-readable title for the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#title GoogleProjectIamCustomRole#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#title GoogleProjectIamCustomRole#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -492,14 +492,14 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description for the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#description GoogleProjectIamCustomRole#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#description GoogleProjectIamCustomRole#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#id GoogleProjectIamCustomRole#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#id GoogleProjectIamCustomRole#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -511,7 +511,7 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project that the service account will be created in. Defaults to the provider project configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#project GoogleProjectIamCustomRole#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#project GoogleProjectIamCustomRole#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -520,7 +520,7 @@ class GoogleProjectIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def stage(self) -> typing.Optional[builtins.str]:
         '''The current launch stage of the role. Defaults to GA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_iam_custom_role#stage GoogleProjectIamCustomRole#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_project_iam_custom_role#stage GoogleProjectIamCustomRole#stage}
         '''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)

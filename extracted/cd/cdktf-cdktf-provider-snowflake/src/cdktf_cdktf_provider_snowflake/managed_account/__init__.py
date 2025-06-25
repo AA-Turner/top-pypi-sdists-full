@@ -1,7 +1,7 @@
 r'''
 # `snowflake_managed_account`
 
-Refer to the Terraform Registry for docs: [`snowflake_managed_account`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account).
+Refer to the Terraform Registry for docs: [`snowflake_managed_account`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ManagedAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.managedAccount.ManagedAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account snowflake_managed_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account snowflake_managed_account}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ManagedAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account snowflake_managed_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account snowflake_managed_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param admin_name: Identifier, as well as login name, for the initial user in the managed account. This user serves as the account administrator for the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#admin_name ManagedAccount#admin_name}
-        :param admin_password: Password for the initial user in the managed account. Check `Snowflake-provided password policy <https://docs.snowflake.com/en/user-guide/admin-user-management#snowflake-provided-password-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#admin_password ManagedAccount#admin_password}
-        :param name: Identifier for the managed account; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#name ManagedAccount#name}
-        :param comment: Specifies a comment for the managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#comment ManagedAccount#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#id ManagedAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#timeouts ManagedAccount#timeouts}
-        :param type: (Default: ``READER``) Specifies the type of managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#type ManagedAccount#type}
+        :param admin_name: Identifier, as well as login name, for the initial user in the managed account. This user serves as the account administrator for the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#admin_name ManagedAccount#admin_name}
+        :param admin_password: Password for the initial user in the managed account. Check `Snowflake-provided password policy <https://docs.snowflake.com/en/user-guide/admin-user-management#snowflake-provided-password-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#admin_password ManagedAccount#admin_password}
+        :param name: Identifier for the managed account; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#name ManagedAccount#name}
+        :param comment: Specifies a comment for the managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#comment ManagedAccount#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#id ManagedAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#timeouts ManagedAccount#timeouts}
+        :param type: (Default: ``READER``) Specifies the type of managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#type ManagedAccount#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ManagedAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ManagedAccount to import.
-        :param import_from_id: The id of the existing ManagedAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ManagedAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ManagedAccount to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class ManagedAccount(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#create ManagedAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#delete ManagedAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#read ManagedAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#update ManagedAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#create ManagedAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#delete ManagedAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#read ManagedAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#update ManagedAccount#update}.
         '''
         value = ManagedAccountTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -374,13 +374,13 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param admin_name: Identifier, as well as login name, for the initial user in the managed account. This user serves as the account administrator for the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#admin_name ManagedAccount#admin_name}
-        :param admin_password: Password for the initial user in the managed account. Check `Snowflake-provided password policy <https://docs.snowflake.com/en/user-guide/admin-user-management#snowflake-provided-password-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#admin_password ManagedAccount#admin_password}
-        :param name: Identifier for the managed account; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#name ManagedAccount#name}
-        :param comment: Specifies a comment for the managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#comment ManagedAccount#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#id ManagedAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#timeouts ManagedAccount#timeouts}
-        :param type: (Default: ``READER``) Specifies the type of managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#type ManagedAccount#type}
+        :param admin_name: Identifier, as well as login name, for the initial user in the managed account. This user serves as the account administrator for the account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#admin_name ManagedAccount#admin_name}
+        :param admin_password: Password for the initial user in the managed account. Check `Snowflake-provided password policy <https://docs.snowflake.com/en/user-guide/admin-user-management#snowflake-provided-password-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#admin_password ManagedAccount#admin_password}
+        :param name: Identifier for the managed account; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#name ManagedAccount#name}
+        :param comment: Specifies a comment for the managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#comment ManagedAccount#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#id ManagedAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#timeouts ManagedAccount#timeouts}
+        :param type: (Default: ``READER``) Specifies the type of managed account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#type ManagedAccount#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -500,7 +500,7 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This user serves as the account administrator for the account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#admin_name ManagedAccount#admin_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#admin_name ManagedAccount#admin_name}
         '''
         result = self._values.get("admin_name")
         assert result is not None, "Required property 'admin_name' is missing"
@@ -510,7 +510,7 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def admin_password(self) -> builtins.str:
         '''Password for the initial user in the managed account. Check `Snowflake-provided password policy <https://docs.snowflake.com/en/user-guide/admin-user-management#snowflake-provided-password-policy>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#admin_password ManagedAccount#admin_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#admin_password ManagedAccount#admin_password}
         '''
         result = self._values.get("admin_password")
         assert result is not None, "Required property 'admin_password' is missing"
@@ -520,7 +520,7 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Identifier for the managed account; must be unique for your account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#name ManagedAccount#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#name ManagedAccount#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -530,14 +530,14 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the managed account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#comment ManagedAccount#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#comment ManagedAccount#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#id ManagedAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#id ManagedAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -549,7 +549,7 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ManagedAccountTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#timeouts ManagedAccount#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#timeouts ManagedAccount#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ManagedAccountTimeouts"], result)
@@ -558,7 +558,7 @@ class ManagedAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''(Default: ``READER``) Specifies the type of managed account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#type ManagedAccount#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#type ManagedAccount#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -595,10 +595,10 @@ class ManagedAccountTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#create ManagedAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#delete ManagedAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#read ManagedAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#update ManagedAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#create ManagedAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#delete ManagedAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#read ManagedAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#update ManagedAccount#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a85c75605d0e685dab1f7f8df57c920062ac5e865ce49be7d58168074d42080)
@@ -618,25 +618,25 @@ class ManagedAccountTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#create ManagedAccount#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#create ManagedAccount#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#delete ManagedAccount#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#delete ManagedAccount#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#read ManagedAccount#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#read ManagedAccount#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/managed_account#update ManagedAccount#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/managed_account#update ManagedAccount#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

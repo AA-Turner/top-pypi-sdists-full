@@ -19,7 +19,7 @@ from pontos.helper import enum_or_value
 
 
 class GitHubAsyncRESTOrganizations(GitHubAsyncREST):
-    async def exists(self, organization: str) -> bool:
+    async def exists(self, organization: str) -> bool:  # type: ignore[return]
         """
         Check if an organization exists
 
@@ -39,7 +39,14 @@ class GitHubAsyncRESTOrganizations(GitHubAsyncREST):
         """
         api = f"/orgs/{organization}"
         response = await self._client.get(api)
-        return response.is_success
+
+        if response.is_success:
+            return True
+
+        if response.status_code == 404:
+            return False
+
+        response.raise_for_status()
 
     async def get_repositories(
         self,

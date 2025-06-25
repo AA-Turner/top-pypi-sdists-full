@@ -1,7 +1,7 @@
 r'''
 # `google_firestore_field`
 
-Refer to the Terraform Registry for docs: [`google_firestore_field`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field).
+Refer to the Terraform Registry for docs: [`google_firestore_field`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFirestoreField(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFirestoreField.GoogleFirestoreField",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field google_firestore_field}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field google_firestore_field}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleFirestoreField(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field google_firestore_field} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field google_firestore_field} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collection: The id of the collection group to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#collection GoogleFirestoreField#collection}
-        :param field: The id of the field to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#field GoogleFirestoreField#field}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#database GoogleFirestoreField#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#id GoogleFirestoreField#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index_config: index_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#index_config GoogleFirestoreField#index_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#project GoogleFirestoreField#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#timeouts GoogleFirestoreField#timeouts}
-        :param ttl_config: ttl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#ttl_config GoogleFirestoreField#ttl_config}
+        :param collection: The id of the collection group to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#collection GoogleFirestoreField#collection}
+        :param field: The id of the field to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#field GoogleFirestoreField#field}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#database GoogleFirestoreField#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#id GoogleFirestoreField#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index_config: index_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#index_config GoogleFirestoreField#index_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#project GoogleFirestoreField#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#timeouts GoogleFirestoreField#timeouts}
+        :param ttl_config: ttl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#ttl_config GoogleFirestoreField#ttl_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleFirestoreField(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFirestoreField to import.
-        :param import_from_id: The id of the existing GoogleFirestoreField that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFirestoreField that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFirestoreField to import is found.
         '''
         if __debug__:
@@ -142,7 +142,7 @@ class GoogleFirestoreField(
         indexes: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleFirestoreFieldIndexConfigIndexes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param indexes: indexes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#indexes GoogleFirestoreField#indexes}
+        :param indexes: indexes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#indexes GoogleFirestoreField#indexes}
         '''
         value = GoogleFirestoreFieldIndexConfig(indexes=indexes)
 
@@ -157,9 +157,9 @@ class GoogleFirestoreField(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#create GoogleFirestoreField#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#delete GoogleFirestoreField#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#update GoogleFirestoreField#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#create GoogleFirestoreField#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#delete GoogleFirestoreField#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#update GoogleFirestoreField#update}.
         '''
         value = GoogleFirestoreFieldTimeouts(
             create=create, delete=delete, update=update
@@ -382,14 +382,14 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collection: The id of the collection group to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#collection GoogleFirestoreField#collection}
-        :param field: The id of the field to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#field GoogleFirestoreField#field}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#database GoogleFirestoreField#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#id GoogleFirestoreField#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index_config: index_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#index_config GoogleFirestoreField#index_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#project GoogleFirestoreField#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#timeouts GoogleFirestoreField#timeouts}
-        :param ttl_config: ttl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#ttl_config GoogleFirestoreField#ttl_config}
+        :param collection: The id of the collection group to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#collection GoogleFirestoreField#collection}
+        :param field: The id of the field to configure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#field GoogleFirestoreField#field}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#database GoogleFirestoreField#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#id GoogleFirestoreField#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index_config: index_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#index_config GoogleFirestoreField#index_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#project GoogleFirestoreField#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#timeouts GoogleFirestoreField#timeouts}
+        :param ttl_config: ttl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#ttl_config GoogleFirestoreField#ttl_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -515,7 +515,7 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def collection(self) -> builtins.str:
         '''The id of the collection group to configure.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#collection GoogleFirestoreField#collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#collection GoogleFirestoreField#collection}
         '''
         result = self._values.get("collection")
         assert result is not None, "Required property 'collection' is missing"
@@ -525,7 +525,7 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def field(self) -> builtins.str:
         '''The id of the field to configure.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#field GoogleFirestoreField#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#field GoogleFirestoreField#field}
         '''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
@@ -535,14 +535,14 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> typing.Optional[builtins.str]:
         '''The Firestore database id. Defaults to '"(default)"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#database GoogleFirestoreField#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#database GoogleFirestoreField#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#id GoogleFirestoreField#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#id GoogleFirestoreField#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -554,14 +554,14 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def index_config(self) -> typing.Optional["GoogleFirestoreFieldIndexConfig"]:
         '''index_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#index_config GoogleFirestoreField#index_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#index_config GoogleFirestoreField#index_config}
         '''
         result = self._values.get("index_config")
         return typing.cast(typing.Optional["GoogleFirestoreFieldIndexConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#project GoogleFirestoreField#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#project GoogleFirestoreField#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -569,7 +569,7 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleFirestoreFieldTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#timeouts GoogleFirestoreField#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#timeouts GoogleFirestoreField#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFirestoreFieldTimeouts"], result)
@@ -578,7 +578,7 @@ class GoogleFirestoreFieldConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ttl_config(self) -> typing.Optional["GoogleFirestoreFieldTtlConfig"]:
         '''ttl_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#ttl_config GoogleFirestoreField#ttl_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#ttl_config GoogleFirestoreField#ttl_config}
         '''
         result = self._values.get("ttl_config")
         return typing.cast(typing.Optional["GoogleFirestoreFieldTtlConfig"], result)
@@ -607,7 +607,7 @@ class GoogleFirestoreFieldIndexConfig:
         indexes: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleFirestoreFieldIndexConfigIndexes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param indexes: indexes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#indexes GoogleFirestoreField#indexes}
+        :param indexes: indexes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#indexes GoogleFirestoreField#indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70afb8cb348ca762e8c7c2332fd35bb24d926fa2fafca185a3173019e20b5c3b)
@@ -622,7 +622,7 @@ class GoogleFirestoreFieldIndexConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirestoreFieldIndexConfigIndexes"]]]:
         '''indexes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#indexes GoogleFirestoreField#indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#indexes GoogleFirestoreField#indexes}
         '''
         result = self._values.get("indexes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirestoreFieldIndexConfigIndexes"]]], result)
@@ -657,9 +657,9 @@ class GoogleFirestoreFieldIndexConfigIndexes:
         query_scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param array_config: Indicates that this field supports operations on arrayValues. Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["CONTAINS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#array_config GoogleFirestoreField#array_config}
-        :param order: Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=, !=. Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#order GoogleFirestoreField#order}
-        :param query_scope: The scope at which a query is run. Collection scoped queries require you specify the collection at query time. Collection group scope allows queries across all collections with the same id. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#query_scope GoogleFirestoreField#query_scope}
+        :param array_config: Indicates that this field supports operations on arrayValues. Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["CONTAINS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#array_config GoogleFirestoreField#array_config}
+        :param order: Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=, !=. Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#order GoogleFirestoreField#order}
+        :param query_scope: The scope at which a query is run. Collection scoped queries require you specify the collection at query time. Collection group scope allows queries across all collections with the same id. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#query_scope GoogleFirestoreField#query_scope}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff7945dae548602f35b10339a62447354e4ae25534613908a32e3395f023628d)
@@ -678,7 +678,7 @@ class GoogleFirestoreFieldIndexConfigIndexes:
     def array_config(self) -> typing.Optional[builtins.str]:
         '''Indicates that this field supports operations on arrayValues. Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["CONTAINS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#array_config GoogleFirestoreField#array_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#array_config GoogleFirestoreField#array_config}
         '''
         result = self._values.get("array_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -687,7 +687,7 @@ class GoogleFirestoreFieldIndexConfigIndexes:
     def order(self) -> typing.Optional[builtins.str]:
         '''Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=, !=. Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#order GoogleFirestoreField#order}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#order GoogleFirestoreField#order}
         '''
         result = self._values.get("order")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -700,7 +700,7 @@ class GoogleFirestoreFieldIndexConfigIndexes:
         the collection at query time. Collection group scope allows queries across all
         collections with the same id. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#query_scope GoogleFirestoreField#query_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#query_scope GoogleFirestoreField#query_scope}
         '''
         result = self._values.get("query_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -996,9 +996,9 @@ class GoogleFirestoreFieldTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#create GoogleFirestoreField#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#delete GoogleFirestoreField#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#update GoogleFirestoreField#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#create GoogleFirestoreField#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#delete GoogleFirestoreField#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#update GoogleFirestoreField#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ccfbd3ea083c7387ce8ea8f51bc72bdef265df2b4207091f9f5bf44cdb029ea)
@@ -1015,19 +1015,19 @@ class GoogleFirestoreFieldTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#create GoogleFirestoreField#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#create GoogleFirestoreField#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#delete GoogleFirestoreField#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#delete GoogleFirestoreField#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firestore_field#update GoogleFirestoreField#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_field#update GoogleFirestoreField#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

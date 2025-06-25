@@ -289,21 +289,39 @@ class LocalExecutionUtils:
 class RemoteExecutionUtils:
 
     @staticmethod
-    def pack_s3_path_for_input_file(project_s3_path: str, local_file_path: str) -> str:
+    def is_git_project(provisioned_resources: list):
+        storage_type = "S3"
+        for resource in provisioned_resources:
+            if resource.get("name") in ["gitConnectionArn", "codeRepositoryName"]:
+                storage_type = "Git"
+                break
+        return storage_type == "Git"
+
+    @staticmethod
+    def pack_s3_path_for_input_file(
+        project_s3_path: str, local_file_path: str, is_git_project: bool
+    ) -> str:
         """Given the project s3 path, and path to the local input file,
         Generate the s3 path for the input file.
         An example of local_file_path will be like `src/getting_started.ipynb`, since for remote execution,
         this input path will be the same as it for local execution.
         We will need to strip the leading `src`.
+
         """
+
         project_s3_path = project_s3_path.rstrip("/")
-
-        local_file_path = re.sub(r"^/?src/", "", local_file_path)
-
+        if is_git_project:
+            local_file_path = re.sub(r"^/?src/", "", local_file_path)
+        else:  # S3
+            project_s3_path = project_s3_path[:-3] + "shared"  # replace 'dev' with 'shared'
+            local_file_path = re.sub(r"^/?shared/", "", local_file_path)
+            return f"{project_s3_path}/{local_file_path}"
         return f"{project_s3_path}{S3PathForProject.WORKFLOW_PROJECT_FILES_LOCATION.value}{local_file_path}"
 
     @staticmethod
-    def pack_s3_path_for_output_file(project_s3_path: str, local_input_file_path: str) -> str:
+    def pack_s3_path_for_output_file(
+        project_s3_path: str, local_input_file_path: str, is_git_project: bool
+    ) -> str:
         """Given the project s3 path, the local input file path, generate the s3 path for the output file s3 location.
         An example of local_input_file_path will be like `src/getting_started.ipynb`,
         the output s3 location will be like `s3://<project-s3-path>/workflows/output/_getting_started.ipynb`
@@ -311,13 +329,16 @@ class RemoteExecutionUtils:
         Args:
             project_s3_path (str): the project s3 path
             local_input_file_path (str): the local input file path
+            is_git_storage (bool): if the project is git
 
         Returns:
             str: output file s3 location
         """
         project_s3_path = project_s3_path.rstrip("/")
-
-        local_input_file_path = re.sub(r"^/?src/", "", local_input_file_path)
+        if is_git_project:
+            local_input_file_path = re.sub(r"^/?src/", "", local_input_file_path)
+        else:  # S3
+            local_input_file_path = re.sub(r"^/?shared/", "", local_input_file_path)
         directory, file_name = os.path.split(local_input_file_path)
         output_file_path = os.path.join(directory, f"_{file_name}")
 

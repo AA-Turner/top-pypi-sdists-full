@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from protego import Protego
@@ -27,6 +29,7 @@ def test_user_agent_precedence(path, user_agent):
     allow: /group3
     """
     rp = Protego.parse(content=robotstxt_content)
+    allowed_path: str | None
     for allowed_path in ("/group1", "/group2", "/group3"):
         if rp.can_fetch(allowed_path, user_agent):
             break
@@ -90,12 +93,10 @@ def test_user_agent_precedence(path, user_agent):
     ],
 )
 def test_path_matching(pattern, path, match):
-    content = """
+    content = f"""
     User-Agent: *
     disallow: {pattern}
-    """.format(
-        pattern=pattern
-    )
+    """
     rp = Protego.parse(content)
     assert (not rp.can_fetch(path, "*")) == match
 
@@ -110,11 +111,9 @@ def test_path_matching(pattern, path, match):
     ],
 )
 def test_record_precedence(rules, url, allowed):
-    content = """
+    content = f"""
     User-Agent: *
     {rules}
-    """.format(
-        rules=rules
-    )
+    """
     rp = Protego.parse(content)
     assert rp.can_fetch(url, "*") == allowed

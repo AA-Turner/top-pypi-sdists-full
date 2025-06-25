@@ -3524,7 +3524,7 @@ def copy(array: NDArray, dtype: np.dtype | str = None, **kwargs: Any) -> NDArray
 
 
 def concatenate(arrays: list[NDArray], /, axis=0, **kwargs: Any) -> NDArray:  # noqa: C901
-    """Concatenate two arrays along a specified axis.
+    """Concatenate a list of arrays along a specified axis.
 
     Parameters
     ----------
@@ -3586,6 +3586,54 @@ def concatenate(arrays: list[NDArray], /, axis=0, **kwargs: Any) -> NDArray:  # 
         copy = False
 
     return arr1
+
+
+def expand_dims(array: NDArray, axis=0) -> NDArray:
+    if not isinstance(array, blosc2.NDArray):
+        raise TypeError("Argument array must be instance of blosc2.NDArray")
+    if axis < 0:
+        axis += array.ndim + 1  # Adjust axis to be within the new stacked array's dimensions
+    if axis > array.ndim:
+        raise ValueError(f"Axis {axis} is out of bounds for expanded array of dimension {array.ndim + 1}.")
+    return blosc2_ext.expand_dims(array, axis=axis)
+
+
+def stack(arrays: list[NDArray], axis=0, **kwargs: Any) -> NDArray:
+    """Stack multiple arrays, creating a new axis.
+
+    Parameters
+    ----------
+    arrays: list of :ref:`NDArray`
+        A list containing two or more NDArray instances to be stacked.
+    axis: int, optional
+        The new axis along which the arrays will be stacked. Default is 0.
+
+    Other Parameters
+    ----------------
+    kwargs: dict, optional
+        Keyword arguments that are supported by the :func:`empty` constructor.
+
+    Returns
+    -------
+    out: :ref:`NDArray`
+        A new NDArray containing the stacked data.
+
+    Examples
+    --------
+    >>> import blosc2
+    >>> import numpy as np
+    >>> arr1 = blosc2.arange(0, 6, dtype=np.int32, shape=(2,3))
+    >>> arr2 = blosc2.arange(6, 12, dtype=np.int32, shape=(2,3))
+    >>> result = blosc2.stack([arr1, arr2])
+    >>> print(result.shape)
+    (2, 2, 3)
+    """
+    if axis < 0:
+        axis += arrays[0].ndim + 1  # Adjust axis to be within the new stacked array's dimensions
+    newarrays = []
+    for arr in arrays:
+        newarrays += [blosc2.expand_dims(arr, axis=axis)]
+    return blosc2.concatenate(newarrays, axis, **kwargs)
 
 
 def save(array: NDArray, urlpath: str, contiguous=True, **kwargs: Any) -> None:
@@ -3717,8 +3765,8 @@ def _check_ndarray_kwargs(**kwargs):  # noqa: C901
     else:
         # Add the default storage values as long as they are not already passed
         storage_dflts = asdict(blosc2.Storage(urlpath=kwargs.get("urlpath")))  # urlpath can affect defaults
-        not_passed = {k: v for k, v in storage_dflts.items() if k not in kwargs}
-        kwargs = {**kwargs, **not_passed}
+        # If a key appears in both operands, the one from the right-hand operand wins
+        kwargs = storage_dflts | kwargs
 
     supported_keys = [
         "chunks",

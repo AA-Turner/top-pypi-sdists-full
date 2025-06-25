@@ -134,7 +134,7 @@ class EMSys:
         index_item_atual = 0
         index_ultimo_item = await self.get_ultimo_item()
         console.print(f"Index ultimo item: {index_ultimo_item}")
-
+        
         try:
             while index_item_atual < index_ultimo_item:
                 send_keys("^({HOME})")
@@ -159,6 +159,7 @@ class EMSys:
                 edit = main_window.child_window(
                     class_name="TDBIEditCode", found_index=0
                 )
+                
                 #seta IPI 0%
                 ipi_combobox = main_window.child_window(
                     class_name="TDBIComboBox", found_index=4
@@ -182,8 +183,32 @@ class EMSys:
                     try:
                         console.print(f"Trabalhando com os itens, alterando o código de tributação dos ISQUEIROS/ACENDEDORES para manual \n")
                         console.print("Item encontrado: ISQUEIRO/ACENDEDORES. Processando...\n")
+                        
+                        tipos_unidade = ["UNIDADE", "UN"]
+                        for tipo in tipos_unidade:
+                            try:     
+                                await worker_sleep(4)
+                                # Selecionar natureza da operação 9 - outros
+                                select_other = main_window.child_window(
+                                    class_name="TDBIComboBox", found_index=1
+                                ).click()
+                                select_other.select(tipo)
+                                # Check Alterar Trib. Manual
+                                pyautogui.click(1177, 740)
+                                # pyautogui.moveTo(1177, 740)
 
-                        await self.alterar_item()
+                                # Click Alterar
+                                await worker_sleep(1)
+                                pyautogui.click(1180, 776)
+                                await worker_sleep(1)
+
+                                await worker_sleep(1)
+                                await self.verify_warning_and_error("Confirm")
+                                await worker_sleep(1)
+                            except Exception as e:
+                                print(f"Não foi possível selecionar '{tipo}': {e}")
+
+                        # await self.alterar_item()
                         await worker_sleep(3)
                         await self.click_itens_da_nota()
                     except Exception as error:
@@ -250,12 +275,28 @@ class EMSys:
         send_keys("{DOWN " + ("2") + "}")
         
         await worker_sleep(2)
-        pyautogui.click(893, 549)
+        # pyautogui.click(893, 549)
         await worker_sleep(5)
         try:
-            set_combobox("||List", "BANCO DO BRASIL BOLETO")
+            caminho_imagem = "assets\\banco_boleto.png"
+            # Verifica se apareceu a imagem de "sem dados"
+            localizacao = pyautogui.locateOnScreen(caminho_imagem, confidence=0.9)
+            if localizacao:
+                pass
+        
         except:
-            set_combobox("||List", "BOLETO")
+            try:   
+                # Selecionar natureza da operação 9 - outros
+                select_other = main_window.child_window(
+                    class_name="TDBIComboBox", found_index=0
+                )
+                select_other.select("BOLETO")
+            except Exception as e:
+                print(f"Não foi possível selecionar: {e}")
+        # try:
+        #     set_combobox("||List", "BANCO DO BRASIL BOLETO")
+        # except:
+        #     set_combobox("||List", "BOLETO")
 
     async def inserir_vencimento_e_valor(self, nome_fornecedor, data_emissao, data_vencimento, valor):
 

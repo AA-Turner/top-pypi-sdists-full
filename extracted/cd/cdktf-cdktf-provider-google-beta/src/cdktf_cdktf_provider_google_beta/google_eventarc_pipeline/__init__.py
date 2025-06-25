@@ -1,7 +1,7 @@
 r'''
 # `google_eventarc_pipeline`
 
-Refer to the Terraform Registry for docs: [`google_eventarc_pipeline`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline).
+Refer to the Terraform Registry for docs: [`google_eventarc_pipeline`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleEventarcPipeline(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleEventarcPipeline.GoogleEventarcPipeline",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline google_eventarc_pipeline}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline google_eventarc_pipeline}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class GoogleEventarcPipeline(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline google_eventarc_pipeline} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline google_eventarc_pipeline} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#destinations GoogleEventarcPipeline#destinations}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#location GoogleEventarcPipeline#location}
-        :param pipeline_id: The user-provided ID to be assigned to the Pipeline. It should match the format '^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#pipeline_id GoogleEventarcPipeline#pipeline_id}
-        :param annotations: User-defined annotations. See https://google.aip.dev/128#annotations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#annotations GoogleEventarcPipeline#annotations}
-        :param crypto_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt the event data. If not set, an internal Google-owned key will be used to encrypt messages. It must match the pattern "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#crypto_key_name GoogleEventarcPipeline#crypto_key_name}
-        :param display_name: Display name of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#display_name GoogleEventarcPipeline#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#id GoogleEventarcPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input_payload_format: input_payload_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#input_payload_format GoogleEventarcPipeline#input_payload_format}
-        :param labels: User labels attached to the Pipeline that can be used to group resources. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#labels GoogleEventarcPipeline#labels}
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#logging_config GoogleEventarcPipeline#logging_config}
-        :param mediations: mediations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#mediations GoogleEventarcPipeline#mediations}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#project GoogleEventarcPipeline#project}.
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#retry_policy GoogleEventarcPipeline#retry_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#timeouts GoogleEventarcPipeline#timeouts}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#destinations GoogleEventarcPipeline#destinations}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#location GoogleEventarcPipeline#location}
+        :param pipeline_id: The user-provided ID to be assigned to the Pipeline. It should match the format '^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#pipeline_id GoogleEventarcPipeline#pipeline_id}
+        :param annotations: User-defined annotations. See https://google.aip.dev/128#annotations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#annotations GoogleEventarcPipeline#annotations}
+        :param crypto_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt the event data. If not set, an internal Google-owned key will be used to encrypt messages. It must match the pattern "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#crypto_key_name GoogleEventarcPipeline#crypto_key_name}
+        :param display_name: Display name of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#display_name GoogleEventarcPipeline#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#id GoogleEventarcPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input_payload_format: input_payload_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#input_payload_format GoogleEventarcPipeline#input_payload_format}
+        :param labels: User labels attached to the Pipeline that can be used to group resources. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#labels GoogleEventarcPipeline#labels}
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#logging_config GoogleEventarcPipeline#logging_config}
+        :param mediations: mediations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#mediations GoogleEventarcPipeline#mediations}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#project GoogleEventarcPipeline#project}.
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#retry_policy GoogleEventarcPipeline#retry_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#timeouts GoogleEventarcPipeline#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class GoogleEventarcPipeline(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleEventarcPipeline to import.
-        :param import_from_id: The id of the existing GoogleEventarcPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleEventarcPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleEventarcPipeline to import is found.
         '''
         if __debug__:
@@ -175,9 +175,9 @@ class GoogleEventarcPipeline(
         protobuf: typing.Optional[typing.Union["GoogleEventarcPipelineInputPayloadFormatProtobuf", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
-        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
+        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
+        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
         '''
         value = GoogleEventarcPipelineInputPayloadFormat(
             avro=avro, json=json, protobuf=protobuf
@@ -192,7 +192,7 @@ class GoogleEventarcPipeline(
         log_severity: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_severity: The minimum severity of logs that will be sent to Stackdriver/Platform Telemetry. Logs at severitiy ≥ this value will be sent, unless it is NONE. Possible values: ["NONE", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#log_severity GoogleEventarcPipeline#log_severity}
+        :param log_severity: The minimum severity of logs that will be sent to Stackdriver/Platform Telemetry. Logs at severitiy ≥ this value will be sent, unless it is NONE. Possible values: ["NONE", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#log_severity GoogleEventarcPipeline#log_severity}
         '''
         value = GoogleEventarcPipelineLoggingConfig(log_severity=log_severity)
 
@@ -220,9 +220,9 @@ class GoogleEventarcPipeline(
         min_retry_delay: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: The maximum number of delivery attempts for any message. The value must be between 1 and 100. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#max_attempts GoogleEventarcPipeline#max_attempts}
-        :param max_retry_delay: The maximum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 60. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#max_retry_delay GoogleEventarcPipeline#max_retry_delay}
-        :param min_retry_delay: The minimum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#min_retry_delay GoogleEventarcPipeline#min_retry_delay}
+        :param max_attempts: The maximum number of delivery attempts for any message. The value must be between 1 and 100. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#max_attempts GoogleEventarcPipeline#max_attempts}
+        :param max_retry_delay: The maximum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 60. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#max_retry_delay GoogleEventarcPipeline#max_retry_delay}
+        :param min_retry_delay: The minimum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#min_retry_delay GoogleEventarcPipeline#min_retry_delay}
         '''
         value = GoogleEventarcPipelineRetryPolicy(
             max_attempts=max_attempts,
@@ -241,9 +241,9 @@ class GoogleEventarcPipeline(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#create GoogleEventarcPipeline#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#delete GoogleEventarcPipeline#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#update GoogleEventarcPipeline#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#create GoogleEventarcPipeline#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#delete GoogleEventarcPipeline#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#update GoogleEventarcPipeline#update}.
         '''
         value = GoogleEventarcPipelineTimeouts(
             create=create, delete=delete, update=update
@@ -624,20 +624,20 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#destinations GoogleEventarcPipeline#destinations}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#location GoogleEventarcPipeline#location}
-        :param pipeline_id: The user-provided ID to be assigned to the Pipeline. It should match the format '^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#pipeline_id GoogleEventarcPipeline#pipeline_id}
-        :param annotations: User-defined annotations. See https://google.aip.dev/128#annotations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#annotations GoogleEventarcPipeline#annotations}
-        :param crypto_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt the event data. If not set, an internal Google-owned key will be used to encrypt messages. It must match the pattern "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#crypto_key_name GoogleEventarcPipeline#crypto_key_name}
-        :param display_name: Display name of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#display_name GoogleEventarcPipeline#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#id GoogleEventarcPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input_payload_format: input_payload_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#input_payload_format GoogleEventarcPipeline#input_payload_format}
-        :param labels: User labels attached to the Pipeline that can be used to group resources. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#labels GoogleEventarcPipeline#labels}
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#logging_config GoogleEventarcPipeline#logging_config}
-        :param mediations: mediations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#mediations GoogleEventarcPipeline#mediations}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#project GoogleEventarcPipeline#project}.
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#retry_policy GoogleEventarcPipeline#retry_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#timeouts GoogleEventarcPipeline#timeouts}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#destinations GoogleEventarcPipeline#destinations}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#location GoogleEventarcPipeline#location}
+        :param pipeline_id: The user-provided ID to be assigned to the Pipeline. It should match the format '^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#pipeline_id GoogleEventarcPipeline#pipeline_id}
+        :param annotations: User-defined annotations. See https://google.aip.dev/128#annotations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#annotations GoogleEventarcPipeline#annotations}
+        :param crypto_key_name: Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt the event data. If not set, an internal Google-owned key will be used to encrypt messages. It must match the pattern "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#crypto_key_name GoogleEventarcPipeline#crypto_key_name}
+        :param display_name: Display name of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#display_name GoogleEventarcPipeline#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#id GoogleEventarcPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input_payload_format: input_payload_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#input_payload_format GoogleEventarcPipeline#input_payload_format}
+        :param labels: User labels attached to the Pipeline that can be used to group resources. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#labels GoogleEventarcPipeline#labels}
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#logging_config GoogleEventarcPipeline#logging_config}
+        :param mediations: mediations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#mediations GoogleEventarcPipeline#mediations}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#project GoogleEventarcPipeline#project}.
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#retry_policy GoogleEventarcPipeline#retry_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#timeouts GoogleEventarcPipeline#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -784,7 +784,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleEventarcPipelineDestinations"]]:
         '''destinations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#destinations GoogleEventarcPipeline#destinations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#destinations GoogleEventarcPipeline#destinations}
         '''
         result = self._values.get("destinations")
         assert result is not None, "Required property 'destinations' is missing"
@@ -794,7 +794,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#location GoogleEventarcPipeline#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#location GoogleEventarcPipeline#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -804,7 +804,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pipeline_id(self) -> builtins.str:
         '''The user-provided ID to be assigned to the Pipeline. It should match the format '^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#pipeline_id GoogleEventarcPipeline#pipeline_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#pipeline_id GoogleEventarcPipeline#pipeline_id}
         '''
         result = self._values.get("pipeline_id")
         assert result is not None, "Required property 'pipeline_id' is missing"
@@ -819,7 +819,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#annotations GoogleEventarcPipeline#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#annotations GoogleEventarcPipeline#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -832,7 +832,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         will be used to encrypt messages. It must match the pattern
         "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#crypto_key_name GoogleEventarcPipeline#crypto_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#crypto_key_name GoogleEventarcPipeline#crypto_key_name}
         '''
         result = self._values.get("crypto_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -841,14 +841,14 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Display name of resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#display_name GoogleEventarcPipeline#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#display_name GoogleEventarcPipeline#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#id GoogleEventarcPipeline#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#id GoogleEventarcPipeline#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -862,7 +862,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleEventarcPipelineInputPayloadFormat"]:
         '''input_payload_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#input_payload_format GoogleEventarcPipeline#input_payload_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#input_payload_format GoogleEventarcPipeline#input_payload_format}
         '''
         result = self._values.get("input_payload_format")
         return typing.cast(typing.Optional["GoogleEventarcPipelineInputPayloadFormat"], result)
@@ -877,7 +877,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#labels GoogleEventarcPipeline#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#labels GoogleEventarcPipeline#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -886,7 +886,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging_config(self) -> typing.Optional["GoogleEventarcPipelineLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#logging_config GoogleEventarcPipeline#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#logging_config GoogleEventarcPipeline#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["GoogleEventarcPipelineLoggingConfig"], result)
@@ -897,14 +897,14 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleEventarcPipelineMediations"]]]:
         '''mediations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#mediations GoogleEventarcPipeline#mediations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#mediations GoogleEventarcPipeline#mediations}
         '''
         result = self._values.get("mediations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleEventarcPipelineMediations"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#project GoogleEventarcPipeline#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#project GoogleEventarcPipeline#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -912,7 +912,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retry_policy(self) -> typing.Optional["GoogleEventarcPipelineRetryPolicy"]:
         '''retry_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#retry_policy GoogleEventarcPipeline#retry_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#retry_policy GoogleEventarcPipeline#retry_policy}
         '''
         result = self._values.get("retry_policy")
         return typing.cast(typing.Optional["GoogleEventarcPipelineRetryPolicy"], result)
@@ -921,7 +921,7 @@ class GoogleEventarcPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleEventarcPipelineTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#timeouts GoogleEventarcPipeline#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#timeouts GoogleEventarcPipeline#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleEventarcPipelineTimeouts"], result)
@@ -964,13 +964,13 @@ class GoogleEventarcPipelineDestinations:
         workflow: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_config: authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#authentication_config GoogleEventarcPipeline#authentication_config}
-        :param http_endpoint: http_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#http_endpoint GoogleEventarcPipeline#http_endpoint}
-        :param message_bus: The resource name of the Message Bus to which events should be published. The Message Bus resource should exist in the same project as the Pipeline. Format: 'projects/{project}/locations/{location}/messageBuses/{message_bus}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#message_bus GoogleEventarcPipeline#message_bus}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#network_config GoogleEventarcPipeline#network_config}
-        :param output_payload_format: output_payload_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#output_payload_format GoogleEventarcPipeline#output_payload_format}
-        :param topic: The resource name of the Pub/Sub topic to which events should be published. Format: 'projects/{project}/locations/{location}/topics/{topic}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#topic GoogleEventarcPipeline#topic}
-        :param workflow: The resource name of the Workflow whose Executions are triggered by the events. The Workflow resource should be deployed in the same project as the Pipeline. Format: 'projects/{project}/locations/{location}/workflows/{workflow}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#workflow GoogleEventarcPipeline#workflow}
+        :param authentication_config: authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#authentication_config GoogleEventarcPipeline#authentication_config}
+        :param http_endpoint: http_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#http_endpoint GoogleEventarcPipeline#http_endpoint}
+        :param message_bus: The resource name of the Message Bus to which events should be published. The Message Bus resource should exist in the same project as the Pipeline. Format: 'projects/{project}/locations/{location}/messageBuses/{message_bus}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#message_bus GoogleEventarcPipeline#message_bus}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#network_config GoogleEventarcPipeline#network_config}
+        :param output_payload_format: output_payload_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#output_payload_format GoogleEventarcPipeline#output_payload_format}
+        :param topic: The resource name of the Pub/Sub topic to which events should be published. Format: 'projects/{project}/locations/{location}/topics/{topic}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#topic GoogleEventarcPipeline#topic}
+        :param workflow: The resource name of the Workflow whose Executions are triggered by the events. The Workflow resource should be deployed in the same project as the Pipeline. Format: 'projects/{project}/locations/{location}/workflows/{workflow}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#workflow GoogleEventarcPipeline#workflow}
         '''
         if isinstance(authentication_config, dict):
             authentication_config = GoogleEventarcPipelineDestinationsAuthenticationConfig(**authentication_config)
@@ -1011,7 +1011,7 @@ class GoogleEventarcPipelineDestinations:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsAuthenticationConfig"]:
         '''authentication_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#authentication_config GoogleEventarcPipeline#authentication_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#authentication_config GoogleEventarcPipeline#authentication_config}
         '''
         result = self._values.get("authentication_config")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsAuthenticationConfig"], result)
@@ -1022,7 +1022,7 @@ class GoogleEventarcPipelineDestinations:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsHttpEndpoint"]:
         '''http_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#http_endpoint GoogleEventarcPipeline#http_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#http_endpoint GoogleEventarcPipeline#http_endpoint}
         '''
         result = self._values.get("http_endpoint")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsHttpEndpoint"], result)
@@ -1035,7 +1035,7 @@ class GoogleEventarcPipelineDestinations:
         the Pipeline. Format:
         'projects/{project}/locations/{location}/messageBuses/{message_bus}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#message_bus GoogleEventarcPipeline#message_bus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#message_bus GoogleEventarcPipeline#message_bus}
         '''
         result = self._values.get("message_bus")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1046,7 +1046,7 @@ class GoogleEventarcPipelineDestinations:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#network_config GoogleEventarcPipeline#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#network_config GoogleEventarcPipeline#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsNetworkConfig"], result)
@@ -1057,7 +1057,7 @@ class GoogleEventarcPipelineDestinations:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormat"]:
         '''output_payload_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#output_payload_format GoogleEventarcPipeline#output_payload_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#output_payload_format GoogleEventarcPipeline#output_payload_format}
         '''
         result = self._values.get("output_payload_format")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormat"], result)
@@ -1066,7 +1066,7 @@ class GoogleEventarcPipelineDestinations:
     def topic(self) -> typing.Optional[builtins.str]:
         '''The resource name of the Pub/Sub topic to which events should be published. Format: 'projects/{project}/locations/{location}/topics/{topic}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#topic GoogleEventarcPipeline#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#topic GoogleEventarcPipeline#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1079,7 +1079,7 @@ class GoogleEventarcPipelineDestinations:
         project as the Pipeline. Format:
         'projects/{project}/locations/{location}/workflows/{workflow}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#workflow GoogleEventarcPipeline#workflow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#workflow GoogleEventarcPipeline#workflow}
         '''
         result = self._values.get("workflow")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1109,8 +1109,8 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfig:
         oauth_token: typing.Optional[typing.Union["GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param google_oidc: google_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#google_oidc GoogleEventarcPipeline#google_oidc}
-        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#oauth_token GoogleEventarcPipeline#oauth_token}
+        :param google_oidc: google_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#google_oidc GoogleEventarcPipeline#google_oidc}
+        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#oauth_token GoogleEventarcPipeline#oauth_token}
         '''
         if isinstance(google_oidc, dict):
             google_oidc = GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc(**google_oidc)
@@ -1132,7 +1132,7 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfig:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc"]:
         '''google_oidc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#google_oidc GoogleEventarcPipeline#google_oidc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#google_oidc GoogleEventarcPipeline#google_oidc}
         '''
         result = self._values.get("google_oidc")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc"], result)
@@ -1143,7 +1143,7 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfig:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken"]:
         '''oauth_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#oauth_token GoogleEventarcPipeline#oauth_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#oauth_token GoogleEventarcPipeline#oauth_token}
         '''
         result = self._values.get("oauth_token")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken"], result)
@@ -1173,8 +1173,8 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc:
         audience: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account: Service account email used to generate the OIDC Token. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow the Pipeline to create OpenID tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
-        :param audience: Audience to be used to generate the OIDC Token. The audience claim identifies the recipient that the JWT is intended for. If unspecified, the destination URI will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#audience GoogleEventarcPipeline#audience}
+        :param service_account: Service account email used to generate the OIDC Token. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow the Pipeline to create OpenID tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
+        :param audience: Audience to be used to generate the OIDC Token. The audience claim identifies the recipient that the JWT is intended for. If unspecified, the destination URI will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#audience GoogleEventarcPipeline#audience}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4a67d5f2d8acddf1c837c7d9a8dbd10dee49da07e269b6e9f2ce1d3ad574c1d)
@@ -1197,7 +1197,7 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc:
         roles/roles/iam.serviceAccountTokenCreator role to allow the
         Pipeline to create OpenID tokens for authenticated requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
         '''
         result = self._values.get("service_account")
         assert result is not None, "Required property 'service_account' is missing"
@@ -1211,7 +1211,7 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc:
         identifies the recipient that the JWT is intended for. If
         unspecified, the destination URI will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#audience GoogleEventarcPipeline#audience}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#audience GoogleEventarcPipeline#audience}
         '''
         result = self._values.get("audience")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1317,8 +1317,8 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account: Service account email used to generate the `OAuth token <https://developers.google.com/identity/protocols/OAuth2>`_. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow Pipeline to create OAuth2 tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
-        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#scope GoogleEventarcPipeline#scope}
+        :param service_account: Service account email used to generate the `OAuth token <https://developers.google.com/identity/protocols/OAuth2>`_. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow Pipeline to create OAuth2 tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
+        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#scope GoogleEventarcPipeline#scope}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25e313e00da416532fb7450bb7b5230a060e816b2be2a8cfcea5242383f44de9)
@@ -1334,7 +1334,7 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken:
     def service_account(self) -> builtins.str:
         '''Service account email used to generate the `OAuth token <https://developers.google.com/identity/protocols/OAuth2>`_. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow Pipeline to create OAuth2 tokens for authenticated requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
         '''
         result = self._values.get("service_account")
         assert result is not None, "Required property 'service_account' is missing"
@@ -1344,7 +1344,7 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken:
     def scope(self) -> typing.Optional[builtins.str]:
         '''OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#scope GoogleEventarcPipeline#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#scope GoogleEventarcPipeline#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1465,8 +1465,8 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigOutputReference(
         audience: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account: Service account email used to generate the OIDC Token. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow the Pipeline to create OpenID tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
-        :param audience: Audience to be used to generate the OIDC Token. The audience claim identifies the recipient that the JWT is intended for. If unspecified, the destination URI will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#audience GoogleEventarcPipeline#audience}
+        :param service_account: Service account email used to generate the OIDC Token. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow the Pipeline to create OpenID tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
+        :param audience: Audience to be used to generate the OIDC Token. The audience claim identifies the recipient that the JWT is intended for. If unspecified, the destination URI will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#audience GoogleEventarcPipeline#audience}
         '''
         value = GoogleEventarcPipelineDestinationsAuthenticationConfigGoogleOidc(
             service_account=service_account, audience=audience
@@ -1482,8 +1482,8 @@ class GoogleEventarcPipelineDestinationsAuthenticationConfigOutputReference(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_account: Service account email used to generate the `OAuth token <https://developers.google.com/identity/protocols/OAuth2>`_. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow Pipeline to create OAuth2 tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
-        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#scope GoogleEventarcPipeline#scope}
+        :param service_account: Service account email used to generate the `OAuth token <https://developers.google.com/identity/protocols/OAuth2>`_. The principal who calls this API must have iam.serviceAccounts.actAs permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts for more information. Eventarc service agents must have roles/roles/iam.serviceAccountTokenCreator role to allow Pipeline to create OAuth2 tokens for authenticated requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#service_account GoogleEventarcPipeline#service_account}
+        :param scope: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#scope GoogleEventarcPipeline#scope}
         '''
         value = GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken(
             service_account=service_account, scope=scope
@@ -1558,8 +1558,8 @@ class GoogleEventarcPipelineDestinationsHttpEndpoint:
         message_binding_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'https://svc.us-central1.p.local:8080/route'. Only the HTTPS protocol is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#uri GoogleEventarcPipeline#uri}
-        :param message_binding_template: The CEL expression used to modify how the destination-bound HTTP request is constructed. If a binding expression is not specified here, the message is treated as a CloudEvent and is mapped to the HTTP request according to the CloudEvent HTTP Protocol Binding Binary Content Mode (https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md#31-binary-content-mode). In this representation, all fields except the 'data' and 'datacontenttype' field on the message are mapped to HTTP request headers with a prefix of 'ce-'. To construct the HTTP request payload and the value of the content-type HTTP header, the payload format is defined as follows: 1. Use the output_payload_format_type on the Pipeline.Destination if it is set, else: 2. Use the input_payload_format_type on the Pipeline if it is set, else: 3. Treat the payload as opaque binary data. The 'data' field of the message is converted to the payload format or left as-is for case 3) and then attached as the payload of the HTTP request. The 'content-type' header on the HTTP request is set to the payload format type or left empty for case 3). However, if a mediation has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header on the HTTP request is set to this 'datacontenttype' value. For example, if the 'datacontenttype' is "application/json" and the payload format type is "application/json; charset=utf-8", then the 'content-type' header on the HTTP request is set to "application/json; charset=utf-8". If a non-empty binding expression is specified then this expression is used to modify the default CloudEvent HTTP Protocol Binding Binary Content representation. The result of the CEL expression must be a map of key/value pairs which is used as follows: - If a map named 'headers' exists on the result of the expression, then its key/value pairs are directly mapped to the HTTP request headers. The headers values are constructed from the corresponding value type's canonical representation. If the 'headers' field doesn't exist then the resulting HTTP request will be the headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message. Note: If the specified binding expression, has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header in the 'headers' map is set to this 'datacontenttype' value. - If a field named 'body' exists on the result of the expression then its value is directly mapped to the body of the request. If the value of the 'body' field is of type bytes or string then it is used for the HTTP request body as-is, with no conversion. If the body field is of any other type then it is converted to a JSON string. If the body field does not exist then the resulting payload of the HTTP request will be data value of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. - Any other fields in the resulting expression will be ignored. The CEL expression may access the incoming CloudEvent message in its definition, as follows: - The 'data' field of the incoming CloudEvent message can be accessed using the 'message.data' value. Subfields of 'message.data' may also be accessed if an input_payload_format has been specified on the Pipeline. - Each attribute of the incoming CloudEvent message can be accessed using the 'message.' value, where is replaced with the name of the attribute. - Existing headers can be accessed in the CEL expression using the 'headers' variable. The 'headers' variable defines a map of key/value pairs corresponding to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. For example, the following CEL expression can be used to construct an HTTP request by adding an additional header to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message and by overwriting the body of the request: Example:: { "headers": headers.merge({"new-header-key": "new-header-value"}), "body": "new-body" } - The default binding for the message payload can be accessed using the 'body' variable. It conatins a string representation of the message payload in the format specified by the 'output_payload_format' field. If the 'input_payload_format' field is not set, the 'body' variable contains the same message payload bytes that were published. Additionally, the following CEL extension functions are provided for use in this CEL expression: - toBase64Url: map.toBase64Url() -> string - Converts a CelValue to a base64url encoded string - toJsonString: map.toJsonString() -> string - Converts a CelValue to a JSON string - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents. - It converts 'data' to destination payload format specified in 'output_payload_format'. If 'output_payload_format' is not set, the data will remain unchanged. - It also sets the corresponding datacontenttype of the CloudEvent, as indicated by 'output_payload_format'. If no 'output_payload_format' is set it will use the value of the "datacontenttype" attribute on the CloudEvent if present, else remove "datacontenttype" attribute. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. The Pipeline expects that the message it receives adheres to the standard CloudEvent format. If it doesn't then the outgoing message request may fail with a persistent error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#message_binding_template GoogleEventarcPipeline#message_binding_template}
+        :param uri: The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'https://svc.us-central1.p.local:8080/route'. Only the HTTPS protocol is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#uri GoogleEventarcPipeline#uri}
+        :param message_binding_template: The CEL expression used to modify how the destination-bound HTTP request is constructed. If a binding expression is not specified here, the message is treated as a CloudEvent and is mapped to the HTTP request according to the CloudEvent HTTP Protocol Binding Binary Content Mode (https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md#31-binary-content-mode). In this representation, all fields except the 'data' and 'datacontenttype' field on the message are mapped to HTTP request headers with a prefix of 'ce-'. To construct the HTTP request payload and the value of the content-type HTTP header, the payload format is defined as follows: 1. Use the output_payload_format_type on the Pipeline.Destination if it is set, else: 2. Use the input_payload_format_type on the Pipeline if it is set, else: 3. Treat the payload as opaque binary data. The 'data' field of the message is converted to the payload format or left as-is for case 3) and then attached as the payload of the HTTP request. The 'content-type' header on the HTTP request is set to the payload format type or left empty for case 3). However, if a mediation has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header on the HTTP request is set to this 'datacontenttype' value. For example, if the 'datacontenttype' is "application/json" and the payload format type is "application/json; charset=utf-8", then the 'content-type' header on the HTTP request is set to "application/json; charset=utf-8". If a non-empty binding expression is specified then this expression is used to modify the default CloudEvent HTTP Protocol Binding Binary Content representation. The result of the CEL expression must be a map of key/value pairs which is used as follows: - If a map named 'headers' exists on the result of the expression, then its key/value pairs are directly mapped to the HTTP request headers. The headers values are constructed from the corresponding value type's canonical representation. If the 'headers' field doesn't exist then the resulting HTTP request will be the headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message. Note: If the specified binding expression, has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header in the 'headers' map is set to this 'datacontenttype' value. - If a field named 'body' exists on the result of the expression then its value is directly mapped to the body of the request. If the value of the 'body' field is of type bytes or string then it is used for the HTTP request body as-is, with no conversion. If the body field is of any other type then it is converted to a JSON string. If the body field does not exist then the resulting payload of the HTTP request will be data value of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. - Any other fields in the resulting expression will be ignored. The CEL expression may access the incoming CloudEvent message in its definition, as follows: - The 'data' field of the incoming CloudEvent message can be accessed using the 'message.data' value. Subfields of 'message.data' may also be accessed if an input_payload_format has been specified on the Pipeline. - Each attribute of the incoming CloudEvent message can be accessed using the 'message.' value, where is replaced with the name of the attribute. - Existing headers can be accessed in the CEL expression using the 'headers' variable. The 'headers' variable defines a map of key/value pairs corresponding to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. For example, the following CEL expression can be used to construct an HTTP request by adding an additional header to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message and by overwriting the body of the request: Example:: { "headers": headers.merge({"new-header-key": "new-header-value"}), "body": "new-body" } - The default binding for the message payload can be accessed using the 'body' variable. It conatins a string representation of the message payload in the format specified by the 'output_payload_format' field. If the 'input_payload_format' field is not set, the 'body' variable contains the same message payload bytes that were published. Additionally, the following CEL extension functions are provided for use in this CEL expression: - toBase64Url: map.toBase64Url() -> string - Converts a CelValue to a base64url encoded string - toJsonString: map.toJsonString() -> string - Converts a CelValue to a JSON string - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents. - It converts 'data' to destination payload format specified in 'output_payload_format'. If 'output_payload_format' is not set, the data will remain unchanged. - It also sets the corresponding datacontenttype of the CloudEvent, as indicated by 'output_payload_format'. If no 'output_payload_format' is set it will use the value of the "datacontenttype" attribute on the CloudEvent if present, else remove "datacontenttype" attribute. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. The Pipeline expects that the message it receives adheres to the standard CloudEvent format. If it doesn't then the outgoing message request may fail with a persistent error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#message_binding_template GoogleEventarcPipeline#message_binding_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ddc2d8b5e3db407ef285bbfef441ebc5d2aa764b8eee70729a8ccb65a3bec71)
@@ -1579,7 +1579,7 @@ class GoogleEventarcPipelineDestinationsHttpEndpoint:
         Examples: 'https://svc.us-central1.p.local:8080/route'.
         Only the HTTPS protocol is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#uri GoogleEventarcPipeline#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#uri GoogleEventarcPipeline#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1758,7 +1758,7 @@ class GoogleEventarcPipelineDestinationsHttpEndpoint:
         standard CloudEvent format. If it doesn't then the outgoing message
         request may fail with a persistent error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#message_binding_template GoogleEventarcPipeline#message_binding_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#message_binding_template GoogleEventarcPipeline#message_binding_template}
         '''
         result = self._values.get("message_binding_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1956,7 +1956,7 @@ class GoogleEventarcPipelineDestinationsNetworkConfig:
         network_attachment: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network_attachment: Name of the NetworkAttachment that allows access to the consumer VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}' Required for HTTP endpoint destinations. Must not be specified for Workflows, MessageBus, or Topic destinations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#network_attachment GoogleEventarcPipeline#network_attachment}
+        :param network_attachment: Name of the NetworkAttachment that allows access to the consumer VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}' Required for HTTP endpoint destinations. Must not be specified for Workflows, MessageBus, or Topic destinations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#network_attachment GoogleEventarcPipeline#network_attachment}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e47e9cdf87410e13db4b667f227ebc104fdfb78ce4469749b56c575cca565ba)
@@ -1975,7 +1975,7 @@ class GoogleEventarcPipelineDestinationsNetworkConfig:
         Required for HTTP endpoint destinations. Must not be specified for
         Workflows, MessageBus, or Topic destinations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#network_attachment GoogleEventarcPipeline#network_attachment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#network_attachment GoogleEventarcPipeline#network_attachment}
         '''
         result = self._values.get("network_attachment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2065,9 +2065,9 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormat:
         protobuf: typing.Optional[typing.Union["GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
-        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
+        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
+        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
         '''
         if isinstance(avro, dict):
             avro = GoogleEventarcPipelineDestinationsOutputPayloadFormatAvro(**avro)
@@ -2094,7 +2094,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormat:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormatAvro"]:
         '''avro block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
         '''
         result = self._values.get("avro")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormatAvro"], result)
@@ -2105,7 +2105,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormat:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormatJson"]:
         '''json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
         '''
         result = self._values.get("json")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormatJson"], result)
@@ -2116,7 +2116,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormat:
     ) -> typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf"]:
         '''protobuf block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
         '''
         result = self._values.get("protobuf")
         return typing.cast(typing.Optional["GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf"], result)
@@ -2145,7 +2145,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormatAvro:
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b1950906964b4ed33fc38f37b1738f901a8d4d1793a04e75636b88f00633898)
@@ -2158,7 +2158,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormatAvro:
     def schema_definition(self) -> typing.Optional[builtins.str]:
         '''The entire schema definition is stored in this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         result = self._values.get("schema_definition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2320,7 +2320,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormatOutputReference(
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         value = GoogleEventarcPipelineDestinationsOutputPayloadFormatAvro(
             schema_definition=schema_definition
@@ -2341,7 +2341,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormatOutputReference(
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         value = GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf(
             schema_definition=schema_definition
@@ -2433,7 +2433,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf:
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de95446886594a3375d7c57c899ef770b3421a8f94f924fba4a14a39ad6b6765)
@@ -2446,7 +2446,7 @@ class GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf:
     def schema_definition(self) -> typing.Optional[builtins.str]:
         '''The entire schema definition is stored in this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         result = self._values.get("schema_definition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2556,8 +2556,8 @@ class GoogleEventarcPipelineDestinationsOutputReference(
         oauth_token: typing.Optional[typing.Union[GoogleEventarcPipelineDestinationsAuthenticationConfigOauthToken, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param google_oidc: google_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#google_oidc GoogleEventarcPipeline#google_oidc}
-        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#oauth_token GoogleEventarcPipeline#oauth_token}
+        :param google_oidc: google_oidc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#google_oidc GoogleEventarcPipeline#google_oidc}
+        :param oauth_token: oauth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#oauth_token GoogleEventarcPipeline#oauth_token}
         '''
         value = GoogleEventarcPipelineDestinationsAuthenticationConfig(
             google_oidc=google_oidc, oauth_token=oauth_token
@@ -2573,8 +2573,8 @@ class GoogleEventarcPipelineDestinationsOutputReference(
         message_binding_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'https://svc.us-central1.p.local:8080/route'. Only the HTTPS protocol is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#uri GoogleEventarcPipeline#uri}
-        :param message_binding_template: The CEL expression used to modify how the destination-bound HTTP request is constructed. If a binding expression is not specified here, the message is treated as a CloudEvent and is mapped to the HTTP request according to the CloudEvent HTTP Protocol Binding Binary Content Mode (https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md#31-binary-content-mode). In this representation, all fields except the 'data' and 'datacontenttype' field on the message are mapped to HTTP request headers with a prefix of 'ce-'. To construct the HTTP request payload and the value of the content-type HTTP header, the payload format is defined as follows: 1. Use the output_payload_format_type on the Pipeline.Destination if it is set, else: 2. Use the input_payload_format_type on the Pipeline if it is set, else: 3. Treat the payload as opaque binary data. The 'data' field of the message is converted to the payload format or left as-is for case 3) and then attached as the payload of the HTTP request. The 'content-type' header on the HTTP request is set to the payload format type or left empty for case 3). However, if a mediation has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header on the HTTP request is set to this 'datacontenttype' value. For example, if the 'datacontenttype' is "application/json" and the payload format type is "application/json; charset=utf-8", then the 'content-type' header on the HTTP request is set to "application/json; charset=utf-8". If a non-empty binding expression is specified then this expression is used to modify the default CloudEvent HTTP Protocol Binding Binary Content representation. The result of the CEL expression must be a map of key/value pairs which is used as follows: - If a map named 'headers' exists on the result of the expression, then its key/value pairs are directly mapped to the HTTP request headers. The headers values are constructed from the corresponding value type's canonical representation. If the 'headers' field doesn't exist then the resulting HTTP request will be the headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message. Note: If the specified binding expression, has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header in the 'headers' map is set to this 'datacontenttype' value. - If a field named 'body' exists on the result of the expression then its value is directly mapped to the body of the request. If the value of the 'body' field is of type bytes or string then it is used for the HTTP request body as-is, with no conversion. If the body field is of any other type then it is converted to a JSON string. If the body field does not exist then the resulting payload of the HTTP request will be data value of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. - Any other fields in the resulting expression will be ignored. The CEL expression may access the incoming CloudEvent message in its definition, as follows: - The 'data' field of the incoming CloudEvent message can be accessed using the 'message.data' value. Subfields of 'message.data' may also be accessed if an input_payload_format has been specified on the Pipeline. - Each attribute of the incoming CloudEvent message can be accessed using the 'message.' value, where is replaced with the name of the attribute. - Existing headers can be accessed in the CEL expression using the 'headers' variable. The 'headers' variable defines a map of key/value pairs corresponding to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. For example, the following CEL expression can be used to construct an HTTP request by adding an additional header to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message and by overwriting the body of the request: Example:: { "headers": headers.merge({"new-header-key": "new-header-value"}), "body": "new-body" } - The default binding for the message payload can be accessed using the 'body' variable. It conatins a string representation of the message payload in the format specified by the 'output_payload_format' field. If the 'input_payload_format' field is not set, the 'body' variable contains the same message payload bytes that were published. Additionally, the following CEL extension functions are provided for use in this CEL expression: - toBase64Url: map.toBase64Url() -> string - Converts a CelValue to a base64url encoded string - toJsonString: map.toJsonString() -> string - Converts a CelValue to a JSON string - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents. - It converts 'data' to destination payload format specified in 'output_payload_format'. If 'output_payload_format' is not set, the data will remain unchanged. - It also sets the corresponding datacontenttype of the CloudEvent, as indicated by 'output_payload_format'. If no 'output_payload_format' is set it will use the value of the "datacontenttype" attribute on the CloudEvent if present, else remove "datacontenttype" attribute. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. The Pipeline expects that the message it receives adheres to the standard CloudEvent format. If it doesn't then the outgoing message request may fail with a persistent error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#message_binding_template GoogleEventarcPipeline#message_binding_template}
+        :param uri: The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'https://svc.us-central1.p.local:8080/route'. Only the HTTPS protocol is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#uri GoogleEventarcPipeline#uri}
+        :param message_binding_template: The CEL expression used to modify how the destination-bound HTTP request is constructed. If a binding expression is not specified here, the message is treated as a CloudEvent and is mapped to the HTTP request according to the CloudEvent HTTP Protocol Binding Binary Content Mode (https://github.com/cloudevents/spec/blob/main/cloudevents/bindings/http-protocol-binding.md#31-binary-content-mode). In this representation, all fields except the 'data' and 'datacontenttype' field on the message are mapped to HTTP request headers with a prefix of 'ce-'. To construct the HTTP request payload and the value of the content-type HTTP header, the payload format is defined as follows: 1. Use the output_payload_format_type on the Pipeline.Destination if it is set, else: 2. Use the input_payload_format_type on the Pipeline if it is set, else: 3. Treat the payload as opaque binary data. The 'data' field of the message is converted to the payload format or left as-is for case 3) and then attached as the payload of the HTTP request. The 'content-type' header on the HTTP request is set to the payload format type or left empty for case 3). However, if a mediation has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header on the HTTP request is set to this 'datacontenttype' value. For example, if the 'datacontenttype' is "application/json" and the payload format type is "application/json; charset=utf-8", then the 'content-type' header on the HTTP request is set to "application/json; charset=utf-8". If a non-empty binding expression is specified then this expression is used to modify the default CloudEvent HTTP Protocol Binding Binary Content representation. The result of the CEL expression must be a map of key/value pairs which is used as follows: - If a map named 'headers' exists on the result of the expression, then its key/value pairs are directly mapped to the HTTP request headers. The headers values are constructed from the corresponding value type's canonical representation. If the 'headers' field doesn't exist then the resulting HTTP request will be the headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message. Note: If the specified binding expression, has updated the 'datacontenttype' field on the message so that it is not the same as the payload format type but it is still a prefix of the payload format type, then the 'content-type' header in the 'headers' map is set to this 'datacontenttype' value. - If a field named 'body' exists on the result of the expression then its value is directly mapped to the body of the request. If the value of the 'body' field is of type bytes or string then it is used for the HTTP request body as-is, with no conversion. If the body field is of any other type then it is converted to a JSON string. If the body field does not exist then the resulting payload of the HTTP request will be data value of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. - Any other fields in the resulting expression will be ignored. The CEL expression may access the incoming CloudEvent message in its definition, as follows: - The 'data' field of the incoming CloudEvent message can be accessed using the 'message.data' value. Subfields of 'message.data' may also be accessed if an input_payload_format has been specified on the Pipeline. - Each attribute of the incoming CloudEvent message can be accessed using the 'message.' value, where is replaced with the name of the attribute. - Existing headers can be accessed in the CEL expression using the 'headers' variable. The 'headers' variable defines a map of key/value pairs corresponding to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message as described earlier. For example, the following CEL expression can be used to construct an HTTP request by adding an additional header to the HTTP headers of the CloudEvent HTTP Binding Binary Content Mode representation of the final message and by overwriting the body of the request: Example:: { "headers": headers.merge({"new-header-key": "new-header-value"}), "body": "new-body" } - The default binding for the message payload can be accessed using the 'body' variable. It conatins a string representation of the message payload in the format specified by the 'output_payload_format' field. If the 'input_payload_format' field is not set, the 'body' variable contains the same message payload bytes that were published. Additionally, the following CEL extension functions are provided for use in this CEL expression: - toBase64Url: map.toBase64Url() -> string - Converts a CelValue to a base64url encoded string - toJsonString: map.toJsonString() -> string - Converts a CelValue to a JSON string - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents. - It converts 'data' to destination payload format specified in 'output_payload_format'. If 'output_payload_format' is not set, the data will remain unchanged. - It also sets the corresponding datacontenttype of the CloudEvent, as indicated by 'output_payload_format'. If no 'output_payload_format' is set it will use the value of the "datacontenttype" attribute on the CloudEvent if present, else remove "datacontenttype" attribute. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. The Pipeline expects that the message it receives adheres to the standard CloudEvent format. If it doesn't then the outgoing message request may fail with a persistent error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#message_binding_template GoogleEventarcPipeline#message_binding_template}
         '''
         value = GoogleEventarcPipelineDestinationsHttpEndpoint(
             uri=uri, message_binding_template=message_binding_template
@@ -2589,7 +2589,7 @@ class GoogleEventarcPipelineDestinationsOutputReference(
         network_attachment: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network_attachment: Name of the NetworkAttachment that allows access to the consumer VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}' Required for HTTP endpoint destinations. Must not be specified for Workflows, MessageBus, or Topic destinations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#network_attachment GoogleEventarcPipeline#network_attachment}
+        :param network_attachment: Name of the NetworkAttachment that allows access to the consumer VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}' Required for HTTP endpoint destinations. Must not be specified for Workflows, MessageBus, or Topic destinations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#network_attachment GoogleEventarcPipeline#network_attachment}
         '''
         value = GoogleEventarcPipelineDestinationsNetworkConfig(
             network_attachment=network_attachment
@@ -2606,9 +2606,9 @@ class GoogleEventarcPipelineDestinationsOutputReference(
         protobuf: typing.Optional[typing.Union[GoogleEventarcPipelineDestinationsOutputPayloadFormatProtobuf, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
-        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
+        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
+        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
         '''
         value = GoogleEventarcPipelineDestinationsOutputPayloadFormat(
             avro=avro, json=json, protobuf=protobuf
@@ -2783,9 +2783,9 @@ class GoogleEventarcPipelineInputPayloadFormat:
         protobuf: typing.Optional[typing.Union["GoogleEventarcPipelineInputPayloadFormatProtobuf", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
-        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
+        :param avro: avro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
+        :param protobuf: protobuf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
         '''
         if isinstance(avro, dict):
             avro = GoogleEventarcPipelineInputPayloadFormatAvro(**avro)
@@ -2810,7 +2810,7 @@ class GoogleEventarcPipelineInputPayloadFormat:
     def avro(self) -> typing.Optional["GoogleEventarcPipelineInputPayloadFormatAvro"]:
         '''avro block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#avro GoogleEventarcPipeline#avro}
         '''
         result = self._values.get("avro")
         return typing.cast(typing.Optional["GoogleEventarcPipelineInputPayloadFormatAvro"], result)
@@ -2819,7 +2819,7 @@ class GoogleEventarcPipelineInputPayloadFormat:
     def json(self) -> typing.Optional["GoogleEventarcPipelineInputPayloadFormatJson"]:
         '''json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#json GoogleEventarcPipeline#json}
         '''
         result = self._values.get("json")
         return typing.cast(typing.Optional["GoogleEventarcPipelineInputPayloadFormatJson"], result)
@@ -2830,7 +2830,7 @@ class GoogleEventarcPipelineInputPayloadFormat:
     ) -> typing.Optional["GoogleEventarcPipelineInputPayloadFormatProtobuf"]:
         '''protobuf block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#protobuf GoogleEventarcPipeline#protobuf}
         '''
         result = self._values.get("protobuf")
         return typing.cast(typing.Optional["GoogleEventarcPipelineInputPayloadFormatProtobuf"], result)
@@ -2859,7 +2859,7 @@ class GoogleEventarcPipelineInputPayloadFormatAvro:
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee69bf13a3e7440317f9700fd4083e71a01f186c900c73c73f58be6b2d664ce0)
@@ -2872,7 +2872,7 @@ class GoogleEventarcPipelineInputPayloadFormatAvro:
     def schema_definition(self) -> typing.Optional[builtins.str]:
         '''The entire schema definition is stored in this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         result = self._values.get("schema_definition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3034,7 +3034,7 @@ class GoogleEventarcPipelineInputPayloadFormatOutputReference(
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         value = GoogleEventarcPipelineInputPayloadFormatAvro(
             schema_definition=schema_definition
@@ -3055,7 +3055,7 @@ class GoogleEventarcPipelineInputPayloadFormatOutputReference(
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         value = GoogleEventarcPipelineInputPayloadFormatProtobuf(
             schema_definition=schema_definition
@@ -3143,7 +3143,7 @@ class GoogleEventarcPipelineInputPayloadFormatProtobuf:
         schema_definition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        :param schema_definition: The entire schema definition is stored in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1f6be3efc27b039e6d2eca5081db0016309d9150b4f67f8ad0e765beec85326)
@@ -3156,7 +3156,7 @@ class GoogleEventarcPipelineInputPayloadFormatProtobuf:
     def schema_definition(self) -> typing.Optional[builtins.str]:
         '''The entire schema definition is stored in this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#schema_definition GoogleEventarcPipeline#schema_definition}
         '''
         result = self._values.get("schema_definition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3240,7 +3240,7 @@ class GoogleEventarcPipelineInputPayloadFormatProtobufOutputReference(
 class GoogleEventarcPipelineLoggingConfig:
     def __init__(self, *, log_severity: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param log_severity: The minimum severity of logs that will be sent to Stackdriver/Platform Telemetry. Logs at severitiy ≥ this value will be sent, unless it is NONE. Possible values: ["NONE", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#log_severity GoogleEventarcPipeline#log_severity}
+        :param log_severity: The minimum severity of logs that will be sent to Stackdriver/Platform Telemetry. Logs at severitiy ≥ this value will be sent, unless it is NONE. Possible values: ["NONE", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#log_severity GoogleEventarcPipeline#log_severity}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3407d66091ec61e7890859ee37f8d8ccf3bd9eaababc568325b3b4b9951aa628)
@@ -3255,7 +3255,7 @@ class GoogleEventarcPipelineLoggingConfig:
 
         Logs at severitiy ≥ this value will be sent, unless it is NONE. Possible values: ["NONE", "DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL", "ALERT", "EMERGENCY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#log_severity GoogleEventarcPipeline#log_severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#log_severity GoogleEventarcPipeline#log_severity}
         '''
         result = self._values.get("log_severity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3341,7 +3341,7 @@ class GoogleEventarcPipelineMediations:
         transformation: typing.Optional[typing.Union["GoogleEventarcPipelineMediationsTransformation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param transformation: transformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#transformation GoogleEventarcPipeline#transformation}
+        :param transformation: transformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#transformation GoogleEventarcPipeline#transformation}
         '''
         if isinstance(transformation, dict):
             transformation = GoogleEventarcPipelineMediationsTransformation(**transformation)
@@ -3358,7 +3358,7 @@ class GoogleEventarcPipelineMediations:
     ) -> typing.Optional["GoogleEventarcPipelineMediationsTransformation"]:
         '''transformation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#transformation GoogleEventarcPipeline#transformation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#transformation GoogleEventarcPipeline#transformation}
         '''
         result = self._values.get("transformation")
         return typing.cast(typing.Optional["GoogleEventarcPipelineMediationsTransformation"], result)
@@ -3501,7 +3501,7 @@ class GoogleEventarcPipelineMediationsOutputReference(
         transformation_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param transformation_template: The CEL expression template to apply to transform messages. The following CEL extension functions are provided for use in this CEL expression: - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toDestinationPayloadFormat(): message.data.toDestinationPayloadFormat() -> string or bytes - Converts the message data to the destination payload format specified in Pipeline.Destination.output_payload_format - This function is meant to be applied to the message.data field. - If the destination payload format is not set, the function will return the message data unchanged. - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents - This function applies toDestinationPayloadFormat() to the message data. It also sets the corresponding datacontenttype of the CloudEvent, as indicated by Pipeline.Destination.output_payload_format. If no output_payload_format is set it will use the existing datacontenttype on the CloudEvent if present, else leave datacontenttype absent. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#transformation_template GoogleEventarcPipeline#transformation_template}
+        :param transformation_template: The CEL expression template to apply to transform messages. The following CEL extension functions are provided for use in this CEL expression: - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toDestinationPayloadFormat(): message.data.toDestinationPayloadFormat() -> string or bytes - Converts the message data to the destination payload format specified in Pipeline.Destination.output_payload_format - This function is meant to be applied to the message.data field. - If the destination payload format is not set, the function will return the message data unchanged. - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents - This function applies toDestinationPayloadFormat() to the message data. It also sets the corresponding datacontenttype of the CloudEvent, as indicated by Pipeline.Destination.output_payload_format. If no output_payload_format is set it will use the existing datacontenttype on the CloudEvent if present, else leave datacontenttype absent. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#transformation_template GoogleEventarcPipeline#transformation_template}
         '''
         value = GoogleEventarcPipelineMediationsTransformation(
             transformation_template=transformation_template
@@ -3557,7 +3557,7 @@ class GoogleEventarcPipelineMediationsTransformation:
         transformation_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param transformation_template: The CEL expression template to apply to transform messages. The following CEL extension functions are provided for use in this CEL expression: - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toDestinationPayloadFormat(): message.data.toDestinationPayloadFormat() -> string or bytes - Converts the message data to the destination payload format specified in Pipeline.Destination.output_payload_format - This function is meant to be applied to the message.data field. - If the destination payload format is not set, the function will return the message data unchanged. - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents - This function applies toDestinationPayloadFormat() to the message data. It also sets the corresponding datacontenttype of the CloudEvent, as indicated by Pipeline.Destination.output_payload_format. If no output_payload_format is set it will use the existing datacontenttype on the CloudEvent if present, else leave datacontenttype absent. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#transformation_template GoogleEventarcPipeline#transformation_template}
+        :param transformation_template: The CEL expression template to apply to transform messages. The following CEL extension functions are provided for use in this CEL expression: - merge: map1.merge(map2) -> map3 - Merges the passed CEL map with the existing CEL map the function is applied to. - If the same key exists in both maps, if the key's value is type map both maps are merged else the value from the passed map is used. - denormalize: map.denormalize() -> map - Denormalizes a CEL map such that every value of type map or key in the map is expanded to return a single level map. - The resulting keys are "." separated indices of the map keys. - For example: { "a": 1, "b": { "c": 2, "d": 3 } "e": [4, 5] } .denormalize() -> { "a": 1, "b.c": 2, "b.d": 3, "e.0": 4, "e.1": 5 } - setField: map.setField(key, value) -> message - Sets the field of the message with the given key to the given value. - If the field is not present it will be added. - If the field is present it will be overwritten. - The key can be a dot separated path to set a field in a nested message. - Key must be of type string. - Value may be any valid type. - removeFields: map.removeFields([key1, key2, ...]) -> message - Removes the fields of the map with the given keys. - The keys can be a dot separated path to remove a field in a nested message. - If a key is not found it will be ignored. - Keys must be of type string. - toMap: [map1, map2, ...].toMap() -> map - Converts a CEL list of CEL maps to a single CEL map - toDestinationPayloadFormat(): message.data.toDestinationPayloadFormat() -> string or bytes - Converts the message data to the destination payload format specified in Pipeline.Destination.output_payload_format - This function is meant to be applied to the message.data field. - If the destination payload format is not set, the function will return the message data unchanged. - toCloudEventJsonWithPayloadFormat: message.toCloudEventJsonWithPayloadFormat() -> map - Converts a message to the corresponding structure of JSON format for CloudEvents - This function applies toDestinationPayloadFormat() to the message data. It also sets the corresponding datacontenttype of the CloudEvent, as indicated by Pipeline.Destination.output_payload_format. If no output_payload_format is set it will use the existing datacontenttype on the CloudEvent if present, else leave datacontenttype absent. - This function expects that the content of the message will adhere to the standard CloudEvent format. If it doesn't then this function will fail. - The result is a CEL map that corresponds to the JSON representation of the CloudEvent. To convert that data to a JSON string it can be chained with the toJsonString function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#transformation_template GoogleEventarcPipeline#transformation_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40d61985e9eaab17375f32d82df9fd708e2df18a966526778a0bb71878a3e0a9)
@@ -3647,7 +3647,7 @@ class GoogleEventarcPipelineMediationsTransformation:
           representation of the CloudEvent. To convert that data to a JSON
           string it can be chained with the toJsonString function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#transformation_template GoogleEventarcPipeline#transformation_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#transformation_template GoogleEventarcPipeline#transformation_template}
         '''
         result = self._values.get("transformation_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3741,9 +3741,9 @@ class GoogleEventarcPipelineRetryPolicy:
         min_retry_delay: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: The maximum number of delivery attempts for any message. The value must be between 1 and 100. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#max_attempts GoogleEventarcPipeline#max_attempts}
-        :param max_retry_delay: The maximum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 60. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#max_retry_delay GoogleEventarcPipeline#max_retry_delay}
-        :param min_retry_delay: The minimum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#min_retry_delay GoogleEventarcPipeline#min_retry_delay}
+        :param max_attempts: The maximum number of delivery attempts for any message. The value must be between 1 and 100. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#max_attempts GoogleEventarcPipeline#max_attempts}
+        :param max_retry_delay: The maximum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 60. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#max_retry_delay GoogleEventarcPipeline#max_retry_delay}
+        :param min_retry_delay: The minimum amount of seconds to wait between retry attempts. The value must be between 1 and 600. The default value for this field is 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#min_retry_delay GoogleEventarcPipeline#min_retry_delay}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__382df62065b4b73007d9310d6d9c4225c1dae00a935107c86bca126c61007d6e)
@@ -3766,7 +3766,7 @@ class GoogleEventarcPipelineRetryPolicy:
         be between 1 and 100.
         The default value for this field is 5.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#max_attempts GoogleEventarcPipeline#max_attempts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#max_attempts GoogleEventarcPipeline#max_attempts}
         '''
         result = self._values.get("max_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3779,7 +3779,7 @@ class GoogleEventarcPipelineRetryPolicy:
         must be between 1 and 600.
         The default value for this field is 60.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#max_retry_delay GoogleEventarcPipeline#max_retry_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#max_retry_delay GoogleEventarcPipeline#max_retry_delay}
         '''
         result = self._values.get("max_retry_delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3792,7 +3792,7 @@ class GoogleEventarcPipelineRetryPolicy:
         must be between 1 and 600.
         The default value for this field is 5.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#min_retry_delay GoogleEventarcPipeline#min_retry_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#min_retry_delay GoogleEventarcPipeline#min_retry_delay}
         '''
         result = self._values.get("min_retry_delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3922,9 +3922,9 @@ class GoogleEventarcPipelineTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#create GoogleEventarcPipeline#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#delete GoogleEventarcPipeline#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#update GoogleEventarcPipeline#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#create GoogleEventarcPipeline#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#delete GoogleEventarcPipeline#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#update GoogleEventarcPipeline#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48e6e9e0250f1285dff698e823de5dfec7afbfa0597305ac5c20af18603c2b35)
@@ -3941,19 +3941,19 @@ class GoogleEventarcPipelineTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#create GoogleEventarcPipeline#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#create GoogleEventarcPipeline#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#delete GoogleEventarcPipeline#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#delete GoogleEventarcPipeline#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_eventarc_pipeline#update GoogleEventarcPipeline#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_eventarc_pipeline#update GoogleEventarcPipeline#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

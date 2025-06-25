@@ -1,7 +1,7 @@
 r'''
 # `newrelic_alert_condition`
 
-Refer to the Terraform Registry for docs: [`newrelic_alert_condition`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition).
+Refer to the Terraform Registry for docs: [`newrelic_alert_condition`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AlertCondition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.alertCondition.AlertCondition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition newrelic_alert_condition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition newrelic_alert_condition}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class AlertCondition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition newrelic_alert_condition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition newrelic_alert_condition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entities: The instance IDs associated with this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#entities AlertCondition#entities}
-        :param metric: The metric field accepts parameters based on the type set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#metric AlertCondition#metric}
-        :param name: The title of the condition. Must be between 1 and 128 characters, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#name AlertCondition#name}
-        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#policy_id AlertCondition#policy_id}
-        :param term: term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#term AlertCondition#term}
-        :param type: The type of condition. One of: (apm_app_metric, apm_jvm_metric, apm_kt_metric, browser_metric, mobile_metric, servers_metric). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#type AlertCondition#type}
-        :param condition_scope: One of (application, instance). Choose application for most scenarios. If you are using the JVM plugin in New Relic, the instance setting allows your condition to trigger for specific app instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#condition_scope AlertCondition#condition_scope}
-        :param enabled: Whether the condition is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#enabled AlertCondition#enabled}
-        :param gc_metric: A valid Garbage Collection metric e.g. GC/G1 Young Generation. This is required if you are using apm_jvm_metric with gc_cpu_time condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#gc_metric AlertCondition#gc_metric}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#id AlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#runbook_url AlertCondition#runbook_url}
-        :param user_defined_metric: A custom metric to be evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#user_defined_metric AlertCondition#user_defined_metric}
-        :param user_defined_value_function: One of: (average, min, max, total, sample_size, percent, rate). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#user_defined_value_function AlertCondition#user_defined_value_function}
-        :param violation_close_timer: Automatically close instance-based incidents, including JVM health metric incidents, after the number of hours specified. Must be between 1 and 720 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#violation_close_timer AlertCondition#violation_close_timer}
+        :param entities: The instance IDs associated with this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#entities AlertCondition#entities}
+        :param metric: The metric field accepts parameters based on the type set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#metric AlertCondition#metric}
+        :param name: The title of the condition. Must be between 1 and 128 characters, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#name AlertCondition#name}
+        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#policy_id AlertCondition#policy_id}
+        :param term: term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#term AlertCondition#term}
+        :param type: The type of condition. One of: (apm_app_metric, apm_jvm_metric, apm_kt_metric, browser_metric, mobile_metric, servers_metric). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#type AlertCondition#type}
+        :param condition_scope: One of (application, instance). Choose application for most scenarios. If you are using the JVM plugin in New Relic, the instance setting allows your condition to trigger for specific app instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#condition_scope AlertCondition#condition_scope}
+        :param enabled: Whether the condition is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#enabled AlertCondition#enabled}
+        :param gc_metric: A valid Garbage Collection metric e.g. GC/G1 Young Generation. This is required if you are using apm_jvm_metric with gc_cpu_time condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#gc_metric AlertCondition#gc_metric}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#id AlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#runbook_url AlertCondition#runbook_url}
+        :param user_defined_metric: A custom metric to be evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#user_defined_metric AlertCondition#user_defined_metric}
+        :param user_defined_value_function: One of: (average, min, max, total, sample_size, percent, rate). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#user_defined_value_function AlertCondition#user_defined_value_function}
+        :param violation_close_timer: Automatically close instance-based incidents, including JVM health metric incidents, after the number of hours specified. Must be between 1 and 720 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#violation_close_timer AlertCondition#violation_close_timer}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class AlertCondition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AlertCondition to import.
-        :param import_from_id: The id of the existing AlertCondition that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AlertCondition that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AlertCondition to import is found.
         '''
         if __debug__:
@@ -516,20 +516,20 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entities: The instance IDs associated with this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#entities AlertCondition#entities}
-        :param metric: The metric field accepts parameters based on the type set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#metric AlertCondition#metric}
-        :param name: The title of the condition. Must be between 1 and 128 characters, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#name AlertCondition#name}
-        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#policy_id AlertCondition#policy_id}
-        :param term: term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#term AlertCondition#term}
-        :param type: The type of condition. One of: (apm_app_metric, apm_jvm_metric, apm_kt_metric, browser_metric, mobile_metric, servers_metric). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#type AlertCondition#type}
-        :param condition_scope: One of (application, instance). Choose application for most scenarios. If you are using the JVM plugin in New Relic, the instance setting allows your condition to trigger for specific app instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#condition_scope AlertCondition#condition_scope}
-        :param enabled: Whether the condition is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#enabled AlertCondition#enabled}
-        :param gc_metric: A valid Garbage Collection metric e.g. GC/G1 Young Generation. This is required if you are using apm_jvm_metric with gc_cpu_time condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#gc_metric AlertCondition#gc_metric}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#id AlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#runbook_url AlertCondition#runbook_url}
-        :param user_defined_metric: A custom metric to be evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#user_defined_metric AlertCondition#user_defined_metric}
-        :param user_defined_value_function: One of: (average, min, max, total, sample_size, percent, rate). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#user_defined_value_function AlertCondition#user_defined_value_function}
-        :param violation_close_timer: Automatically close instance-based incidents, including JVM health metric incidents, after the number of hours specified. Must be between 1 and 720 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#violation_close_timer AlertCondition#violation_close_timer}
+        :param entities: The instance IDs associated with this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#entities AlertCondition#entities}
+        :param metric: The metric field accepts parameters based on the type set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#metric AlertCondition#metric}
+        :param name: The title of the condition. Must be between 1 and 128 characters, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#name AlertCondition#name}
+        :param policy_id: The ID of the policy where this condition should be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#policy_id AlertCondition#policy_id}
+        :param term: term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#term AlertCondition#term}
+        :param type: The type of condition. One of: (apm_app_metric, apm_jvm_metric, apm_kt_metric, browser_metric, mobile_metric, servers_metric). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#type AlertCondition#type}
+        :param condition_scope: One of (application, instance). Choose application for most scenarios. If you are using the JVM plugin in New Relic, the instance setting allows your condition to trigger for specific app instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#condition_scope AlertCondition#condition_scope}
+        :param enabled: Whether the condition is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#enabled AlertCondition#enabled}
+        :param gc_metric: A valid Garbage Collection metric e.g. GC/G1 Young Generation. This is required if you are using apm_jvm_metric with gc_cpu_time condition type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#gc_metric AlertCondition#gc_metric}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#id AlertCondition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param runbook_url: Runbook URL to display in notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#runbook_url AlertCondition#runbook_url}
+        :param user_defined_metric: A custom metric to be evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#user_defined_metric AlertCondition#user_defined_metric}
+        :param user_defined_value_function: One of: (average, min, max, total, sample_size, percent, rate). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#user_defined_value_function AlertCondition#user_defined_value_function}
+        :param violation_close_timer: Automatically close instance-based incidents, including JVM health metric incidents, after the number of hours specified. Must be between 1 and 720 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#violation_close_timer AlertCondition#violation_close_timer}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -663,7 +663,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entities(self) -> typing.List[jsii.Number]:
         '''The instance IDs associated with this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#entities AlertCondition#entities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#entities AlertCondition#entities}
         '''
         result = self._values.get("entities")
         assert result is not None, "Required property 'entities' is missing"
@@ -673,7 +673,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric(self) -> builtins.str:
         '''The metric field accepts parameters based on the type set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#metric AlertCondition#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#metric AlertCondition#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -683,7 +683,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The title of the condition. Must be between 1 and 128 characters, inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#name AlertCondition#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#name AlertCondition#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -693,7 +693,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_id(self) -> jsii.Number:
         '''The ID of the policy where this condition should be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#policy_id AlertCondition#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#policy_id AlertCondition#policy_id}
         '''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
@@ -705,7 +705,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AlertConditionTerm"]]:
         '''term block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#term AlertCondition#term}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#term AlertCondition#term}
         '''
         result = self._values.get("term")
         assert result is not None, "Required property 'term' is missing"
@@ -715,7 +715,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The type of condition. One of: (apm_app_metric, apm_jvm_metric, apm_kt_metric, browser_metric, mobile_metric, servers_metric).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#type AlertCondition#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#type AlertCondition#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -727,7 +727,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Choose application for most scenarios. If you are using the JVM plugin in New Relic, the instance setting allows your condition to trigger for specific app instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#condition_scope AlertCondition#condition_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#condition_scope AlertCondition#condition_scope}
         '''
         result = self._values.get("condition_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -738,7 +738,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the condition is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#enabled AlertCondition#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#enabled AlertCondition#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -747,14 +747,14 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gc_metric(self) -> typing.Optional[builtins.str]:
         '''A valid Garbage Collection metric e.g. GC/G1 Young Generation. This is required if you are using apm_jvm_metric with gc_cpu_time condition type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#gc_metric AlertCondition#gc_metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#gc_metric AlertCondition#gc_metric}
         '''
         result = self._values.get("gc_metric")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#id AlertCondition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#id AlertCondition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -766,7 +766,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runbook_url(self) -> typing.Optional[builtins.str]:
         '''Runbook URL to display in notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#runbook_url AlertCondition#runbook_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#runbook_url AlertCondition#runbook_url}
         '''
         result = self._values.get("runbook_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -775,7 +775,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_defined_metric(self) -> typing.Optional[builtins.str]:
         '''A custom metric to be evaluated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#user_defined_metric AlertCondition#user_defined_metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#user_defined_metric AlertCondition#user_defined_metric}
         '''
         result = self._values.get("user_defined_metric")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -784,7 +784,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_defined_value_function(self) -> typing.Optional[builtins.str]:
         '''One of: (average, min, max, total, sample_size, percent, rate).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#user_defined_value_function AlertCondition#user_defined_value_function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#user_defined_value_function AlertCondition#user_defined_value_function}
         '''
         result = self._values.get("user_defined_value_function")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -795,7 +795,7 @@ class AlertConditionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be between 1 and 720 hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#violation_close_timer AlertCondition#violation_close_timer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#violation_close_timer AlertCondition#violation_close_timer}
         '''
         result = self._values.get("violation_close_timer")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -834,11 +834,11 @@ class AlertConditionTerm:
         priority: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: In minutes, must be in the range of 5 to 120, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#duration AlertCondition#duration}
-        :param threshold: Must be 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#threshold AlertCondition#threshold}
-        :param time_function: One of (all, any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#time_function AlertCondition#time_function}
-        :param operator: One of (above, below, equal). Defaults to equal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#operator AlertCondition#operator}
-        :param priority: One of (critical, warning). Defaults to critical. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#priority AlertCondition#priority}
+        :param duration: In minutes, must be in the range of 5 to 120, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#duration AlertCondition#duration}
+        :param threshold: Must be 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#threshold AlertCondition#threshold}
+        :param time_function: One of (all, any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#time_function AlertCondition#time_function}
+        :param operator: One of (above, below, equal). Defaults to equal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#operator AlertCondition#operator}
+        :param priority: One of (critical, warning). Defaults to critical. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#priority AlertCondition#priority}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__875db0a7cd53797019a3f5180766e26ab6115f465d677d5b00fdaed983c5a5b1)
@@ -861,7 +861,7 @@ class AlertConditionTerm:
     def duration(self) -> jsii.Number:
         '''In minutes, must be in the range of 5 to 120, inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#duration AlertCondition#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#duration AlertCondition#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -871,7 +871,7 @@ class AlertConditionTerm:
     def threshold(self) -> jsii.Number:
         '''Must be 0 or greater.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#threshold AlertCondition#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#threshold AlertCondition#threshold}
         '''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
@@ -881,7 +881,7 @@ class AlertConditionTerm:
     def time_function(self) -> builtins.str:
         '''One of (all, any).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#time_function AlertCondition#time_function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#time_function AlertCondition#time_function}
         '''
         result = self._values.get("time_function")
         assert result is not None, "Required property 'time_function' is missing"
@@ -891,7 +891,7 @@ class AlertConditionTerm:
     def operator(self) -> typing.Optional[builtins.str]:
         '''One of (above, below, equal). Defaults to equal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#operator AlertCondition#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#operator AlertCondition#operator}
         '''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -900,7 +900,7 @@ class AlertConditionTerm:
     def priority(self) -> typing.Optional[builtins.str]:
         '''One of (critical, warning). Defaults to critical.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/alert_condition#priority AlertCondition#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_condition#priority AlertCondition#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[builtins.str], result)

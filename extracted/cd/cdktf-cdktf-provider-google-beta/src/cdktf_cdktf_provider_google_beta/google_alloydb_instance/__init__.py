@@ -1,7 +1,7 @@
 r'''
 # `google_alloydb_instance`
 
-Refer to the Terraform Registry for docs: [`google_alloydb_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance).
+Refer to the Terraform Registry for docs: [`google_alloydb_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleAlloydbInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleAlloydbInstance.GoogleAlloydbInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance google_alloydb_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance google_alloydb_instance}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class GoogleAlloydbInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance google_alloydb_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance google_alloydb_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster: Identifies the alloydb cluster. Must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cluster GoogleAlloydbInstance#cluster}
-        :param instance_id: The ID of the alloydb instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#instance_id GoogleAlloydbInstance#instance_id}
-        :param instance_type: The type of the instance. If the instance type is READ_POOL, provide the associated PRIMARY/SECONDARY instance in the 'depends_on' meta-data attribute. If the instance type is SECONDARY, point to the cluster_type of the associated secondary cluster instead of mentioning SECONDARY. Example: {instance_type = google_alloydb_cluster.<secondary_cluster_name>.cluster_type} instead of {instance_type = SECONDARY} If the instance type is SECONDARY, the terraform delete instance operation does not delete the secondary instance but abandons it instead. Use deletion_policy = "FORCE" in the associated secondary cluster and delete the cluster forcefully to delete the secondary cluster as well its associated secondary instance. Users can undo the delete secondary instance action by importing the deleted secondary instance by calling terraform import. Possible values: ["PRIMARY", "READ_POOL", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#instance_type GoogleAlloydbInstance#instance_type}
-        :param activation_policy: 'Specifies whether an instance needs to spin up. Once the instance is active, the activation policy can be updated to the 'NEVER' to stop the instance. Likewise, the activation policy can be updated to 'ALWAYS' to start the instance. There are restrictions around when an instance can/cannot be activated (for example, a read pool instance should be stopped before stopping primary etc.). Please refer to the API documentation for more details. Possible values are: 'ACTIVATION_POLICY_UNSPECIFIED', 'ALWAYS', 'NEVER'.' Possible values: ["ACTIVATION_POLICY_UNSPECIFIED", "ALWAYS", "NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#activation_policy GoogleAlloydbInstance#activation_policy}
-        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#annotations GoogleAlloydbInstance#annotations}
-        :param availability_type: 'Availability type of an Instance. Defaults to REGIONAL for both primary and read instances. Note that primary and read instances can have different availability types. Primary instances can be either ZONAL or REGIONAL. Read Pool instances can also be either ZONAL or REGIONAL. Read pools of size 1 can only have zonal availability. Read pools with a node count of 2 or more can have regional availability (nodes are present in 2 or more zones in a region). Possible values are: 'AVAILABILITY_TYPE_UNSPECIFIED', 'ZONAL', 'REGIONAL'.' Possible values: ["AVAILABILITY_TYPE_UNSPECIFIED", "ZONAL", "REGIONAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#availability_type GoogleAlloydbInstance#availability_type}
-        :param client_connection_config: client_connection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#client_connection_config GoogleAlloydbInstance#client_connection_config}
-        :param database_flags: Database flags. Set at instance level. * They are copied from primary instance on read instance creation. * Read instances can set new or override existing flags that are relevant for reads, e.g. for enabling columnar cache on a read instance. Flags set on read instance may or may not be present on primary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#database_flags GoogleAlloydbInstance#database_flags}
-        :param display_name: User-settable and human-readable display name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#display_name GoogleAlloydbInstance#display_name}
-        :param gce_zone: The Compute Engine zone that the instance should serve from, per https://cloud.google.com/compute/docs/regions-zones This can ONLY be specified for ZONAL instances. If present for a REGIONAL instance, an error will be thrown. If this is absent for a ZONAL instance, instance is created in a random zone with available capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#gce_zone GoogleAlloydbInstance#gce_zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#id GoogleAlloydbInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the alloydb instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#labels GoogleAlloydbInstance#labels}
-        :param machine_config: machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#machine_config GoogleAlloydbInstance#machine_config}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#network_config GoogleAlloydbInstance#network_config}
-        :param observability_config: observability_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#observability_config GoogleAlloydbInstance#observability_config}
-        :param psc_instance_config: psc_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_instance_config GoogleAlloydbInstance#psc_instance_config}
-        :param query_insights_config: query_insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_insights_config GoogleAlloydbInstance#query_insights_config}
-        :param read_pool_config: read_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#read_pool_config GoogleAlloydbInstance#read_pool_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#timeouts GoogleAlloydbInstance#timeouts}
+        :param cluster: Identifies the alloydb cluster. Must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cluster GoogleAlloydbInstance#cluster}
+        :param instance_id: The ID of the alloydb instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#instance_id GoogleAlloydbInstance#instance_id}
+        :param instance_type: The type of the instance. If the instance type is READ_POOL, provide the associated PRIMARY/SECONDARY instance in the 'depends_on' meta-data attribute. If the instance type is SECONDARY, point to the cluster_type of the associated secondary cluster instead of mentioning SECONDARY. Example: {instance_type = google_alloydb_cluster.<secondary_cluster_name>.cluster_type} instead of {instance_type = SECONDARY} If the instance type is SECONDARY, the terraform delete instance operation does not delete the secondary instance but abandons it instead. Use deletion_policy = "FORCE" in the associated secondary cluster and delete the cluster forcefully to delete the secondary cluster as well its associated secondary instance. Users can undo the delete secondary instance action by importing the deleted secondary instance by calling terraform import. Possible values: ["PRIMARY", "READ_POOL", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#instance_type GoogleAlloydbInstance#instance_type}
+        :param activation_policy: 'Specifies whether an instance needs to spin up. Once the instance is active, the activation policy can be updated to the 'NEVER' to stop the instance. Likewise, the activation policy can be updated to 'ALWAYS' to start the instance. There are restrictions around when an instance can/cannot be activated (for example, a read pool instance should be stopped before stopping primary etc.). Please refer to the API documentation for more details. Possible values are: 'ACTIVATION_POLICY_UNSPECIFIED', 'ALWAYS', 'NEVER'.' Possible values: ["ACTIVATION_POLICY_UNSPECIFIED", "ALWAYS", "NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#activation_policy GoogleAlloydbInstance#activation_policy}
+        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#annotations GoogleAlloydbInstance#annotations}
+        :param availability_type: 'Availability type of an Instance. Defaults to REGIONAL for both primary and read instances. Note that primary and read instances can have different availability types. Primary instances can be either ZONAL or REGIONAL. Read Pool instances can also be either ZONAL or REGIONAL. Read pools of size 1 can only have zonal availability. Read pools with a node count of 2 or more can have regional availability (nodes are present in 2 or more zones in a region). Possible values are: 'AVAILABILITY_TYPE_UNSPECIFIED', 'ZONAL', 'REGIONAL'.' Possible values: ["AVAILABILITY_TYPE_UNSPECIFIED", "ZONAL", "REGIONAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#availability_type GoogleAlloydbInstance#availability_type}
+        :param client_connection_config: client_connection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#client_connection_config GoogleAlloydbInstance#client_connection_config}
+        :param database_flags: Database flags. Set at instance level. * They are copied from primary instance on read instance creation. * Read instances can set new or override existing flags that are relevant for reads, e.g. for enabling columnar cache on a read instance. Flags set on read instance may or may not be present on primary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#database_flags GoogleAlloydbInstance#database_flags}
+        :param display_name: User-settable and human-readable display name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#display_name GoogleAlloydbInstance#display_name}
+        :param gce_zone: The Compute Engine zone that the instance should serve from, per https://cloud.google.com/compute/docs/regions-zones This can ONLY be specified for ZONAL instances. If present for a REGIONAL instance, an error will be thrown. If this is absent for a ZONAL instance, instance is created in a random zone with available capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#gce_zone GoogleAlloydbInstance#gce_zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#id GoogleAlloydbInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the alloydb instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#labels GoogleAlloydbInstance#labels}
+        :param machine_config: machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#machine_config GoogleAlloydbInstance#machine_config}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#network_config GoogleAlloydbInstance#network_config}
+        :param observability_config: observability_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#observability_config GoogleAlloydbInstance#observability_config}
+        :param psc_instance_config: psc_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_instance_config GoogleAlloydbInstance#psc_instance_config}
+        :param query_insights_config: query_insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_insights_config GoogleAlloydbInstance#query_insights_config}
+        :param read_pool_config: read_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#read_pool_config GoogleAlloydbInstance#read_pool_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#timeouts GoogleAlloydbInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class GoogleAlloydbInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleAlloydbInstance to import.
-        :param import_from_id: The id of the existing GoogleAlloydbInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleAlloydbInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleAlloydbInstance to import is found.
         '''
         if __debug__:
@@ -176,8 +176,8 @@ class GoogleAlloydbInstance(
         ssl_config: typing.Optional[typing.Union["GoogleAlloydbInstanceClientConnectionConfigSslConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param require_connectors: Configuration to enforce connectors only (ex: AuthProxy) connections to the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#require_connectors GoogleAlloydbInstance#require_connectors}
-        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#ssl_config GoogleAlloydbInstance#ssl_config}
+        :param require_connectors: Configuration to enforce connectors only (ex: AuthProxy) connections to the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#require_connectors GoogleAlloydbInstance#require_connectors}
+        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#ssl_config GoogleAlloydbInstance#ssl_config}
         '''
         value = GoogleAlloydbInstanceClientConnectionConfig(
             require_connectors=require_connectors, ssl_config=ssl_config
@@ -193,8 +193,8 @@ class GoogleAlloydbInstance(
         machine_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu_count: The number of CPU's in the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cpu_count GoogleAlloydbInstance#cpu_count}
-        :param machine_type: Machine type of the VM instance. E.g. "n2-highmem-4", "n2-highmem-8", "c4a-highmem-4-lssd". 'cpu_count' must match the number of vCPUs in the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#machine_type GoogleAlloydbInstance#machine_type}
+        :param cpu_count: The number of CPU's in the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cpu_count GoogleAlloydbInstance#cpu_count}
+        :param machine_type: Machine type of the VM instance. E.g. "n2-highmem-4", "n2-highmem-8", "c4a-highmem-4-lssd". 'cpu_count' must match the number of vCPUs in the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#machine_type GoogleAlloydbInstance#machine_type}
         '''
         value = GoogleAlloydbInstanceMachineConfig(
             cpu_count=cpu_count, machine_type=machine_type
@@ -206,16 +206,19 @@ class GoogleAlloydbInstance(
     def put_network_config(
         self,
         *,
+        allocated_ip_range_override: typing.Optional[builtins.str] = None,
         authorized_external_networks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks", typing.Dict[builtins.str, typing.Any]]]]] = None,
         enable_outbound_public_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_public_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param authorized_external_networks: authorized_external_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#authorized_external_networks GoogleAlloydbInstance#authorized_external_networks}
-        :param enable_outbound_public_ip: Enabling outbound public ip for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enable_outbound_public_ip GoogleAlloydbInstance#enable_outbound_public_ip}
-        :param enable_public_ip: Enabling public ip for the instance. If a user wishes to disable this, please also clear the list of the authorized external networks set on the same instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enable_public_ip GoogleAlloydbInstance#enable_public_ip}
+        :param allocated_ip_range_override: Name of the allocated IP range for the private IP AlloyDB instance, for example: "google-managed-services-default". If set, the instance IPs will be created from this allocated range and will override the IP range used by the parent cluster. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#allocated_ip_range_override GoogleAlloydbInstance#allocated_ip_range_override}
+        :param authorized_external_networks: authorized_external_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#authorized_external_networks GoogleAlloydbInstance#authorized_external_networks}
+        :param enable_outbound_public_ip: Enabling outbound public ip for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enable_outbound_public_ip GoogleAlloydbInstance#enable_outbound_public_ip}
+        :param enable_public_ip: Enabling public ip for the instance. If a user wishes to disable this, please also clear the list of the authorized external networks set on the same instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enable_public_ip GoogleAlloydbInstance#enable_public_ip}
         '''
         value = GoogleAlloydbInstanceNetworkConfig(
+            allocated_ip_range_override=allocated_ip_range_override,
             authorized_external_networks=authorized_external_networks,
             enable_outbound_public_ip=enable_outbound_public_ip,
             enable_public_ip=enable_public_ip,
@@ -238,15 +241,15 @@ class GoogleAlloydbInstance(
         track_wait_event_types: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param assistive_experiences_enabled: Whether assistive experiences are enabled for this AlloyDB instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#assistive_experiences_enabled GoogleAlloydbInstance#assistive_experiences_enabled}
-        :param enabled: Observability feature status for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enabled GoogleAlloydbInstance#enabled}
-        :param max_query_string_length: Query string length. The default value is 10240. Any integer between 1024 and 100000 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#max_query_string_length GoogleAlloydbInstance#max_query_string_length}
-        :param preserve_comments: Preserve comments in the query string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#preserve_comments GoogleAlloydbInstance#preserve_comments}
-        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 200 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
-        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
-        :param track_active_queries: Track actively running queries. If not set, default value is "off". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_active_queries GoogleAlloydbInstance#track_active_queries}
-        :param track_wait_events: Record wait events during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_wait_events GoogleAlloydbInstance#track_wait_events}
-        :param track_wait_event_types: Record wait event types during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_wait_event_types GoogleAlloydbInstance#track_wait_event_types}
+        :param assistive_experiences_enabled: Whether assistive experiences are enabled for this AlloyDB instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#assistive_experiences_enabled GoogleAlloydbInstance#assistive_experiences_enabled}
+        :param enabled: Observability feature status for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enabled GoogleAlloydbInstance#enabled}
+        :param max_query_string_length: Query string length. The default value is 10240. Any integer between 1024 and 100000 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#max_query_string_length GoogleAlloydbInstance#max_query_string_length}
+        :param preserve_comments: Preserve comments in the query string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#preserve_comments GoogleAlloydbInstance#preserve_comments}
+        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 200 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
+        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
+        :param track_active_queries: Track actively running queries. If not set, default value is "off". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_active_queries GoogleAlloydbInstance#track_active_queries}
+        :param track_wait_events: Record wait events during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_wait_events GoogleAlloydbInstance#track_wait_events}
+        :param track_wait_event_types: Record wait event types during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_wait_event_types GoogleAlloydbInstance#track_wait_event_types}
         '''
         value = GoogleAlloydbInstanceObservabilityConfig(
             assistive_experiences_enabled=assistive_experiences_enabled,
@@ -271,9 +274,9 @@ class GoogleAlloydbInstance(
         psc_interface_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleAlloydbInstancePscInstanceConfigPscInterfaceConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_consumer_projects: List of consumer projects that are allowed to create PSC endpoints to service-attachments to this instance. These should be specified as project numbers only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#allowed_consumer_projects GoogleAlloydbInstance#allowed_consumer_projects}
-        :param psc_auto_connections: psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_auto_connections GoogleAlloydbInstance#psc_auto_connections}
-        :param psc_interface_configs: psc_interface_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_interface_configs GoogleAlloydbInstance#psc_interface_configs}
+        :param allowed_consumer_projects: List of consumer projects that are allowed to create PSC endpoints to service-attachments to this instance. These should be specified as project numbers only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#allowed_consumer_projects GoogleAlloydbInstance#allowed_consumer_projects}
+        :param psc_auto_connections: psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_auto_connections GoogleAlloydbInstance#psc_auto_connections}
+        :param psc_interface_configs: psc_interface_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_interface_configs GoogleAlloydbInstance#psc_interface_configs}
         '''
         value = GoogleAlloydbInstancePscInstanceConfig(
             allowed_consumer_projects=allowed_consumer_projects,
@@ -293,10 +296,10 @@ class GoogleAlloydbInstance(
         record_client_address: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 20 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
-        :param query_string_length: Query string length. The default value is 1024. Any integer between 256 and 4500 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_string_length GoogleAlloydbInstance#query_string_length}
-        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
-        :param record_client_address: Record client address for an instance. Client address is PII information. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_client_address GoogleAlloydbInstance#record_client_address}
+        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 20 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
+        :param query_string_length: Query string length. The default value is 1024. Any integer between 256 and 4500 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_string_length GoogleAlloydbInstance#query_string_length}
+        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
+        :param record_client_address: Record client address for an instance. Client address is PII information. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_client_address GoogleAlloydbInstance#record_client_address}
         '''
         value = GoogleAlloydbInstanceQueryInsightsConfig(
             query_plans_per_minute=query_plans_per_minute,
@@ -314,7 +317,7 @@ class GoogleAlloydbInstance(
         node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_count: Read capacity, i.e. number of nodes in a read pool instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#node_count GoogleAlloydbInstance#node_count}
+        :param node_count: Read capacity, i.e. number of nodes in a read pool instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#node_count GoogleAlloydbInstance#node_count}
         '''
         value = GoogleAlloydbInstanceReadPoolConfig(node_count=node_count)
 
@@ -329,9 +332,9 @@ class GoogleAlloydbInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#create GoogleAlloydbInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#delete GoogleAlloydbInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#update GoogleAlloydbInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#create GoogleAlloydbInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#delete GoogleAlloydbInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#update GoogleAlloydbInstance#update}.
         '''
         value = GoogleAlloydbInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -790,8 +793,8 @@ class GoogleAlloydbInstanceClientConnectionConfig:
         ssl_config: typing.Optional[typing.Union["GoogleAlloydbInstanceClientConnectionConfigSslConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param require_connectors: Configuration to enforce connectors only (ex: AuthProxy) connections to the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#require_connectors GoogleAlloydbInstance#require_connectors}
-        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#ssl_config GoogleAlloydbInstance#ssl_config}
+        :param require_connectors: Configuration to enforce connectors only (ex: AuthProxy) connections to the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#require_connectors GoogleAlloydbInstance#require_connectors}
+        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#ssl_config GoogleAlloydbInstance#ssl_config}
         '''
         if isinstance(ssl_config, dict):
             ssl_config = GoogleAlloydbInstanceClientConnectionConfigSslConfig(**ssl_config)
@@ -811,7 +814,7 @@ class GoogleAlloydbInstanceClientConnectionConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Configuration to enforce connectors only (ex: AuthProxy) connections to the database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#require_connectors GoogleAlloydbInstance#require_connectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#require_connectors GoogleAlloydbInstance#require_connectors}
         '''
         result = self._values.get("require_connectors")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -822,7 +825,7 @@ class GoogleAlloydbInstanceClientConnectionConfig:
     ) -> typing.Optional["GoogleAlloydbInstanceClientConnectionConfigSslConfig"]:
         '''ssl_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#ssl_config GoogleAlloydbInstance#ssl_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#ssl_config GoogleAlloydbInstance#ssl_config}
         '''
         result = self._values.get("ssl_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceClientConnectionConfigSslConfig"], result)
@@ -862,7 +865,7 @@ class GoogleAlloydbInstanceClientConnectionConfigOutputReference(
     @jsii.member(jsii_name="putSslConfig")
     def put_ssl_config(self, *, ssl_mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param ssl_mode: SSL mode. Specifies client-server SSL/TLS connection behavior. Possible values: ["ENCRYPTED_ONLY", "ALLOW_UNENCRYPTED_AND_ENCRYPTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#ssl_mode GoogleAlloydbInstance#ssl_mode}
+        :param ssl_mode: SSL mode. Specifies client-server SSL/TLS connection behavior. Possible values: ["ENCRYPTED_ONLY", "ALLOW_UNENCRYPTED_AND_ENCRYPTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#ssl_mode GoogleAlloydbInstance#ssl_mode}
         '''
         value = GoogleAlloydbInstanceClientConnectionConfigSslConfig(ssl_mode=ssl_mode)
 
@@ -940,7 +943,7 @@ class GoogleAlloydbInstanceClientConnectionConfigOutputReference(
 class GoogleAlloydbInstanceClientConnectionConfigSslConfig:
     def __init__(self, *, ssl_mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param ssl_mode: SSL mode. Specifies client-server SSL/TLS connection behavior. Possible values: ["ENCRYPTED_ONLY", "ALLOW_UNENCRYPTED_AND_ENCRYPTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#ssl_mode GoogleAlloydbInstance#ssl_mode}
+        :param ssl_mode: SSL mode. Specifies client-server SSL/TLS connection behavior. Possible values: ["ENCRYPTED_ONLY", "ALLOW_UNENCRYPTED_AND_ENCRYPTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#ssl_mode GoogleAlloydbInstance#ssl_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd3d37f257ac035dc1104c98fb2a5a4c2f762965ececce88f0b8630dff8f326f)
@@ -953,7 +956,7 @@ class GoogleAlloydbInstanceClientConnectionConfigSslConfig:
     def ssl_mode(self) -> typing.Optional[builtins.str]:
         '''SSL mode. Specifies client-server SSL/TLS connection behavior. Possible values: ["ENCRYPTED_ONLY", "ALLOW_UNENCRYPTED_AND_ENCRYPTED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#ssl_mode GoogleAlloydbInstance#ssl_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#ssl_mode GoogleAlloydbInstance#ssl_mode}
         '''
         result = self._values.get("ssl_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1100,25 +1103,25 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster: Identifies the alloydb cluster. Must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cluster GoogleAlloydbInstance#cluster}
-        :param instance_id: The ID of the alloydb instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#instance_id GoogleAlloydbInstance#instance_id}
-        :param instance_type: The type of the instance. If the instance type is READ_POOL, provide the associated PRIMARY/SECONDARY instance in the 'depends_on' meta-data attribute. If the instance type is SECONDARY, point to the cluster_type of the associated secondary cluster instead of mentioning SECONDARY. Example: {instance_type = google_alloydb_cluster.<secondary_cluster_name>.cluster_type} instead of {instance_type = SECONDARY} If the instance type is SECONDARY, the terraform delete instance operation does not delete the secondary instance but abandons it instead. Use deletion_policy = "FORCE" in the associated secondary cluster and delete the cluster forcefully to delete the secondary cluster as well its associated secondary instance. Users can undo the delete secondary instance action by importing the deleted secondary instance by calling terraform import. Possible values: ["PRIMARY", "READ_POOL", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#instance_type GoogleAlloydbInstance#instance_type}
-        :param activation_policy: 'Specifies whether an instance needs to spin up. Once the instance is active, the activation policy can be updated to the 'NEVER' to stop the instance. Likewise, the activation policy can be updated to 'ALWAYS' to start the instance. There are restrictions around when an instance can/cannot be activated (for example, a read pool instance should be stopped before stopping primary etc.). Please refer to the API documentation for more details. Possible values are: 'ACTIVATION_POLICY_UNSPECIFIED', 'ALWAYS', 'NEVER'.' Possible values: ["ACTIVATION_POLICY_UNSPECIFIED", "ALWAYS", "NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#activation_policy GoogleAlloydbInstance#activation_policy}
-        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#annotations GoogleAlloydbInstance#annotations}
-        :param availability_type: 'Availability type of an Instance. Defaults to REGIONAL for both primary and read instances. Note that primary and read instances can have different availability types. Primary instances can be either ZONAL or REGIONAL. Read Pool instances can also be either ZONAL or REGIONAL. Read pools of size 1 can only have zonal availability. Read pools with a node count of 2 or more can have regional availability (nodes are present in 2 or more zones in a region). Possible values are: 'AVAILABILITY_TYPE_UNSPECIFIED', 'ZONAL', 'REGIONAL'.' Possible values: ["AVAILABILITY_TYPE_UNSPECIFIED", "ZONAL", "REGIONAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#availability_type GoogleAlloydbInstance#availability_type}
-        :param client_connection_config: client_connection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#client_connection_config GoogleAlloydbInstance#client_connection_config}
-        :param database_flags: Database flags. Set at instance level. * They are copied from primary instance on read instance creation. * Read instances can set new or override existing flags that are relevant for reads, e.g. for enabling columnar cache on a read instance. Flags set on read instance may or may not be present on primary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#database_flags GoogleAlloydbInstance#database_flags}
-        :param display_name: User-settable and human-readable display name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#display_name GoogleAlloydbInstance#display_name}
-        :param gce_zone: The Compute Engine zone that the instance should serve from, per https://cloud.google.com/compute/docs/regions-zones This can ONLY be specified for ZONAL instances. If present for a REGIONAL instance, an error will be thrown. If this is absent for a ZONAL instance, instance is created in a random zone with available capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#gce_zone GoogleAlloydbInstance#gce_zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#id GoogleAlloydbInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the alloydb instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#labels GoogleAlloydbInstance#labels}
-        :param machine_config: machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#machine_config GoogleAlloydbInstance#machine_config}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#network_config GoogleAlloydbInstance#network_config}
-        :param observability_config: observability_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#observability_config GoogleAlloydbInstance#observability_config}
-        :param psc_instance_config: psc_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_instance_config GoogleAlloydbInstance#psc_instance_config}
-        :param query_insights_config: query_insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_insights_config GoogleAlloydbInstance#query_insights_config}
-        :param read_pool_config: read_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#read_pool_config GoogleAlloydbInstance#read_pool_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#timeouts GoogleAlloydbInstance#timeouts}
+        :param cluster: Identifies the alloydb cluster. Must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cluster GoogleAlloydbInstance#cluster}
+        :param instance_id: The ID of the alloydb instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#instance_id GoogleAlloydbInstance#instance_id}
+        :param instance_type: The type of the instance. If the instance type is READ_POOL, provide the associated PRIMARY/SECONDARY instance in the 'depends_on' meta-data attribute. If the instance type is SECONDARY, point to the cluster_type of the associated secondary cluster instead of mentioning SECONDARY. Example: {instance_type = google_alloydb_cluster.<secondary_cluster_name>.cluster_type} instead of {instance_type = SECONDARY} If the instance type is SECONDARY, the terraform delete instance operation does not delete the secondary instance but abandons it instead. Use deletion_policy = "FORCE" in the associated secondary cluster and delete the cluster forcefully to delete the secondary cluster as well its associated secondary instance. Users can undo the delete secondary instance action by importing the deleted secondary instance by calling terraform import. Possible values: ["PRIMARY", "READ_POOL", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#instance_type GoogleAlloydbInstance#instance_type}
+        :param activation_policy: 'Specifies whether an instance needs to spin up. Once the instance is active, the activation policy can be updated to the 'NEVER' to stop the instance. Likewise, the activation policy can be updated to 'ALWAYS' to start the instance. There are restrictions around when an instance can/cannot be activated (for example, a read pool instance should be stopped before stopping primary etc.). Please refer to the API documentation for more details. Possible values are: 'ACTIVATION_POLICY_UNSPECIFIED', 'ALWAYS', 'NEVER'.' Possible values: ["ACTIVATION_POLICY_UNSPECIFIED", "ALWAYS", "NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#activation_policy GoogleAlloydbInstance#activation_policy}
+        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#annotations GoogleAlloydbInstance#annotations}
+        :param availability_type: 'Availability type of an Instance. Defaults to REGIONAL for both primary and read instances. Note that primary and read instances can have different availability types. Primary instances can be either ZONAL or REGIONAL. Read Pool instances can also be either ZONAL or REGIONAL. Read pools of size 1 can only have zonal availability. Read pools with a node count of 2 or more can have regional availability (nodes are present in 2 or more zones in a region). Possible values are: 'AVAILABILITY_TYPE_UNSPECIFIED', 'ZONAL', 'REGIONAL'.' Possible values: ["AVAILABILITY_TYPE_UNSPECIFIED", "ZONAL", "REGIONAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#availability_type GoogleAlloydbInstance#availability_type}
+        :param client_connection_config: client_connection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#client_connection_config GoogleAlloydbInstance#client_connection_config}
+        :param database_flags: Database flags. Set at instance level. * They are copied from primary instance on read instance creation. * Read instances can set new or override existing flags that are relevant for reads, e.g. for enabling columnar cache on a read instance. Flags set on read instance may or may not be present on primary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#database_flags GoogleAlloydbInstance#database_flags}
+        :param display_name: User-settable and human-readable display name for the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#display_name GoogleAlloydbInstance#display_name}
+        :param gce_zone: The Compute Engine zone that the instance should serve from, per https://cloud.google.com/compute/docs/regions-zones This can ONLY be specified for ZONAL instances. If present for a REGIONAL instance, an error will be thrown. If this is absent for a ZONAL instance, instance is created in a random zone with available capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#gce_zone GoogleAlloydbInstance#gce_zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#id GoogleAlloydbInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the alloydb instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#labels GoogleAlloydbInstance#labels}
+        :param machine_config: machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#machine_config GoogleAlloydbInstance#machine_config}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#network_config GoogleAlloydbInstance#network_config}
+        :param observability_config: observability_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#observability_config GoogleAlloydbInstance#observability_config}
+        :param psc_instance_config: psc_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_instance_config GoogleAlloydbInstance#psc_instance_config}
+        :param query_insights_config: query_insights_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_insights_config GoogleAlloydbInstance#query_insights_config}
+        :param read_pool_config: read_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#read_pool_config GoogleAlloydbInstance#read_pool_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#timeouts GoogleAlloydbInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1286,7 +1289,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''Identifies the alloydb cluster. Must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cluster GoogleAlloydbInstance#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cluster GoogleAlloydbInstance#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -1296,7 +1299,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_id(self) -> builtins.str:
         '''The ID of the alloydb instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#instance_id GoogleAlloydbInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#instance_id GoogleAlloydbInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -1313,7 +1316,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Use deletion_policy = "FORCE" in the associated secondary cluster and delete the cluster forcefully to delete the secondary cluster as well its associated secondary instance.
         Users can undo the delete secondary instance action by importing the deleted secondary instance by calling terraform import. Possible values: ["PRIMARY", "READ_POOL", "SECONDARY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#instance_type GoogleAlloydbInstance#instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#instance_type GoogleAlloydbInstance#instance_type}
         '''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
@@ -1332,7 +1335,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         etc.). Please refer to the API documentation for more details.
         Possible values are: 'ACTIVATION_POLICY_UNSPECIFIED', 'ALWAYS', 'NEVER'.' Possible values: ["ACTIVATION_POLICY_UNSPECIFIED", "ALWAYS", "NEVER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#activation_policy GoogleAlloydbInstance#activation_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#activation_policy GoogleAlloydbInstance#activation_policy}
         '''
         result = self._values.get("activation_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1346,7 +1349,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#annotations GoogleAlloydbInstance#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#annotations GoogleAlloydbInstance#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1362,7 +1365,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         can have regional availability (nodes are present in 2 or more zones in a region).
         Possible values are: 'AVAILABILITY_TYPE_UNSPECIFIED', 'ZONAL', 'REGIONAL'.' Possible values: ["AVAILABILITY_TYPE_UNSPECIFIED", "ZONAL", "REGIONAL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#availability_type GoogleAlloydbInstance#availability_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#availability_type GoogleAlloydbInstance#availability_type}
         '''
         result = self._values.get("availability_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1373,7 +1376,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleAlloydbInstanceClientConnectionConfig]:
         '''client_connection_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#client_connection_config GoogleAlloydbInstance#client_connection_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#client_connection_config GoogleAlloydbInstance#client_connection_config}
         '''
         result = self._values.get("client_connection_config")
         return typing.cast(typing.Optional[GoogleAlloydbInstanceClientConnectionConfig], result)
@@ -1386,7 +1389,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set at instance level. * They are copied from primary instance on read instance creation. * Read instances can set new or override existing flags that are relevant for reads, e.g. for enabling columnar cache on a read instance. Flags set on read instance may or may not be present on primary.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#database_flags GoogleAlloydbInstance#database_flags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#database_flags GoogleAlloydbInstance#database_flags}
         '''
         result = self._values.get("database_flags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1395,7 +1398,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User-settable and human-readable display name for the Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#display_name GoogleAlloydbInstance#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#display_name GoogleAlloydbInstance#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1404,14 +1407,14 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gce_zone(self) -> typing.Optional[builtins.str]:
         '''The Compute Engine zone that the instance should serve from, per https://cloud.google.com/compute/docs/regions-zones This can ONLY be specified for ZONAL instances. If present for a REGIONAL instance, an error will be thrown. If this is absent for a ZONAL instance, instance is created in a random zone with available capacity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#gce_zone GoogleAlloydbInstance#gce_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#gce_zone GoogleAlloydbInstance#gce_zone}
         '''
         result = self._values.get("gce_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#id GoogleAlloydbInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#id GoogleAlloydbInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1426,7 +1429,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#labels GoogleAlloydbInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#labels GoogleAlloydbInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1435,7 +1438,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def machine_config(self) -> typing.Optional["GoogleAlloydbInstanceMachineConfig"]:
         '''machine_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#machine_config GoogleAlloydbInstance#machine_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#machine_config GoogleAlloydbInstance#machine_config}
         '''
         result = self._values.get("machine_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceMachineConfig"], result)
@@ -1444,7 +1447,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_config(self) -> typing.Optional["GoogleAlloydbInstanceNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#network_config GoogleAlloydbInstance#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#network_config GoogleAlloydbInstance#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceNetworkConfig"], result)
@@ -1455,7 +1458,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbInstanceObservabilityConfig"]:
         '''observability_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#observability_config GoogleAlloydbInstance#observability_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#observability_config GoogleAlloydbInstance#observability_config}
         '''
         result = self._values.get("observability_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceObservabilityConfig"], result)
@@ -1466,7 +1469,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbInstancePscInstanceConfig"]:
         '''psc_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_instance_config GoogleAlloydbInstance#psc_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_instance_config GoogleAlloydbInstance#psc_instance_config}
         '''
         result = self._values.get("psc_instance_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstancePscInstanceConfig"], result)
@@ -1477,7 +1480,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbInstanceQueryInsightsConfig"]:
         '''query_insights_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_insights_config GoogleAlloydbInstance#query_insights_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_insights_config GoogleAlloydbInstance#query_insights_config}
         '''
         result = self._values.get("query_insights_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceQueryInsightsConfig"], result)
@@ -1488,7 +1491,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbInstanceReadPoolConfig"]:
         '''read_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#read_pool_config GoogleAlloydbInstance#read_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#read_pool_config GoogleAlloydbInstance#read_pool_config}
         '''
         result = self._values.get("read_pool_config")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceReadPoolConfig"], result)
@@ -1497,7 +1500,7 @@ class GoogleAlloydbInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleAlloydbInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#timeouts GoogleAlloydbInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#timeouts GoogleAlloydbInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleAlloydbInstanceTimeouts"], result)
@@ -1527,8 +1530,8 @@ class GoogleAlloydbInstanceMachineConfig:
         machine_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu_count: The number of CPU's in the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cpu_count GoogleAlloydbInstance#cpu_count}
-        :param machine_type: Machine type of the VM instance. E.g. "n2-highmem-4", "n2-highmem-8", "c4a-highmem-4-lssd". 'cpu_count' must match the number of vCPUs in the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#machine_type GoogleAlloydbInstance#machine_type}
+        :param cpu_count: The number of CPU's in the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cpu_count GoogleAlloydbInstance#cpu_count}
+        :param machine_type: Machine type of the VM instance. E.g. "n2-highmem-4", "n2-highmem-8", "c4a-highmem-4-lssd". 'cpu_count' must match the number of vCPUs in the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#machine_type GoogleAlloydbInstance#machine_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9537c0a0af16ef03bf3dacc7325bf7dda5b115b7544e166410a1aab5bfbc33b)
@@ -1544,7 +1547,7 @@ class GoogleAlloydbInstanceMachineConfig:
     def cpu_count(self) -> typing.Optional[jsii.Number]:
         '''The number of CPU's in the VM instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cpu_count GoogleAlloydbInstance#cpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cpu_count GoogleAlloydbInstance#cpu_count}
         '''
         result = self._values.get("cpu_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1553,7 +1556,7 @@ class GoogleAlloydbInstanceMachineConfig:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''Machine type of the VM instance. E.g. "n2-highmem-4", "n2-highmem-8", "c4a-highmem-4-lssd". 'cpu_count' must match the number of vCPUs in the machine type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#machine_type GoogleAlloydbInstance#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#machine_type GoogleAlloydbInstance#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1652,6 +1655,7 @@ class GoogleAlloydbInstanceMachineConfigOutputReference(
     jsii_type="@cdktf/provider-google-beta.googleAlloydbInstance.GoogleAlloydbInstanceNetworkConfig",
     jsii_struct_bases=[],
     name_mapping={
+        "allocated_ip_range_override": "allocatedIpRangeOverride",
         "authorized_external_networks": "authorizedExternalNetworks",
         "enable_outbound_public_ip": "enableOutboundPublicIp",
         "enable_public_ip": "enablePublicIp",
@@ -1661,21 +1665,26 @@ class GoogleAlloydbInstanceNetworkConfig:
     def __init__(
         self,
         *,
+        allocated_ip_range_override: typing.Optional[builtins.str] = None,
         authorized_external_networks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks", typing.Dict[builtins.str, typing.Any]]]]] = None,
         enable_outbound_public_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_public_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param authorized_external_networks: authorized_external_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#authorized_external_networks GoogleAlloydbInstance#authorized_external_networks}
-        :param enable_outbound_public_ip: Enabling outbound public ip for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enable_outbound_public_ip GoogleAlloydbInstance#enable_outbound_public_ip}
-        :param enable_public_ip: Enabling public ip for the instance. If a user wishes to disable this, please also clear the list of the authorized external networks set on the same instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enable_public_ip GoogleAlloydbInstance#enable_public_ip}
+        :param allocated_ip_range_override: Name of the allocated IP range for the private IP AlloyDB instance, for example: "google-managed-services-default". If set, the instance IPs will be created from this allocated range and will override the IP range used by the parent cluster. The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#allocated_ip_range_override GoogleAlloydbInstance#allocated_ip_range_override}
+        :param authorized_external_networks: authorized_external_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#authorized_external_networks GoogleAlloydbInstance#authorized_external_networks}
+        :param enable_outbound_public_ip: Enabling outbound public ip for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enable_outbound_public_ip GoogleAlloydbInstance#enable_outbound_public_ip}
+        :param enable_public_ip: Enabling public ip for the instance. If a user wishes to disable this, please also clear the list of the authorized external networks set on the same instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enable_public_ip GoogleAlloydbInstance#enable_public_ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95ba701575725b5bcb679fb88d22e218c26b7fddfdd7eb34473e7512d88c4fdd)
+            check_type(argname="argument allocated_ip_range_override", value=allocated_ip_range_override, expected_type=type_hints["allocated_ip_range_override"])
             check_type(argname="argument authorized_external_networks", value=authorized_external_networks, expected_type=type_hints["authorized_external_networks"])
             check_type(argname="argument enable_outbound_public_ip", value=enable_outbound_public_ip, expected_type=type_hints["enable_outbound_public_ip"])
             check_type(argname="argument enable_public_ip", value=enable_public_ip, expected_type=type_hints["enable_public_ip"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allocated_ip_range_override is not None:
+            self._values["allocated_ip_range_override"] = allocated_ip_range_override
         if authorized_external_networks is not None:
             self._values["authorized_external_networks"] = authorized_external_networks
         if enable_outbound_public_ip is not None:
@@ -1684,12 +1693,24 @@ class GoogleAlloydbInstanceNetworkConfig:
             self._values["enable_public_ip"] = enable_public_ip
 
     @builtins.property
+    def allocated_ip_range_override(self) -> typing.Optional[builtins.str]:
+        '''Name of the allocated IP range for the private IP AlloyDB instance, for example: "google-managed-services-default".
+
+        If set, the instance IPs will be created from this allocated range and will override the IP range used by the parent cluster.
+        The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#allocated_ip_range_override GoogleAlloydbInstance#allocated_ip_range_override}
+        '''
+        result = self._values.get("allocated_ip_range_override")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def authorized_external_networks(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks"]]]:
         '''authorized_external_networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#authorized_external_networks GoogleAlloydbInstance#authorized_external_networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#authorized_external_networks GoogleAlloydbInstance#authorized_external_networks}
         '''
         result = self._values.get("authorized_external_networks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks"]]], result)
@@ -1700,7 +1721,7 @@ class GoogleAlloydbInstanceNetworkConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enabling outbound public ip for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enable_outbound_public_ip GoogleAlloydbInstance#enable_outbound_public_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enable_outbound_public_ip GoogleAlloydbInstance#enable_outbound_public_ip}
         '''
         result = self._values.get("enable_outbound_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1715,7 +1736,7 @@ class GoogleAlloydbInstanceNetworkConfig:
         please also clear the list of the authorized external networks set on
         the same instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enable_public_ip GoogleAlloydbInstance#enable_public_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enable_public_ip GoogleAlloydbInstance#enable_public_ip}
         '''
         result = self._values.get("enable_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1740,7 +1761,7 @@ class GoogleAlloydbInstanceNetworkConfig:
 class GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks:
     def __init__(self, *, cidr_range: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cidr_range: CIDR range for one authorized network of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cidr_range GoogleAlloydbInstance#cidr_range}
+        :param cidr_range: CIDR range for one authorized network of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cidr_range GoogleAlloydbInstance#cidr_range}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31866c78d8cbfa4bc86266921265a321b6754579dfa0e97e90858ec28b4c7ba5)
@@ -1753,7 +1774,7 @@ class GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks:
     def cidr_range(self) -> typing.Optional[builtins.str]:
         '''CIDR range for one authorized network of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#cidr_range GoogleAlloydbInstance#cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#cidr_range GoogleAlloydbInstance#cidr_range}
         '''
         result = self._values.get("cidr_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1961,6 +1982,10 @@ class GoogleAlloydbInstanceNetworkConfigOutputReference(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putAuthorizedExternalNetworks", [value]))
 
+    @jsii.member(jsii_name="resetAllocatedIpRangeOverride")
+    def reset_allocated_ip_range_override(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAllocatedIpRangeOverride", []))
+
     @jsii.member(jsii_name="resetAuthorizedExternalNetworks")
     def reset_authorized_external_networks(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAuthorizedExternalNetworks", []))
@@ -1979,6 +2004,11 @@ class GoogleAlloydbInstanceNetworkConfigOutputReference(
         self,
     ) -> GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworksList:
         return typing.cast(GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworksList, jsii.get(self, "authorizedExternalNetworks"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allocatedIpRangeOverrideInput")
+    def allocated_ip_range_override_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "allocatedIpRangeOverrideInput"))
 
     @builtins.property
     @jsii.member(jsii_name="authorizedExternalNetworksInput")
@@ -2000,6 +2030,18 @@ class GoogleAlloydbInstanceNetworkConfigOutputReference(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enablePublicIpInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allocatedIpRangeOverride")
+    def allocated_ip_range_override(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "allocatedIpRangeOverride"))
+
+    @allocated_ip_range_override.setter
+    def allocated_ip_range_override(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbd296a9dbeabb8f396e3d1999798ee36aea691e48e2ec08acc64e2dbbaae3e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allocatedIpRangeOverride", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="enableOutboundPublicIp")
@@ -2081,15 +2123,15 @@ class GoogleAlloydbInstanceObservabilityConfig:
         track_wait_event_types: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param assistive_experiences_enabled: Whether assistive experiences are enabled for this AlloyDB instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#assistive_experiences_enabled GoogleAlloydbInstance#assistive_experiences_enabled}
-        :param enabled: Observability feature status for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enabled GoogleAlloydbInstance#enabled}
-        :param max_query_string_length: Query string length. The default value is 10240. Any integer between 1024 and 100000 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#max_query_string_length GoogleAlloydbInstance#max_query_string_length}
-        :param preserve_comments: Preserve comments in the query string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#preserve_comments GoogleAlloydbInstance#preserve_comments}
-        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 200 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
-        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
-        :param track_active_queries: Track actively running queries. If not set, default value is "off". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_active_queries GoogleAlloydbInstance#track_active_queries}
-        :param track_wait_events: Record wait events during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_wait_events GoogleAlloydbInstance#track_wait_events}
-        :param track_wait_event_types: Record wait event types during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_wait_event_types GoogleAlloydbInstance#track_wait_event_types}
+        :param assistive_experiences_enabled: Whether assistive experiences are enabled for this AlloyDB instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#assistive_experiences_enabled GoogleAlloydbInstance#assistive_experiences_enabled}
+        :param enabled: Observability feature status for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enabled GoogleAlloydbInstance#enabled}
+        :param max_query_string_length: Query string length. The default value is 10240. Any integer between 1024 and 100000 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#max_query_string_length GoogleAlloydbInstance#max_query_string_length}
+        :param preserve_comments: Preserve comments in the query string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#preserve_comments GoogleAlloydbInstance#preserve_comments}
+        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 200 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
+        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
+        :param track_active_queries: Track actively running queries. If not set, default value is "off". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_active_queries GoogleAlloydbInstance#track_active_queries}
+        :param track_wait_events: Record wait events during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_wait_events GoogleAlloydbInstance#track_wait_events}
+        :param track_wait_event_types: Record wait event types during query execution for an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_wait_event_types GoogleAlloydbInstance#track_wait_event_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7053f6bd762a7b257def7dd7a14d9103b13aceed02fab1037ca35f4ec5e7a61a)
@@ -2128,7 +2170,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether assistive experiences are enabled for this AlloyDB instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#assistive_experiences_enabled GoogleAlloydbInstance#assistive_experiences_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#assistive_experiences_enabled GoogleAlloydbInstance#assistive_experiences_enabled}
         '''
         result = self._values.get("assistive_experiences_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2139,7 +2181,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Observability feature status for an instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#enabled GoogleAlloydbInstance#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#enabled GoogleAlloydbInstance#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2148,7 +2190,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     def max_query_string_length(self) -> typing.Optional[jsii.Number]:
         '''Query string length. The default value is 10240. Any integer between 1024 and 100000 is considered valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#max_query_string_length GoogleAlloydbInstance#max_query_string_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#max_query_string_length GoogleAlloydbInstance#max_query_string_length}
         '''
         result = self._values.get("max_query_string_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2159,7 +2201,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Preserve comments in the query string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#preserve_comments GoogleAlloydbInstance#preserve_comments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#preserve_comments GoogleAlloydbInstance#preserve_comments}
         '''
         result = self._values.get("preserve_comments")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2170,7 +2212,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
 
         The default value is 5. Any integer between 0 and 200 is considered valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
         '''
         result = self._values.get("query_plans_per_minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2181,7 +2223,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Record application tags for an instance. This flag is turned "on" by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
         '''
         result = self._values.get("record_application_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2192,7 +2234,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Track actively running queries. If not set, default value is "off".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_active_queries GoogleAlloydbInstance#track_active_queries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_active_queries GoogleAlloydbInstance#track_active_queries}
         '''
         result = self._values.get("track_active_queries")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2203,7 +2245,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Record wait events during query execution for an instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_wait_events GoogleAlloydbInstance#track_wait_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_wait_events GoogleAlloydbInstance#track_wait_events}
         '''
         result = self._values.get("track_wait_events")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2214,7 +2256,7 @@ class GoogleAlloydbInstanceObservabilityConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Record wait event types during query execution for an instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#track_wait_event_types GoogleAlloydbInstance#track_wait_event_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#track_wait_event_types GoogleAlloydbInstance#track_wait_event_types}
         '''
         result = self._values.get("track_wait_event_types")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2523,9 +2565,9 @@ class GoogleAlloydbInstancePscInstanceConfig:
         psc_interface_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleAlloydbInstancePscInstanceConfigPscInterfaceConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_consumer_projects: List of consumer projects that are allowed to create PSC endpoints to service-attachments to this instance. These should be specified as project numbers only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#allowed_consumer_projects GoogleAlloydbInstance#allowed_consumer_projects}
-        :param psc_auto_connections: psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_auto_connections GoogleAlloydbInstance#psc_auto_connections}
-        :param psc_interface_configs: psc_interface_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_interface_configs GoogleAlloydbInstance#psc_interface_configs}
+        :param allowed_consumer_projects: List of consumer projects that are allowed to create PSC endpoints to service-attachments to this instance. These should be specified as project numbers only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#allowed_consumer_projects GoogleAlloydbInstance#allowed_consumer_projects}
+        :param psc_auto_connections: psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_auto_connections GoogleAlloydbInstance#psc_auto_connections}
+        :param psc_interface_configs: psc_interface_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_interface_configs GoogleAlloydbInstance#psc_interface_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce7f5e4bfcc8efd56ade83b8b41910954f264f03d8694aea4a0d3717fdf2c45a)
@@ -2546,7 +2588,7 @@ class GoogleAlloydbInstancePscInstanceConfig:
 
         These should be specified as project numbers only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#allowed_consumer_projects GoogleAlloydbInstance#allowed_consumer_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#allowed_consumer_projects GoogleAlloydbInstance#allowed_consumer_projects}
         '''
         result = self._values.get("allowed_consumer_projects")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2557,7 +2599,7 @@ class GoogleAlloydbInstancePscInstanceConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbInstancePscInstanceConfigPscAutoConnections"]]]:
         '''psc_auto_connections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_auto_connections GoogleAlloydbInstance#psc_auto_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_auto_connections GoogleAlloydbInstance#psc_auto_connections}
         '''
         result = self._values.get("psc_auto_connections")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbInstancePscInstanceConfigPscAutoConnections"]]], result)
@@ -2568,7 +2610,7 @@ class GoogleAlloydbInstancePscInstanceConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbInstancePscInstanceConfigPscInterfaceConfigs"]]]:
         '''psc_interface_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#psc_interface_configs GoogleAlloydbInstance#psc_interface_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#psc_interface_configs GoogleAlloydbInstance#psc_interface_configs}
         '''
         result = self._values.get("psc_interface_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbInstancePscInstanceConfigPscInterfaceConfigs"]]], result)
@@ -2732,8 +2774,8 @@ class GoogleAlloydbInstancePscInstanceConfigPscAutoConnections:
         consumer_project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param consumer_network: The consumer network for the PSC service automation, example: "projects/vpc-host-project/global/networks/default". The consumer network might be hosted a different project than the consumer project. The API expects the consumer project specified to be the project ID (and not the project number) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#consumer_network GoogleAlloydbInstance#consumer_network}
-        :param consumer_project: The consumer project to which the PSC service automation endpoint will be created. The API expects the consumer project to be the project ID( and not the project number). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#consumer_project GoogleAlloydbInstance#consumer_project}
+        :param consumer_network: The consumer network for the PSC service automation, example: "projects/vpc-host-project/global/networks/default". The consumer network might be hosted a different project than the consumer project. The API expects the consumer project specified to be the project ID (and not the project number) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#consumer_network GoogleAlloydbInstance#consumer_network}
+        :param consumer_project: The consumer project to which the PSC service automation endpoint will be created. The API expects the consumer project to be the project ID( and not the project number). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#consumer_project GoogleAlloydbInstance#consumer_project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d52125e8b3df1354f787c663a6762833c32ee0762583179d609e7b0132f881ef)
@@ -2753,7 +2795,7 @@ class GoogleAlloydbInstancePscInstanceConfigPscAutoConnections:
         consumer project. The API expects the consumer project specified to be
         the project ID (and not the project number)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#consumer_network GoogleAlloydbInstance#consumer_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#consumer_network GoogleAlloydbInstance#consumer_network}
         '''
         result = self._values.get("consumer_network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2765,7 +2807,7 @@ class GoogleAlloydbInstancePscInstanceConfigPscAutoConnections:
         The API expects the consumer project to be the project ID(
         and not the project number).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#consumer_project GoogleAlloydbInstance#consumer_project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#consumer_project GoogleAlloydbInstance#consumer_project}
         '''
         result = self._values.get("consumer_project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2988,7 +3030,7 @@ class GoogleAlloydbInstancePscInstanceConfigPscInterfaceConfigs:
         network_attachment_resource: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network_attachment_resource: The network attachment resource created in the consumer project to which the PSC interface will be linked. This is of the format: "projects/${CONSUMER_PROJECT}/regions/${REGION}/networkAttachments/${NETWORK_ATTACHMENT_NAME}". The network attachment must be in the same region as the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#network_attachment_resource GoogleAlloydbInstance#network_attachment_resource}
+        :param network_attachment_resource: The network attachment resource created in the consumer project to which the PSC interface will be linked. This is of the format: "projects/${CONSUMER_PROJECT}/regions/${REGION}/networkAttachments/${NETWORK_ATTACHMENT_NAME}". The network attachment must be in the same region as the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#network_attachment_resource GoogleAlloydbInstance#network_attachment_resource}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bf10e7753596bfe7c85902425e48085c109b94a23c137bd90874532c1ff74f4)
@@ -3004,7 +3046,7 @@ class GoogleAlloydbInstancePscInstanceConfigPscInterfaceConfigs:
         This is of the format: "projects/${CONSUMER_PROJECT}/regions/${REGION}/networkAttachments/${NETWORK_ATTACHMENT_NAME}".
         The network attachment must be in the same region as the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#network_attachment_resource GoogleAlloydbInstance#network_attachment_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#network_attachment_resource GoogleAlloydbInstance#network_attachment_resource}
         '''
         result = self._values.get("network_attachment_resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3199,10 +3241,10 @@ class GoogleAlloydbInstanceQueryInsightsConfig:
         record_client_address: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 20 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
-        :param query_string_length: Query string length. The default value is 1024. Any integer between 256 and 4500 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_string_length GoogleAlloydbInstance#query_string_length}
-        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
-        :param record_client_address: Record client address for an instance. Client address is PII information. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_client_address GoogleAlloydbInstance#record_client_address}
+        :param query_plans_per_minute: Number of query execution plans captured by Insights per minute for all queries combined. The default value is 5. Any integer between 0 and 20 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
+        :param query_string_length: Query string length. The default value is 1024. Any integer between 256 and 4500 is considered valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_string_length GoogleAlloydbInstance#query_string_length}
+        :param record_application_tags: Record application tags for an instance. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
+        :param record_client_address: Record client address for an instance. Client address is PII information. This flag is turned "on" by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_client_address GoogleAlloydbInstance#record_client_address}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__710b165618d517ef923959f6303f3dd016049f421ae8623ae3e051a9b01b6d67)
@@ -3226,7 +3268,7 @@ class GoogleAlloydbInstanceQueryInsightsConfig:
 
         The default value is 5. Any integer between 0 and 20 is considered valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_plans_per_minute GoogleAlloydbInstance#query_plans_per_minute}
         '''
         result = self._values.get("query_plans_per_minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3235,7 +3277,7 @@ class GoogleAlloydbInstanceQueryInsightsConfig:
     def query_string_length(self) -> typing.Optional[jsii.Number]:
         '''Query string length. The default value is 1024. Any integer between 256 and 4500 is considered valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#query_string_length GoogleAlloydbInstance#query_string_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#query_string_length GoogleAlloydbInstance#query_string_length}
         '''
         result = self._values.get("query_string_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3246,7 +3288,7 @@ class GoogleAlloydbInstanceQueryInsightsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Record application tags for an instance. This flag is turned "on" by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_application_tags GoogleAlloydbInstance#record_application_tags}
         '''
         result = self._values.get("record_application_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3257,7 +3299,7 @@ class GoogleAlloydbInstanceQueryInsightsConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Record client address for an instance. Client address is PII information. This flag is turned "on" by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#record_client_address GoogleAlloydbInstance#record_client_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#record_client_address GoogleAlloydbInstance#record_client_address}
         '''
         result = self._values.get("record_client_address")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3418,7 +3460,7 @@ class GoogleAlloydbInstanceQueryInsightsConfigOutputReference(
 class GoogleAlloydbInstanceReadPoolConfig:
     def __init__(self, *, node_count: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param node_count: Read capacity, i.e. number of nodes in a read pool instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#node_count GoogleAlloydbInstance#node_count}
+        :param node_count: Read capacity, i.e. number of nodes in a read pool instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#node_count GoogleAlloydbInstance#node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__878e5906de16621dda5e762ce9d6f4dd7204f5f868865ad6200def611a50ba1d)
@@ -3431,7 +3473,7 @@ class GoogleAlloydbInstanceReadPoolConfig:
     def node_count(self) -> typing.Optional[jsii.Number]:
         '''Read capacity, i.e. number of nodes in a read pool instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#node_count GoogleAlloydbInstance#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#node_count GoogleAlloydbInstance#node_count}
         '''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3519,9 +3561,9 @@ class GoogleAlloydbInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#create GoogleAlloydbInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#delete GoogleAlloydbInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#update GoogleAlloydbInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#create GoogleAlloydbInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#delete GoogleAlloydbInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#update GoogleAlloydbInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1187d566df0a175307b0339f6c2b3d4e94baf2e7b20f66d6af3799793b068b36)
@@ -3538,19 +3580,19 @@ class GoogleAlloydbInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#create GoogleAlloydbInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#create GoogleAlloydbInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#delete GoogleAlloydbInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#delete GoogleAlloydbInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_instance#update GoogleAlloydbInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_alloydb_instance#update GoogleAlloydbInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3930,6 +3972,7 @@ def _typecheckingstub__1772b8992f40c2963e7f532f3615c655c7ca05f04b859e843398b56e3
 
 def _typecheckingstub__95ba701575725b5bcb679fb88d22e218c26b7fddfdd7eb34473e7512d88c4fdd(
     *,
+    allocated_ip_range_override: typing.Optional[builtins.str] = None,
     authorized_external_networks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks, typing.Dict[builtins.str, typing.Any]]]]] = None,
     enable_outbound_public_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_public_ip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -4012,6 +4055,12 @@ def _typecheckingstub__580c58a0880caa3268aa859d0ae12bc998e4123d932bbd7958231b801
 
 def _typecheckingstub__c69280aeae9cc560bebd405c7a6b2ea5095ee488fb73a94166a26dedca26e658(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleAlloydbInstanceNetworkConfigAuthorizedExternalNetworks, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbd296a9dbeabb8f396e3d1999798ee36aea691e48e2ec08acc64e2dbbaae3e2(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

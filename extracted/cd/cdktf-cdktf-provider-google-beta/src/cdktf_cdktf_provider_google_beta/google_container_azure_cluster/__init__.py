@@ -1,7 +1,7 @@
 r'''
 # `google_container_azure_cluster`
 
-Refer to the Terraform Registry for docs: [`google_container_azure_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster).
+Refer to the Terraform Registry for docs: [`google_container_azure_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleContainerAzureCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleContainerAzureCluster.GoogleContainerAzureCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster google_container_azure_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster google_container_azure_cluster}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class GoogleContainerAzureCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster google_container_azure_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster google_container_azure_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#authorization GoogleContainerAzureCluster#authorization}
-        :param azure_region: The Azure region where the cluster runs. Each Google Cloud region supports a subset of nearby Azure regions. You can call to list all supported Azure regions within a given Google Cloud region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_region GoogleContainerAzureCluster#azure_region}
-        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#control_plane GoogleContainerAzureCluster#control_plane}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#fleet GoogleContainerAzureCluster#fleet}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#location GoogleContainerAzureCluster#location}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#name GoogleContainerAzureCluster#name}
-        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#networking GoogleContainerAzureCluster#networking}
-        :param resource_group_id: The ARM ID of the resource group where the cluster resources are deployed. For example: ``/subscriptions/* /resourceGroups/*``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#annotations GoogleContainerAzureCluster#annotations}
-        :param azure_services_authentication: azure_services_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_services_authentication GoogleContainerAzureCluster#azure_services_authentication}
-        :param client: Name of the AzureClient. The ``AzureClient`` resource must reside on the same GCP project and region as the ``AzureCluster``. ``AzureClient`` names are formatted as ``projects/<project-number>/locations/<region>/azureClients/<client-id>``. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#client GoogleContainerAzureCluster#client}
-        :param description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#description GoogleContainerAzureCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#id GoogleContainerAzureCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#logging_config GoogleContainerAzureCluster#logging_config}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#timeouts GoogleContainerAzureCluster#timeouts}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#authorization GoogleContainerAzureCluster#authorization}
+        :param azure_region: The Azure region where the cluster runs. Each Google Cloud region supports a subset of nearby Azure regions. You can call to list all supported Azure regions within a given Google Cloud region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_region GoogleContainerAzureCluster#azure_region}
+        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#control_plane GoogleContainerAzureCluster#control_plane}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#fleet GoogleContainerAzureCluster#fleet}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#location GoogleContainerAzureCluster#location}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#name GoogleContainerAzureCluster#name}
+        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#networking GoogleContainerAzureCluster#networking}
+        :param resource_group_id: The ARM ID of the resource group where the cluster resources are deployed. For example: ``/subscriptions/* /resourceGroups/*``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#annotations GoogleContainerAzureCluster#annotations}
+        :param azure_services_authentication: azure_services_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_services_authentication GoogleContainerAzureCluster#azure_services_authentication}
+        :param client: Name of the AzureClient. The ``AzureClient`` resource must reside on the same GCP project and region as the ``AzureCluster``. ``AzureClient`` names are formatted as ``projects/<project-number>/locations/<region>/azureClients/<client-id>``. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#client GoogleContainerAzureCluster#client}
+        :param description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#description GoogleContainerAzureCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#id GoogleContainerAzureCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#logging_config GoogleContainerAzureCluster#logging_config}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#timeouts GoogleContainerAzureCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class GoogleContainerAzureCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleContainerAzureCluster to import.
-        :param import_from_id: The id of the existing GoogleContainerAzureCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleContainerAzureCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleContainerAzureCluster to import is found.
         '''
         if __debug__:
@@ -167,8 +167,8 @@ class GoogleContainerAzureCluster(
         admin_groups: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleContainerAzureClusterAuthorizationAdminGroups", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#admin_users GoogleContainerAzureCluster#admin_users}
-        :param admin_groups: admin_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#admin_groups GoogleContainerAzureCluster#admin_groups}
+        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#admin_users GoogleContainerAzureCluster#admin_users}
+        :param admin_groups: admin_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#admin_groups GoogleContainerAzureCluster#admin_groups}
         '''
         value = GoogleContainerAzureClusterAuthorization(
             admin_users=admin_users, admin_groups=admin_groups
@@ -184,8 +184,8 @@ class GoogleContainerAzureCluster(
         tenant_id: builtins.str,
     ) -> None:
         '''
-        :param application_id: The Azure Active Directory Application ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#application_id GoogleContainerAzureCluster#application_id}
-        :param tenant_id: The Azure Active Directory Tenant ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#tenant_id GoogleContainerAzureCluster#tenant_id}
+        :param application_id: The Azure Active Directory Application ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#application_id GoogleContainerAzureCluster#application_id}
+        :param tenant_id: The Azure Active Directory Tenant ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#tenant_id GoogleContainerAzureCluster#tenant_id}
         '''
         value = GoogleContainerAzureClusterAzureServicesAuthentication(
             application_id=application_id, tenant_id=tenant_id
@@ -209,16 +209,16 @@ class GoogleContainerAzureCluster(
         vm_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#ssh_config GoogleContainerAzureCluster#ssh_config}
-        :param subnet_id: The ARM ID of the subnet where the control plane VMs are deployed. Example: ``/subscriptions//resourceGroups//providers/Microsoft.Network/virtualNetworks//subnets/default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
-        :param version: The Kubernetes version to run on control plane replicas (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAzureServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#version GoogleContainerAzureCluster#version}
-        :param database_encryption: database_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#database_encryption GoogleContainerAzureCluster#database_encryption}
-        :param main_volume: main_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#main_volume GoogleContainerAzureCluster#main_volume}
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#proxy_config GoogleContainerAzureCluster#proxy_config}
-        :param replica_placements: replica_placements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#replica_placements GoogleContainerAzureCluster#replica_placements}
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#root_volume GoogleContainerAzureCluster#root_volume}
-        :param tags: Optional. A set of tags to apply to all underlying control plane Azure resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#tags GoogleContainerAzureCluster#tags}
-        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. For available VM sizes, see https://docs.microsoft.com/en-us/azure/virtual-machines/vm-naming-conventions. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#vm_size GoogleContainerAzureCluster#vm_size}
+        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#ssh_config GoogleContainerAzureCluster#ssh_config}
+        :param subnet_id: The ARM ID of the subnet where the control plane VMs are deployed. Example: ``/subscriptions//resourceGroups//providers/Microsoft.Network/virtualNetworks//subnets/default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
+        :param version: The Kubernetes version to run on control plane replicas (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAzureServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#version GoogleContainerAzureCluster#version}
+        :param database_encryption: database_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#database_encryption GoogleContainerAzureCluster#database_encryption}
+        :param main_volume: main_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#main_volume GoogleContainerAzureCluster#main_volume}
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#proxy_config GoogleContainerAzureCluster#proxy_config}
+        :param replica_placements: replica_placements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#replica_placements GoogleContainerAzureCluster#replica_placements}
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#root_volume GoogleContainerAzureCluster#root_volume}
+        :param tags: Optional. A set of tags to apply to all underlying control plane Azure resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#tags GoogleContainerAzureCluster#tags}
+        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. For available VM sizes, see https://docs.microsoft.com/en-us/azure/virtual-machines/vm-naming-conventions. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#vm_size GoogleContainerAzureCluster#vm_size}
         '''
         value = GoogleContainerAzureClusterControlPlane(
             ssh_config=ssh_config,
@@ -238,7 +238,7 @@ class GoogleContainerAzureCluster(
     @jsii.member(jsii_name="putFleet")
     def put_fleet(self, *, project: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
+        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
         '''
         value = GoogleContainerAzureClusterFleet(project=project)
 
@@ -251,7 +251,7 @@ class GoogleContainerAzureCluster(
         component_config: typing.Optional[typing.Union["GoogleContainerAzureClusterLoggingConfigComponentConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#component_config GoogleContainerAzureCluster#component_config}
+        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#component_config GoogleContainerAzureCluster#component_config}
         '''
         value = GoogleContainerAzureClusterLoggingConfig(
             component_config=component_config
@@ -268,9 +268,9 @@ class GoogleContainerAzureCluster(
         virtual_network_id: builtins.str,
     ) -> None:
         '''
-        :param pod_address_cidr_blocks: The IP address range of the pods in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All pods in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#pod_address_cidr_blocks GoogleContainerAzureCluster#pod_address_cidr_blocks}
-        :param service_address_cidr_blocks: The IP address range for services in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All services in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#service_address_cidr_blocks GoogleContainerAzureCluster#service_address_cidr_blocks}
-        :param virtual_network_id: The Azure Resource Manager (ARM) ID of the VNet associated with your cluster. All components in the cluster (i.e. control plane and node pools) run on a single VNet. Example: ``/subscriptions/* /resourceGroups/* /providers/Microsoft.Network/virtualNetworks/*`` This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#virtual_network_id GoogleContainerAzureCluster#virtual_network_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param pod_address_cidr_blocks: The IP address range of the pods in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All pods in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#pod_address_cidr_blocks GoogleContainerAzureCluster#pod_address_cidr_blocks}
+        :param service_address_cidr_blocks: The IP address range for services in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All services in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#service_address_cidr_blocks GoogleContainerAzureCluster#service_address_cidr_blocks}
+        :param virtual_network_id: The Azure Resource Manager (ARM) ID of the VNet associated with your cluster. All components in the cluster (i.e. control plane and node pools) run on a single VNet. Example: ``/subscriptions/* /resourceGroups/* /providers/Microsoft.Network/virtualNetworks/*`` This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#virtual_network_id GoogleContainerAzureCluster#virtual_network_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = GoogleContainerAzureClusterNetworking(
             pod_address_cidr_blocks=pod_address_cidr_blocks,
@@ -289,9 +289,9 @@ class GoogleContainerAzureCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#create GoogleContainerAzureCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#delete GoogleContainerAzureCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#update GoogleContainerAzureCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#create GoogleContainerAzureCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#delete GoogleContainerAzureCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#update GoogleContainerAzureCluster#update}.
         '''
         value = GoogleContainerAzureClusterTimeouts(
             create=create, delete=delete, update=update
@@ -648,8 +648,8 @@ class GoogleContainerAzureClusterAuthorization:
         admin_groups: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleContainerAzureClusterAuthorizationAdminGroups", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#admin_users GoogleContainerAzureCluster#admin_users}
-        :param admin_groups: admin_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#admin_groups GoogleContainerAzureCluster#admin_groups}
+        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#admin_users GoogleContainerAzureCluster#admin_users}
+        :param admin_groups: admin_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#admin_groups GoogleContainerAzureCluster#admin_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4df80c996004bf0c028b988636f281ee13c0e57d6349b684583850b1181a36b1)
@@ -667,7 +667,7 @@ class GoogleContainerAzureClusterAuthorization:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAzureClusterAuthorizationAdminUsers"]]:
         '''admin_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#admin_users GoogleContainerAzureCluster#admin_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#admin_users GoogleContainerAzureCluster#admin_users}
         '''
         result = self._values.get("admin_users")
         assert result is not None, "Required property 'admin_users' is missing"
@@ -679,7 +679,7 @@ class GoogleContainerAzureClusterAuthorization:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAzureClusterAuthorizationAdminGroups"]]]:
         '''admin_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#admin_groups GoogleContainerAzureCluster#admin_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#admin_groups GoogleContainerAzureCluster#admin_groups}
         '''
         result = self._values.get("admin_groups")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAzureClusterAuthorizationAdminGroups"]]], result)
@@ -704,7 +704,7 @@ class GoogleContainerAzureClusterAuthorization:
 class GoogleContainerAzureClusterAuthorizationAdminGroups:
     def __init__(self, *, group: builtins.str) -> None:
         '''
-        :param group: The name of the group, e.g. ``my-group@domain.com``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#group GoogleContainerAzureCluster#group}
+        :param group: The name of the group, e.g. ``my-group@domain.com``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#group GoogleContainerAzureCluster#group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f0a043c2a0201245242962a62f44c6886f5da2f5af68f6ccf6a4e71d81532eb)
@@ -717,7 +717,7 @@ class GoogleContainerAzureClusterAuthorizationAdminGroups:
     def group(self) -> builtins.str:
         '''The name of the group, e.g. ``my-group@domain.com``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#group GoogleContainerAzureCluster#group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#group GoogleContainerAzureCluster#group}
         '''
         result = self._values.get("group")
         assert result is not None, "Required property 'group' is missing"
@@ -897,7 +897,7 @@ class GoogleContainerAzureClusterAuthorizationAdminGroupsOutputReference(
 class GoogleContainerAzureClusterAuthorizationAdminUsers:
     def __init__(self, *, username: builtins.str) -> None:
         '''
-        :param username: The name of the user, e.g. ``my-gcp-id@gmail.com``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#username GoogleContainerAzureCluster#username}
+        :param username: The name of the user, e.g. ``my-gcp-id@gmail.com``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#username GoogleContainerAzureCluster#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8574e7f8b3111a2517c1266862c90ea7d37d83b77d8642f46db613c4f8b89da4)
@@ -910,7 +910,7 @@ class GoogleContainerAzureClusterAuthorizationAdminUsers:
     def username(self) -> builtins.str:
         '''The name of the user, e.g. ``my-gcp-id@gmail.com``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#username GoogleContainerAzureCluster#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#username GoogleContainerAzureCluster#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1187,8 +1187,8 @@ class GoogleContainerAzureClusterAzureServicesAuthentication:
         tenant_id: builtins.str,
     ) -> None:
         '''
-        :param application_id: The Azure Active Directory Application ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#application_id GoogleContainerAzureCluster#application_id}
-        :param tenant_id: The Azure Active Directory Tenant ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#tenant_id GoogleContainerAzureCluster#tenant_id}
+        :param application_id: The Azure Active Directory Application ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#application_id GoogleContainerAzureCluster#application_id}
+        :param tenant_id: The Azure Active Directory Tenant ID for Authentication configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#tenant_id GoogleContainerAzureCluster#tenant_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c951f40988a4b87861b3bb73a7f6a110fe8d97a5e5f173bade1dda73d15d948f)
@@ -1203,7 +1203,7 @@ class GoogleContainerAzureClusterAzureServicesAuthentication:
     def application_id(self) -> builtins.str:
         '''The Azure Active Directory Application ID for Authentication configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#application_id GoogleContainerAzureCluster#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#application_id GoogleContainerAzureCluster#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -1213,7 +1213,7 @@ class GoogleContainerAzureClusterAzureServicesAuthentication:
     def tenant_id(self) -> builtins.str:
         '''The Azure Active Directory Tenant ID for Authentication configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#tenant_id GoogleContainerAzureCluster#tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#tenant_id GoogleContainerAzureCluster#tenant_id}
         '''
         result = self._values.get("tenant_id")
         assert result is not None, "Required property 'tenant_id' is missing"
@@ -1368,22 +1368,22 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#authorization GoogleContainerAzureCluster#authorization}
-        :param azure_region: The Azure region where the cluster runs. Each Google Cloud region supports a subset of nearby Azure regions. You can call to list all supported Azure regions within a given Google Cloud region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_region GoogleContainerAzureCluster#azure_region}
-        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#control_plane GoogleContainerAzureCluster#control_plane}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#fleet GoogleContainerAzureCluster#fleet}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#location GoogleContainerAzureCluster#location}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#name GoogleContainerAzureCluster#name}
-        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#networking GoogleContainerAzureCluster#networking}
-        :param resource_group_id: The ARM ID of the resource group where the cluster resources are deployed. For example: ``/subscriptions/* /resourceGroups/*``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#annotations GoogleContainerAzureCluster#annotations}
-        :param azure_services_authentication: azure_services_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_services_authentication GoogleContainerAzureCluster#azure_services_authentication}
-        :param client: Name of the AzureClient. The ``AzureClient`` resource must reside on the same GCP project and region as the ``AzureCluster``. ``AzureClient`` names are formatted as ``projects/<project-number>/locations/<region>/azureClients/<client-id>``. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#client GoogleContainerAzureCluster#client}
-        :param description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#description GoogleContainerAzureCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#id GoogleContainerAzureCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#logging_config GoogleContainerAzureCluster#logging_config}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#timeouts GoogleContainerAzureCluster#timeouts}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#authorization GoogleContainerAzureCluster#authorization}
+        :param azure_region: The Azure region where the cluster runs. Each Google Cloud region supports a subset of nearby Azure regions. You can call to list all supported Azure regions within a given Google Cloud region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_region GoogleContainerAzureCluster#azure_region}
+        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#control_plane GoogleContainerAzureCluster#control_plane}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#fleet GoogleContainerAzureCluster#fleet}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#location GoogleContainerAzureCluster#location}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#name GoogleContainerAzureCluster#name}
+        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#networking GoogleContainerAzureCluster#networking}
+        :param resource_group_id: The ARM ID of the resource group where the cluster resources are deployed. For example: ``/subscriptions/* /resourceGroups/*``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#annotations GoogleContainerAzureCluster#annotations}
+        :param azure_services_authentication: azure_services_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_services_authentication GoogleContainerAzureCluster#azure_services_authentication}
+        :param client: Name of the AzureClient. The ``AzureClient`` resource must reside on the same GCP project and region as the ``AzureCluster``. ``AzureClient`` names are formatted as ``projects/<project-number>/locations/<region>/azureClients/<client-id>``. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#client GoogleContainerAzureCluster#client}
+        :param description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#description GoogleContainerAzureCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#id GoogleContainerAzureCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#logging_config GoogleContainerAzureCluster#logging_config}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#timeouts GoogleContainerAzureCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1535,7 +1535,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authorization(self) -> GoogleContainerAzureClusterAuthorization:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#authorization GoogleContainerAzureCluster#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#authorization GoogleContainerAzureCluster#authorization}
         '''
         result = self._values.get("authorization")
         assert result is not None, "Required property 'authorization' is missing"
@@ -1547,7 +1547,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Each Google Cloud region supports a subset of nearby Azure regions. You can call to list all supported Azure regions within a given Google Cloud region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_region GoogleContainerAzureCluster#azure_region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_region GoogleContainerAzureCluster#azure_region}
         '''
         result = self._values.get("azure_region")
         assert result is not None, "Required property 'azure_region' is missing"
@@ -1557,7 +1557,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def control_plane(self) -> "GoogleContainerAzureClusterControlPlane":
         '''control_plane block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#control_plane GoogleContainerAzureCluster#control_plane}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#control_plane GoogleContainerAzureCluster#control_plane}
         '''
         result = self._values.get("control_plane")
         assert result is not None, "Required property 'control_plane' is missing"
@@ -1567,7 +1567,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fleet(self) -> "GoogleContainerAzureClusterFleet":
         '''fleet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#fleet GoogleContainerAzureCluster#fleet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#fleet GoogleContainerAzureCluster#fleet}
         '''
         result = self._values.get("fleet")
         assert result is not None, "Required property 'fleet' is missing"
@@ -1577,7 +1577,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#location GoogleContainerAzureCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#location GoogleContainerAzureCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1587,7 +1587,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#name GoogleContainerAzureCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#name GoogleContainerAzureCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1597,7 +1597,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def networking(self) -> "GoogleContainerAzureClusterNetworking":
         '''networking block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#networking GoogleContainerAzureCluster#networking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#networking GoogleContainerAzureCluster#networking}
         '''
         result = self._values.get("networking")
         assert result is not None, "Required property 'networking' is missing"
@@ -1607,7 +1607,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_group_id(self) -> builtins.str:
         '''The ARM ID of the resource group where the cluster resources are deployed. For example: ``/subscriptions/* /resourceGroups/*``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -1626,7 +1626,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field ``effective_annotations`` for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#annotations GoogleContainerAzureCluster#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#annotations GoogleContainerAzureCluster#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1637,7 +1637,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleContainerAzureClusterAzureServicesAuthentication]:
         '''azure_services_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_services_authentication GoogleContainerAzureCluster#azure_services_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_services_authentication GoogleContainerAzureCluster#azure_services_authentication}
         '''
         result = self._values.get("azure_services_authentication")
         return typing.cast(typing.Optional[GoogleContainerAzureClusterAzureServicesAuthentication], result)
@@ -1648,7 +1648,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The ``AzureClient`` resource must reside on the same GCP project and region as the ``AzureCluster``. ``AzureClient`` names are formatted as ``projects/<project-number>/locations/<region>/azureClients/<client-id>``. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#client GoogleContainerAzureCluster#client}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#client GoogleContainerAzureCluster#client}
         '''
         result = self._values.get("client")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1657,14 +1657,14 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#description GoogleContainerAzureCluster#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#description GoogleContainerAzureCluster#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#id GoogleContainerAzureCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#id GoogleContainerAzureCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1678,7 +1678,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleContainerAzureClusterLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#logging_config GoogleContainerAzureCluster#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#logging_config GoogleContainerAzureCluster#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterLoggingConfig"], result)
@@ -1687,7 +1687,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1696,7 +1696,7 @@ class GoogleContainerAzureClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleContainerAzureClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#timeouts GoogleContainerAzureCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#timeouts GoogleContainerAzureCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterTimeouts"], result)
@@ -1745,16 +1745,16 @@ class GoogleContainerAzureClusterControlPlane:
         vm_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#ssh_config GoogleContainerAzureCluster#ssh_config}
-        :param subnet_id: The ARM ID of the subnet where the control plane VMs are deployed. Example: ``/subscriptions//resourceGroups//providers/Microsoft.Network/virtualNetworks//subnets/default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
-        :param version: The Kubernetes version to run on control plane replicas (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAzureServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#version GoogleContainerAzureCluster#version}
-        :param database_encryption: database_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#database_encryption GoogleContainerAzureCluster#database_encryption}
-        :param main_volume: main_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#main_volume GoogleContainerAzureCluster#main_volume}
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#proxy_config GoogleContainerAzureCluster#proxy_config}
-        :param replica_placements: replica_placements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#replica_placements GoogleContainerAzureCluster#replica_placements}
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#root_volume GoogleContainerAzureCluster#root_volume}
-        :param tags: Optional. A set of tags to apply to all underlying control plane Azure resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#tags GoogleContainerAzureCluster#tags}
-        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. For available VM sizes, see https://docs.microsoft.com/en-us/azure/virtual-machines/vm-naming-conventions. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#vm_size GoogleContainerAzureCluster#vm_size}
+        :param ssh_config: ssh_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#ssh_config GoogleContainerAzureCluster#ssh_config}
+        :param subnet_id: The ARM ID of the subnet where the control plane VMs are deployed. Example: ``/subscriptions//resourceGroups//providers/Microsoft.Network/virtualNetworks//subnets/default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
+        :param version: The Kubernetes version to run on control plane replicas (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAzureServerConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#version GoogleContainerAzureCluster#version}
+        :param database_encryption: database_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#database_encryption GoogleContainerAzureCluster#database_encryption}
+        :param main_volume: main_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#main_volume GoogleContainerAzureCluster#main_volume}
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#proxy_config GoogleContainerAzureCluster#proxy_config}
+        :param replica_placements: replica_placements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#replica_placements GoogleContainerAzureCluster#replica_placements}
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#root_volume GoogleContainerAzureCluster#root_volume}
+        :param tags: Optional. A set of tags to apply to all underlying control plane Azure resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#tags GoogleContainerAzureCluster#tags}
+        :param vm_size: Optional. The Azure VM size name. Example: ``Standard_DS2_v2``. For available VM sizes, see https://docs.microsoft.com/en-us/azure/virtual-machines/vm-naming-conventions. When unspecified, it defaults to ``Standard_DS2_v2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#vm_size GoogleContainerAzureCluster#vm_size}
         '''
         if isinstance(ssh_config, dict):
             ssh_config = GoogleContainerAzureClusterControlPlaneSshConfig(**ssh_config)
@@ -1802,7 +1802,7 @@ class GoogleContainerAzureClusterControlPlane:
     def ssh_config(self) -> "GoogleContainerAzureClusterControlPlaneSshConfig":
         '''ssh_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#ssh_config GoogleContainerAzureCluster#ssh_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#ssh_config GoogleContainerAzureCluster#ssh_config}
         '''
         result = self._values.get("ssh_config")
         assert result is not None, "Required property 'ssh_config' is missing"
@@ -1812,7 +1812,7 @@ class GoogleContainerAzureClusterControlPlane:
     def subnet_id(self) -> builtins.str:
         '''The ARM ID of the subnet where the control plane VMs are deployed. Example: ``/subscriptions//resourceGroups//providers/Microsoft.Network/virtualNetworks//subnets/default``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
         '''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
@@ -1822,7 +1822,7 @@ class GoogleContainerAzureClusterControlPlane:
     def version(self) -> builtins.str:
         '''The Kubernetes version to run on control plane replicas (e.g. ``1.19.10-gke.1000``). You can list all supported versions on a given Google Cloud region by calling GetAzureServerConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#version GoogleContainerAzureCluster#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#version GoogleContainerAzureCluster#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -1834,7 +1834,7 @@ class GoogleContainerAzureClusterControlPlane:
     ) -> typing.Optional["GoogleContainerAzureClusterControlPlaneDatabaseEncryption"]:
         '''database_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#database_encryption GoogleContainerAzureCluster#database_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#database_encryption GoogleContainerAzureCluster#database_encryption}
         '''
         result = self._values.get("database_encryption")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterControlPlaneDatabaseEncryption"], result)
@@ -1845,7 +1845,7 @@ class GoogleContainerAzureClusterControlPlane:
     ) -> typing.Optional["GoogleContainerAzureClusterControlPlaneMainVolume"]:
         '''main_volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#main_volume GoogleContainerAzureCluster#main_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#main_volume GoogleContainerAzureCluster#main_volume}
         '''
         result = self._values.get("main_volume")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterControlPlaneMainVolume"], result)
@@ -1856,7 +1856,7 @@ class GoogleContainerAzureClusterControlPlane:
     ) -> typing.Optional["GoogleContainerAzureClusterControlPlaneProxyConfig"]:
         '''proxy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#proxy_config GoogleContainerAzureCluster#proxy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#proxy_config GoogleContainerAzureCluster#proxy_config}
         '''
         result = self._values.get("proxy_config")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterControlPlaneProxyConfig"], result)
@@ -1867,7 +1867,7 @@ class GoogleContainerAzureClusterControlPlane:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAzureClusterControlPlaneReplicaPlacements"]]]:
         '''replica_placements block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#replica_placements GoogleContainerAzureCluster#replica_placements}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#replica_placements GoogleContainerAzureCluster#replica_placements}
         '''
         result = self._values.get("replica_placements")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAzureClusterControlPlaneReplicaPlacements"]]], result)
@@ -1878,7 +1878,7 @@ class GoogleContainerAzureClusterControlPlane:
     ) -> typing.Optional["GoogleContainerAzureClusterControlPlaneRootVolume"]:
         '''root_volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#root_volume GoogleContainerAzureCluster#root_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#root_volume GoogleContainerAzureCluster#root_volume}
         '''
         result = self._values.get("root_volume")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterControlPlaneRootVolume"], result)
@@ -1887,7 +1887,7 @@ class GoogleContainerAzureClusterControlPlane:
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Optional. A set of tags to apply to all underlying control plane Azure resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#tags GoogleContainerAzureCluster#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#tags GoogleContainerAzureCluster#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1898,7 +1898,7 @@ class GoogleContainerAzureClusterControlPlane:
 
         The Azure VM size name. Example: ``Standard_DS2_v2``. For available VM sizes, see https://docs.microsoft.com/en-us/azure/virtual-machines/vm-naming-conventions. When unspecified, it defaults to ``Standard_DS2_v2``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#vm_size GoogleContainerAzureCluster#vm_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#vm_size GoogleContainerAzureCluster#vm_size}
         '''
         result = self._values.get("vm_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1923,7 +1923,7 @@ class GoogleContainerAzureClusterControlPlane:
 class GoogleContainerAzureClusterControlPlaneDatabaseEncryption:
     def __init__(self, *, key_id: builtins.str) -> None:
         '''
-        :param key_id: The ARM ID of the Azure Key Vault key to encrypt / decrypt data. For example: ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-id>/providers/Microsoft.KeyVault/vaults/<key-vault-id>/keys/<key-name>`` Encryption will always take the latest version of the key and hence specific version is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#key_id GoogleContainerAzureCluster#key_id}
+        :param key_id: The ARM ID of the Azure Key Vault key to encrypt / decrypt data. For example: ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-id>/providers/Microsoft.KeyVault/vaults/<key-vault-id>/keys/<key-name>`` Encryption will always take the latest version of the key and hence specific version is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#key_id GoogleContainerAzureCluster#key_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__beb9776e8bb66649d88eba6b51c3c8ab437526c88b364ab6dd973a371d3dd15d)
@@ -1938,7 +1938,7 @@ class GoogleContainerAzureClusterControlPlaneDatabaseEncryption:
 
         For example: ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-id>/providers/Microsoft.KeyVault/vaults/<key-vault-id>/keys/<key-name>`` Encryption will always take the latest version of the key and hence specific version is not supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#key_id GoogleContainerAzureCluster#key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#key_id GoogleContainerAzureCluster#key_id}
         '''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
@@ -2019,7 +2019,7 @@ class GoogleContainerAzureClusterControlPlaneDatabaseEncryptionOutputReference(
 class GoogleContainerAzureClusterControlPlaneMainVolume:
     def __init__(self, *, size_gib: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
+        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__750dda3f725d714ace9ec4441623c559d84632236dcf78b44f33a47a04e41efc)
@@ -2034,7 +2034,7 @@ class GoogleContainerAzureClusterControlPlaneMainVolume:
 
         The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
         '''
         result = self._values.get("size_gib")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2133,7 +2133,7 @@ class GoogleContainerAzureClusterControlPlaneOutputReference(
     @jsii.member(jsii_name="putDatabaseEncryption")
     def put_database_encryption(self, *, key_id: builtins.str) -> None:
         '''
-        :param key_id: The ARM ID of the Azure Key Vault key to encrypt / decrypt data. For example: ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-id>/providers/Microsoft.KeyVault/vaults/<key-vault-id>/keys/<key-name>`` Encryption will always take the latest version of the key and hence specific version is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#key_id GoogleContainerAzureCluster#key_id}
+        :param key_id: The ARM ID of the Azure Key Vault key to encrypt / decrypt data. For example: ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-id>/providers/Microsoft.KeyVault/vaults/<key-vault-id>/keys/<key-name>`` Encryption will always take the latest version of the key and hence specific version is not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#key_id GoogleContainerAzureCluster#key_id}
         '''
         value = GoogleContainerAzureClusterControlPlaneDatabaseEncryption(
             key_id=key_id
@@ -2144,7 +2144,7 @@ class GoogleContainerAzureClusterControlPlaneOutputReference(
     @jsii.member(jsii_name="putMainVolume")
     def put_main_volume(self, *, size_gib: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
+        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
         '''
         value = GoogleContainerAzureClusterControlPlaneMainVolume(size_gib=size_gib)
 
@@ -2158,8 +2158,8 @@ class GoogleContainerAzureClusterControlPlaneOutputReference(
         secret_id: builtins.str,
     ) -> None:
         '''
-        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
-        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#secret_id GoogleContainerAzureCluster#secret_id}
+        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
+        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#secret_id GoogleContainerAzureCluster#secret_id}
         '''
         value = GoogleContainerAzureClusterControlPlaneProxyConfig(
             resource_group_id=resource_group_id, secret_id=secret_id
@@ -2183,7 +2183,7 @@ class GoogleContainerAzureClusterControlPlaneOutputReference(
     @jsii.member(jsii_name="putRootVolume")
     def put_root_volume(self, *, size_gib: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
+        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
         '''
         value = GoogleContainerAzureClusterControlPlaneRootVolume(size_gib=size_gib)
 
@@ -2192,7 +2192,7 @@ class GoogleContainerAzureClusterControlPlaneOutputReference(
     @jsii.member(jsii_name="putSshConfig")
     def put_ssh_config(self, *, authorized_key: builtins.str) -> None:
         '''
-        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#authorized_key GoogleContainerAzureCluster#authorized_key}
+        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#authorized_key GoogleContainerAzureCluster#authorized_key}
         '''
         value = GoogleContainerAzureClusterControlPlaneSshConfig(
             authorized_key=authorized_key
@@ -2411,8 +2411,8 @@ class GoogleContainerAzureClusterControlPlaneProxyConfig:
         secret_id: builtins.str,
     ) -> None:
         '''
-        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
-        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#secret_id GoogleContainerAzureCluster#secret_id}
+        :param resource_group_id: The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
+        :param secret_id: The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#secret_id GoogleContainerAzureCluster#secret_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__286f25d5640c8f25018b1bba9d9c4b6573c88031036c67181f20a228d021ed64)
@@ -2427,7 +2427,7 @@ class GoogleContainerAzureClusterControlPlaneProxyConfig:
     def resource_group_id(self) -> builtins.str:
         '''The ARM ID the of the resource group containing proxy keyvault. Resource group ids are formatted as ``/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#resource_group_id GoogleContainerAzureCluster#resource_group_id}
         '''
         result = self._values.get("resource_group_id")
         assert result is not None, "Required property 'resource_group_id' is missing"
@@ -2437,7 +2437,7 @@ class GoogleContainerAzureClusterControlPlaneProxyConfig:
     def secret_id(self) -> builtins.str:
         '''The URL the of the proxy setting secret with its version. Secret ids are formatted as ``https:<key-vault-name>.vault.azure.net/secrets/<secret-name>/<secret-version>``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#secret_id GoogleContainerAzureCluster#secret_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#secret_id GoogleContainerAzureCluster#secret_id}
         '''
         result = self._values.get("secret_id")
         assert result is not None, "Required property 'secret_id' is missing"
@@ -2543,8 +2543,8 @@ class GoogleContainerAzureClusterControlPlaneReplicaPlacements:
         subnet_id: builtins.str,
     ) -> None:
         '''
-        :param azure_availability_zone: For a given replica, the Azure availability zone where to provision the control plane VM and the ETCD disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_availability_zone GoogleContainerAzureCluster#azure_availability_zone}
-        :param subnet_id: For a given replica, the ARM ID of the subnet where the control plane VM is deployed. Make sure it's a subnet under the virtual network in the cluster configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
+        :param azure_availability_zone: For a given replica, the Azure availability zone where to provision the control plane VM and the ETCD disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_availability_zone GoogleContainerAzureCluster#azure_availability_zone}
+        :param subnet_id: For a given replica, the ARM ID of the subnet where the control plane VM is deployed. Make sure it's a subnet under the virtual network in the cluster configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cbf4d9d15b80e409ecea34f9de389ad2111471a41443cddd2d37e1e38f5e328)
@@ -2559,7 +2559,7 @@ class GoogleContainerAzureClusterControlPlaneReplicaPlacements:
     def azure_availability_zone(self) -> builtins.str:
         '''For a given replica, the Azure availability zone where to provision the control plane VM and the ETCD disk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#azure_availability_zone GoogleContainerAzureCluster#azure_availability_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#azure_availability_zone GoogleContainerAzureCluster#azure_availability_zone}
         '''
         result = self._values.get("azure_availability_zone")
         assert result is not None, "Required property 'azure_availability_zone' is missing"
@@ -2571,7 +2571,7 @@ class GoogleContainerAzureClusterControlPlaneReplicaPlacements:
 
         Make sure it's a subnet under the virtual network in the cluster configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#subnet_id GoogleContainerAzureCluster#subnet_id}
         '''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
@@ -2768,7 +2768,7 @@ class GoogleContainerAzureClusterControlPlaneReplicaPlacementsOutputReference(
 class GoogleContainerAzureClusterControlPlaneRootVolume:
     def __init__(self, *, size_gib: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
+        :param size_gib: Optional. The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1cfcf67df85cae8b7b319df5b52e688132f1c91186c50e10eca196ff4ee92b6)
@@ -2783,7 +2783,7 @@ class GoogleContainerAzureClusterControlPlaneRootVolume:
 
         The size of the disk, in GiBs. When unspecified, a default value is provided. See the specific reference in the parent resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#size_gib GoogleContainerAzureCluster#size_gib}
         '''
         result = self._values.get("size_gib")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2867,7 +2867,7 @@ class GoogleContainerAzureClusterControlPlaneRootVolumeOutputReference(
 class GoogleContainerAzureClusterControlPlaneSshConfig:
     def __init__(self, *, authorized_key: builtins.str) -> None:
         '''
-        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#authorized_key GoogleContainerAzureCluster#authorized_key}
+        :param authorized_key: The SSH public key data for VMs managed by Anthos. This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#authorized_key GoogleContainerAzureCluster#authorized_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb7b17d5956833fa71536b9042f00314274b228b286908b57feb021b5affad74)
@@ -2882,7 +2882,7 @@ class GoogleContainerAzureClusterControlPlaneSshConfig:
 
         This accepts the authorized_keys file format used in OpenSSH according to the sshd(8) manual page.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#authorized_key GoogleContainerAzureCluster#authorized_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#authorized_key GoogleContainerAzureCluster#authorized_key}
         '''
         result = self._values.get("authorized_key")
         assert result is not None, "Required property 'authorized_key' is missing"
@@ -2963,7 +2963,7 @@ class GoogleContainerAzureClusterControlPlaneSshConfigOutputReference(
 class GoogleContainerAzureClusterFleet:
     def __init__(self, *, project: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
+        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11445d38daf7d00c441827575100ad21a15f7438b5f0052ce3d3ba585996e6da)
@@ -2976,7 +2976,7 @@ class GoogleContainerAzureClusterFleet:
     def project(self) -> typing.Optional[builtins.str]:
         '''The number of the Fleet host project where this cluster will be registered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#project GoogleContainerAzureCluster#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3067,7 +3067,7 @@ class GoogleContainerAzureClusterLoggingConfig:
         component_config: typing.Optional[typing.Union["GoogleContainerAzureClusterLoggingConfigComponentConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#component_config GoogleContainerAzureCluster#component_config}
+        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#component_config GoogleContainerAzureCluster#component_config}
         '''
         if isinstance(component_config, dict):
             component_config = GoogleContainerAzureClusterLoggingConfigComponentConfig(**component_config)
@@ -3084,7 +3084,7 @@ class GoogleContainerAzureClusterLoggingConfig:
     ) -> typing.Optional["GoogleContainerAzureClusterLoggingConfigComponentConfig"]:
         '''component_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#component_config GoogleContainerAzureCluster#component_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#component_config GoogleContainerAzureCluster#component_config}
         '''
         result = self._values.get("component_config")
         return typing.cast(typing.Optional["GoogleContainerAzureClusterLoggingConfigComponentConfig"], result)
@@ -3113,7 +3113,7 @@ class GoogleContainerAzureClusterLoggingConfigComponentConfig:
         enable_components: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enable_components: Components of the logging configuration to be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#enable_components GoogleContainerAzureCluster#enable_components}
+        :param enable_components: Components of the logging configuration to be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#enable_components GoogleContainerAzureCluster#enable_components}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cff2910b08d5688c26853cec4e2021a6d06a8ab9667020c9182d6e2245e2ad2d)
@@ -3126,7 +3126,7 @@ class GoogleContainerAzureClusterLoggingConfigComponentConfig:
     def enable_components(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Components of the logging configuration to be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#enable_components GoogleContainerAzureCluster#enable_components}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#enable_components GoogleContainerAzureCluster#enable_components}
         '''
         result = self._values.get("enable_components")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3229,7 +3229,7 @@ class GoogleContainerAzureClusterLoggingConfigOutputReference(
         enable_components: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enable_components: Components of the logging configuration to be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#enable_components GoogleContainerAzureCluster#enable_components}
+        :param enable_components: Components of the logging configuration to be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#enable_components GoogleContainerAzureCluster#enable_components}
         '''
         value = GoogleContainerAzureClusterLoggingConfigComponentConfig(
             enable_components=enable_components
@@ -3291,9 +3291,9 @@ class GoogleContainerAzureClusterNetworking:
         virtual_network_id: builtins.str,
     ) -> None:
         '''
-        :param pod_address_cidr_blocks: The IP address range of the pods in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All pods in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#pod_address_cidr_blocks GoogleContainerAzureCluster#pod_address_cidr_blocks}
-        :param service_address_cidr_blocks: The IP address range for services in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All services in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#service_address_cidr_blocks GoogleContainerAzureCluster#service_address_cidr_blocks}
-        :param virtual_network_id: The Azure Resource Manager (ARM) ID of the VNet associated with your cluster. All components in the cluster (i.e. control plane and node pools) run on a single VNet. Example: ``/subscriptions/* /resourceGroups/* /providers/Microsoft.Network/virtualNetworks/*`` This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#virtual_network_id GoogleContainerAzureCluster#virtual_network_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param pod_address_cidr_blocks: The IP address range of the pods in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All pods in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#pod_address_cidr_blocks GoogleContainerAzureCluster#pod_address_cidr_blocks}
+        :param service_address_cidr_blocks: The IP address range for services in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All services in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#service_address_cidr_blocks GoogleContainerAzureCluster#service_address_cidr_blocks}
+        :param virtual_network_id: The Azure Resource Manager (ARM) ID of the VNet associated with your cluster. All components in the cluster (i.e. control plane and node pools) run on a single VNet. Example: ``/subscriptions/* /resourceGroups/* /providers/Microsoft.Network/virtualNetworks/*`` This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#virtual_network_id GoogleContainerAzureCluster#virtual_network_id} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a4f510031fdf41f8b83c2a9fdb050e22c641e96cbd7d8f37d32a75c33a5785a)
@@ -3310,7 +3310,7 @@ class GoogleContainerAzureClusterNetworking:
     def pod_address_cidr_blocks(self) -> typing.List[builtins.str]:
         '''The IP address range of the pods in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All pods in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#pod_address_cidr_blocks GoogleContainerAzureCluster#pod_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#pod_address_cidr_blocks GoogleContainerAzureCluster#pod_address_cidr_blocks}
         '''
         result = self._values.get("pod_address_cidr_blocks")
         assert result is not None, "Required property 'pod_address_cidr_blocks' is missing"
@@ -3320,7 +3320,7 @@ class GoogleContainerAzureClusterNetworking:
     def service_address_cidr_blocks(self) -> typing.List[builtins.str]:
         '''The IP address range for services in this cluster, in CIDR notation (e.g. ``10.96.0.0/14``). All services in the cluster get assigned a unique RFC1918 IPv4 address from these ranges. Only a single range is supported. This field cannot be changed after creating a cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#service_address_cidr_blocks GoogleContainerAzureCluster#service_address_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#service_address_cidr_blocks GoogleContainerAzureCluster#service_address_cidr_blocks}
         '''
         result = self._values.get("service_address_cidr_blocks")
         assert result is not None, "Required property 'service_address_cidr_blocks' is missing"
@@ -3332,7 +3332,7 @@ class GoogleContainerAzureClusterNetworking:
 
         All components in the cluster (i.e. control plane and node pools) run on a single VNet. Example: ``/subscriptions/* /resourceGroups/* /providers/Microsoft.Network/virtualNetworks/*`` This field cannot be changed after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#virtual_network_id GoogleContainerAzureCluster#virtual_network_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#virtual_network_id GoogleContainerAzureCluster#virtual_network_id}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -3457,9 +3457,9 @@ class GoogleContainerAzureClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#create GoogleContainerAzureCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#delete GoogleContainerAzureCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#update GoogleContainerAzureCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#create GoogleContainerAzureCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#delete GoogleContainerAzureCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#update GoogleContainerAzureCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f312ef413eae4d71300bcc8a80dd424b5c4abaa4e28c93b04a170ab99d03d382)
@@ -3476,19 +3476,19 @@ class GoogleContainerAzureClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#create GoogleContainerAzureCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#create GoogleContainerAzureCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#delete GoogleContainerAzureCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#delete GoogleContainerAzureCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_azure_cluster#update GoogleContainerAzureCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_container_azure_cluster#update GoogleContainerAzureCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

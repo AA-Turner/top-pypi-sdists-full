@@ -2,6 +2,7 @@ import sgqlc.types
 import sgqlc.types.datetime
 import sgqlc.types.relay
 
+
 schema = sgqlc.types.Schema()
 
 
@@ -67,6 +68,7 @@ class AccountNotificationSettingsModelType(sgqlc.types.Enum):
 
     * `ALATION`: Alation
     * `EMAIL`: Email
+    * `GOOGLE_CHAT`: Google Chat
     * `INCIDENTIO`: Incidentio
     * `JIRA`: Jira
     * `MSTEAMS`: Msteams
@@ -84,6 +86,7 @@ class AccountNotificationSettingsModelType(sgqlc.types.Enum):
     __choices__ = (
         "ALATION",
         "EMAIL",
+        "GOOGLE_CHAT",
         "INCIDENTIO",
         "JIRA",
         "MSTEAMS",
@@ -445,6 +448,7 @@ class AlertSubType(sgqlc.types.Enum):
     * `JSON_SCHEMA_RULE_BREACH`None
     * `MERGED`None
     * `METRIC_ANOMALIES`None
+    * `METRIC_COMPARISON_ANOMALIES`None
     * `METRIC_COMPARISON_ANOMALY`None
     * `PERFORMANCE_ANOMALIES`None
     * `PERFORMANCE_ANOMALY`None
@@ -491,6 +495,7 @@ class AlertSubType(sgqlc.types.Enum):
         "JSON_SCHEMA_RULE_BREACH",
         "MERGED",
         "METRIC_ANOMALIES",
+        "METRIC_COMPARISON_ANOMALIES",
         "METRIC_COMPARISON_ANOMALY",
         "PERFORMANCE_ANOMALIES",
         "PERFORMANCE_ANOMALY",
@@ -522,6 +527,7 @@ class AlertType(sgqlc.types.Enum):
     * `JSON_SCHEMA_CHANGES`None
     * `MERGED`None
     * `METRIC_ANOMALIES`None
+    * `METRIC_COMPARISON_ANOMALIES`None
     * `PERFORMANCE_ANOMALIES`None
     * `PSEUDO_INTEGRATION_TEST`None
     * `RULE_RUN_EXECUTION_ERROR`None
@@ -538,6 +544,7 @@ class AlertType(sgqlc.types.Enum):
         "JSON_SCHEMA_CHANGES",
         "MERGED",
         "METRIC_ANOMALIES",
+        "METRIC_COMPARISON_ANOMALIES",
         "PERFORMANCE_ANOMALIES",
         "PSEUDO_INTEGRATION_TEST",
         "RULE_RUN_EXECUTION_ERROR",
@@ -587,6 +594,67 @@ class AlertsFilterFieldName(sgqlc.types.Enum):
         "TAG",
         "TYPE",
     )
+
+
+class AssetFilterTableNameOperator(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CONTAINS`None
+    * `ENDS_WITH`None
+    * `MATCH_PATTERN`None
+    * `STARTS_WITH`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONTAINS", "ENDS_WITH", "MATCH_PATTERN", "STARTS_WITH")
+
+
+class AssetFilterTableTagOperator(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `HAS_ALL`None
+    * `HAS_ANY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HAS_ALL", "HAS_ANY")
+
+
+class AssetFilterType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ACTIVITY_READ`None
+    * `ACTIVITY_READ_WRITE`None
+    * `ACTIVITY_WRITE`None
+    * `DOMAIN`None
+    * `TABLE_NAME`None
+    * `TABLE_TAG`None
+    * `TABLE_TYPE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ACTIVITY_READ",
+        "ACTIVITY_READ_WRITE",
+        "ACTIVITY_WRITE",
+        "DOMAIN",
+        "TABLE_NAME",
+        "TABLE_TAG",
+        "TABLE_TYPE",
+    )
+
+
+class AssetSelectionLevel(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DATABASE`None
+    * `SCHEMA`None
+    * `TABLE`None
+    * `WAREHOUSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DATABASE", "SCHEMA", "TABLE", "WAREHOUSE")
 
 
 class AssetsSortDirection(sgqlc.types.Enum):
@@ -640,6 +708,21 @@ class AuthTypeEnum(sgqlc.types.Enum):
         "OAUTH2_CLIENT_CREDENTIALS",
         "OAUTH2_PASSWORD",
     )
+
+
+class AuthorizationGroupSource(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AUTHORIZATION_PROVIDER`: Group is automatically created/managed
+      from the account's auth provider via a protocol such as SCIM.
+    * `BUILT_IN`: Group is automatically provided and managed by Monte
+      Carlo for all customers.
+    * `CUSTOM`: Group is defined and managed by the account either
+      through the Admin UI or APIs.
+    """
+
+    __schema__ = schema
+    __choices__ = ("AUTHORIZATION_PROVIDER", "BUILT_IN", "CUSTOM")
 
 
 class BiContainerModelType(sgqlc.types.Enum):
@@ -788,6 +871,17 @@ class CollectionStorageModelStatus(sgqlc.types.Enum):
     __choices__ = ("ASSIGNED", "AVAILABLE", "DELETED", "READY", "UNASSIGNED")
 
 
+class ComparisonDataSourceType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `SOURCE`None
+    * `TARGET`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SOURCE", "TARGET")
+
+
 class ComparisonType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -858,6 +952,7 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `S3`: S3
     * `S3_METADATA_EVENTS`: S3 Metadata Events
     * `S3_QL_EVENTS`: S3 Query Log Events
+    * `SALESFORCE_CRM`: Salesforce CRM
     * `SELF_HOSTED_KAFKA`: Self Hosted Kafka
     * `SELF_HOSTED_KAFKA_CONNECT`: Self Hosted Kafka Connect
     * `SNOWFLAKE`: Snowflake
@@ -905,6 +1000,7 @@ class ConnectionModelType(sgqlc.types.Enum):
         "S3",
         "S3_METADATA_EVENTS",
         "S3_QL_EVENTS",
+        "SALESFORCE_CRM",
         "SELF_HOSTED_KAFKA",
         "SELF_HOSTED_KAFKA_CONNECT",
         "SNOWFLAKE",
@@ -984,6 +1080,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `S3`None
     * `S3_METADATA_EVENTS`None
     * `S3_QL_EVENTS`None
+    * `SALESFORCE_CRM`None
     * `SELF_HOSTED_KAFKA`None
     * `SELF_HOSTED_KAFKA_CONNECT`None
     * `SNOWFLAKE`None
@@ -1031,6 +1128,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "S3",
         "S3_METADATA_EVENTS",
         "S3_QL_EVENTS",
+        "SALESFORCE_CRM",
         "SELF_HOSTED_KAFKA",
         "SELF_HOSTED_KAFKA_CONNECT",
         "SNOWFLAKE",
@@ -1495,11 +1593,12 @@ class DbtJobExecutionStatuses(sgqlc.types.Enum):
     * `CANCELLED`None
     * `ERROR`None
     * `FAILED`None
+    * `RUNNING`None
     * `SUCCESS`None
     """
 
     __schema__ = schema
-    __choices__ = ("CANCELLED", "ERROR", "FAILED", "SUCCESS")
+    __choices__ = ("CANCELLED", "ERROR", "FAILED", "RUNNING", "SUCCESS")
 
 
 class DbtProjectModelSource(sgqlc.types.Enum):
@@ -1616,6 +1715,95 @@ class EntitlementTypes(sgqlc.types.Enum):
     )
 
 
+class EtlDurationTrendIssue(sgqlc.types.Enum):
+    """Represents potential reasons why the duration trend cannot be
+    calculated.
+
+    Enumeration Choices:
+
+    * `NO_SUCCESS_RUNS_LAST_7_DAYS`: No successful completed runs in
+      the last 7 days
+    * `NO_SUCCESS_RUNS_PREVIOUS_7_DAYS`: No successful completed runs
+      in the 7 days prior to the last 7 days
+    * `ZERO_DURATION_LAST_7_DAYS`: All successful completed runs in
+      the last 7 days have zero duration
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "NO_SUCCESS_RUNS_LAST_7_DAYS",
+        "NO_SUCCESS_RUNS_PREVIOUS_7_DAYS",
+        "ZERO_DURATION_LAST_7_DAYS",
+    )
+
+
+class EtlPerformanceSortDirection(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ASC`None
+    * `DESC`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ASC", "DESC")
+
+
+class EtlRunStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `BLOCKED`None
+    * `CANCELLED`None
+    * `CANCELLING`None
+    * `DEFERRED`None
+    * `ERROR`None
+    * `FAIL`None
+    * `FAILED`None
+    * `INACTIVE`None
+    * `IN_PROGRESS`None
+    * `PARTIAL_SUCCESS`None
+    * `PASS`None
+    * `QUEUED`None
+    * `REMOVED`None
+    * `RESTARTING`None
+    * `SCHEDULED`None
+    * `SKIPPED`None
+    * `SUCCESS`None
+    * `TIMED_OUT`None
+    * `UNKNOWN`None
+    * `UPSTREAM_FAILED`None
+    * `UP_FOR_RESCHEDULE`None
+    * `UP_FOR_RETRY`None
+    * `WARN`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "BLOCKED",
+        "CANCELLED",
+        "CANCELLING",
+        "DEFERRED",
+        "ERROR",
+        "FAIL",
+        "FAILED",
+        "INACTIVE",
+        "IN_PROGRESS",
+        "PARTIAL_SUCCESS",
+        "PASS",
+        "QUEUED",
+        "REMOVED",
+        "RESTARTING",
+        "SCHEDULED",
+        "SKIPPED",
+        "SUCCESS",
+        "TIMED_OUT",
+        "UNKNOWN",
+        "UPSTREAM_FAILED",
+        "UP_FOR_RESCHEDULE",
+        "UP_FOR_RETRY",
+        "WARN",
+    )
+
+
 class EtlType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -1691,6 +1879,7 @@ class EventModelEventType(sgqlc.types.Enum):
     * `INCIDENT_STATUS_UPDATE`: Incident Status Update
     * `JSON_SCHEMA_CHANGE`: JSON Schema Change
     * `METRIC_ANOM`: Metric Anomaly
+    * `METRIC_COMPARISON_ANOM`: Metric Comparison Anomaly
     * `QUERY_PERFORMANCE_ANOM`: Query Performance Anomaly
     * `QUERY_RUNTIME_ANOM`: Query Runtime Anomaly
     * `RULE_RUN_FAILURE`: Rule Run Failure
@@ -1730,6 +1919,7 @@ class EventModelEventType(sgqlc.types.Enum):
         "INCIDENT_STATUS_UPDATE",
         "JSON_SCHEMA_CHANGE",
         "METRIC_ANOM",
+        "METRIC_COMPARISON_ANOM",
         "QUERY_PERFORMANCE_ANOM",
         "QUERY_RUNTIME_ANOM",
         "RULE_RUN_FAILURE",
@@ -2623,6 +2813,7 @@ class IncidentModelIncidentType(sgqlc.types.Enum):
     * `JSON_SCHEMA_CHANGES`: JSON schema changes
     * `MERGED`: Merged alerts
     * `METRIC_ANOMALIES`: Metric anomalies
+    * `METRIC_COMPARISON_ANOMALIES`: Metric Comparison Anomalies
     * `PERFORMANCE_ANOMALIES`: Performance anomalies
     * `PSEUDO_INTEGRATION_TEST`: Pseudo anomalies
     * `RULE_RUN_EXECUTION_ERROR`: Rule run failure
@@ -2639,6 +2830,7 @@ class IncidentModelIncidentType(sgqlc.types.Enum):
         "JSON_SCHEMA_CHANGES",
         "MERGED",
         "METRIC_ANOMALIES",
+        "METRIC_COMPARISON_ANOMALIES",
         "PERFORMANCE_ANOMALIES",
         "PSEUDO_INTEGRATION_TEST",
         "RULE_RUN_EXECUTION_ERROR",
@@ -2880,6 +3072,53 @@ class JobExecutionStatus(sgqlc.types.Enum):
     __choices__ = ("CANCELLED", "EVALUATING", "FAILED", "IN_PROGRESS", "SUCCESS", "TIMEOUT")
 
 
+class JobPerformanceFacet(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DBT_PROJECT`None
+    * `DOMAIN`None
+    * `JOB_NAME`None
+    * `JOB_TYPE`None
+    * `LAST_RUN_STATUS`None
+    * `TAGS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DBT_PROJECT", "DOMAIN", "JOB_NAME", "JOB_TYPE", "LAST_RUN_STATUS", "TAGS")
+
+
+class JobsPerformanceSummarySort(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AVG_RUN_DURATION`None
+    * `DISPLAY_NAME`None
+    * `FAILURE_RATE`None
+    * `INTEGRATION_TYPE`None
+    * `LAST_RUN_END_TIME`None
+    * `LAST_RUN_START_TIME`None
+    * `LAST_RUN_STATUS`None
+    * `LAST_RUN_UUID`None
+    * `MCON`None
+    * `RUN_COUNT`None
+    * `RUN_DURATION_TREND_7D`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AVG_RUN_DURATION",
+        "DISPLAY_NAME",
+        "FAILURE_RATE",
+        "INTEGRATION_TYPE",
+        "LAST_RUN_END_TIME",
+        "LAST_RUN_START_TIME",
+        "LAST_RUN_STATUS",
+        "LAST_RUN_UUID",
+        "MCON",
+        "RUN_COUNT",
+        "RUN_DURATION_TREND_7D",
+    )
+
+
 class LineageFilterName(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -2952,6 +3191,16 @@ class LineageNodeJobType(sgqlc.types.Enum):
         "SELF_HOSTED_KAFKA_CONNECT",
         "UNKNOWN",
     )
+
+
+class LogsIntegrationType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DEFAULT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DEFAULT",)
 
 
 class LookbackRange(sgqlc.types.Enum):
@@ -3061,10 +3310,12 @@ class MonitorAggTimeInterval(sgqlc.types.Enum):
 
     * `DAY`None
     * `HOUR`None
+    * `MONTH`None
+    * `WEEK`None
     """
 
     __schema__ = schema
-    __choices__ = ("DAY", "HOUR")
+    __choices__ = ("DAY", "HOUR", "MONTH", "WEEK")
 
 
 class MonitorBreachType(sgqlc.types.Enum):
@@ -3356,6 +3607,7 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
     * `DASHBOARD`: Dashboard
     * `DATA_PRODUCT`: Data Product
     * `DBT`: DBT
+    * `DOMAIN`: Domain
     * `LINEAGE_API`: Lineage API
     * `TAGS_COLLECTION`: Tags Collection
     """
@@ -3366,6 +3618,7 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
         "DASHBOARD",
         "DATA_PRODUCT",
         "DBT",
+        "DOMAIN",
         "LINEAGE_API",
         "TAGS_COLLECTION",
     )
@@ -3422,6 +3675,7 @@ class Permission(sgqlc.types.Enum):
     * `CatalogEdit`None
     * `DashboardAccess`None
     * `DashboardEdit`None
+    * `DashboardEditTheirOwn`None
     * `DataproductsAccess`None
     * `DataproductsEdit`None
     * `DataproductsEditAll`None
@@ -3483,6 +3737,7 @@ class Permission(sgqlc.types.Enum):
         "CatalogEdit",
         "DashboardAccess",
         "DashboardEdit",
+        "DashboardEditTheirOwn",
         "DataproductsAccess",
         "DataproductsEdit",
         "DataproductsEditAll",
@@ -3844,8 +4099,9 @@ class RcaJobsModelJobType(sgqlc.types.Enum):
     * `NUMERIC_CORRELATION`: Numeric (Field Health) value correlation
     * `SIZE_DIFF_CORRELATION`: Size Diff value correlation
     * `SIZE_DIFF_SAMPLING`: Size Diff sampling
-    * `SQL_RULE_CUSTOM_SAMPLING`: SQL Rule custom sampling
-    * `SQL_RULE_PROFILING`: SQL Rule sample data profiling
+    * `SQL_RULE_BREACH_SAMPLING`: SQL rule breach sampling
+    * `SQL_RULE_CUSTOM_SAMPLING`: Custom SQL monitor custom sampling
+    * `SQL_RULE_PROFILING`: Custom SQL monitor sample data profiling
     """
 
     __schema__ = schema
@@ -3856,6 +4112,7 @@ class RcaJobsModelJobType(sgqlc.types.Enum):
         "NUMERIC_CORRELATION",
         "SIZE_DIFF_CORRELATION",
         "SIZE_DIFF_SAMPLING",
+        "SQL_RULE_BREACH_SAMPLING",
         "SQL_RULE_CUSTOM_SAMPLING",
         "SQL_RULE_PROFILING",
     )
@@ -3937,6 +4194,142 @@ class ResponseMetadataType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("MONITOR_RECOMMENDATIONS", "QUERY_RESPONSE")
+
+
+class SamplingEnabledMetricTypes(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DUPLICATE_COUNT`None
+    * `EMPTY_STRING_COUNT`None
+    * `EMPTY_STRING_RATE`None
+    * `FALSE_COUNT`None
+    * `FALSE_RATE`None
+    * `FUTURE_TIMESTAMP_COUNT`None
+    * `FUTURE_TIMESTAMP_RATE`None
+    * `NAN_COUNT`None
+    * `NAN_RATE`None
+    * `NEGATIVE_COUNT`None
+    * `NEGATIVE_RATE`None
+    * `NON_NULL_COUNT`None
+    * `NULL_COUNT`None
+    * `NULL_RATE`None
+    * `NUMERIC_MAX`None
+    * `NUMERIC_MEAN`None
+    * `NUMERIC_MEDIAN`None
+    * `NUMERIC_MIN`None
+    * `NUMERIC_STDDEV`None
+    * `PAST_TIMESTAMP_COUNT`None
+    * `PAST_TIMESTAMP_RATE`None
+    * `PERCENTILE_20`None
+    * `PERCENTILE_40`None
+    * `PERCENTILE_60`None
+    * `PERCENTILE_80`None
+    * `RELATIVE_ROW_COUNT`None
+    * `ROW_COUNT_CHANGE`None
+    * `SUM`None
+    * `TEXT_ALL_SPACE_COUNT`None
+    * `TEXT_ALL_SPACE_RATE`None
+    * `TEXT_EMAIL_ADDRESS_RATE`None
+    * `TEXT_INT_RATE`None
+    * `TEXT_MAX_LENGTH`None
+    * `TEXT_MEAN_LENGTH`None
+    * `TEXT_MIN_LENGTH`None
+    * `TEXT_NOT_EMAIL_ADDRESS_COUNT`None
+    * `TEXT_NOT_INT_COUNT`None
+    * `TEXT_NOT_NUMBER_COUNT`None
+    * `TEXT_NOT_SSN_COUNT`None
+    * `TEXT_NOT_TIMESTAMP_COUNT`None
+    * `TEXT_NOT_US_PHONE_COUNT`None
+    * `TEXT_NOT_US_STATE_CODE_COUNT`None
+    * `TEXT_NOT_US_ZIP_CODE_COUNT`None
+    * `TEXT_NOT_UUID_COUNT`None
+    * `TEXT_NULL_KEYWORD_COUNT`None
+    * `TEXT_NULL_KEYWORD_RATE`None
+    * `TEXT_NUMBER_RATE`None
+    * `TEXT_SSN_RATE`None
+    * `TEXT_STD_LENGTH`None
+    * `TEXT_TIMESTAMP_RATE`None
+    * `TEXT_US_PHONE_RATE`None
+    * `TEXT_US_STATE_CODE_RATE`None
+    * `TEXT_US_ZIP_CODE_RATE`None
+    * `TEXT_UUID_RATE`None
+    * `TIME_SINCE_LAST_ROW_COUNT_CHANGE`None
+    * `TRUE_COUNT`None
+    * `TRUE_RATE`None
+    * `UNIQUE_COUNT`None
+    * `UNIQUE_RATE`None
+    * `UNIX_ZERO_COUNT`None
+    * `UNIX_ZERO_RATE`None
+    * `ZERO_COUNT`None
+    * `ZERO_RATE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "DUPLICATE_COUNT",
+        "EMPTY_STRING_COUNT",
+        "EMPTY_STRING_RATE",
+        "FALSE_COUNT",
+        "FALSE_RATE",
+        "FUTURE_TIMESTAMP_COUNT",
+        "FUTURE_TIMESTAMP_RATE",
+        "NAN_COUNT",
+        "NAN_RATE",
+        "NEGATIVE_COUNT",
+        "NEGATIVE_RATE",
+        "NON_NULL_COUNT",
+        "NULL_COUNT",
+        "NULL_RATE",
+        "NUMERIC_MAX",
+        "NUMERIC_MEAN",
+        "NUMERIC_MEDIAN",
+        "NUMERIC_MIN",
+        "NUMERIC_STDDEV",
+        "PAST_TIMESTAMP_COUNT",
+        "PAST_TIMESTAMP_RATE",
+        "PERCENTILE_20",
+        "PERCENTILE_40",
+        "PERCENTILE_60",
+        "PERCENTILE_80",
+        "RELATIVE_ROW_COUNT",
+        "ROW_COUNT_CHANGE",
+        "SUM",
+        "TEXT_ALL_SPACE_COUNT",
+        "TEXT_ALL_SPACE_RATE",
+        "TEXT_EMAIL_ADDRESS_RATE",
+        "TEXT_INT_RATE",
+        "TEXT_MAX_LENGTH",
+        "TEXT_MEAN_LENGTH",
+        "TEXT_MIN_LENGTH",
+        "TEXT_NOT_EMAIL_ADDRESS_COUNT",
+        "TEXT_NOT_INT_COUNT",
+        "TEXT_NOT_NUMBER_COUNT",
+        "TEXT_NOT_SSN_COUNT",
+        "TEXT_NOT_TIMESTAMP_COUNT",
+        "TEXT_NOT_US_PHONE_COUNT",
+        "TEXT_NOT_US_STATE_CODE_COUNT",
+        "TEXT_NOT_US_ZIP_CODE_COUNT",
+        "TEXT_NOT_UUID_COUNT",
+        "TEXT_NULL_KEYWORD_COUNT",
+        "TEXT_NULL_KEYWORD_RATE",
+        "TEXT_NUMBER_RATE",
+        "TEXT_SSN_RATE",
+        "TEXT_STD_LENGTH",
+        "TEXT_TIMESTAMP_RATE",
+        "TEXT_US_PHONE_RATE",
+        "TEXT_US_STATE_CODE_RATE",
+        "TEXT_US_ZIP_CODE_RATE",
+        "TEXT_UUID_RATE",
+        "TIME_SINCE_LAST_ROW_COUNT_CHANGE",
+        "TRUE_COUNT",
+        "TRUE_RATE",
+        "UNIQUE_COUNT",
+        "UNIQUE_RATE",
+        "UNIX_ZERO_COUNT",
+        "UNIX_ZERO_RATE",
+        "ZERO_COUNT",
+        "ZERO_RATE",
+    )
 
 
 class ScheduleType(sgqlc.types.Enum):
@@ -4235,6 +4628,7 @@ class TableAnomalyModelReason(sgqlc.types.Enum):
     * `DIST`: Distribution Anomaly
     * `FRESHNESS`: Freshness Anomaly
     * `METRIC`: Metric Anomaly
+    * `METRIC_COMPARISON`: Metric Comparison Anomaly
     * `QUERY_PERFORMANCE`: Query Performance Anomaly
     * `QUERY_RUNTIME`: Query Time Anomaly
     * `RULE_RUN_FAILURE`: Rule Run Failure Anomaly
@@ -4250,6 +4644,7 @@ class TableAnomalyModelReason(sgqlc.types.Enum):
         "DIST",
         "FRESHNESS",
         "METRIC",
+        "METRIC_COMPARISON",
         "QUERY_PERFORMANCE",
         "QUERY_RUNTIME",
         "RULE_RUN_FAILURE",
@@ -4257,16 +4652,6 @@ class TableAnomalyModelReason(sgqlc.types.Enum):
         "SIZE_DIFF",
         "UNCHANGED_SIZE",
     )
-
-
-class TableFieldToBiModelBiType(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `TABLEAU_WORKBOOK`: Tableau Workbook
-    """
-
-    __schema__ = schema
-    __choices__ = ("TABLEAU_WORKBOOK",)
 
 
 class TableFlagType(sgqlc.types.Enum):
@@ -4278,6 +4663,46 @@ class TableFlagType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("DEPRECATION", "WARNING")
+
+
+class TableMonitorModelPriority(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `P1`: P1
+    * `P2`: P2
+    * `P3`: P3
+    * `P4`: P4
+    * `P5`: P5
+    """
+
+    __schema__ = schema
+    __choices__ = ("P1", "P2", "P3", "P4", "P5")
+
+
+class TableType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DYNAMIC`None
+    * `EXTERNAL`None
+    * `SNAPSHOT`None
+    * `SNOWFLAKE_STREAM`None
+    * `TABLE`None
+    * `VECTOR_INDEX`None
+    * `VIEW`None
+    * `WILDCARD_TABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "DYNAMIC",
+        "EXTERNAL",
+        "SNAPSHOT",
+        "SNOWFLAKE_STREAM",
+        "TABLE",
+        "VECTOR_INDEX",
+        "VIEW",
+        "WILDCARD_TABLE",
+    )
 
 
 class TagAssignmentObjectType(sgqlc.types.Enum):
@@ -4300,6 +4725,38 @@ class TagType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("DATA_QUALITY_DIMENSION_TAG", "MONITOR_TAG")
+
+
+class TasksPerformanceSummarySort(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AVG_RUN_DURATION`None
+    * `DISPLAY_NAME`None
+    * `FAILURE_RATE`None
+    * `INTEGRATION_TYPE`None
+    * `LAST_RUN_END_TIME`None
+    * `LAST_RUN_START_TIME`None
+    * `LAST_RUN_STATUS`None
+    * `LAST_RUN_UUID`None
+    * `MCON`None
+    * `RUN_COUNT`None
+    * `RUN_DURATION_TREND_7D`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AVG_RUN_DURATION",
+        "DISPLAY_NAME",
+        "FAILURE_RATE",
+        "INTEGRATION_TYPE",
+        "LAST_RUN_END_TIME",
+        "LAST_RUN_START_TIME",
+        "LAST_RUN_STATUS",
+        "LAST_RUN_UUID",
+        "MCON",
+        "RUN_COUNT",
+        "RUN_DURATION_TREND_7D",
+    )
 
 
 class TeradataLogMechEnum(sgqlc.types.Enum):
@@ -4611,6 +5068,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
     * `QUERY_PERF`None
     * `SCHEMA`None
     * `STATS`None
+    * `TABLE`None
     * `TABLE_METRIC`None
     * `VALIDATION`None
     * `VOLUME`None
@@ -4628,6 +5086,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
         "QUERY_PERF",
         "SCHEMA",
         "STATS",
+        "TABLE",
         "TABLE_METRIC",
         "VALIDATION",
         "VOLUME",
@@ -4680,6 +5139,7 @@ class UserModelPersona(sgqlc.types.Enum):
     * `BI_ANALYST_ENGINEER`: bi_analyst_or_engineer
     * `DATA_ANALYST`: data_analyst
     * `DATA_ENGINEER`: data_engineer
+    * `EARLY_USER`: early_user
     * `EXECUTIVE`: executive
     * `OTHER`: other
     * `PRODUCT_MANAGER_OWNER`: product_manager_or_owner
@@ -4692,6 +5152,7 @@ class UserModelPersona(sgqlc.types.Enum):
         "BI_ANALYST_ENGINEER",
         "DATA_ANALYST",
         "DATA_ENGINEER",
+        "EARLY_USER",
         "EXECUTIVE",
         "OTHER",
         "PRODUCT_MANAGER_OWNER",
@@ -4734,6 +5195,7 @@ class UserPersona(sgqlc.types.Enum):
     * `BI_ANALYST_ENGINEER`None
     * `DATA_ANALYST`None
     * `DATA_ENGINEER`None
+    * `EARLY_USER`None
     * `EXECUTIVE`None
     * `OTHER`None
     * `PRODUCT_MANAGER_OWNER`None
@@ -4746,6 +5208,7 @@ class UserPersona(sgqlc.types.Enum):
         "BI_ANALYST_ENGINEER",
         "DATA_ANALYST",
         "DATA_ENGINEER",
+        "EARLY_USER",
         "EXECUTIVE",
         "OTHER",
         "PRODUCT_MANAGER_OWNER",
@@ -4766,6 +5229,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
     * `PINECONE`: Pinecone
     * `REDSHIFT`: Amazon Redshift
     * `S3_METADATA_EVENTS`: S3 Metadata Events
+    * `SALESFORCE_CRM`: salesforce-crm
     * `SNOWFLAKE`: Snowflake
     * `TERADATA`: Teradata
     * `TRANSACTIONAL_DB`: Transactional DB
@@ -4782,10 +5246,22 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
         "PINECONE",
         "REDSHIFT",
         "S3_METADATA_EVENTS",
+        "SALESFORCE_CRM",
         "SNOWFLAKE",
         "TERADATA",
         "TRANSACTIONAL_DB",
     )
+
+
+class WarehouseRelationType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CONSUMER`None
+    * `PRODUCER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONSUMER", "PRODUCER")
 
 
 class WarehouseTableModelStatus(sgqlc.types.Enum):
@@ -5125,6 +5601,73 @@ class ApiCallReference(sgqlc.types.Input):
     """List of values for the parameter"""
 
 
+class AssetFilterUnionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "domains",
+        "table_name",
+        "table_name_operator",
+        "table_type",
+        "table_tags",
+        "table_tags_operator",
+        "days",
+        "type",
+        "negated",
+    )
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    table_name = sgqlc.types.Field(String, graphql_name="tableName")
+
+    table_name_operator = sgqlc.types.Field(
+        AssetFilterTableNameOperator, graphql_name="tableNameOperator"
+    )
+
+    table_type = sgqlc.types.Field(TableType, graphql_name="tableType")
+
+    table_tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tableTags"
+    )
+
+    table_tags_operator = sgqlc.types.Field(
+        AssetFilterTableTagOperator, graphql_name="tableTagsOperator"
+    )
+
+    days = sgqlc.types.Field(Int, graphql_name="days")
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(AssetFilterType), graphql_name="type")
+
+    negated = sgqlc.types.Field(Boolean, graphql_name="negated")
+
+
+class AssetIncludeDatabaseInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("name", "schemas")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    schemas = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="schemas"
+    )
+
+
+class AssetSelectionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("databases", "filters", "exclusions")
+    databases = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetIncludeDatabaseInput)),
+        graphql_name="databases",
+    )
+
+    filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterUnionInput)), graphql_name="filters"
+    )
+
+    exclusions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterUnionInput)), graphql_name="exclusions"
+    )
+
+
 class AssetsSortInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("sort_field", "sort_direction")
@@ -5200,22 +5743,10 @@ class AudienceNotificationSettingInput(sgqlc.types.Input):
     notification_type = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="notificationType"
     )
-    """emailSpecify the notification integration to use. Supported
-    options include: , opsgenieSpecify the notification integration to
-    use. Supported options include: , pagerdutySpecify the
-    notification integration to use. Supported options include: ,
-    slackSpecify the notification integration to use. Supported
-    options include: , slack_v2Specify the notification integration to
-    use. Supported options include: , webhookSpecify the notification
-    integration to use. Supported options include: , msteamsSpecify
-    the notification integration to use. Supported options include: ,
-    msteams_v2Specify the notification integration to use. Supported
-    options include: , alationSpecify the notification integration to
-    use. Supported options include: , servicenowSpecify the
-    notification integration to use. Supported options include: ,
-    jiraSpecify the notification integration to use. Supported options
-    include: , webexSpecify the notification integration to use.
-    Supported options include: , incidentio
+    """Specify the notification integration to use. Supported options
+    include: email, opsgenie, pagerduty, slack, slack_v2, google_chat,
+    webhook, msteams, msteams_v2, alation, servicenow, jira, webex,
+    incidentio
     """
 
     extra = sgqlc.types.Field("NotificationExtra", graphql_name="extra")
@@ -5375,6 +5906,18 @@ class CatalogMappingInput(sgqlc.types.Input):
 
     to_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="toName")
     """To catalog object name."""
+
+
+class ClassificationCategoriesInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("label", "description", "examples")
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    examples = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="examples"
+    )
 
 
 class CollectionBlockInput(sgqlc.types.Input):
@@ -5592,9 +6135,7 @@ class CustomMetricQueryInput(sgqlc.types.Input):
     """Time axis type"""
 
     agg_time_interval = sgqlc.types.Field(MonitorAggTimeInterval, graphql_name="aggTimeInterval")
-    """Aggregation time interval to use. Either HOUR or DAY (defaults to
-    HOUR)
-    """
+    """Aggregation time interval to use. (defaults to HOUR)"""
 
     where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
     """WHERE condition to apply to the query"""
@@ -5947,11 +6488,15 @@ class DataSourceSchemaInput(sgqlc.types.Input):
 
 class DataSourceUnionInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("sql", "mcon", "type", "connection_type", "schema")
+    __field_names__ = ("sql", "mcon", "transforms", "type", "connection_type", "schema")
     sql = sgqlc.types.Field(String, graphql_name="sql")
     """The SQL query that defines the source of the data"""
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TransformInput")), graphql_name="transforms"
+    )
 
     type = sgqlc.types.Field(sgqlc.types.non_null(DataSourceType), graphql_name="type")
 
@@ -6412,11 +6957,7 @@ class ImportanceScoreTableStatsRule(sgqlc.types.Input):
     operator = sgqlc.types.Field(
         sgqlc.types.non_null(ImportanceScoreOperator), graphql_name="operator"
     )
-    """==Comparison operator. Options include , >=Comparison operator.
-    Options include , <=Comparison operator. Options include ,
-    >Comparison operator. Options include , <Comparison operator.
-    Options include , RANGE
-    """
+    """Comparison operator. Options include: ==, >=, <=, >, <, RANGE"""
 
     value = sgqlc.types.Field(Float, graphql_name="value")
 
@@ -6550,6 +7091,80 @@ class JiraWebhookConfigInput(sgqlc.types.Input):
         graphql_name="statusMappings",
     )
     """Status mapping"""
+
+
+class JobsPerformanceFacetFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("facet", "include_options", "exclude_options")
+    facet = sgqlc.types.Field(sgqlc.types.non_null(JobPerformanceFacet), graphql_name="facet")
+    """Facet these filter selections apply to"""
+
+    include_options = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="includeOptions"
+    )
+    """Filter to include only these options, if provided"""
+
+    exclude_options = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="excludeOptions"
+    )
+    """Filter to exclude these options, if provided"""
+
+
+class JobsPerformanceFacetQueryInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("facet", "search")
+    facet = sgqlc.types.Field(sgqlc.types.non_null(JobPerformanceFacet), graphql_name="facet")
+    """The specific facet to get options/counts for"""
+
+    search = sgqlc.types.Field(String, graphql_name="search")
+    """Optional search text to use to filter the returned facet options"""
+
+
+class JobsPerformanceFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("start_time", "end_time", "facet_filters", "job_mcons")
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Starting time of period to query for"""
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """Ending time of period to query for"""
+
+    facet_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(JobsPerformanceFacetFilterInput)),
+        graphql_name="facetFilters",
+    )
+    """All currently applied facet filters"""
+
+    job_mcons = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="jobMcons"
+    )
+    """Job mcons to filter by"""
+
+
+class JobsPerformancePagingInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("first", "after", "last", "before", "order_by", "order_direction")
+    first = sgqlc.types.Field(Int, graphql_name="first")
+    """Number of items to retrieve after the cursor. Defaults to 20 if no
+    other paging parameters are provided
+    """
+
+    after = sgqlc.types.Field(String, graphql_name="after")
+    """Starting cursor when paging forward"""
+
+    last = sgqlc.types.Field(Int, graphql_name="last")
+    """Number of items to retrieve before the cursor when paging backward"""
+
+    before = sgqlc.types.Field(String, graphql_name="before")
+    """Ending cursor when paging backward"""
+
+    order_by = sgqlc.types.Field(JobsPerformanceSummarySort, graphql_name="orderBy")
+    """Field by which to order the results. Defaults to
+    LAST_RUN_START_TIME
+    """
+
+    order_direction = sgqlc.types.Field(EtlPerformanceSortDirection, graphql_name="orderDirection")
+    """Sort direction. Defaults to EnumMeta.ASC"""
 
 
 class LineageEdgeInput(sgqlc.types.Input):
@@ -6771,7 +7386,7 @@ class MetricsFilter(sgqlc.types.Input):
     segments_filter = sgqlc.types.Field(
         sgqlc.types.list_of("SegmentsFilter"), graphql_name="segmentsFilter"
     )
-    """DEPRECATED: use whereCondition or label instead."""
+    """DEPRECATED: use whereCondition or label instead. Call will fail."""
 
     where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
     """Filter to the segment with this value as the whereCondition."""
@@ -6970,9 +7585,8 @@ class NotificationDigestSettings(sgqlc.types.Input):
     """
 
     digest_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="digestType")
-    """anomalies_digestType of digest. Supported options include: ,
-    misconf_digestType of digest. Supported options include: ,
-    inactive_digest
+    """Type of digest. Supported options include: anomalies_digest,
+    misconf_digest, inactive_digest
     """
 
 
@@ -7807,9 +8421,7 @@ class SegmentCountQueryInput(sgqlc.types.Input):
     """Time axis type"""
 
     agg_time_interval = sgqlc.types.Field(MonitorAggTimeInterval, graphql_name="aggTimeInterval")
-    """Aggregation time interval to use. Either HOUR or DAY (defaults to
-    HOUR)
-    """
+    """Aggregation time interval to use. (defaults to HOUR)"""
 
     lookback_days = sgqlc.types.Field(Int, graphql_name="lookbackDays")
     """History days for the monitor"""
@@ -8510,6 +9122,45 @@ class TagPair(sgqlc.types.Input):
     """Tag Value"""
 
 
+class TasksPerformanceFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("start_time", "end_time", "job_mcon")
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Starting time of period to query for"""
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """Ending time of period to query for"""
+
+    job_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobMcon")
+    """Job mcon to get associated tasks"""
+
+
+class TasksPerformancePagingInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("first", "after", "last", "before", "order_by", "order_direction")
+    first = sgqlc.types.Field(Int, graphql_name="first")
+    """Number of items to retrieve after the cursor. Defaults to 20 if no
+    other paging parameters are provided
+    """
+
+    after = sgqlc.types.Field(String, graphql_name="after")
+    """Starting cursor when paging forward"""
+
+    last = sgqlc.types.Field(Int, graphql_name="last")
+    """Number of items to retrieve before the cursor when paging backward"""
+
+    before = sgqlc.types.Field(String, graphql_name="before")
+    """Ending cursor when paging backward"""
+
+    order_by = sgqlc.types.Field(TasksPerformanceSummarySort, graphql_name="orderBy")
+    """Field by which to order the results. Defaults to
+    LAST_RUN_START_TIME
+    """
+
+    order_direction = sgqlc.types.Field(EtlPerformanceSortDirection, graphql_name="orderDirection")
+    """Sort direction. Defaults to EnumMeta.ASC"""
+
+
 class ThresholdModifierInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("modifier_type", "value")
@@ -8789,7 +9440,10 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
         "user",
         "password",
         "token",
+        "consumer_key",
+        "consumer_secret",
         "connection_settings",
+        "domain",
     )
     db_name = sgqlc.types.Field(String, graphql_name="dbName")
     """Name of database to add connection for"""
@@ -8812,10 +9466,19 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
     token = sgqlc.types.Field(String, graphql_name="token")
     """Auth Token for connection"""
 
+    consumer_key = sgqlc.types.Field(String, graphql_name="consumerKey")
+    """Consumer key for connection"""
+
+    consumer_secret = sgqlc.types.Field(String, graphql_name="consumerSecret")
+    """Consumer secret for connection"""
+
     connection_settings = sgqlc.types.Field(
         "TransactionalDbConnectionSettings", graphql_name="connectionSettings"
     )
     """Optional connection settings"""
+
+    domain = sgqlc.types.Field(String, graphql_name="domain")
+    """Domain for the connection"""
 
 
 class TransactionalDbConnectionSettings(sgqlc.types.Input):
@@ -8897,6 +9560,25 @@ class TransactionalDbUpdateConnectionSettings(sgqlc.types.Input):
     """Indicates if we are connecting to the database through a RDS
     Proxy.
     """
+
+
+class TransformInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("alias", "prompt", "categories", "function", "field", "id")
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+
+    prompt = sgqlc.types.Field(String, graphql_name="prompt")
+
+    categories = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ClassificationCategoriesInput)),
+        graphql_name="categories",
+    )
+
+    function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
+
+    field = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="field")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
 
 
 class UCSAutomatedAlertConditionInput(sgqlc.types.Input):
@@ -9053,6 +9735,16 @@ class VolumeChangeExplicitAlertConditionInput(sgqlc.types.Input):
     """Lower threshold in percent"""
 
 
+class WebhookHeaderInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("key", "value")
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
+    """The header field name"""
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """The header field value"""
+
+
 class WidgetConfig(sgqlc.types.Input):
     """Widget configuration.             Only one (or none)
     of these properties should be set, depending on the widget type.
@@ -9083,6 +9775,14 @@ class WildcardTemplateInput(sgqlc.types.Input):
 ########################################################################
 # Output Objects and Interfaces
 ########################################################################
+class AssetFilterInterface(sgqlc.types.Interface):
+    __schema__ = schema
+    __field_names__ = ("type", "negated")
+    type = sgqlc.types.Field(sgqlc.types.non_null(AssetFilterType), graphql_name="type")
+
+    negated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="negated")
+
+
 class CollectionPreferenceNode(sgqlc.types.Interface):
     __schema__ = schema
     __field_names__ = ("id",)
@@ -9224,6 +9924,86 @@ class ICustomRulesMonitor(sgqlc.types.Interface):
 
     breached = sgqlc.types.Field(MonitorBreachType, graphql_name="breached")
     """Monitor breached status"""
+
+
+class IEtlAssetPerformanceSummary(sgqlc.types.Interface):
+    """ETL asset performance summary (such as a job or a task)"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "mcon",
+        "display_name",
+        "integration_type",
+        "run_count",
+        "last_run_uuid",
+        "last_run_start_time",
+        "last_run_end_time",
+        "last_run_status",
+        "avg_run_duration",
+        "run_duration_trend7d",
+        "run_duration_trend7d_issue",
+        "failure_rate",
+        "runs",
+    )
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Unique MC identifier for the asset"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Human-readable name of the asset"""
+
+    integration_type = sgqlc.types.Field(
+        sgqlc.types.non_null(EtlType), graphql_name="integrationType"
+    )
+    """The integration type of the asset"""
+
+    run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="runCount")
+    """Total runs for the asset, in the period"""
+
+    last_run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="lastRunUuid")
+    """Last run of the asset, in the period"""
+
+    last_run_start_time = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="lastRunStartTime"
+    )
+    """The start time of the last run of the asset, in the period"""
+
+    last_run_end_time = sgqlc.types.Field(DateTime, graphql_name="lastRunEndTime")
+    """The end time of the last run of the asset, in the period"""
+
+    last_run_status = sgqlc.types.Field(
+        sgqlc.types.non_null(EtlRunStatus), graphql_name="lastRunStatus"
+    )
+    """The status of the last run of the asset, in the period."""
+
+    avg_run_duration = sgqlc.types.Field(Int, graphql_name="avgRunDuration")
+    """Average duration of runs for the asset in the period, in ms"""
+
+    run_duration_trend7d = sgqlc.types.Field(Float, graphql_name="runDurationTrend7d")
+    """7-day trend of successful run durations for the asset, expressed
+    as a decimal percentage (e.g., 0.15 = 15% increase). null if it
+    cannot be calculated — see runDurationTrend7dIssue for details
+    """
+
+    run_duration_trend7d_issue = sgqlc.types.Field(
+        EtlDurationTrendIssue, graphql_name="runDurationTrend7dIssue"
+    )
+    """If the 7-day trend cannot be calculated, this provides the reason
+    why
+    """
+
+    failure_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="failureRate")
+    """Failure rate, expressed as a decimal percentage (.50 = 50%)"""
+
+    runs = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(sgqlc.types.list_of(String)))
+        ),
+        graphql_name="runs",
+    )
+    """List of run datapoints during the period for the asset, returned
+    as a list of [start time (epoch ms), duration (ms), status]. For
+    failures, it also includes [failure time (epoch ms)]
+    """
 
 
 class IEventDataBaseTimeline(sgqlc.types.Interface):
@@ -9500,10 +10280,15 @@ class IMonitor(sgqlc.types.Interface):
     notification_settings = sgqlc.types.Field(
         sgqlc.types.list_of("AccountNotificationSetting"), graphql_name="notificationSettings"
     )
-    """Notification channels that match the monitor"""
+    """Notification channels that match the monitor. Only returned for
+    custom monitors.
+    """
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
-    """Whether audiences will be notified when the rule fails to execute"""
+    """DEPRECATED: Completely ignored. This field has no effect on
+    anything. Use `failure_audiences` to determine who is notified
+    when run failures occur.
+    """
 
     is_snoozeable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isSnoozeable")
     """Whether the monitor can be snoozed"""
@@ -9576,7 +10361,7 @@ class IMonitor(sgqlc.types.Interface):
 
     is_ootb_monitor = sgqlc.types.Field(Boolean, graphql_name="isOotbMonitor")
     """Indicates whether this is an OOTB monitor (set to true for OOTB
-    monitors and OOTB replacement rules.
+    monitors and OOTB replacement rules)
     """
 
     ootb_monitor_type = sgqlc.types.Field(OotbTableMonitorTypeEnum, graphql_name="ootbMonitorType")
@@ -10735,25 +11520,12 @@ class AccountNotificationSetting(sgqlc.types.Type):
     """Number of incidents per day for the past 30 days"""
 
     anomaly_types = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="anomalyTypes")
-    """anomaliesLimit notifications to specific incident types
-    (default=all). Supported options include: , schema_changesLimit
-    notifications to specific incident types (default=all). Supported
-    options include: , json_schema_changesLimit notifications to
-    specific incident types (default=all). Supported options include:
-    , deleted_tablesLimit notifications to specific incident types
-    (default=all). Supported options include: , metric_anomaliesLimit
-    notifications to specific incident types (default=all). Supported
-    options include: , custom_rule_anomaliesLimit notifications to
-    specific incident types (default=all). Supported options include:
-    , performance_anomaliesLimit notifications to specific incident
-    types (default=all). Supported options include: , dbt_errorsLimit
-    notifications to specific incident types (default=all). Supported
-    options include: , etl_errorsLimit notifications to specific
-    incident types (default=all). Supported options include: ,
-    pseudo_integration_testLimit notifications to specific incident
-    types (default=all). Supported options include: ,
-    rule_run_execution_errorLimit notifications to specific incident
-    types (default=all). Supported options include: , merged
+    """Limit notifications to specific incident types (default=all).
+    Supported options include: anomalies, schema_changes,
+    json_schema_changes, deleted_tables, metric_anomalies,
+    metric_comparison_anomalies, custom_rule_anomalies,
+    performance_anomalies, dbt_errors, etl_errors,
+    pseudo_integration_test, rule_run_execution_error, merged
     """
 
     incident_sub_types = sgqlc.types.Field(
@@ -10897,6 +11669,14 @@ class AddPlatformService(sgqlc.types.Type):
     """The UUID of to the new service"""
 
 
+class AddRedshiftConsumerConnectionMutation(sgqlc.types.Type):
+    """Add a Redshift consumer connection. Used for DataShare lineage."""
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
 class AddStreamingConnectionMutation(sgqlc.types.Type):
     """Add a connection for a streaming cluster and setup any associated
     jobs. Creates a streaming cluster if a cluster if not specified.
@@ -10961,6 +11741,17 @@ class AdditionalData(sgqlc.types.Type):
 
     returned_data = sgqlc.types.Field(GenericScalar, graphql_name="returnedData")
     """JSON object containing all data returned from validation."""
+
+
+class AdditionalMonitoredTablesCountOutput(sgqlc.types.Type):
+    """Number of additional tables that would be monitored by"""
+
+    __schema__ = schema
+    __field_names__ = ("count",)
+    count = sgqlc.types.Field(Int, graphql_name="count")
+    """Number of additional tables that would be monitored by current and
+    new rules if applied
+    """
 
 
 class AdfJobConnection(sgqlc.types.relay.Connection):
@@ -11606,6 +12397,7 @@ class AlertTypeSummary(sgqlc.types.Type):
         "json_schema_changes",
         "deleted_tables",
         "metric_anomalies",
+        "metric_comparison_anomalies",
         "custom_rule_anomalies",
         "performance_anomalies",
         "dbt_errors",
@@ -11623,6 +12415,8 @@ class AlertTypeSummary(sgqlc.types.Type):
     deleted_tables = sgqlc.types.Field(Int, graphql_name="deletedTables")
 
     metric_anomalies = sgqlc.types.Field(Int, graphql_name="metricAnomalies")
+
+    metric_comparison_anomalies = sgqlc.types.Field(Int, graphql_name="metricComparisonAnomalies")
 
     custom_rule_anomalies = sgqlc.types.Field(Int, graphql_name="customRuleAnomalies")
 
@@ -11748,6 +12542,51 @@ class AlertsFilterDataValue(sgqlc.types.Type):
     """If this has a value, it should override the value from
     AlertsFilter
     """
+
+
+class AssetIncludeDatabase(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "schemas")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    schemas = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="schemas"
+    )
+
+
+class AssetSelection(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("databases", "filters", "exclusions")
+    databases = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AssetIncludeDatabase))),
+        graphql_name="databases",
+    )
+
+    filters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterInterface))),
+        graphql_name="filters",
+    )
+
+    exclusions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterInterface))),
+        graphql_name="exclusions",
+    )
+
+
+class AssetSelectionResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "id", "type", "count", "count_unselected", "selected")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+
+    count_unselected = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="countUnselected")
+
+    selected = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="selected")
 
 
 class AssetUsageNode(sgqlc.types.Type):
@@ -11957,13 +12796,17 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
         "users",
         "domain_restrictions",
         "sso_group",
+        "source",
+        "is_membership_managed",
     )
-    name = sgqlc.types.Field(String, graphql_name="name")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Unique to the account, human-readable name (for use in code/policy
     reference).
     """
 
-    roles = sgqlc.types.Field(sgqlc.types.list_of("RoleOutput"), graphql_name="roles")
+    roles = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("RoleOutput")), graphql_name="roles"
+    )
     """List of roles that are assigned to this group."""
 
     version = sgqlc.types.Field(String, graphql_name="version")
@@ -11971,9 +12814,10 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     ex: 2022-03-17. Defaults to current.
     """
 
-    is_managed = sgqlc.types.Field(Boolean, graphql_name="isManaged")
-    """Indicates if this group is managed by Monte Carlo. If so, only
-    changes to group membership are supported.
+    is_managed = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isManaged")
+    """Indicates if this group is managed by Monte Carlo or through an
+    authorization provider, such as SCIM. If so, changes to the group
+    are restricted. See the source for details.
     """
 
     label = sgqlc.types.Field(String, graphql_name="label")
@@ -11994,6 +12838,19 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
 
     sso_group = sgqlc.types.Field(String, graphql_name="ssoGroup")
     """SSO group name to map this authorization group to"""
+
+    source = sgqlc.types.Field(
+        sgqlc.types.non_null(AuthorizationGroupSource), graphql_name="source"
+    )
+    """The source or provider of this authorization group."""
+
+    is_membership_managed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isMembershipManaged"
+    )
+    """Indicates if the membership of this group is managed through an
+    authorization provider or SSO group. If true, membership changes
+    can only be made through that source.
+    """
 
 
 class AuthorizationProvisioningOutput(sgqlc.types.Type):
@@ -12069,6 +12926,10 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
             )
         ),
     )
@@ -12085,6 +12946,7 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    * `timestamp__lt` (`DateTime`)None
     """
 
 
@@ -12658,6 +13520,64 @@ class BigQueryProject(sgqlc.types.Type):
     friendly_name = sgqlc.types.Field(String, graphql_name="friendlyName")
 
 
+class BillingContractInvoice(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "start_time",
+        "end_time",
+        "tier_name",
+        "total",
+        "status",
+        "commit_consumed",
+        "items",
+    )
+    id = sgqlc.types.Field(String, graphql_name="id")
+    """The id of the invoice"""
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """The start of the invoice period"""
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """The end of the invoice period"""
+
+    tier_name = sgqlc.types.Field(String, graphql_name="tierName")
+    """The name of the current tier"""
+
+    total = sgqlc.types.Field(Int, graphql_name="total")
+    """The total cost minus credits"""
+
+    status = sgqlc.types.Field(BillingInvoiceStatus, graphql_name="status")
+    """The status of the invoice"""
+
+    commit_consumed = sgqlc.types.Field(Int, graphql_name="commitConsumed")
+    """Money subtracted from commits"""
+
+    items = sgqlc.types.Field(
+        sgqlc.types.list_of("BillingContractInvoiceItem"), graphql_name="items"
+    )
+    """Products charged in the invoice"""
+
+
+class BillingContractInvoiceItem(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("credits", "rate")
+    credits = sgqlc.types.Field(Int, graphql_name="credits")
+    """The number of credits used."""
+
+    rate = sgqlc.types.Field(Float, graphql_name="rate")
+    """The rate at which credits were used."""
+
+
+class BillingContractInvoiceResults(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("invoices",)
+    invoices = sgqlc.types.Field(
+        sgqlc.types.list_of(BillingContractInvoice), graphql_name="invoices"
+    )
+    """List of contract invoices for the account"""
+
+
 class BillingCreditGrant(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -12781,6 +13701,78 @@ class BillingInvoiceResults(sgqlc.types.Type):
 
     page_info = sgqlc.types.Field("NextPageInfo", graphql_name="pageInfo")
     """Data necessary to paginate the list of invoices"""
+
+
+class BillingMonitorUsage(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "date",
+        "table_monitor_credits",
+        "metric_monitor_credits",
+        "validation_monitor_credits",
+        "comparison_monitor_credits",
+        "custom_sql_monitor_credits",
+        "performance_monitor_credits",
+        "json_schema_monitor_credits",
+        "metric_legacy_monitor_credits",
+        "freshness_rule_monitor_credits",
+        "volume_rule_monitor_credits",
+        "dimension_tracking_monitor_credits",
+        "metric_comparison_monitor_credits",
+    )
+    date = sgqlc.types.Field(Date, graphql_name="date")
+    """The date for this data point"""
+
+    table_monitor_credits = sgqlc.types.Field(Float, graphql_name="tableMonitorCredits")
+    """Credits used by table monitors"""
+
+    metric_monitor_credits = sgqlc.types.Field(Float, graphql_name="metricMonitorCredits")
+    """Credits used by metric monitors"""
+
+    validation_monitor_credits = sgqlc.types.Field(Float, graphql_name="validationMonitorCredits")
+    """Credits used by validation monitors"""
+
+    comparison_monitor_credits = sgqlc.types.Field(Float, graphql_name="comparisonMonitorCredits")
+    """Credits used by comparison monitors"""
+
+    custom_sql_monitor_credits = sgqlc.types.Field(Float, graphql_name="customSqlMonitorCredits")
+    """Credits used by custom SQL monitors"""
+
+    performance_monitor_credits = sgqlc.types.Field(Float, graphql_name="performanceMonitorCredits")
+    """Credits used by performance monitors"""
+
+    json_schema_monitor_credits = sgqlc.types.Field(Float, graphql_name="jsonSchemaMonitorCredits")
+    """Credits used by JSON schema monitors"""
+
+    metric_legacy_monitor_credits = sgqlc.types.Field(
+        Float, graphql_name="metricLegacyMonitorCredits"
+    )
+    """Credits used by metric_legacy monitors"""
+
+    freshness_rule_monitor_credits = sgqlc.types.Field(
+        Float, graphql_name="freshnessRuleMonitorCredits"
+    )
+    """Credits used by freshness rule monitors"""
+
+    volume_rule_monitor_credits = sgqlc.types.Field(Float, graphql_name="volumeRuleMonitorCredits")
+    """Credits used by volume rule monitors"""
+
+    dimension_tracking_monitor_credits = sgqlc.types.Field(
+        Float, graphql_name="dimensionTrackingMonitorCredits"
+    )
+    """Credits used by dimension tracking monitors"""
+
+    metric_comparison_monitor_credits = sgqlc.types.Field(
+        Float, graphql_name="metricComparisonMonitorCredits"
+    )
+    """Credits used by metric comparison monitors"""
+
+
+class BillingMonitorUsageResults(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("usages",)
+    usages = sgqlc.types.Field(sgqlc.types.list_of(BillingMonitorUsage), graphql_name="usages")
+    """List of daily monitor usage data points."""
 
 
 class BulkAddMonitorDataQualityDimension(sgqlc.types.Type):
@@ -13029,6 +14021,7 @@ class CategorizedSearchResult(sgqlc.types.Type):
         "is_muted",
         "etl_type",
         "category",
+        "is_dynamic_schedule_supported",
     )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo full identifier for an entity"""
@@ -13120,6 +14113,11 @@ class CategorizedSearchResult(sgqlc.types.Type):
     TABLES etc
     """
 
+    is_dynamic_schedule_supported = sgqlc.types.Field(
+        Boolean, graphql_name="isDynamicScheduleSupported"
+    )
+    """Whether the table is supported for dynamic scheduling"""
+
 
 class CategoryLabelRank(sgqlc.types.Type):
     __schema__ = schema
@@ -13158,6 +14156,18 @@ class CircuitBreakerState(sgqlc.types.Type):
     """Array of JSON objects containing state for each stage of the job
     execution
     """
+
+
+class ClassificationCategories(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("label", "description", "examples")
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    examples = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="examples"
+    )
 
 
 class CleanupCollectorRecordInAccount(sgqlc.types.Type):
@@ -13416,7 +14426,9 @@ class ComparisonAlertCondition(sgqlc.types.Type):
 
     threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
 
-    is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
+    is_threshold_relative = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isThresholdRelative"
+    )
 
 
 class ComparisonEvaluationResults(sgqlc.types.Type):
@@ -13554,7 +14566,7 @@ class Connection(sgqlc.types.Type):
     """Subtype of a plugin connection"""
 
     name = sgqlc.types.Field(String, graphql_name="name")
-    """Name of the connection"""
+    """Connection name"""
 
     account = sgqlc.types.Field(Account, graphql_name="account")
 
@@ -13667,6 +14679,37 @@ class ConnectionValidationData(sgqlc.types.Type):
     """Error message"""
 
 
+class ContractCommit(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("id", "name", "start", "expiration", "amount_paid", "amount_remaining")
+    id = sgqlc.types.Field(String, graphql_name="id")
+    """The id of the commit"""
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Description of the commit"""
+
+    start = sgqlc.types.Field(DateTime, graphql_name="start")
+    """The starting time of the commit"""
+
+    expiration = sgqlc.types.Field(DateTime, graphql_name="expiration")
+    """The expiration time of the commit"""
+
+    amount_paid = sgqlc.types.Field(Int, graphql_name="amountPaid")
+    """The committed funds paid upfront"""
+
+    amount_remaining = sgqlc.types.Field(Int, graphql_name="amountRemaining")
+    """The amount of committed funds remaining"""
+
+
+class ContractCommitResults(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("contract_commits",)
+    contract_commits = sgqlc.types.Field(
+        sgqlc.types.list_of(ContractCommit), graphql_name="contractCommits"
+    )
+    """List of commits for all contracts"""
+
+
 class ConvertConfigTemplateToUiMonitors(sgqlc.types.Type):
     """Convert a config template to UI Monitors"""
 
@@ -13754,7 +14797,9 @@ class CreateAzureDevopsInstallation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("installation", "oauth_redirect_url")
     installation = sgqlc.types.Field(AzureDevopsInstallation, graphql_name="installation")
-    """Azure DevOps installation that was created"""
+    """If using basic auth, the Azure DevOps installation that was
+    created
+    """
 
     oauth_redirect_url = sgqlc.types.Field(String, graphql_name="oauthRedirectUrl")
 
@@ -13858,6 +14903,13 @@ class CreateJiraTicketForIncident(sgqlc.types.Type):
     __field_names__ = ("jira_ticket",)
     jira_ticket = sgqlc.types.Field("JiraTicketOutput", graphql_name="jiraTicket")
     """The created Jira ticket"""
+
+
+class CreateLogsIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("logs_integration",)
+    logs_integration = sgqlc.types.Field("LogsIntegrationOutput", graphql_name="logsIntegration")
+    """The integration that was created"""
 
 
 class CreateOpsgenieIntegration(sgqlc.types.Type):
@@ -13981,17 +15033,26 @@ class CreateOrUpdateComparisonMonitor(sgqlc.types.Type):
     """Create or update a comparison monitor"""
 
     __schema__ = schema
-    __field_names__ = ("comparison_monitor", "yaml", "queries")
+    __field_names__ = ("comparison_monitor", "yaml", "source_queries", "target_queries")
     comparison_monitor = sgqlc.types.Field(
         "ComparisonMonitorResponse", graphql_name="comparisonMonitor"
     )
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
 
-    queries = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
+    source_queries = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="sourceQueries"
     )
-    """SQL queries that will be run by the monitor on each execution."""
+    """SQL queries that will be run by the monitor for source on each
+    execution.
+    """
+
+    target_queries = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="targetQueries"
+    )
+    """SQL queries that will be run by the monitor for target on each
+    execution.
+    """
 
 
 class CreateOrUpdateComparisonRule(sgqlc.types.Type):
@@ -14314,6 +15375,17 @@ class CreateOrUpdateServiceApiToken(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("access_token",)
     access_token = sgqlc.types.Field(AccessToken, graphql_name="accessToken")
+
+
+class CreateOrUpdateTableMonitor(sgqlc.types.Type):
+    """Create or update a table monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("table_monitor", "yaml")
+    table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
+
+    yaml = sgqlc.types.Field(String, graphql_name="yaml")
+    """YAML representation of the monitor (only returned for dry_run)"""
 
 
 class CreateOrUpdateTagAssignmentsMutation(sgqlc.types.Type):
@@ -14730,12 +15802,24 @@ class CustomSQLOutputDownload(sgqlc.types.Type):
 
 class CustomSQLOutputSample(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("columns", "rows", "sampling_disabled")
+    __field_names__ = (
+        "columns",
+        "rows",
+        "sampling_disabled",
+        "next_file_index",
+        "total_samples_size",
+    )
     columns = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="columns")
 
     rows = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.list_of(String)), graphql_name="rows")
 
     sampling_disabled = sgqlc.types.Field(Boolean, graphql_name="samplingDisabled")
+
+    next_file_index = sgqlc.types.Field(Int, graphql_name="nextFileIndex")
+    """Next file index to retrieve."""
+
+    total_samples_size = sgqlc.types.Field(Int, graphql_name="totalSamplesSize")
+    """Total number of samples retrieved."""
 
 
 class CustomSQLTemplateConnection(sgqlc.types.relay.Connection):
@@ -15034,6 +16118,7 @@ class DataCollectorSchedule(sgqlc.types.Type):
         "skip_reason",
         "queued_at",
         "metric_monitors",
+        "custom_rules",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -15151,6 +16236,38 @@ class DataCollectorSchedule(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     * `type` (`String`)None
+    """
+
+    custom_rules = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomRuleConnection),
+        graphql_name="customRules",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                (
+                    "rule_type",
+                    sgqlc.types.Arg(CustomRuleModelRuleType, graphql_name="ruleType", default=None),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
+                ),
+            )
+        ),
+    )
+    """Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    * `rule_type` (`CustomRuleModelRuleType`)None
+    * `warehouse_uuid` (`UUID`)None
     """
 
 
@@ -16601,6 +17718,14 @@ class DeleteIntegrationKey(sgqlc.types.Type):
     """True if the key was deleted, false otherwise"""
 
 
+class DeleteIntegrationMutation(sgqlc.types.Type):
+    """Delete an integration and all its contained connections"""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
 class DeleteJiraIntegration(sgqlc.types.Type):
     """Delete a Jira integration"""
 
@@ -16648,6 +17773,12 @@ class DeleteLineageNodeReplacementRule(sgqlc.types.Type):
     rule = sgqlc.types.Field("LineageNodeReplacementRule", graphql_name="rule")
 
 
+class DeleteLogsIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
 class DeleteMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -16661,6 +17792,12 @@ class DeleteMonitorLabel(sgqlc.types.Type):
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
     """True if the monitor label was deleted"""
+
+
+class DeleteMonitorTag(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
 class DeleteMonitors(sgqlc.types.Type):
@@ -16743,6 +17880,14 @@ class DeleteStreamingSystemMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class DeleteTableMonitor(sgqlc.types.Type):
+    """Delete a table monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class DeleteUnifiedUserAssignment(sgqlc.types.Type):
@@ -16830,6 +17975,35 @@ class DeltaLogConnectionPageInfo(sgqlc.types.Type):
 
     has_next_page = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasNextPage")
     """Whether there are more results to be fetched"""
+
+
+class DeploymentInfo(sgqlc.types.Type):
+    """Deployment environment information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "aws_account_id",
+        "aws_region",
+        "tenant_id",
+        "deployment_type",
+        "integration_gateway_url",
+    )
+    aws_account_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="awsAccountId")
+    """AWS Account ID"""
+
+    aws_region = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="awsRegion")
+    """AWS Region"""
+
+    tenant_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tenantId")
+    """Tenant ID"""
+
+    deployment_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="deploymentType")
+    """Environment Deployment Type"""
+
+    integration_gateway_url = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="integrationGatewayUrl"
+    )
+    """Integration Gateway URL"""
 
 
 class DerivedTablePartialLineage(sgqlc.types.Type):
@@ -17306,6 +18480,7 @@ class EtlContainer(sgqlc.types.Type):
         "adftaskmodel_set",
         "adfjobrunmodel_set",
         "adftaskrunmodel_set",
+        "job_count",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -17662,6 +18837,9 @@ class EtlContainer(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    job_count = sgqlc.types.Field(Int, graphql_name="jobCount")
+    """Number of ETL jobs in this container"""
+
 
 class EventConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
@@ -17863,6 +19041,7 @@ class EventTypeSummary(sgqlc.types.Type):
         "size_anom",
         "size_diff",
         "metric_anom",
+        "metric_comparison_anom",
         "custom_rule_anom",
         "validation_anom",
         "dist_anom",
@@ -17894,6 +19073,8 @@ class EventTypeSummary(sgqlc.types.Type):
     size_diff = sgqlc.types.Field(Int, graphql_name="sizeDiff")
 
     metric_anom = sgqlc.types.Field(Int, graphql_name="metricAnom")
+
+    metric_comparison_anom = sgqlc.types.Field(Int, graphql_name="metricComparisonAnom")
 
     custom_rule_anom = sgqlc.types.Field(Int, graphql_name="customRuleAnom")
 
@@ -18052,7 +19233,14 @@ class ExplanatoryFieldMetadata(sgqlc.types.Type):
 
 class ExtendedDataSource(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("data_source", "dw_id", "where_condition", "segments", "connection_uuid")
+    __field_names__ = (
+        "data_source",
+        "dw_id",
+        "where_condition",
+        "segments",
+        "connection_uuid",
+        "uuid",
+    )
     data_source = sgqlc.types.Field(
         sgqlc.types.non_null(DataSourceInputInterface), graphql_name="dataSource"
     )
@@ -18071,6 +19259,9 @@ class ExtendedDataSource(sgqlc.types.Type):
 
     connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
     """Connection UUID for the data source."""
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """UUID of the data source."""
 
 
 class FHEvent(sgqlc.types.Type):
@@ -18370,6 +19561,8 @@ class FieldHealthSampling(sgqlc.types.Type):
         "columns",
         "rows",
         "sampling_disabled",
+        "next_file_index",
+        "total_samples_size",
         "normal_records_query",
         "anomalous_records_query",
     )
@@ -18379,12 +19572,27 @@ class FieldHealthSampling(sgqlc.types.Type):
 
     sampling_disabled = sgqlc.types.Field(Boolean, graphql_name="samplingDisabled")
 
+    next_file_index = sgqlc.types.Field(Int, graphql_name="nextFileIndex")
+    """Next file index to retrieve."""
+
+    total_samples_size = sgqlc.types.Field(Int, graphql_name="totalSamplesSize")
+    """Total number of samples retrieved."""
+
     normal_records_query = sgqlc.types.Field(String, graphql_name="normalRecordsQuery")
     """This is null for summary statistics such as mean, min, max, and
     percentiles
     """
 
     anomalous_records_query = sgqlc.types.Field(String, graphql_name="anomalousRecordsQuery")
+
+
+class FieldHealthSamplingConditionsResponse(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("conditions",)
+    conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="conditions"
+    )
+    """List of conditions that can be used to construct sample query."""
 
 
 class FieldMetadata(sgqlc.types.Type):
@@ -18623,6 +19831,16 @@ class FieldQueryParametersOutput(sgqlc.types.Type):
 
     filters = sgqlc.types.Field(sgqlc.types.list_of(FieldQueryFilterOutput), graphql_name="filters")
     """Filters for which rows the query is computed over"""
+
+
+class FieldTypeChange(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("field_name", "new_field_type", "old_field_type")
+    field_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldName")
+
+    new_field_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="newFieldType")
+
+    old_field_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="oldFieldType")
 
 
 class FieldValueCorrelation(sgqlc.types.Type):
@@ -19177,13 +20395,16 @@ class GitlabProject(sgqlc.types.Type):
 
 class GitlabProjectSelection(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("namespace_id", "parents", "projects", "select_all")
+    __field_names__ = ("namespace_id", "parents", "projects", "webhook_err", "select_all")
     namespace_id = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="namespaceId")
     """ID of the Gitlab group or subgroup"""
 
     parents = sgqlc.types.Field(sgqlc.types.list_of(Int), graphql_name="parents")
 
     projects = sgqlc.types.Field(sgqlc.types.list_of(Int), graphql_name="projects")
+
+    webhook_err = sgqlc.types.Field(String, graphql_name="webhookErr")
+    """Error message in case of webhook creation failure"""
 
     select_all = sgqlc.types.Field(Boolean, graphql_name="selectAll")
 
@@ -19392,6 +20613,7 @@ class IncidentTypeSummary(sgqlc.types.Type):
         "json_schema_changes",
         "deleted_tables",
         "metric_anomalies",
+        "metric_comparison_anomalies",
         "custom_rule_anomalies",
         "performance_anomalies",
         "dbt_errors",
@@ -19409,6 +20631,8 @@ class IncidentTypeSummary(sgqlc.types.Type):
     deleted_tables = sgqlc.types.Field(Int, graphql_name="deletedTables")
 
     metric_anomalies = sgqlc.types.Field(Int, graphql_name="metricAnomalies")
+
+    metric_comparison_anomalies = sgqlc.types.Field(Int, graphql_name="metricComparisonAnomalies")
 
     custom_rule_anomalies = sgqlc.types.Field(Int, graphql_name="customRuleAnomalies")
 
@@ -19638,6 +20862,16 @@ class IntegrationKeyMetadata(sgqlc.types.Type):
 
     created_by = sgqlc.types.Field("User", graphql_name="createdBy")
     """Who created the key"""
+
+
+class IntegrationUpdateResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("uuid", "type", "name")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
 
 class InternalNotifications(sgqlc.types.Type):
@@ -20085,6 +21319,7 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         "exceptions",
         "exceptions_detail",
         "runtime_variables",
+        "comparison_data_source_type",
     )
     job_execution_uuid = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="jobExecutionUuid"
@@ -20114,6 +21349,11 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null("VariableValue")), graphql_name="runtimeVariables"
     )
     """Runtime variables used in the job execution"""
+
+    comparison_data_source_type = sgqlc.types.Field(
+        ComparisonDataSourceType, graphql_name="comparisonDataSourceType"
+    )
+    """Comparison Source type in the job execution"""
 
 
 class JobExecutionHistoryLogConnection(sgqlc.types.relay.Connection):
@@ -20147,6 +21387,90 @@ class JobInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("dbt_job_info",)
     dbt_job_info = sgqlc.types.Field(DbtJobInfo, graphql_name="dbtJobInfo")
+
+
+class JobPerformanceData(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("job_summaries",)
+    job_summaries = sgqlc.types.Field(
+        sgqlc.types.non_null("JobPerformanceSummaryConnection"),
+        graphql_name="jobSummaries",
+        args=sgqlc.types.ArgDict(
+            (
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Paged list of summary-level information about job performance, for
+    jobs that executed in the specified period
+
+    Arguments:
+
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+
+class JobPerformanceSummaryConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("JobPerformanceSummaryEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of jobs matching filter (total count)"""
+
+
+class JobPerformanceSummaryEdge(sgqlc.types.Type):
+    """A Relay edge containing a `JobPerformanceSummary` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("JobPerformanceSummary", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class JobsPerformanceFacetOption(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("display_name", "value", "match_count")
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Display text to use, if different from value, such as when value
+    is a UUID but we want human readable option
+    """
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """Unique value (within the facet) for the option"""
+
+    match_count = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="matchCount")
+    """Number of jobs associated with this value"""
+
+
+class JobsPerformanceFacetResponse(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("facet", "display_name", "options")
+    facet = sgqlc.types.Field(sgqlc.types.non_null(JobPerformanceFacet), graphql_name="facet")
+    """Field name"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Facet display name"""
+
+    options = sgqlc.types.Field(
+        sgqlc.types.list_of(JobsPerformanceFacetOption), graphql_name="options"
+    )
+    """Facet options"""
 
 
 class LabelCount(sgqlc.types.Type):
@@ -20800,6 +22124,25 @@ class LineageNodeReplacementRuleResult(sgqlc.types.Type):
     """The replaced string, using provided pattern/replacement"""
 
 
+class LineageNodeTypeStat(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("object_type", "count")
+    object_type = sgqlc.types.Field(String, graphql_name="objectType")
+    """Type of element object"""
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+    """Number of elements of object_type"""
+
+
+class LineageNodeTypeStats(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node_type_stats",)
+    node_type_stats = sgqlc.types.Field(
+        sgqlc.types.list_of(LineageNodeTypeStat), graphql_name="nodeTypeStats"
+    )
+    """Stats for node types"""
+
+
 class LineageSources(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "source_columns")
@@ -20816,9 +22159,12 @@ class LinkAzureDevopsInstallation(sgqlc.types.Type):
     """Called from the FE when an OAuth callback is received."""
 
     __schema__ = schema
-    __field_names__ = ("success",)
+    __field_names__ = ("success", "installation")
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """True if exchanging code for tokens was successful"""
+
+    installation = sgqlc.types.Field(AzureDevopsInstallation, graphql_name="installation")
+    """Updated Azure DevOps installation"""
 
 
 class LinkGithubAppInstallation(sgqlc.types.Type):
@@ -20879,6 +22225,15 @@ class LinkServiceNowIncidentForAlert(sgqlc.types.Type):
         "ServiceNowIncidentOutput", graphql_name="servicenowIncident"
     )
     """The created ServiceNow incident"""
+
+
+class LinkSlackAppInstallation(sgqlc.types.Type):
+    """Handle Slack OAuth callback"""
+
+    __schema__ = schema
+    __field_names__ = ("installation_uuid",)
+    installation_uuid = sgqlc.types.Field(String, graphql_name="installationUuid")
+    """The UUID of the Slack installation"""
 
 
 class ListDataOperationsDashboardsOutput(sgqlc.types.Type):
@@ -20943,6 +22298,35 @@ class ListTagsOutput(sgqlc.types.Type):
 
     tags = sgqlc.types.Field(sgqlc.types.list_of("TagObjectOutput"), graphql_name="tags")
     """Tags list."""
+
+
+class LogsIntegrationOutput(sgqlc.types.Type):
+    """A Logs integration (for monitor execution logging)"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "integration_id",
+        "integration_name",
+        "webhook_url",
+        "integration_type",
+        "headers",
+    )
+    integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
+    """The integration ID"""
+
+    integration_name = sgqlc.types.Field(String, graphql_name="integrationName")
+    """A short name to identify the integration"""
+
+    webhook_url = sgqlc.types.Field(String, graphql_name="webhookUrl")
+    """The URL to post messages to"""
+
+    integration_type = sgqlc.types.Field(
+        sgqlc.types.non_null(LogsIntegrationType), graphql_name="integrationType"
+    )
+    """Type log integration to use"""
+
+    headers = sgqlc.types.Field(sgqlc.types.list_of("WebhookHeader"), graphql_name="headers")
+    """Header key/value to use when sending webhook request"""
 
 
 class LookerDashboardTileRef(sgqlc.types.Type):
@@ -21351,7 +22735,15 @@ class MonitorDashboardData(sgqlc.types.Type):
 
 class MonitorDataSource(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("uuid", "connection_uuid", "custom_sql", "type", "schema", "tables")
+    __field_names__ = (
+        "uuid",
+        "connection_uuid",
+        "custom_sql",
+        "type",
+        "schema",
+        "tables",
+        "transforms",
+    )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
     connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
@@ -21364,6 +22756,8 @@ class MonitorDataSource(sgqlc.types.Type):
     schema = sgqlc.types.Field(DataSourceSchema, graphql_name="schema")
 
     tables = sgqlc.types.Field(sgqlc.types.list_of("WarehouseTable"), graphql_name="tables")
+
+    transforms = sgqlc.types.Field(sgqlc.types.list_of("Transform"), graphql_name="transforms")
 
 
 class MonitorLabel(sgqlc.types.Type):
@@ -21614,7 +23008,13 @@ class MonitorLabelObject(sgqlc.types.Type):
 
 class MonitorLimits(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("max_time_series", "max_time_series_hourly")
+    __field_names__ = (
+        "max_time_series",
+        "max_time_series_hourly",
+        "max_time_series_daily",
+        "max_time_series_weekly",
+        "max_time_series_monthly",
+    )
     max_time_series = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="maxTimeSeries")
     """Time series limit"""
 
@@ -21622,6 +23022,21 @@ class MonitorLimits(sgqlc.types.Type):
         sgqlc.types.non_null(Int), graphql_name="maxTimeSeriesHourly"
     )
     """Hourly time series limit"""
+
+    max_time_series_daily = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="maxTimeSeriesDaily"
+    )
+    """Daily time series limit"""
+
+    max_time_series_weekly = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="maxTimeSeriesWeekly"
+    )
+    """Weekly time series limit"""
+
+    max_time_series_monthly = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="maxTimeSeriesMonthly"
+    )
+    """Monthly time series limit"""
 
 
 class MonitorQueries(sgqlc.types.Type):
@@ -21957,9 +23372,17 @@ class MsTeamsInstallationList(sgqlc.types.Type):
 class Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
+        "link_slack_app_installation",
+        "create_logs_integration",
+        "update_logs_integration",
+        "delete_logs_integration",
         "generate_report",
+        "create_or_update_table_monitor",
+        "pause_table_monitor",
+        "delete_table_monitor",
         "update_monitor_tags",
         "bulk_add_monitor_tags",
+        "delete_monitor_tag",
         "update_monitor_data_quality_dimension",
         "bulk_add_monitor_data_quality_dimension",
         "create_or_update_tag",
@@ -22114,6 +23537,7 @@ class Mutation(sgqlc.types.Type):
         "update_monitors_schedules",
         "pause_monitors",
         "delete_monitors",
+        "run_monitors",
         "create_custom_user",
         "create_unified_user_assignment",
         "delete_unified_user_assignment",
@@ -22207,6 +23631,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_json_schema_monitor",
         "validate_cron",
         "set_event_detector_feedback",
+        "set_event_detector_feedback_by_alert",
         "set_incident_feedback",
         "set_incident_feedback_v2",
         "set_incident_severity",
@@ -22248,6 +23673,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_wildcard_aggregation",
         "toggle_create_alerts_in_datasource",
         "set_wildcard_templates",
+        "set_custom_sql_sampling_size",
         "create_shared_query",
         "create_or_update_user_settings",
         "create_or_update_user_settings_batch",
@@ -22258,6 +23684,8 @@ class Mutation(sgqlc.types.Type):
         "set_account_billing_plan",
         "set_warehouse_name",
         "set_etl_container_name",
+        "set_connection_name",
+        "set_integration_name",
         "create_or_update_saml_identity_provider",
         "delete_saml_identity_provider",
         "invite_users",
@@ -22298,6 +23726,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_slack_broadcast_updates",
         "toggle_connection_enable",
         "add_connection",
+        "add_redshift_consumer_connection",
         "remove_connection",
         "set_connection_deletion_protection",
         "add_bi_connection",
@@ -22334,6 +23763,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_account_feature",
         "set_tutorial_state",
         "set_data_lake_catalog_mappings",
+        "delete_integration",
         "test_snowflake_credentials_v2",
         "test_redshift_credentials_v2",
         "test_bq_credentials_v2",
@@ -22358,6 +23788,7 @@ class Mutation(sgqlc.types.Type):
         "merge_alerts",
         "create_or_update_collibra_integration",
         "delete_collibra_integration",
+        "sync_monitors_to_collibra",
         "create_or_update_alation_integration",
         "delete_alation_integration",
         "create_or_update_alation_table_flag",
@@ -22368,6 +23799,150 @@ class Mutation(sgqlc.types.Type):
         "update_account_secret",
         "delete_account_secret",
     )
+    link_slack_app_installation = sgqlc.types.Field(
+        LinkSlackAppInstallation,
+        graphql_name="linkSlackAppInstallation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "code",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="code", default=None
+                    ),
+                ),
+                (
+                    "state",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="state", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Callback API for Slack App Installation Oauth flow
+
+    Arguments:
+
+    * `code` (`String!`): OAuth code from Slack
+    * `state` (`String!`): State parameter for OAuth flow
+    """
+
+    create_logs_integration = sgqlc.types.Field(
+        CreateLogsIntegration,
+        graphql_name="createLogsIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "headers",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(WebhookHeaderInput),
+                        graphql_name="headers",
+                        default=None,
+                    ),
+                ),
+                (
+                    "integration_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="integrationName", default=None
+                    ),
+                ),
+                (
+                    "integration_type",
+                    sgqlc.types.Arg(
+                        LogsIntegrationType, graphql_name="integrationType", default=None
+                    ),
+                ),
+                (
+                    "webhook_url",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="webhookUrl", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Create a Logs integration (for monitor
+    execution logging)
+
+    Arguments:
+
+    * `headers` (`[WebhookHeaderInput]`): List of headers field names
+      and value to be used in the HTTP request
+    * `integration_name` (`String!`): Integration name
+    * `integration_type` (`LogsIntegrationType`): Type of integration,
+      defaults to 'default'
+    * `webhook_url` (`String!`): The webhook URL
+    """
+
+    update_logs_integration = sgqlc.types.Field(
+        "UpdateLogsIntegration",
+        graphql_name="updateLogsIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "headers",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(WebhookHeaderInput),
+                        graphql_name="headers",
+                        default=None,
+                    ),
+                ),
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+                (
+                    "integration_name",
+                    sgqlc.types.Arg(String, graphql_name="integrationName", default=None),
+                ),
+                (
+                    "integration_type",
+                    sgqlc.types.Arg(
+                        LogsIntegrationType, graphql_name="integrationType", default=None
+                    ),
+                ),
+                ("webhook_url", sgqlc.types.Arg(String, graphql_name="webhookUrl", default=None)),
+            )
+        ),
+    )
+    """(general availability) Update a Logs integration (for monitor
+    execution logging)
+
+    Arguments:
+
+    * `headers` (`[WebhookHeaderInput]`): List of headers field names
+      and value to be used in the HTTP request
+    * `integration_id` (`UUID!`): The integration ID
+    * `integration_name` (`String`): Integration name
+    * `integration_type` (`LogsIntegrationType`): Type of integration,
+      defaults to 'default'
+    * `webhook_url` (`String`): The webhook URL
+    """
+
+    delete_logs_integration = sgqlc.types.Field(
+        DeleteLogsIntegration,
+        graphql_name="deleteLogsIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete a Logs integration (for monitor
+    execution logging)
+
+    Arguments:
+
+    * `integration_id` (`UUID!`): The integration ID
+    """
+
     generate_report = sgqlc.types.Field(
         GenerateReport,
         graphql_name="generateReport",
@@ -22389,6 +23964,124 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `report_parameters` (`ReportArgumentsUnionInput!`)None
+    """
+
+    create_or_update_table_monitor = sgqlc.types.Field(
+        CreateOrUpdateTableMonitor,
+        graphql_name="createOrUpdateTableMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "asset_selection",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AssetSelectionInput),
+                        graphql_name="assetSelection",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="audiences",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="failureAudiences",
+                        default=None,
+                    ),
+                ),
+                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
+                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a Table monitor
+
+    Arguments:
+
+    * `asset_selection` (`AssetSelectionInput!`)None
+    * `audiences` (`[String!]`): The monitor notification audiences
+    * `description` (`String!`): Description of rule
+    * `dry_run` (`Boolean`): Dry run the monitor creation or update
+      and return the YAML and queries. (default: `false`)
+    * `failure_audiences` (`[String!]`): The audiences to notify on
+      failure
+    * `notes` (`String`): Additional context for the monitor (default:
+      `""`)
+    * `priority` (`String`): The default priority for alerts involving
+      this monitor
+    * `uuid` (`UUID`): UUID of the table monitor, to update existing
+      monito
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID
+    """
+
+    pause_table_monitor = sgqlc.types.Field(
+        "PauseTableMonitor",
+        graphql_name="pauseTableMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                (
+                    "pause",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="pause", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Enable a Table monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of the table monitor to
+      pause/unpause
+    * `pause` (`Boolean!`): Pause state of the monitor
+    """
+
+    delete_table_monitor = sgqlc.types.Field(
+        DeleteTableMonitor,
+        graphql_name="deleteTableMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a Table monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of the table monitor to delete
     """
 
     update_monitor_tags = sgqlc.types.Field(
@@ -22458,6 +24151,25 @@ class Mutation(sgqlc.types.Type):
       custom rule
     * `tags` (`[TagKeyValuePairInput]!`): Tags to insert on the
       monitor
+    """
+
+    delete_monitor_tag = sgqlc.types.Field(
+        DeleteMonitorTag,
+        graphql_name="deleteMonitorTag",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "tag_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="tagId", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete unused monitor tag
+
+    Arguments:
+
+    * `tag_id` (`UUID!`): UUID of the tag to delete
     """
 
     update_monitor_data_quality_dimension = sgqlc.types.Field(
@@ -22713,7 +24425,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -22763,9 +24475,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `schedule_config` (`ScheduleConfigInput!`): Schedule of the
@@ -24063,6 +25776,10 @@ class Mutation(sgqlc.types.Type):
                     "dw_id",
                     sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
                 ),
+                (
+                    "priority_mcon",
+                    sgqlc.types.Arg(String, graphql_name="priorityMcon", default=None),
+                ),
                 ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
                 (
                     "rule",
@@ -24083,6 +25800,8 @@ class Mutation(sgqlc.types.Type):
     * `dataset` (`String`): Rules apply to tables in this
       dataset/schema
     * `dw_id` (`UUID!`): Rules apply to tables in this warehouse
+    * `priority_mcon` (`String`): Apply rules so that this MCON is
+      enabled first
     * `project` (`String`): Rules apply to tables in this
       project/database
     * `rule` (`MonitoredTableRuleInput!`): New monitoring rule
@@ -27081,28 +28800,13 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `anomaly_types` (`[String]`): anomaliesLimit notifications to
-      specific incident types (default=all). Supported options
-      include: , schema_changesLimit notifications to specific
-      incident types (default=all). Supported options include: ,
-      json_schema_changesLimit notifications to specific incident
-      types (default=all). Supported options include: ,
-      deleted_tablesLimit notifications to specific incident types
-      (default=all). Supported options include: ,
-      metric_anomaliesLimit notifications to specific incident types
-      (default=all). Supported options include: ,
-      custom_rule_anomaliesLimit notifications to specific incident
-      types (default=all). Supported options include: ,
-      performance_anomaliesLimit notifications to specific incident
-      types (default=all). Supported options include: ,
-      dbt_errorsLimit notifications to specific incident types
-      (default=all). Supported options include: , etl_errorsLimit
-      notifications to specific incident types (default=all).
-      Supported options include: , pseudo_integration_testLimit
-      notifications to specific incident types (default=all).
-      Supported options include: , rule_run_execution_errorLimit
-      notifications to specific incident types (default=all).
-      Supported options include: , merged
+    * `anomaly_types` (`[String]`): Limit notifications to specific
+      incident types (default=all). Supported options include:
+      anomalies, schema_changes, json_schema_changes, deleted_tables,
+      metric_anomalies, metric_comparison_anomalies,
+      custom_rule_anomalies, performance_anomalies, dbt_errors,
+      etl_errors, pseudo_integration_test, rule_run_execution_error,
+      merged
     * `audience_id` (`UUID`): Audience associated with the recipient
     * `custom_message` (`String`): A custom message to be sent with
       triggered notification
@@ -27116,27 +28820,13 @@ class Mutation(sgqlc.types.Type):
       to specific incident sub types (default=all). Deprecated. No
       longer supported for notification settings.
     * `integration_id` (`UUID`): Integration ID for the recipient
-    * `notification_schedule_type` (`String`): realtimeSpecify the
-      notification schedule type. Supported values: , digestSpecify
-      the notification schedule type. Supported values: ,
+    * `notification_schedule_type` (`String`): Specify the
+      notification schedule type. Supported values: realtime, digest,
       backup_or_failure
-    * `notification_type` (`String!`): emailSpecify the notification
-      integration to use. Supported options include: , opsgenieSpecify
-      the notification integration to use. Supported options include:
-      , pagerdutySpecify the notification integration to use.
-      Supported options include: , slackSpecify the notification
-      integration to use. Supported options include: , slack_v2Specify
-      the notification integration to use. Supported options include:
-      , webhookSpecify the notification integration to use. Supported
-      options include: , msteamsSpecify the notification integration
-      to use. Supported options include: , msteams_v2Specify the
-      notification integration to use. Supported options include: ,
-      alationSpecify the notification integration to use. Supported
-      options include: , servicenowSpecify the notification
-      integration to use. Supported options include: , jiraSpecify the
-      notification integration to use. Supported options include: ,
-      webexSpecify the notification integration to use. Supported
-      options include: , incidentio
+    * `notification_type` (`String!`): Specify the notification
+      integration to use. Supported options include: email, opsgenie,
+      pagerduty, slack, slack_v2, webhook, msteams, msteams_v2,
+      alation, servicenow, jira, webex, incidentio
     * `recipient` (`String`): Deprecated
     * `recipients` (`[String]`): Destination to send notifications to
     * `rules` (`NotificationRoutingRules`): Routing rules
@@ -27304,23 +28994,10 @@ class Mutation(sgqlc.types.Type):
       evaluated. (default: `false`)
     * `extra` (`NotificationExtra`): Any extra values
     * `integration_id` (`UUID`): Integration ID for the recipient
-    * `notification_type` (`String!`): emailSpecify the notification
-      integration to use. Supported options include: , opsgenieSpecify
-      the notification integration to use. Supported options include:
-      , pagerdutySpecify the notification integration to use.
-      Supported options include: , slackSpecify the notification
-      integration to use. Supported options include: , slack_v2Specify
-      the notification integration to use. Supported options include:
-      , webhookSpecify the notification integration to use. Supported
-      options include: , msteamsSpecify the notification integration
-      to use. Supported options include: , msteams_v2Specify the
-      notification integration to use. Supported options include: ,
-      alationSpecify the notification integration to use. Supported
-      options include: , servicenowSpecify the notification
-      integration to use. Supported options include: , jiraSpecify the
-      notification integration to use. Supported options include: ,
-      webexSpecify the notification integration to use. Supported
-      options include: , incidentio
+    * `notification_type` (`String!`): Specify the notification
+      integration to use. Supported options include: email, opsgenie,
+      pagerduty, slack, slack_v2, google_chat, webhook, msteams,
+      msteams_v2, alation, servicenow, jira, webex, incidentio
     * `recipients` (`[String]!`): Destination to send notifications to
     * `recipients_display_names` (`[String]`): Display names for the
       recipients. If this input parameter is provided, it should
@@ -27537,28 +29214,13 @@ class Mutation(sgqlc.types.Type):
     * `alert_sub_types` (`[AlertSubType]`): Limit notifications to
       specific alert sub types (default=all).
     * `all_tag_key_values` (`[[NotificationTagPairs]]`)None
-    * `anomaly_types` (`[String]`): anomaliesLimit notifications to
-      specific incident types (default=all). Supported options
-      include: , schema_changesLimit notifications to specific
-      incident types (default=all). Supported options include: ,
-      json_schema_changesLimit notifications to specific incident
-      types (default=all). Supported options include: ,
-      deleted_tablesLimit notifications to specific incident types
-      (default=all). Supported options include: ,
-      metric_anomaliesLimit notifications to specific incident types
-      (default=all). Supported options include: ,
-      custom_rule_anomaliesLimit notifications to specific incident
-      types (default=all). Supported options include: ,
-      performance_anomaliesLimit notifications to specific incident
-      types (default=all). Supported options include: ,
-      dbt_errorsLimit notifications to specific incident types
-      (default=all). Supported options include: , etl_errorsLimit
-      notifications to specific incident types (default=all).
-      Supported options include: , pseudo_integration_testLimit
-      notifications to specific incident types (default=all).
-      Supported options include: , rule_run_execution_errorLimit
-      notifications to specific incident types (default=all).
-      Supported options include: , merged
+    * `anomaly_types` (`[String]`): Limit notifications to specific
+      incident types (default=all). Supported options include:
+      anomalies, schema_changes, json_schema_changes, deleted_tables,
+      metric_anomalies, metric_comparison_anomalies,
+      custom_rule_anomalies, performance_anomalies, dbt_errors,
+      etl_errors, pseudo_integration_test, rule_run_execution_error,
+      merged
     * `assets_mcons` (`[String]`): Allowlist by asset mcons
     * `audience_id` (`UUID!`): Audience associated with the rule
     * `custom_message` (`String`): A custom message to be sent with
@@ -27932,6 +29594,29 @@ class Mutation(sgqlc.types.Type):
 
     * `monitor_uuids` (`[UUID!]!`): UUIDs of the metric monitor or
       custom rule
+    """
+
+    run_monitors = sgqlc.types.Field(
+        "RunMonitors",
+        graphql_name="runMonitors",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="monitorUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Run the specified monitors now
+
+    Arguments:
+
+    * `monitor_uuids` (`[UUID!]!`): Monitor UUIDs to run
     """
 
     create_custom_user = sgqlc.types.Field(
@@ -29197,7 +30882,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -29242,9 +30927,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `schedule_config` (`ScheduleConfigInput`): Schedule of custom
@@ -29311,7 +30997,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -29360,9 +31046,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `schedule_config` (`ScheduleConfigInput`): Schedule of custom
@@ -29462,7 +31149,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -29545,9 +31232,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `query_result_type` (`QueryResultType`): How the query result is
@@ -29664,7 +31352,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -29747,9 +31435,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `query_result_type` (`QueryResultType`): How the query result is
@@ -29913,7 +31602,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("override", sgqlc.types.Arg(Boolean, graphql_name="override", default=None)),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
@@ -29962,9 +31651,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `override` (`Boolean`): If override is set, it forces the dc
       schedule to run
     * `priority` (`String`): The default priority for alerts involving
@@ -30045,7 +31735,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -30114,9 +31804,10 @@ class Mutation(sgqlc.types.Type):
       notify on failure
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `query_result_type` (`QueryResultType`): How the query result is
@@ -30191,7 +31882,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -30274,9 +31965,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `query_result_type` (`QueryResultType!`): Specifies query result
@@ -30439,7 +32131,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("pause", sgqlc.types.Arg(Boolean, graphql_name="pause", default=None)),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
@@ -30489,9 +32181,10 @@ class Mutation(sgqlc.types.Type):
     * `labels` (`[String]`): The monitor labels
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `pause` (`Boolean`): Pause state of the rule.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
@@ -30734,7 +32427,7 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Run a SQL Rule manually
+    """Run a Custom SQL monitor manually
 
     Arguments:
 
@@ -31186,7 +32879,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -31246,9 +32939,10 @@ class Mutation(sgqlc.types.Type):
     * `metric_type` (`FieldMetricType!`): Type of metric to compute
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `schedule_config` (`ScheduleConfigInput!`): Schedule of the
@@ -31689,7 +33383,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 ("resource_id", sgqlc.types.Arg(UUID, graphql_name="resourceId", default=None)),
@@ -31806,9 +33500,10 @@ class Mutation(sgqlc.types.Type):
     * `monitor_type` (`String`): Type of monitor to create
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): The flag decides whether
-      to send run failure notifications to audiences (default:
-      `false`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `resource_id` (`UUID`): Resource (e.g. warehouse) the table is
@@ -31950,6 +33645,10 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
+                    "fail_on_reset",
+                    sgqlc.types.Arg(Boolean, graphql_name="failOnReset", default=False),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -31960,7 +33659,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=True),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -31971,6 +33670,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("skip_reset", sgqlc.types.Arg(Boolean, graphql_name="skipReset", default=False)),
                 (
                     "source",
                     sgqlc.types.Arg(
@@ -32010,16 +33710,24 @@ class Mutation(sgqlc.types.Type):
     * `description` (`String!`): Description of monitor
     * `dry_run` (`Boolean`): Dry run the monitor creation or update
       and return the MaC YAML and queries. (default: `false`)
+    * `fail_on_reset` (`Boolean`): Return an error if the update is a
+      significant change that would require a monitor reset. (default:
+      `false`)
     * `failure_audiences` (`[String!]`): The monitor notification
       audiences for failures
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): If true, run failure
-      notifications to audiences (default: `true`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `schedule_config` (`ScheduleConfigInput!`): Schedule of custom
       monitor
+    * `skip_reset` (`Boolean`): Do not reset monitor if the update is
+      a significant change that would normally cause the monitor to be
+      reset. (default: `false`)
     * `source` (`ExtendedDataSourceInput!`): source for comparison
       monitor
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
@@ -32109,7 +33817,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=True),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -32188,8 +33896,10 @@ class Mutation(sgqlc.types.Type):
       `false`)
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): If true, run failure
-      notifications to audiences (default: `true`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `schedule_config` (`ScheduleConfigInput!`): Schedule of monitor
@@ -32275,7 +33985,7 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
-                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=True),
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 ("skip_reset", sgqlc.types.Arg(Boolean, graphql_name="skipReset", default=False)),
@@ -32320,8 +34030,10 @@ class Mutation(sgqlc.types.Type):
     * `field` (`String!`): Field to monitor
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
-    * `notify_rule_run_failure` (`Boolean`): If true, run failure
-      notifications to audiences (default: `true`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
     * `skip_reset` (`Boolean`): Do not reset monitor if the update is
@@ -32399,6 +34111,35 @@ class Mutation(sgqlc.types.Type):
     * `is_false_positive` (`Boolean!`)None
     * `metric` (`String`)None
     * `where_condition` (`String`)None
+    """
+
+    set_event_detector_feedback_by_alert = sgqlc.types.Field(
+        "SetEventDetectorFeedbackByAlert",
+        graphql_name="setEventDetectorFeedbackByAlert",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+                (
+                    "is_false_positive",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="isFalsePositive", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set feedback for detector on all events in the
+    alert
+
+    Arguments:
+
+    * `alert_id` (`UUID!`)None
+    * `is_false_positive` (`Boolean!`)None
     """
 
     set_incident_feedback = sgqlc.types.Field(
@@ -33606,6 +35347,38 @@ class Mutation(sgqlc.types.Type):
       use to aggregate wildcard tables
     """
 
+    set_custom_sql_sampling_size = sgqlc.types.Field(
+        "SetCustomSqlSamplingSize",
+        graphql_name="setCustomSqlSamplingSize",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "custom_sql_sampling_size",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Int),
+                        graphql_name="customSqlSamplingSize",
+                        default=None,
+                    ),
+                ),
+                (
+                    "warehouse_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set the custom sql data sampling size in the
+    warehouse.
+
+    Arguments:
+
+    * `custom_sql_sampling_size` (`Int!`): Sampling size for custom
+      sql monitors. The size can't be over 5000.
+    * `warehouse_id` (`UUID!`): The warehouse's UUID
+    """
+
     create_shared_query = sgqlc.types.Field(
         CreateSharedQuery,
         graphql_name="createSharedQuery",
@@ -33849,6 +35622,62 @@ class Mutation(sgqlc.types.Type):
 
     * `etl_container_id` (`UUID!`): UUID of the ETL container to
       update.
+    * `name` (`String!`): Desired name.
+    """
+
+    set_connection_name = sgqlc.types.Field(
+        "SetConnectionName",
+        graphql_name="setConnectionName",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+                (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set the name of a connection model.
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): UUID of the connection to update.
+    * `name` (`String!`): Desired name.
+    """
+
+    set_integration_name = sgqlc.types.Field(
+        "SetIntegrationName",
+        graphql_name="setIntegrationName",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+                (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set the name of an integration.
+
+    Arguments:
+
+    * `integration_id` (`UUID!`): UUID of the integration to update.
     * `name` (`String!`): Desired name.
     """
 
@@ -35017,8 +36846,8 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(Deprecated) Start/Stop creating incidents for all matched
-    elements. Use wildcards to match more than one table or dataset.
+    """(experimental) Toggle mute for a set of tables and datasets. Regex
+    is no longer supported.
 
     Arguments:
 
@@ -35162,6 +36991,57 @@ class Mutation(sgqlc.types.Type):
     * `key` (`String!`): Temp key from testing connections
     * `name` (`String`): Provide a friendly name for the warehouse
       when creating
+    """
+
+    add_redshift_consumer_connection = sgqlc.types.Field(
+        AddRedshiftConsumerConnectionMutation,
+        graphql_name="addRedshiftConsumerConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_name",
+                    sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
+                ),
+                ("dc_id", sgqlc.types.Arg(UUID, graphql_name="dcId", default=None)),
+                ("is_active", sgqlc.types.Arg(Boolean, graphql_name="isActive", default=True)),
+                ("job_limits", sgqlc.types.Arg(JSONString, graphql_name="jobLimits", default=None)),
+                (
+                    "job_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="jobTypes", default=None
+                    ),
+                ),
+                (
+                    "key",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="key", default=None),
+                ),
+                (
+                    "producer_resource_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="producerResourceId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Add a Redshift Consumer connection for datashare
+    lineage.
+
+    Arguments:
+
+    * `connection_name` (`String`): Provide a friendly name for the
+      consumer connection when creating
+    * `dc_id` (`UUID`): DC UUID. To disambiguate accounts with
+      multiple collectors
+    * `is_active` (`Boolean`): Set the connection to active or
+      inactive (default: true) (default: `true`)
+    * `job_limits` (`JSONString`): Customize job operations for all
+      job types
+    * `job_types` (`[String]`): Specify job types for the connection.
+      Uses connection default otherwise
+    * `key` (`String!`): Temp key from testing connections
+    * `producer_resource_id` (`UUID!`): The warehouse UUID of the
+      parent Redshift warehouse.
     """
 
     remove_connection = sgqlc.types.Field(
@@ -36280,6 +38160,27 @@ class Mutation(sgqlc.types.Type):
       object name mappings
     """
 
+    delete_integration = sgqlc.types.Field(
+        DeleteIntegrationMutation,
+        graphql_name="deleteIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Deletes an integration and it's connections
+
+    Arguments:
+
+    * `integration_id` (`UUID!`): ID of the integration to delete
+    """
+
     test_snowflake_credentials_v2 = sgqlc.types.Field(
         "TestSnowflakeCredentialsV2",
         graphql_name="testSnowflakeCredentialsV2",
@@ -37328,6 +39229,10 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateCollibraIntegration",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "automatic_sync_disabled",
+                    sgqlc.types.Arg(Boolean, graphql_name="automaticSyncDisabled", default=None),
+                ),
                 ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
                 (
                     "integration_uuid",
@@ -37349,6 +39254,8 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `automatic_sync_disabled` (`Boolean`): ('If incremental sync and
+      full sync are disabled for monitors in this account',)
     * `domain_uuid` (`UUID`): Domain uuid in Collibra where monitors
       will be syncronized. Can only be set once during creation
     * `integration_uuid` (`UUID`): The integration to update
@@ -37386,6 +39293,30 @@ class Mutation(sgqlc.types.Type):
     * `integration_uuid` (`UUID!`): The integration to update
     """
 
+    sync_monitors_to_collibra = sgqlc.types.Field(
+        "SyncMonitorsToCollibra",
+        graphql_name="syncMonitorsToCollibra",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(UUID)),
+                        graphql_name="monitorUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Sync MC monitors to Collibra
+
+    Arguments:
+
+    * `monitor_uuids` (`[UUID]!`): UUIDs of monitors to sync to
+      Collibra.
+    """
+
     create_or_update_alation_integration = sgqlc.types.Field(
         CreateOrUpdateAlationIntegration,
         graphql_name="createOrUpdateAlationIntegration",
@@ -37413,6 +39344,12 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("user_id", sgqlc.types.Arg(Int, graphql_name="userId", default=None)),
                 ("username", sgqlc.types.Arg(String, graphql_name="username", default=None)),
+                (
+                    "warehouse_datasource_mapping",
+                    sgqlc.types.Arg(
+                        JSONString, graphql_name="warehouseDatasourceMapping", default=None
+                    ),
+                ),
             )
         ),
     )
@@ -37438,6 +39375,9 @@ class Mutation(sgqlc.types.Type):
     * `username` (`String`): ('The Alation service account username
       for authentication; if not provided, previous value will be
       used',)
+    * `warehouse_datasource_mapping` (`JSONString`): Key-value pairs
+      consisting of MC warehouse UUID (key) to Alation data source ID
+      (value).
     """
 
     delete_alation_integration = sgqlc.types.Field(
@@ -37715,6 +39655,16 @@ class NextPageInfo(sgqlc.types.Type):
     """If there is next page, use this cursor to continue"""
 
 
+class NodeEdgeCSVStrings(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("nodes_str", "edges_str")
+    nodes_str = sgqlc.types.Field(String, graphql_name="nodesStr")
+    """String containing CSV of nodes"""
+
+    edges_str = sgqlc.types.Field(String, graphql_name="edgesStr")
+    """String containing CSV of edges"""
+
+
 class NodeEdgeGraph(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("nodes", "edges")
@@ -37942,6 +39892,7 @@ class NotificationAudience(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default="uuid")),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -37955,6 +39906,7 @@ class NotificationAudience(sgqlc.types.Type):
 
     * `order_by` (`String`): Specify a sorting order (default:
       `"uuid"`)
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -38184,6 +40136,7 @@ class NotificationSetting(sgqlc.types.Type):
         "incident_count_history",
         "incident_count",
         "integration_id",
+        "channel_url",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Effective ID for notification settings"""
@@ -38253,6 +40206,11 @@ class NotificationSetting(sgqlc.types.Type):
 
     integration_id = sgqlc.types.Field(UUID, graphql_name="integrationId")
     """Integration ID for the recipient"""
+
+    channel_url = sgqlc.types.Field(String, graphql_name="channelUrl")
+    """URL of the channel if this is a channel-based notification.
+    Currently only Slack and MS Teams is supported.
+    """
 
 
 class NumericAnomalyCorrelation(sgqlc.types.Type):
@@ -38590,6 +40548,14 @@ class PauseRule(sgqlc.types.Type):
     __field_names__ = ("rule",)
     rule = sgqlc.types.Field("CustomRule", graphql_name="rule")
     """The rule whose pause property has been toggled."""
+
+
+class PauseTableMonitor(sgqlc.types.Type):
+    """Pause/unpause a table monitor to enable or suppress notifications"""
+
+    __schema__ = schema
+    __field_names__ = ("table_monitor",)
+    table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
 
 
 class PiiFilterMetricOutput(sgqlc.types.Type):
@@ -39182,6 +41148,7 @@ class QPMonitorSimulationType(sgqlc.types.Type):
 class Query(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
+        "get_logs_integrations",
         "generate_webhook_url",
         "get_user_id",
         "echo",
@@ -39205,8 +41172,11 @@ class Query(sgqlc.types.Type):
         "get_table_monitor_configuration",
         "get_default_monitor_configuration",
         "get_billing_credit_grants",
+        "get_contract_commits",
         "get_billing_invoices",
+        "get_billing_contract_invoices",
         "get_account_entitlements",
+        "get_billing_monitor_usage",
         "get_field_metrics_info",
         "get_field_metric_data",
         "get_field_overview_properties",
@@ -39227,6 +41197,7 @@ class Query(sgqlc.types.Type):
         "get_not_monitored_reason",
         "get_assets_usage",
         "get_monitored_table_rule_list",
+        "get_monitored_tables_count_with_new_rule",
         "get_account_usage",
         "get_monitored_table_rule_job",
         "get_streaming_systems",
@@ -39286,6 +41257,10 @@ class Query(sgqlc.types.Type):
         "get_jira_projects",
         "get_jira_issue_types",
         "test_jira_credentials",
+        "get_jobs_performance_data",
+        "get_jobs_performance_facets",
+        "search_jobs_performance_facet",
+        "get_tasks_performance_data",
         "get_query_perf_rule_execution_history_logs",
         "simulate_query_perf_monitor_evaluation",
         "get_query_perf_monitor_explanation_for_event",
@@ -39308,6 +41283,7 @@ class Query(sgqlc.types.Type):
         "get_notification_audience_creators",
         "get_notification_counts",
         "get_notification_settings_for_ootb",
+        "get_notification_settings_for_audiences",
         "get_collection_dataset_list",
         "get_collection_block_list",
         "get_allow_list",
@@ -39334,12 +41310,14 @@ class Query(sgqlc.types.Type):
         "get_dbt_job_executions",
         "get_exec_dashboard_metrics",
         "get_exec_dashboard_tables",
+        "get_deployment_info",
         "get_custom_users",
         "get_unified_users",
         "get_unified_user_assignments",
         "get_monte_carlo_config_templates",
         "export_monte_carlo_config_templates",
         "export_latest_version_monitor_replacement_templates",
+        "export_dimension_tracking_monitor_migration_templates",
         "get_monte_carlo_config_template_update_state",
         "get_correlation_sampling_metadata",
         "detect_time_axis_intrinsic_delta",
@@ -39347,6 +41325,8 @@ class Query(sgqlc.types.Type):
         "perform_correlation_sampling_with_time_travel",
         "perform_field_health_sampling",
         "perform_field_health_sampling_v2",
+        "perform_field_health_sampling_v3",
+        "get_field_health_sampling_conditions",
         "perform_dt_sampling_v2",
         "get_rca_result",
         "get_rca_job_result",
@@ -39365,6 +41345,7 @@ class Query(sgqlc.types.Type):
         "get_parsed_query",
         "get_job_execution_history_logs",
         "get_job_executions",
+        "get_table_monitor",
         "get_monitors",
         "get_monitors_count",
         "get_monitor_namespaces",
@@ -39372,6 +41353,7 @@ class Query(sgqlc.types.Type):
         "get_monitor_updaters",
         "get_monitor_queries",
         "test_monitor_queries",
+        "get_notification_audiences_for_table",
         "get_all_user_defined_monitors_v2",
         "get_all_user_defined_monitors",
         "get_custom_metrics",
@@ -39433,6 +41415,7 @@ class Query(sgqlc.types.Type):
         "get_incident_tables",
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
+        "get_schema_changes",
         "get_events",
         "get_events_for_incidents",
         "get_events_for_alerts",
@@ -39440,6 +41423,7 @@ class Query(sgqlc.types.Type):
         "get_comments_for_monitor_incidents",
         "get_event",
         "get_event_type_summary",
+        "get_metric_comparison_events",
         "get_fh_events_by_monitor",
         "get_fh_events",
         "get_fh_events_where_condition_filter_values",
@@ -39484,6 +41468,8 @@ class Query(sgqlc.types.Type):
         "get_segmented_where_condition_labels",
         "get_segmented_where_condition_label_count",
         "get_first_seen_dimensions_by_labels",
+        "get_comparison_monitor_segment_labels",
+        "get_comparison_monitor_segment_label_count",
         "get_downstream_bi",
         "get_downstream_impact_radius_summary",
         "get_downstream_reports",
@@ -39492,6 +41478,7 @@ class Query(sgqlc.types.Type):
         "get_table_lineage",
         "get_table_lineage_v2",
         "get_table_lineage_v3",
+        "get_table_lineage_v4",
         "get_table_lineage_jobs",
         "get_connected_mcon_lineage",
         "get_reduced_downstream_lineage",
@@ -39524,11 +41511,13 @@ class Query(sgqlc.types.Type):
         "run_sql_investigation_query",
         "get_warehouse_connections",
         "get_warehouse_tags_collection_setting",
+        "get_lineage_node_types",
         "get_common_fields",
         "get_common_fields_v2",
         "get_user_settings",
         "get_user",
         "get_user_by_id",
+        "get_warehouses",
         "get_warehouse",
         "get_collection_properties",
         "get_custom_volume_datapoints",
@@ -39580,6 +41569,7 @@ class Query(sgqlc.types.Type):
         "list_datasets",
         "get_data_export_url",
         "get_generate_report_status",
+        "evaluate_asset_selection",
         "get_account_audit_logs",
         "get_monitor_audit_logs",
         "get_monitored_rules_audit_logs",
@@ -39612,6 +41602,20 @@ class Query(sgqlc.types.Type):
         "get_account_secret",
         "get_account_secrets",
     )
+    get_logs_integrations = sgqlc.types.Field(
+        sgqlc.types.list_of(LogsIntegrationOutput),
+        graphql_name="getLogsIntegrations",
+        args=sgqlc.types.ArgDict(
+            (("integration_id", sgqlc.types.Arg(UUID, graphql_name="integrationId", default=None)),)
+        ),
+    )
+    """(general availability) Get the configured Logs integrations
+
+    Arguments:
+
+    * `integration_id` (`UUID`): Filter by integration ID
+    """
+
     generate_webhook_url = sgqlc.types.Field(
         GenerateWebhookUrl,
         graphql_name="generateWebhookUrl",
@@ -39960,6 +41964,14 @@ class Query(sgqlc.types.Type):
                 ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
                 ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
                 ("sql", sgqlc.types.Arg(String, graphql_name="sql", default=None)),
+                (
+                    "transforms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TransformInput)),
+                        graphql_name="transforms",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -39972,6 +41984,8 @@ class Query(sgqlc.types.Type):
     * `dw_id` (`UUID`): Warehouse UUID
     * `mcon` (`String`): MCON to evaluate
     * `sql` (`String`): SQL to evaluate
+    * `transforms` (`[TransformInput!]`): Transforms to apply to the
+      data source
     """
 
     evaluate_sql_blocks = sgqlc.types.Field(
@@ -40002,6 +42016,10 @@ class Query(sgqlc.types.Type):
                     "validate_custom_sql",
                     sgqlc.types.Arg(Boolean, graphql_name="validateCustomSql", default=True),
                 ),
+                (
+                    "resolve_transform_queries",
+                    sgqlc.types.Arg(Boolean, graphql_name="resolveTransformQueries", default=False),
+                ),
             )
         ),
     )
@@ -40018,6 +42036,8 @@ class Query(sgqlc.types.Type):
     * `validate_custom_sql` (`Boolean`): Whether to validate the
       custom and generated SQL by running it against the data
       warehouse (default: `true`)
+    * `resolve_transform_queries` (`Boolean`): return a query for each
+      transform in the data source. (default: `false`)
     """
 
     generate_mc_sql = sgqlc.types.Field(
@@ -40169,6 +42189,11 @@ class Query(sgqlc.types.Type):
       next page
     """
 
+    get_contract_commits = sgqlc.types.Field(
+        ContractCommitResults, graphql_name="getContractCommits"
+    )
+    """(general availability) Get a list of commits for all contracts."""
+
     get_billing_invoices = sgqlc.types.Field(
         BillingInvoiceResults,
         graphql_name="getBillingInvoices",
@@ -40207,6 +42232,40 @@ class Query(sgqlc.types.Type):
     * `status` (`BillingInvoiceStatus`)None
     """
 
+    get_billing_contract_invoices = sgqlc.types.Field(
+        BillingContractInvoiceResults,
+        graphql_name="getBillingContractInvoices",
+        args=sgqlc.types.ArgDict(
+            (
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=12)),
+                (
+                    "sort",
+                    sgqlc.types.Arg(BillingInvoicesSort, graphql_name="sort", default="date_desc"),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                (
+                    "status",
+                    sgqlc.types.Arg(BillingInvoiceStatus, graphql_name="status", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) Get a list of invoices for the account.
+
+    Arguments:
+
+    * `limit` (`Int`): Limit the number of results returned. Values
+      1-100 accepted. (default: `12`)
+    * `sort` (`BillingInvoicesSort`): Sort invoices by issued date.
+      (default: `"date_desc"`)
+    * `start_time` (`DateTime`): Filter invoices by billing periods
+      that start at or after this time.
+    * `end_time` (`DateTime`): Filter invoices by billing periods that
+      end before this time.
+    * `status` (`BillingInvoiceStatus`)None
+    """
+
     get_account_entitlements = sgqlc.types.Field(
         AccountEntitlementsInfo,
         graphql_name="getAccountEntitlements",
@@ -40217,6 +42276,34 @@ class Query(sgqlc.types.Type):
     """Arguments:
 
     * `refresh` (`Boolean`)None (default: `false`)
+    """
+
+    get_billing_monitor_usage = sgqlc.types.Field(
+        BillingMonitorUsageResults,
+        graphql_name="getBillingMonitorUsage",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startOn", default=None
+                    ),
+                ),
+                (
+                    "end_before",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endBefore", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Get monitor usage data.
+
+    Arguments:
+
+    * `start_on` (`DateTime!`): Start date, inclusive.
+    * `end_before` (`DateTime!`): End date, not inclusive.
     """
 
     get_field_metrics_info = sgqlc.types.Field(
@@ -40702,6 +42789,41 @@ class Query(sgqlc.types.Type):
       If not provided, return warehouse level rules.
     * `dataset` (`String`): Dataset/schema name to filter the rules.
       If not provided, return project level rules.
+    """
+
+    get_monitored_tables_count_with_new_rule = sgqlc.types.Field(
+        AdditionalMonitoredTablesCountOutput,
+        graphql_name="getMonitoredTablesCountWithNewRule",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "dw_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
+                ),
+                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
+                ("dataset", sgqlc.types.Arg(String, graphql_name="dataset", default=None)),
+                (
+                    "rule",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(MonitoredTableRuleInput),
+                        graphql_name="rule",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Simulates applying a new rule and returns number of
+    additional tables monitored. Does not support exclusion rules.
+
+    Arguments:
+
+    * `dw_id` (`UUID!`): Rules apply to tables in this warehouse
+    * `project` (`String`): Rules apply to tables in this
+      project/database
+    * `dataset` (`String`): Rules apply to tables in this
+      dataset/schema
+    * `rule` (`MonitoredTableRuleInput!`): New monitoring rule
     """
 
     get_account_usage = sgqlc.types.Field(
@@ -42284,6 +44406,131 @@ class Query(sgqlc.types.Type):
       Token Auth. Defaults to Basic Auth (default: `false`)
     """
 
+    get_jobs_performance_data = sgqlc.types.Field(
+        JobPerformanceData,
+        graphql_name="getJobsPerformanceData",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JobsPerformanceFilterInput),
+                        graphql_name="filters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "paging",
+                    sgqlc.types.Arg(
+                        JobsPerformancePagingInput, graphql_name="paging", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get jobs performance data
+
+    Arguments:
+
+    * `filters` (`JobsPerformanceFilterInput!`): Filters to apply
+    * `paging` (`JobsPerformancePagingInput`): Paging parameters
+    """
+
+    get_jobs_performance_facets = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(JobsPerformanceFacetResponse)),
+        graphql_name="getJobsPerformanceFacets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JobsPerformanceFilterInput),
+                        graphql_name="filters",
+                        default=None,
+                    ),
+                ),
+                ("options_limit", sgqlc.types.Arg(Int, graphql_name="optionsLimit", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get facet data for jobs that match the filters
+
+    Arguments:
+
+    * `filters` (`JobsPerformanceFilterInput!`): Current filters being
+      applied to the job performance result set
+    * `options_limit` (`Int`): Maximum number of options to return.
+      Defaults to 100
+    """
+
+    search_jobs_performance_facet = sgqlc.types.Field(
+        sgqlc.types.non_null(JobsPerformanceFacetResponse),
+        graphql_name="searchJobsPerformanceFacet",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JobsPerformanceFilterInput),
+                        graphql_name="filters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "facet",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JobsPerformanceFacetQueryInput),
+                        graphql_name="facet",
+                        default=None,
+                    ),
+                ),
+                ("options_limit", sgqlc.types.Arg(Int, graphql_name="optionsLimit", default=None)),
+            )
+        ),
+    )
+    """(experimental) Search options within a single facet of jobs
+    performance data
+
+    Arguments:
+
+    * `filters` (`JobsPerformanceFilterInput!`): Current filters being
+      applied to the job performance result set
+    * `facet` (`JobsPerformanceFacetQueryInput!`): Indicate the facet
+      to search in and the search text
+    * `options_limit` (`Int`): Maximum number of options to return.
+      Defaults to 100
+    """
+
+    get_tasks_performance_data = sgqlc.types.Field(
+        "TaskPerformanceData",
+        graphql_name="getTasksPerformanceData",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TasksPerformanceFilterInput),
+                        graphql_name="filters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "paging",
+                    sgqlc.types.Arg(
+                        TasksPerformancePagingInput, graphql_name="paging", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get tasks performance data
+
+    Arguments:
+
+    * `filters` (`TasksPerformanceFilterInput!`): Filters to apply
+    * `paging` (`TasksPerformancePagingInput`): Paging parameters
+    """
+
     get_query_perf_rule_execution_history_logs = sgqlc.types.Field(
         sgqlc.types.list_of(JobExecutionHistoryLog),
         graphql_name="getQueryPerfRuleExecutionHistoryLogs",
@@ -42728,7 +44975,7 @@ class Query(sgqlc.types.Type):
     """
 
     get_notification_audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(NotificationAudience),
+        sgqlc.types.list_of(sgqlc.types.non_null(NotificationAudience)),
         graphql_name="getNotificationAudiences",
         args=sgqlc.types.ArgDict(
             (
@@ -42816,7 +45063,7 @@ class Query(sgqlc.types.Type):
     """Get notification counts over the last 30 days"""
 
     get_notification_settings_for_ootb = sgqlc.types.Field(
-        sgqlc.types.list_of(NotificationSetting),
+        sgqlc.types.list_of(sgqlc.types.non_null(NotificationSetting)),
         graphql_name="getNotificationSettingsForOotb",
         args=sgqlc.types.ArgDict(
             (
@@ -42843,6 +45090,28 @@ class Query(sgqlc.types.Type):
 
     * `mcon` (`String!`): Asset MCON
     * `anomaly_type` (`IncidentSubType!`): OOTB anomaly type
+    """
+
+    get_notification_settings_for_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(NotificationSetting)),
+        graphql_name="getNotificationSettingsForAudiences",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "label_names",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labelNames", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The notification settings that will be used for the
+    given audiences
+
+    Arguments:
+
+    * `label_names` (`[String]`): Label names.
     """
 
     get_collection_dataset_list = sgqlc.types.Field(
@@ -42893,6 +45162,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -42912,6 +45182,7 @@ class Query(sgqlc.types.Type):
     * `target_object_types`
       (`[CollectionPreferenceTargetObjectType]`): Only return
       collection blocks targeting these object types.
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -44036,6 +46307,11 @@ class Query(sgqlc.types.Type):
     * `audience_ids` (`[UUID]`): Audience UUIDs.
     """
 
+    get_deployment_info = sgqlc.types.Field(DeploymentInfo, graphql_name="getDeploymentInfo")
+    """(general availability) Get the current deployment environment
+    information for the current              authorized user
+    """
+
     get_custom_users = sgqlc.types.Field(
         CustomUserConnection,
         graphql_name="getCustomUsers",
@@ -44235,6 +46511,27 @@ class Query(sgqlc.types.Type):
       template (default: `true`)
     """
 
+    export_dimension_tracking_monitor_migration_templates = sgqlc.types.Field(
+        MonteCarloConfigTemplateExportResponse,
+        graphql_name="exportDimensionTrackingMonitorMigrationTemplates",
+        args=sgqlc.types.ArgDict(
+            (
+                ("namespace", sgqlc.types.Arg(String, graphql_name="namespace", default=None)),
+                ("validate", sgqlc.types.Arg(Boolean, graphql_name="validate", default=True)),
+            )
+        ),
+    )
+    """(experimental) Export Monte Carlo config templates for migrated
+    Dimension Tracking monitors.
+
+    Arguments:
+
+    * `namespace` (`String`): Filter results to the given namespace
+      only.
+    * `validate` (`Boolean`): Whether to validate the exported config
+      template (default: `true`)
+    """
+
     get_monte_carlo_config_template_update_state = sgqlc.types.Field(
         MonteCarloConfigTemplateUpdateAsyncState,
         graphql_name="getMonteCarloConfigTemplateUpdateState",
@@ -44302,8 +46599,7 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID),
                         graphql_name="anchorEvent",
-                        default="Anomaly event used for finding the time axis and intrinsic"
-                        " time overlap",
+                        default="Anomaly event used for finding the time axis and intrinsic time overlap",
                     ),
                 ),
             )
@@ -44517,6 +46813,97 @@ class Query(sgqlc.types.Type):
       `1000`)
     * `dry_run` (`Boolean`): Defaults to false, only fetch the query,
       do not run (default: `false`)
+    """
+
+    perform_field_health_sampling_v3 = sgqlc.types.Field(
+        "SQLResponse",
+        graphql_name="performFieldHealthSamplingV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "event_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="eventUuid", default=None
+                    ),
+                ),
+                ("field", sgqlc.types.Arg(String, graphql_name="field", default=None)),
+                (
+                    "metric",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SamplingEnabledMetricTypes),
+                        graphql_name="metric",
+                        default=None,
+                    ),
+                ),
+                ("condition", sgqlc.types.Arg(String, graphql_name="condition", default=None)),
+                ("segment_by", sgqlc.types.Arg(String, graphql_name="segmentBy", default=None)),
+                ("max_rows", sgqlc.types.Arg(Int, graphql_name="maxRows", default=1000)),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=True)),
+                (
+                    "return_total_count",
+                    sgqlc.types.Arg(Boolean, graphql_name="returnTotalCount", default=False),
+                ),
+            )
+        ),
+    )
+    """(experimental) Construct or run a query to sample data based on a
+    field metric anomaly
+
+    Arguments:
+
+    * `event_uuid` (`UUID!`): UUID of an event that contains field
+      metric anomaly
+    * `field` (`String`): Anomalous field. This is required if the
+      anomaly (metric type dependent) involves a field.
+    * `metric` (`SamplingEnabledMetricTypes!`): Metric type of the
+      anomaly.
+    * `condition` (`String`): Condition to be used for sampling. Only
+      exact results from getFieldHealthSamplingConditions API response
+      are accepted.
+    * `segment_by` (`String`): Table field to be used to group
+      results.
+    * `max_rows` (`Int`): Maximum number of rows returned (default:
+      `1000`)
+    * `dry_run` (`Boolean`): Defaults to false, only fetch the query,
+      do not run (default: `true`)
+    * `return_total_count` (`Boolean`): Returns the total count of
+      rows from the sampling query (default: `false`)
+    """
+
+    get_field_health_sampling_conditions = sgqlc.types.Field(
+        FieldHealthSamplingConditionsResponse,
+        graphql_name="getFieldHealthSamplingConditions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "event_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="eventUuid", default=None
+                    ),
+                ),
+                ("field", sgqlc.types.Arg(String, graphql_name="field", default=None)),
+                (
+                    "metric",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SamplingEnabledMetricTypes),
+                        graphql_name="metric",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns the conditions that can be used for field
+    health sampling
+
+    Arguments:
+
+    * `event_uuid` (`UUID!`): UUID of an event that contains field
+      metric anomaly
+    * `field` (`String`): Anomalous field. This is required if the
+      anomaly (metric type dependent) involves a field.
+    * `metric` (`SamplingEnabledMetricTypes!`): Metric type of the
+      anomaly.
     """
 
     perform_dt_sampling_v2 = sgqlc.types.Field(
@@ -44803,6 +47190,10 @@ class Query(sgqlc.types.Type):
                     "custom_rule_uuid",
                     sgqlc.types.Arg(String, graphql_name="customRuleUuid", default=None),
                 ),
+                (
+                    "table_monitor_uuid",
+                    sgqlc.types.Arg(String, graphql_name="tableMonitorUuid", default=None),
+                ),
                 ("history_days", sgqlc.types.Arg(Int, graphql_name="historyDays", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 (
@@ -44828,11 +47219,14 @@ class Query(sgqlc.types.Type):
 
     * `job_schedule_uuid` (`String`): UUID of job schedule
     * `monitor_uuid` (`String`): UUID of monitor
-    * `custom_rule_uuid` (`String`): UUID of custom rule
+    * `custom_rule_uuid` (`String`): (DEPRECATED) Use monitorUuid
+      instead
+    * `table_monitor_uuid` (`String`): (DEPRECATED) Use monitorUuid
+      instead
     * `history_days` (`Int`): Number of days back
     * `limit` (`Int`): Max number of execution in the result
     * `bootstrap_only` (`Boolean`): True to return only job execution
-      logs only to load bootstrap data (which don’t follow the normal
+      logs only to load bootstrap data (which don't follow the normal
       schedule). These jobs are not included in the normal job history
       because they are not associated with the monitor evaluation
       (default: `false`)
@@ -44855,6 +47249,10 @@ class Query(sgqlc.types.Type):
                 (
                     "custom_rule_uuid",
                     sgqlc.types.Arg(String, graphql_name="customRuleUuid", default=None),
+                ),
+                (
+                    "table_monitor_uuid",
+                    sgqlc.types.Arg(String, graphql_name="tableMonitorUuid", default=None),
                 ),
                 ("history_days", sgqlc.types.Arg(Int, graphql_name="historyDays", default=None)),
                 (
@@ -44880,7 +47278,10 @@ class Query(sgqlc.types.Type):
 
     * `job_schedule_uuid` (`String`): UUID of job schedule
     * `monitor_uuid` (`String`): UUID of monitor
-    * `custom_rule_uuid` (`String`): UUID of custom rule
+    * `custom_rule_uuid` (`String`): (DEPRECATED) Use monitorUuid
+      instead
+    * `table_monitor_uuid` (`String`): (DEPRECATED) Use monitorUuid
+      instead
     * `history_days` (`Int`): Number of days back
     * `include_snoozed` (`Boolean`): Include snoozed jobs (default:
       `false`)
@@ -44890,6 +47291,27 @@ class Query(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    """
+
+    get_table_monitor = sgqlc.types.Field(
+        "TableMonitor",
+        graphql_name="getTableMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Get a table monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`)None
     """
 
     get_monitors = sgqlc.types.Field(
@@ -45915,6 +48337,14 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="stripMetadataComment", default=False),
                 ),
                 ("all_queries", sgqlc.types.Arg(Boolean, graphql_name="allQueries", default=False)),
+                (
+                    "comparison_data_source_type",
+                    sgqlc.types.Arg(
+                        ComparisonDataSourceType,
+                        graphql_name="comparisonDataSourceType",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -45929,6 +48359,10 @@ class Query(sgqlc.types.Type):
     * `all_queries` (`Boolean`): Returns all queries that will be
       issued when the monitor is run. If false, only the first query
       will be returned. (default: `false`)
+    * `comparison_data_source_type` (`ComparisonDataSourceType`):
+      Source type for the monitor queries. This is used for comparison
+      monitors to fetch queries for specific source type either
+      `source` or `target`
     """
 
     test_monitor_queries = sgqlc.types.Field(
@@ -45943,6 +48377,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("all_queries", sgqlc.types.Arg(Boolean, graphql_name="allQueries", default=False)),
+                (
+                    "comparison_data_source_type",
+                    sgqlc.types.Arg(
+                        ComparisonDataSourceType,
+                        graphql_name="comparisonDataSourceType",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -45952,6 +48394,31 @@ class Query(sgqlc.types.Type):
     * `all_queries` (`Boolean`): Runs all the queries that will be
       issued when the monitor is run. If false, only the first query
       will be executed. (default: `false`)
+    * `comparison_data_source_type` (`ComparisonDataSourceType`):
+      Source type for the monitor queries. This is used for comparison
+      monitors to fetch queries for specific source type either
+      `source` or `target`
+    """
+
+    get_notification_audiences_for_table = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(NotificationAudience)),
+        graphql_name="getNotificationAudiencesForTable",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Get notification audiences for table
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON that specifies a table
     """
 
     get_all_user_defined_monitors_v2 = sgqlc.types.Field(
@@ -46342,8 +48809,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """The notification settings that will be used in a rule with the
-    specified data
+    """(experimental) DEPRECATED. The notification settings that will be
+    used in a rule with the specified data
 
     Arguments:
 
@@ -46856,6 +49323,18 @@ class Query(sgqlc.types.Type):
                     "exclude_string",
                     sgqlc.types.Arg(String, graphql_name="excludeString", default=None),
                 ),
+                (
+                    "search_source_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="searchSourceTypes", default=None
+                    ),
+                ),
+                (
+                    "exclude_source_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeSourceTypes", default=None
+                    ),
+                ),
             )
         ),
     )
@@ -46868,6 +49347,10 @@ class Query(sgqlc.types.Type):
     * `offset` (`Int`)None (default: `0`)
     * `exclude_string` (`String`): Filters out properties that
       contains the exclude string in the property key.
+    * `search_source_types` (`[String]`): Only return properties of
+      these types
+    * `exclude_source_types` (`[String]`): Filter out properties of
+      these types
     """
 
     get_object_property_names = sgqlc.types.Field(
@@ -47174,8 +49657,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """The notification settings that will be used in a monitor with the
-    specified data
+    """(experimental) DEPRECATED. The notification settings that will be
+    used in a monitor with the specified data
 
     Arguments:
 
@@ -47621,6 +50104,39 @@ class Query(sgqlc.types.Type):
     * `alert_id` (`UUID!`): The alert UUID
     """
 
+    get_schema_changes = sgqlc.types.Field(
+        "SchemaChangeConnection",
+        graphql_name="getSchemaChanges",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get schema changes for a specific table
+
+    Arguments:
+
+    * `mcon` (`String!`): Get changes for the given MCON
+    * `start_time` (`DateTime`): Filter by the start time
+    * `end_time` (`DateTime`): Filter by the end time
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
     get_events = sgqlc.types.Field(
         EventConnection,
         graphql_name="getEvents",
@@ -47924,6 +50440,70 @@ class Query(sgqlc.types.Type):
     * `resource_id` (`UUID`)None
     * `start_time` (`DateTime`)None
     * `end_time` (`DateTime`)None
+    """
+
+    get_metric_comparison_events = sgqlc.types.Field(
+        EventConnection,
+        graphql_name="getMetricComparisonEvents",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+                (
+                    "segmented_values",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="segmentedValues",
+                        default=None,
+                    ),
+                ),
+                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
+                ("source_field", sgqlc.types.Arg(String, graphql_name="sourceField", default=None)),
+                ("target_field", sgqlc.types.Arg(String, graphql_name="targetField", default=None)),
+                ("desc_order", sgqlc.types.Arg(Boolean, graphql_name="descOrder", default=False)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get metric comparison events for the given monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): Monitor for which to retrieve events
+    * `start_time` (`DateTime!`): Filter for events created after this
+    * `end_time` (`DateTime!`): Filter for events created before this
+    * `segmented_values` (`[String!]`): Filter events which for any of
+      the given segments.
+    * `metric` (`String`): Filter by metric name
+    * `source_field` (`String`): Filter by source field name
+    * `target_field` (`String`): Filter by target field name
+    * `desc_order` (`Boolean`): Returns events in descending order
+      (default: `false`)
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
     """
 
     get_fh_events_by_monitor = sgqlc.types.Field(
@@ -48355,6 +50935,7 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(UUID), graphql_name="audienceUuids", default=None
                     ),
                 ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -48425,6 +51006,7 @@ class Query(sgqlc.types.Type):
     * `job_mcons` (`[String]`): If provided, filter incidents by job
       mcons
     * `audience_uuids` (`[UUID]`): Filter for specific audience uuids
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -49870,6 +52452,86 @@ class Query(sgqlc.types.Type):
       list of key/value dimension pairs
     """
 
+    get_comparison_monitor_segment_labels = sgqlc.types.Field(
+        "SegmentLabels",
+        graphql_name="getComparisonMonitorSegmentLabels",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                (
+                    "include_terms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="includeTerms",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get segment labels for a comparison monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): Filter to this monitor.
+    * `start_time` (`DateTime`): Filter from this time. Defaults to
+      monitor creation time.
+    * `end_time` (`DateTime`): Filter through this time. Defaults to
+      now.
+    * `first` (`Int`): Number of results to return. Default: 1,000.
+      Max: 10,000.
+    * `after` (`String`): Fetch batch of 'first' results after this
+      value.
+    * `include_terms` (`[String!]`): Filter to segments where all
+      terms are present in segment label
+    """
+
+    get_comparison_monitor_segment_label_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int),
+        graphql_name="getComparisonMonitorSegmentLabelCount",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                (
+                    "include_terms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="includeTerms",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get segment label count for a comparison monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): Filter to this monitor.
+    * `start_time` (`DateTime`): Filter from this time. Defaults to
+      monitor creation time.
+    * `end_time` (`DateTime`): Filter through this time. Defaults to
+      now.
+    * `include_terms` (`[String!]`): Filter to segments where all
+      terms are present in segment label
+    """
+
     get_downstream_bi = sgqlc.types.Field(
         sgqlc.types.list_of(DownstreamBI),
         graphql_name="getDownstreamBi",
@@ -50148,6 +52810,49 @@ class Query(sgqlc.types.Type):
     * `mcons` (`[String]!`): MCONs of the tables whose lineage is
       being queried to a maximum of 12. Must provide either mcons or
       mcon.
+    * `direction` (`LineageGraphTraversalDirection!`): This can be
+      either 'upstream', 'downstream' based on the direction in which
+      to traverse the lineage graph
+    * `filters` (`[LineageFilter]`): List of lineage filters
+    """
+
+    get_table_lineage_v4 = sgqlc.types.Field(
+        NodeEdgeCSVStrings,
+        graphql_name="getTableLineageV4",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(String)),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+                (
+                    "direction",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(LineageGraphTraversalDirection),
+                        graphql_name="direction",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(LineageFilter), graphql_name="filters", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Load the whole lineage in one go and return
+    it as CSV data.
+
+    Arguments:
+
+    * `mcons` (`[String]!`): MCONs of the tables whose lineage is
+      being queried to a maximum of 12.
     * `direction` (`LineageGraphTraversalDirection!`): This can be
       either 'upstream', 'downstream' based on the direction in which
       to traverse the lineage graph
@@ -50667,6 +53372,11 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="jobExecutionUuid", default=None
                     ),
                 ),
+                (
+                    "file_part_index",
+                    sgqlc.types.Arg(Int, graphql_name="filePartIndex", default=None),
+                ),
+                ("fetch_all", sgqlc.types.Arg(Boolean, graphql_name="fetchAll", default=None)),
             )
         ),
     )
@@ -50677,6 +53387,10 @@ class Query(sgqlc.types.Type):
     * `dw_id` (`UUID!`): Warehouse the custom SQL ran in
     * `job_execution_uuid` (`UUID!`): JobExecution to fetch the output
       sample for
+    * `file_part_index` (`Int`): Sample file part index, if not
+      specified, we'd use 0, the first file.
+    * `fetch_all` (`Boolean`): Indicating whether to fetch all samples
+      in one call. If this is true, thefile_part_index is ignored.
     """
 
     get_custom_sql_output_download = sgqlc.types.Field(
@@ -51176,6 +53890,28 @@ class Query(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
+    get_lineage_node_types = sgqlc.types.Field(
+        LineageNodeTypeStats,
+        graphql_name="getLineageNodeTypes",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Counts of upstream and downstream nodes
+    grouped by type
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON for which to fetch the counts
+    """
+
     get_common_fields = sgqlc.types.Field(
         sgqlc.types.list_of(String),
         graphql_name="getCommonFields",
@@ -51247,6 +53983,20 @@ class Query(sgqlc.types.Type):
     get_user = sgqlc.types.Field("User", graphql_name="getUser")
 
     get_user_by_id = sgqlc.types.Field("User", graphql_name="getUserById")
+
+    get_warehouses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("Warehouse"))),
+        graphql_name="getWarehouses",
+        args=sgqlc.types.ArgDict(
+            (("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),)
+        ),
+    )
+    """(experimental) Get warehouses accessible to the current user
+
+    Arguments:
+
+    * `domain_uuid` (`UUID`): Filter warehouses by domain UUID
+    """
 
     get_warehouse = sgqlc.types.Field(
         "Warehouse",
@@ -51396,6 +54146,7 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="mcons", default=None
                     ),
                 ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -51515,6 +54266,7 @@ class Query(sgqlc.types.Type):
     * `status` (`[String]`): Filter by table statuses
     * `domain_id` (`UUID`): Filter by domain UUID
     * `mcons` (`[String]`): Filter by a list of mcons
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -51720,6 +54472,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -51888,6 +54641,7 @@ class Query(sgqlc.types.Type):
       specified. Deprecated, use alertCategories instead.
     * `alert_categories` (`[IncidentCategory]`): Include only selected
       alert categories. Or all categories if not specified.
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -53011,6 +55765,72 @@ class Query(sgqlc.types.Type):
     * `report_job_id` (`UUID!`): Report Job ID
     """
 
+    evaluate_asset_selection = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetSelectionResult)),
+        graphql_name="evaluateAssetSelection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+                (
+                    "asset_selection",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AssetSelectionInput),
+                        graphql_name="assetSelection",
+                        default=None,
+                    ),
+                ),
+                (
+                    "asset_selection_level",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AssetSelectionLevel),
+                        graphql_name="assetSelectionLevel",
+                        default=None,
+                    ),
+                ),
+                (
+                    "include_unselected",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeUnselected", default=None),
+                ),
+                (
+                    "filter_by_database_name",
+                    sgqlc.types.Arg(String, graphql_name="filterByDatabaseName", default=None),
+                ),
+                (
+                    "filter_by_schema_name",
+                    sgqlc.types.Arg(String, graphql_name="filterBySchemaName", default=None),
+                ),
+                ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
+                (
+                    "search_full_table_id",
+                    sgqlc.types.Arg(String, graphql_name="searchFullTableId", default=None),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=100)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
+            )
+        ),
+    )
+    """(experimental) Evaluates an asset selection query and returns a
+    list of asset selection results.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`)None
+    * `asset_selection` (`AssetSelectionInput!`)None
+    * `asset_selection_level` (`AssetSelectionLevel!`)None
+    * `include_unselected` (`Boolean`)None
+    * `filter_by_database_name` (`String`)None
+    * `filter_by_schema_name` (`String`)None
+    * `search` (`String`)None
+    * `search_full_table_id` (`String`)None
+    * `limit` (`Int`)None (default: `100`)
+    * `offset` (`Int`)None (default: `0`)
+    """
+
     get_account_audit_logs = sgqlc.types.Field(
         GetAccountAuditLogsResponse,
         graphql_name="getAccountAuditLogs",
@@ -53079,11 +55899,16 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
                     ),
                 ),
+                ("change_field", sgqlc.types.Arg(String, graphql_name="changeField", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
             )
         ),
     )
@@ -53092,11 +55917,14 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): UUID of monitor
+    * `change_field` (`String`): Filter logs by specific field that
+      was changed
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    * `timestamp__lt` (`DateTime`)None
     """
 
     get_monitored_rules_audit_logs = sgqlc.types.Field(
@@ -53111,6 +55939,10 @@ class Query(sgqlc.types.Type):
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
             )
         ),
     )
@@ -53127,6 +55959,7 @@ class Query(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    * `timestamp__lt` (`DateTime`)None
     """
 
     get_alerts = sgqlc.types.Field(
@@ -53151,6 +55984,7 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("filter", sgqlc.types.Arg(AlertsFilterInput, graphql_name="filter", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -53174,6 +56008,7 @@ class Query(sgqlc.types.Type):
     * `ids` (`[UUID!]`): Either this or `updated_time` or
       `createdTime` must be provided.
     * `filter` (`AlertsFilterInput`): Filter alerts.
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -53514,15 +56349,21 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=20)),
+                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
+                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
             )
         ),
     )
-    """List of runs for a given DAG
+    """List of runs for a given DAG. Optionally filter by start date and
+    end date
 
     Arguments:
 
     * `job_mcon` (`String!`): Job MCON to filter by
     * `limit` (`Int`): Number of runs to return (default: `20`)
+    * `from_date` (`DateTime`): Filter runs with start_date >=
+      from_date
+    * `to_date` (`DateTime`): Filter runs with start_date <= to_date
     """
 
     get_airflow_capabilities = sgqlc.types.Field(
@@ -54811,8 +57652,14 @@ class RunDailyCount(sgqlc.types.Type):
     """The run count"""
 
 
+class RunMonitors(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class RunSqlRule(sgqlc.types.Type):
-    """Run a SQL Rule manually"""
+    """Run a Custom SQL monitor manually"""
 
     __schema__ = schema
     __field_names__ = ("job_execution_uuids",)
@@ -55061,6 +57908,53 @@ class ScheduleConfigOutput(sgqlc.types.Type):
     """Mcons of tables to trigger schedule on update"""
 
 
+class SchemaChange(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "start_time", "fields_added", "fields_removed", "field_type_changes")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+
+    fields_added = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="fieldsAdded",
+    )
+
+    fields_removed = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="fieldsRemoved",
+    )
+
+    field_type_changes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FieldTypeChange))),
+        graphql_name="fieldTypeChanges",
+    )
+
+
+class SchemaChangeConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("SchemaChangeEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+
+class SchemaChangeEdge(sgqlc.types.Type):
+    """A Relay edge containing a `SchemaChange` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(SchemaChange, graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
 class SchemaField(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("name", "type", "mode", "nested", "sql_name", "main_type")
@@ -55231,6 +58125,18 @@ class SegmentCountQuery(sgqlc.types.Type):
     __field_names__ = ("query",)
     query = sgqlc.types.Field(String, graphql_name="query")
     """SQL query to collect segment count"""
+
+
+class SegmentLabels(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("labels", "last_label")
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    last_label = sgqlc.types.Field(String, graphql_name="lastLabel")
+    """Value to use as 'after' for pagination"""
 
 
 class SelectGitlabProjects(sgqlc.types.Type):
@@ -55583,6 +58489,23 @@ class SetConnectionDeletionProtectionMutation(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class SetConnectionName(sgqlc.types.Type):
+    """Set friendly name for a connection."""
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field(sgqlc.types.non_null(Connection), graphql_name="connection")
+    """Connection where name was set."""
+
+
+class SetCustomSqlSamplingSize(sgqlc.types.Type):
+    """Set custom sql sampling data size."""
+
+    __schema__ = schema
+    __field_names__ = ("custom_sql_sampling_size",)
+    custom_sql_sampling_size = sgqlc.types.Field(Int, graphql_name="customSqlSamplingSize")
+
+
 class SetDataLakeCatalogMappings(sgqlc.types.Type):
     """Set database lake catalog mappings for a connection.This is used
     to override the database name during table resolution.Note: Only
@@ -55667,6 +58590,12 @@ class SetEventDetectorFeedback(sgqlc.types.Type):
     __field_names__ = ("feedback",)
     feedback = sgqlc.types.Field("EventDetectorFeedback", graphql_name="feedback")
     """Feedback for the detector about the event"""
+
+
+class SetEventDetectorFeedbackByAlert(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("completed",)
+    completed = sgqlc.types.Field(Boolean, graphql_name="completed")
 
 
 class SetGroupRepetitiveDbtModelFailures(sgqlc.types.Type):
@@ -55757,6 +58686,17 @@ class SetIncidentSeverity(sgqlc.types.Type):
     __field_names__ = ("incident",)
     incident = sgqlc.types.Field("Incident", graphql_name="incident")
     """The updated incident"""
+
+
+class SetIntegrationName(sgqlc.types.Type):
+    """Set friendly name for an integration."""
+
+    __schema__ = schema
+    __field_names__ = ("integration",)
+    integration = sgqlc.types.Field(
+        sgqlc.types.non_null(IntegrationUpdateResult), graphql_name="integration"
+    )
+    """Integration where name was set."""
 
 
 class SetJobGeneratesAlerts(sgqlc.types.Type):
@@ -56242,7 +59182,14 @@ class SplitIncident(sgqlc.types.Type):
 
 class SqlBlockEvaluationResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("errors", "sql", "row_count", "data_source_sql", "fragments")
+    __field_names__ = (
+        "errors",
+        "sql",
+        "row_count",
+        "data_source_sql",
+        "fragments",
+        "transform_queries",
+    )
     errors = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Error))),
         graphql_name="errors",
@@ -56255,6 +59202,10 @@ class SqlBlockEvaluationResult(sgqlc.types.Type):
     data_source_sql = sgqlc.types.Field(String, graphql_name="dataSourceSql")
 
     fragments = sgqlc.types.Field(GenericScalar, graphql_name="fragments")
+
+    transform_queries = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="transformQueries"
+    )
 
 
 class SqlExpression(sgqlc.types.Type):
@@ -56455,6 +59406,12 @@ class SwitchUserAccount(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("new_account",)
     new_account = sgqlc.types.Field(Account, graphql_name="newAccount")
+
+
+class SyncMonitorsToCollibra(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("job_id",)
+    job_id = sgqlc.types.Field(UUID, graphql_name="jobId")
 
 
 class TableAnomalyConnection(sgqlc.types.relay.Connection):
@@ -57078,30 +60035,6 @@ class TableFieldImportance(sgqlc.types.Type):
     """Display field type"""
 
 
-class TableFieldToBiConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("TableFieldToBiEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class TableFieldToBiEdge(sgqlc.types.Type):
-    """A Relay edge containing a `TableFieldToBi` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("TableFieldToBi", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
 class TableFields(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("table_fields",)
@@ -57208,6 +60141,7 @@ class TableMetricV2(sgqlc.types.Type):
         "measurement_timestamp",
         "dimensions",
         "thresholds",
+        "job_execution_uuid",
     )
     full_table_id = sgqlc.types.Field(String, graphql_name="fullTableId")
 
@@ -57227,6 +60161,9 @@ class TableMetricV2(sgqlc.types.Type):
 
     thresholds = sgqlc.types.Field(sgqlc.types.list_of("Threshold"), graphql_name="thresholds")
     """Thresholds"""
+
+    job_execution_uuid = sgqlc.types.Field(UUID, graphql_name="jobExecutionUuid")
+    """UUID of the job execution that produced the measurement"""
 
 
 class TableMonitorConfiguration(sgqlc.types.Type):
@@ -57291,6 +60228,30 @@ class TableMonitorConfiguration(sgqlc.types.Type):
     configuration. If none, the configuration was instead derived from
     the table characteristics.
     """
+
+
+class TableMonitorConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("TableMonitorEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+
+class TableMonitorEdge(sgqlc.types.Type):
+    """A Relay edge containing a `TableMonitor` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("TableMonitor", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
 
 
 class TableMonitorStatus(sgqlc.types.Type):
@@ -57697,6 +60658,61 @@ class TagObjectOutput(sgqlc.types.Type):
     """Updated by user."""
 
 
+class TaskPerformanceData(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("task_summaries",)
+    task_summaries = sgqlc.types.Field(
+        sgqlc.types.non_null("TaskPerformanceSummaryConnection"),
+        graphql_name="taskSummaries",
+        args=sgqlc.types.ArgDict(
+            (
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Paged list of summary-level information about task performance,
+    for tasks that executed in the specified period
+
+    Arguments:
+
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+
+class TaskPerformanceSummaryConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("TaskPerformanceSummaryEdge")),
+        graphql_name="edges",
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of tasks matching filter (total count)"""
+
+
+class TaskPerformanceSummaryEdge(sgqlc.types.Type):
+    """A Relay edge containing a `TaskPerformanceSummary` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("TaskPerformanceSummary", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
 class TestAirflowCredentialsV2(sgqlc.types.Type):
     """Test an Airflow connection."""
 
@@ -57971,10 +60987,10 @@ class TestDatabricksSqlWarehouseCredentials(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("key", "success")
     key = sgqlc.types.Field(String, graphql_name="key")
-    """Path to key for adding a connection"""
+    """Path to key for adding a connection."""
 
     success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """Indicates whether the operation was completed successfully"""
+    """Indicates whether the operation was completed successfully."""
 
 
 class TestDatabricksSqlWarehouseCredentialsV2(sgqlc.types.Type):
@@ -58917,6 +61933,25 @@ class TrackTablePayload(sgqlc.types.Type):
     client_mutation_id = sgqlc.types.Field(String, graphql_name="clientMutationId")
 
 
+class Transform(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("alias", "prompt", "categories", "function", "field", "id")
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+
+    prompt = sgqlc.types.Field(String, graphql_name="prompt")
+
+    categories = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ClassificationCategories)),
+        graphql_name="categories",
+    )
+
+    function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
+
+    field = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="field")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+
 class TriggerCircuitBreakerRule(sgqlc.types.Type):
     """Run a custom rule as a circuit breaker immediately. Supports rules
     that create a single query.
@@ -59439,6 +62474,13 @@ class UpdateJiraIntegrationWebhookSecret(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("jira_integration",)
     jira_integration = sgqlc.types.Field(JiraIntegrationOutput, graphql_name="jiraIntegration")
+    """The integration that was updated"""
+
+
+class UpdateLogsIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("logs_integration",)
+    logs_integration = sgqlc.types.Field(LogsIntegrationOutput, graphql_name="logsIntegration")
     """The integration that was updated"""
 
 
@@ -60316,9 +63358,13 @@ class Warehouse(sgqlc.types.Type):
         "supports_metric_monitors",
         "supports_custom_sql_rules",
         "supports_high_segment_count",
+        "supports_activity_filters",
         "mcon",
         "metadata_connection",
         "create_alerts_in_datasource",
+        "custom_monitor_count",
+        "supports_transform",
+        "warehouse_relations",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -60606,6 +63652,9 @@ class Warehouse(sgqlc.types.Type):
     )
     """Indicates if the warehouse supports high segment count mode"""
 
+    supports_activity_filters = sgqlc.types.Field(Boolean, graphql_name="supportsActivityFilters")
+    """Indicates if the warehouse supports activity filters"""
+
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
     """MCON for the warehouse"""
 
@@ -60618,6 +63667,26 @@ class Warehouse(sgqlc.types.Type):
     """Indicates whether it is enabled to create incidents in the
     datasource when supported
     """
+
+    custom_monitor_count = sgqlc.types.Field(Int, graphql_name="customMonitorCount")
+    """The number of custom monitors created on this warehouse."""
+
+    supports_transform = sgqlc.types.Field(Boolean, graphql_name="supportsTransform")
+    """Indicates whether the warehouse supports transform operations"""
+
+    warehouse_relations = sgqlc.types.Field(
+        sgqlc.types.list_of("WarehouseRelation"), graphql_name="warehouseRelations"
+    )
+    """List of relations this warehouse has to other warehouses"""
+
+
+class WarehouseRelation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("relation_type", "target_warehouse_uuid")
+    relation_type = sgqlc.types.Field(WarehouseRelationType, graphql_name="relationType")
+
+    target_warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="targetWarehouseUuid")
+    """UUID of the target warehouse"""
 
 
 class WarehouseTableConnection(sgqlc.types.relay.Connection):
@@ -60715,6 +63784,16 @@ class WebexTestCredentialsOutput(sgqlc.types.Type):
     """Returns if the credentials are valid"""
 
 
+class WebhookHeader(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("key", "value")
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
+    """The header field name"""
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """The header field value"""
+
+
 class WhereConditionSegments(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("where_conditions", "last_where_condition")
@@ -60783,6 +63862,7 @@ class AdfJob(sgqlc.types.Type, Node):
         "job_name",
         "job_description",
         "job_folder",
+        "last_run_date",
         "runs",
         "etl_type",
         "source_tables",
@@ -60791,7 +63871,6 @@ class AdfJob(sgqlc.types.Type, Node):
         "generates_alerts",
         "tasks",
         "job_url",
-        "last_run_date",
     )
     account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
 
@@ -60822,6 +63901,9 @@ class AdfJob(sgqlc.types.Type, Node):
 
     job_folder = sgqlc.types.Field(String, graphql_name="jobFolder")
     """Job Folder"""
+
+    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
+    """The date of the last run"""
 
     runs = sgqlc.types.Field(
         sgqlc.types.non_null(AdfJobRunConnection),
@@ -60873,9 +63955,6 @@ class AdfJob(sgqlc.types.Type, Node):
 
     job_url = sgqlc.types.Field(String, graphql_name="jobUrl")
     """Url of the job page in the original ADF environment"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
 
 
 class AdfJobRun(sgqlc.types.Type, Node):
@@ -61086,6 +64165,7 @@ class AirflowDag(sgqlc.types.Type, Node):
         "mcon",
         "dag_id",
         "env_name",
+        "last_run_date",
         "runs",
         "etl_type",
         "source_tables",
@@ -61096,7 +64176,6 @@ class AirflowDag(sgqlc.types.Type, Node):
         "job_url",
         "job_id",
         "job_name",
-        "last_run_date",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -61121,6 +64200,9 @@ class AirflowDag(sgqlc.types.Type, Node):
 
     env_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="envName")
     """AirFlow environment name"""
+
+    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
+    """The date of the last run"""
 
     runs = sgqlc.types.Field(
         sgqlc.types.non_null(AirflowDagRunConnection),
@@ -61178,9 +64260,6 @@ class AirflowDag(sgqlc.types.Type, Node):
 
     job_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobName")
     """Same as DagId"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
 
 
 class AirflowDagRun(sgqlc.types.Type, Node):
@@ -61471,6 +64550,7 @@ class AlationIntegration(sgqlc.types.Type, Node):
         "user_id",
         "dc_proxy",
         "disable_ssl_verification",
+        "warehouse_datasource_mapping",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -61503,6 +64583,11 @@ class AlationIntegration(sgqlc.types.Type, Node):
         sgqlc.types.non_null(Boolean), graphql_name="disableSslVerification"
     )
     """Whether to disable SSL for DC proxy requests"""
+
+    warehouse_datasource_mapping = sgqlc.types.Field(
+        JSONString, graphql_name="warehouseDatasourceMapping"
+    )
+    """Mapping of MC warehouse UUID to Alation data source ID"""
 
 
 class Alert(sgqlc.types.Type, NodeWithUUID):
@@ -61578,6 +64663,62 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """DEPRECATED. Use id instead"""
+
+
+class AssetFilterActivityRead(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("days",)
+    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+
+
+class AssetFilterActivityReadWrite(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("days",)
+    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+
+
+class AssetFilterActivityWrite(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("days",)
+    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+
+
+class AssetFilterDomain(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("domains",)
+    domains = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="domains",
+    )
+
+
+class AssetFilterTableName(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("table_name", "table_name_operator")
+    table_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableName")
+
+    table_name_operator = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterTableNameOperator), graphql_name="tableNameOperator"
+    )
+
+
+class AssetFilterTableTag(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("table_tags", "table_tags_operator")
+    table_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="tableTags",
+    )
+
+    table_tags_operator = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterTableTagOperator), graphql_name="tableTagsOperator"
+    )
+
+
+class AssetFilterTableType(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("table_type",)
+    table_type = sgqlc.types.Field(sgqlc.types.non_null(TableType), graphql_name="tableType")
 
 
 class AudienceMonitor(sgqlc.types.Type, Node):
@@ -61716,6 +64857,9 @@ class AuthUser(sgqlc.types.Type, Node):
         "metricmonitoringmodel_set",
         "customrulequerymodel_created_by",
         "customrulequerymodel_updated_by",
+        "table_monitors_deleted_by",
+        "tablemonitormodel_created_by",
+        "tablemonitormodel_updated_by",
         "object_properties",
         "catalog_object_metadata",
         "resources",
@@ -62161,6 +65305,78 @@ class AuthUser(sgqlc.types.Type, Node):
     customrulequerymodel_updated_by = sgqlc.types.Field(
         sgqlc.types.non_null(CustomRuleQueryConnection),
         graphql_name="customrulequerymodelUpdatedBy",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Last updated by
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    table_monitors_deleted_by = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorConnection),
+        graphql_name="tableMonitorsDeletedBy",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Deleted by
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    tablemonitormodel_created_by = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorConnection),
+        graphql_name="tablemonitormodelCreatedBy",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Creator
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    tablemonitormodel_updated_by = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorConnection),
+        graphql_name="tablemonitormodelUpdatedBy",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -62947,15 +66163,14 @@ class ComparisonMonitorResponse(sgqlc.types.Type, Node):
     """Namespace of rule, used for monitors-as-code"""
 
     priority = sgqlc.types.Field(MetricMonitoringModelPriority, graphql_name="priority")
-    """Default priority for incidents involving this monitor"""
+    """Default priority for alerts involving this monitor"""
 
     created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
     """When the monitor was first created"""
 
     monitor_name = sgqlc.types.Field(String, graphql_name="monitorName")
     """Name of monitor, must be unique per account, used for rule
-    identityresolution for monitors-as-code, just a random UUID by
-    default
+    identityresolution for monitors-as-code
     """
 
     last_update_time = sgqlc.types.Field(DateTime, graphql_name="lastUpdateTime")
@@ -63020,6 +66235,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "event_rollup_until_changed",
         "event_rollup_count",
         "notify_rule_run_failure",
+        "schedule",
         "dc_schedule_uuid",
         "data_collection_dc_schedule_uuid",
         "custom_sql",
@@ -63158,9 +66374,9 @@ class CustomRule(sgqlc.types.Type, Node):
     """The number of events to roll up into a single incident"""
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
-    """Flag to indicate whether or not to send a notification if the rule
-    fails to run
-    """
+    """DEPRECATED: Not used for anything"""
+
+    schedule = sgqlc.types.Field(DataCollectorSchedule, graphql_name="schedule")
 
     dc_schedule_uuid = sgqlc.types.Field(UUID, graphql_name="dcScheduleUuid")
 
@@ -63188,8 +66404,7 @@ class CustomRule(sgqlc.types.Type, Node):
 
     rule_name = sgqlc.types.Field(String, graphql_name="ruleName")
     """Name of rule, must be unique per account, used for rule
-    identityresolution for monitors-as-code, just a random UUID by
-    default
+    identityresolution for monitors-as-code
     """
 
     sequence_number = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="sequenceNumber")
@@ -63546,6 +66761,7 @@ class DataExplorerComparisonDashboardType(sgqlc.types.Type, Node):
         graphql_name="widgets",
         args=sgqlc.types.ArgDict(
             (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -63555,6 +66771,7 @@ class DataExplorerComparisonDashboardType(sgqlc.types.Type, Node):
     )
     """Arguments:
 
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -63660,6 +66877,7 @@ class DataExplorerDashboardType(sgqlc.types.Type, Node):
         graphql_name="widgets",
         args=sgqlc.types.ArgDict(
             (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -63669,6 +66887,7 @@ class DataExplorerDashboardType(sgqlc.types.Type, Node):
     )
     """Arguments:
 
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -64081,28 +67300,44 @@ class DataProductAsset(sgqlc.types.Type, Node):
 
 class DataSourceInputSql(sgqlc.types.Type, DataSourceInputInterface):
     __schema__ = schema
-    __field_names__ = ("sql",)
+    __field_names__ = ("sql", "transforms")
     sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
     """The SQL query that defines the source of the data"""
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(Transform)), graphql_name="transforms"
+    )
 
 
 class DataSourceInputTable(sgqlc.types.Type, DataSourceInputInterface):
     __schema__ = schema
-    __field_names__ = ("mcon",)
+    __field_names__ = ("mcon", "transforms")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(Transform)), graphql_name="transforms"
+    )
 
 
 class DataSourceSql(sgqlc.types.Type, DataSourceInterface):
     __schema__ = schema
-    __field_names__ = ("sql",)
+    __field_names__ = ("sql", "transforms")
     sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
     """The SQL query that defines the source of the data"""
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(Transform)), graphql_name="transforms"
+    )
 
 
 class DataSourceTable(sgqlc.types.Type, DataSourceInterface):
     __schema__ = schema
-    __field_names__ = ("mcon",)
+    __field_names__ = ("mcon", "transforms")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(Transform)), graphql_name="transforms"
+    )
 
 
 class DatabricksJob(sgqlc.types.Type, Node):
@@ -64124,6 +67359,7 @@ class DatabricksJob(sgqlc.types.Type, Node):
         "creator",
         "run_as",
         "workspace_id",
+        "last_run_date",
         "runs",
         "etl_type",
         "source_tables",
@@ -64132,7 +67368,6 @@ class DatabricksJob(sgqlc.types.Type, Node):
         "generates_alerts",
         "tasks",
         "job_url",
-        "last_run_date",
     )
     account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
 
@@ -64178,6 +67413,9 @@ class DatabricksJob(sgqlc.types.Type, Node):
 
     workspace_id = sgqlc.types.Field(String, graphql_name="workspaceId")
     """Databricks Workspace where the job exists"""
+
+    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
+    """The date of the last run"""
 
     runs = sgqlc.types.Field(
         sgqlc.types.non_null(DatabricksJobRunConnection),
@@ -64229,9 +67467,6 @@ class DatabricksJob(sgqlc.types.Type, Node):
 
     job_url = sgqlc.types.Field(String, graphql_name="jobUrl")
     """Url of the job page in the original Databricks environment"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
 
 
 class DatabricksJobRun(sgqlc.types.Type, Node):
@@ -66102,6 +69337,7 @@ class Incident(sgqlc.types.Type, Node):
                     sgqlc.types.Arg(Boolean, graphql_name="includeAnomalyEvents", default=None),
                 ),
                 ("desc_order", sgqlc.types.Arg(Boolean, graphql_name="descOrder", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -66121,6 +69357,7 @@ class Incident(sgqlc.types.Type, Node):
       flag will be ignored
     * `desc_order` (`Boolean`): Returns events in descending order of
       create_time
+    * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -66249,6 +69486,13 @@ class JiraTicket(sgqlc.types.Type, NodeWithUUID):
     """Jira integration ID"""
 
 
+class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
+    """ETL Job performance summary"""
+
+    __schema__ = schema
+    __field_names__ = ()
+
+
 class JobRca(sgqlc.types.Type, IBaseRca):
     __schema__ = schema
     __field_names__ = ("mcon",)
@@ -66287,6 +69531,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "source_data_source",
         "fields",
         "entities_arr",
+        "created_time",
         "created_by",
         "time_axis_field_name",
         "time_axis_field_type",
@@ -66295,7 +69540,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "where_condition",
         "use_partition_clause",
         "schedule",
-        "created_time",
         "monitor_name",
         "is_paused",
         "notify_rule_run_failure",
@@ -66371,7 +69615,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     """Default severity for incidents involving this monitor"""
 
     priority = sgqlc.types.Field(MetricMonitoringModelPriority, graphql_name="priority")
-    """Default priority for incidents involving this monitor"""
+    """Default priority for alerts involving this monitor"""
 
     comparisons = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparison)), graphql_name="comparisons"
@@ -66394,6 +69638,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="entitiesArr"
     )
     """Tables referenced in query"""
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When the monitor was first created"""
 
     created_by = sgqlc.types.Field("User", graphql_name="createdBy")
     """Who added the monitor"""
@@ -66419,20 +69666,16 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         sgqlc.types.non_null(DataCollectorSchedule), graphql_name="schedule"
     )
 
-    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
-    """When the monitor was first created"""
-
     monitor_name = sgqlc.types.Field(String, graphql_name="monitorName")
     """Name of monitor, must be unique per account, used for rule
-    identityresolution for monitors-as-code, just a random UUID by
-    default
+    identityresolution for monitors-as-code
     """
 
     is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
     """Is this monitor paused?"""
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
-    """Flag to send a notification if the rule fails to run"""
+    """DEPRECATED: Not used for anything."""
 
     disable_look_back_bootstrap = sgqlc.types.Field(
         Boolean, graphql_name="disableLookBackBootstrap"
@@ -67064,7 +70307,6 @@ class TableField(sgqlc.types.Type, Node):
         "description",
         "original_name",
         "data_metric_time_field",
-        "downstream_bi",
         "is_time_field",
         "is_text_field",
         "is_numeric_field",
@@ -67091,28 +70333,6 @@ class TableField(sgqlc.types.Type, Node):
         sgqlc.types.non_null(Boolean), graphql_name="dataMetricTimeField"
     )
 
-    downstream_bi = sgqlc.types.Field(
-        sgqlc.types.non_null(TableFieldToBiConnection),
-        graphql_name="downstreamBi",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
     is_time_field = sgqlc.types.Field(Boolean, graphql_name="isTimeField")
 
     is_text_field = sgqlc.types.Field(Boolean, graphql_name="isTextField")
@@ -67138,35 +70358,100 @@ class TableField(sgqlc.types.Type, Node):
     object_metadata = sgqlc.types.Field(CatalogObjectMetadata, graphql_name="objectMetadata")
 
 
-class TableFieldToBi(sgqlc.types.Type, Node):
+class TableMonitor(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
-        "field",
-        "bi_account_id",
-        "bi_identifier",
-        "bi_name",
-        "bi_type",
-        "bi_node_id",
-        "created_on",
-        "last_seen",
+        "created_time",
+        "updated_time",
+        "created_by",
+        "last_update_user",
+        "uuid",
+        "account_uuid",
+        "is_deleted",
+        "description",
+        "notes",
+        "is_template_managed",
+        "namespace",
+        "priority",
+        "warehouse_uuid",
+        "monitor_name",
+        "is_paused",
+        "deleted_time",
+        "deleted_by",
+        "domain_restrictions",
+        "asset_selection",
+        "audiences",
+        "failure_audiences",
     )
-    field = sgqlc.types.Field(sgqlc.types.non_null(TableField), graphql_name="field")
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
-    bi_account_id = sgqlc.types.Field(UUID, graphql_name="biAccountId")
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
 
-    bi_identifier = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="biIdentifier")
+    created_by = sgqlc.types.Field("User", graphql_name="createdBy")
+    """Creator"""
 
-    bi_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="biName")
+    last_update_user = sgqlc.types.Field("User", graphql_name="lastUpdateUser")
+    """Last updated by"""
 
-    bi_type = sgqlc.types.Field(
-        sgqlc.types.non_null(TableFieldToBiModelBiType), graphql_name="biType"
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    account_uuid = sgqlc.types.Field(UUID, graphql_name="accountUuid")
+    """Customer account id"""
+
+    is_deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDeleted")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    is_template_managed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTemplateManaged"
     )
+    """Is this monitor managed by a configuration template (monitors-as-
+    code)?
+    """
 
-    bi_node_id = sgqlc.types.Field(String, graphql_name="biNodeId")
+    namespace = sgqlc.types.Field(String, graphql_name="namespace")
+    """Namespace of rule, used for monitors-as-code"""
 
-    created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
+    priority = sgqlc.types.Field(TableMonitorModelPriority, graphql_name="priority")
+    """Default priority for alerts involving this monitor"""
 
-    last_seen = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastSeen")
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+
+    monitor_name = sgqlc.types.Field(String, graphql_name="monitorName")
+    """Name of monitor, must be unique per account, used for monitor
+    identityresolution for monitors-as-code
+    """
+
+    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
+    """Is this monitor paused?"""
+
+    deleted_time = sgqlc.types.Field(DateTime, graphql_name="deletedTime")
+    """When the monitor was deleted"""
+
+    deleted_by = sgqlc.types.Field("User", graphql_name="deletedBy")
+    """Deleted by"""
+
+    domain_restrictions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainRestrictions"
+    )
+    """List of domain UUIDs that need to be allowed to access this
+    monitor, if any
+    """
+
+    asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")
+    """SQL blocks used on the monitor"""
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+    """Monitor audiences"""
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+    """The monitor notification audiences for failures"""
 
 
 class TablePartitionKeys(sgqlc.types.Type, Node):
@@ -67342,6 +70627,13 @@ class TableTag(sgqlc.types.Type, Node):
     is_active = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isActive")
 
 
+class TaskPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
+    """ETL Task performance summary"""
+
+    __schema__ = schema
+    __field_names__ = ()
+
+
 class UnifiedUser(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
@@ -67486,6 +70778,9 @@ class User(sgqlc.types.Type, Node):
         "metricmonitoringmodel_set",
         "customrulequerymodel_created_by",
         "customrulequerymodel_updated_by",
+        "table_monitors_deleted_by",
+        "tablemonitormodel_created_by",
+        "tablemonitormodel_updated_by",
         "object_properties",
         "catalog_object_metadata",
         "resources",
@@ -67934,6 +71229,78 @@ class User(sgqlc.types.Type, Node):
     customrulequerymodel_updated_by = sgqlc.types.Field(
         sgqlc.types.non_null(CustomRuleQueryConnection),
         graphql_name="customrulequerymodelUpdatedBy",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Last updated by
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    table_monitors_deleted_by = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorConnection),
+        graphql_name="tableMonitorsDeletedBy",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Deleted by
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    tablemonitormodel_created_by = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorConnection),
+        graphql_name="tablemonitormodelCreatedBy",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Creator
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    tablemonitormodel_updated_by = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorConnection),
+        graphql_name="tablemonitormodelUpdatedBy",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -68656,6 +72023,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "breached",
         "alert_ids",
         "invalid_rows",
+        "domain_restrictions",
         "entity_mcons",
         "has_custom_rule_name",
         "is_transitioning_data_provider",
@@ -68829,6 +72197,13 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     invalid_rows = sgqlc.types.Field(Int, graphql_name="invalidRows")
     """Total invalid fields count."""
 
+    domain_restrictions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainRestrictions"
+    )
+    """List of domain UUIDs that need to be allowed to access this
+    monitor, if any
+    """
+
     entity_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="entityMcons")
     """MCONs for monitored tables/views"""
 
@@ -68961,6 +72336,7 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "tags",
         "versions",
         "events",
+        "events_though_event_assets",
         "data_source_tables",
         "monitors",
         "object_properties",
@@ -69217,6 +72593,30 @@ class WarehouseTable(sgqlc.types.Type, Node):
         ),
     )
     """Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    events_though_event_assets = sgqlc.types.Field(
+        sgqlc.types.non_null(EventConnection),
+        graphql_name="eventsThoughEventAssets",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """See note in EventAssetModel.table before using
+
+    Arguments:
 
     * `offset` (`Int`)None
     * `before` (`String`)None

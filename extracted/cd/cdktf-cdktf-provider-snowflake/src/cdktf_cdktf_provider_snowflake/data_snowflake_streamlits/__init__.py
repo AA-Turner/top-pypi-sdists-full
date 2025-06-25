@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_streamlits`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_streamlits`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits).
+Refer to the Terraform Registry for docs: [`data_snowflake_streamlits`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeStreamlits(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeStreamlits.DataSnowflakeStreamlits",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits snowflake_streamlits}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits snowflake_streamlits}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataSnowflakeStreamlits(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits snowflake_streamlits} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits snowflake_streamlits} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#id DataSnowflakeStreamlits#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#in DataSnowflakeStreamlits#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#like DataSnowflakeStreamlits#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#limit DataSnowflakeStreamlits#limit}
-        :param with_describe: (Default: ``true``) Runs DESC STREAMLIT for each streamlit returned by SHOW STREAMLITS. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#with_describe DataSnowflakeStreamlits#with_describe}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#id DataSnowflakeStreamlits#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#in DataSnowflakeStreamlits#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#like DataSnowflakeStreamlits#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#limit DataSnowflakeStreamlits#limit}
+        :param with_describe: (Default: ``true``) Runs DESC STREAMLIT for each streamlit returned by SHOW STREAMLITS. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#with_describe DataSnowflakeStreamlits#with_describe}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataSnowflakeStreamlits(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeStreamlits to import.
-        :param import_from_id: The id of the existing DataSnowflakeStreamlits that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeStreamlits that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeStreamlits to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class DataSnowflakeStreamlits(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#account DataSnowflakeStreamlits#account}
-        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#database DataSnowflakeStreamlits#database}
-        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#schema DataSnowflakeStreamlits#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#account DataSnowflakeStreamlits#account}
+        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#database DataSnowflakeStreamlits#database}
+        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#schema DataSnowflakeStreamlits#schema}
         '''
         value = DataSnowflakeStreamlitsIn(
             account=account, database=database, schema=schema
@@ -153,8 +153,8 @@ class DataSnowflakeStreamlits(
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#rows DataSnowflakeStreamlits#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#from DataSnowflakeStreamlits#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#rows DataSnowflakeStreamlits#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#from DataSnowflakeStreamlits#from}
         '''
         value = DataSnowflakeStreamlitsLimit(rows=rows, from_=from_)
 
@@ -318,11 +318,11 @@ class DataSnowflakeStreamlitsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#id DataSnowflakeStreamlits#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#in DataSnowflakeStreamlits#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#like DataSnowflakeStreamlits#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#limit DataSnowflakeStreamlits#limit}
-        :param with_describe: (Default: ``true``) Runs DESC STREAMLIT for each streamlit returned by SHOW STREAMLITS. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#with_describe DataSnowflakeStreamlits#with_describe}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#id DataSnowflakeStreamlits#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#in DataSnowflakeStreamlits#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#like DataSnowflakeStreamlits#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#limit DataSnowflakeStreamlits#limit}
+        :param with_describe: (Default: ``true``) Runs DESC STREAMLIT for each streamlit returned by SHOW STREAMLITS. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#with_describe DataSnowflakeStreamlits#with_describe}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -436,7 +436,7 @@ class DataSnowflakeStreamlitsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#id DataSnowflakeStreamlits#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#id DataSnowflakeStreamlits#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -448,7 +448,7 @@ class DataSnowflakeStreamlitsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def in_(self) -> typing.Optional["DataSnowflakeStreamlitsIn"]:
         '''in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#in DataSnowflakeStreamlits#in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#in DataSnowflakeStreamlits#in}
         '''
         result = self._values.get("in_")
         return typing.cast(typing.Optional["DataSnowflakeStreamlitsIn"], result)
@@ -457,7 +457,7 @@ class DataSnowflakeStreamlitsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#like DataSnowflakeStreamlits#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#like DataSnowflakeStreamlits#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -466,7 +466,7 @@ class DataSnowflakeStreamlitsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def limit(self) -> typing.Optional["DataSnowflakeStreamlitsLimit"]:
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#limit DataSnowflakeStreamlits#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#limit DataSnowflakeStreamlits#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional["DataSnowflakeStreamlitsLimit"], result)
@@ -479,7 +479,7 @@ class DataSnowflakeStreamlitsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The output of describe is saved to the description field. By default this value is set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#with_describe DataSnowflakeStreamlits#with_describe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#with_describe DataSnowflakeStreamlits#with_describe}
         '''
         result = self._values.get("with_describe")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -510,9 +510,9 @@ class DataSnowflakeStreamlitsIn:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#account DataSnowflakeStreamlits#account}
-        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#database DataSnowflakeStreamlits#database}
-        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#schema DataSnowflakeStreamlits#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#account DataSnowflakeStreamlits#account}
+        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#database DataSnowflakeStreamlits#database}
+        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#schema DataSnowflakeStreamlits#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb5a98d61d9bf934f48c3caed9b82bd3ccde438cc717cd6638c3f3c0b8d025ba)
@@ -533,7 +533,7 @@ class DataSnowflakeStreamlitsIn:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Returns records for the entire account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#account DataSnowflakeStreamlits#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#account DataSnowflakeStreamlits#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -542,7 +542,7 @@ class DataSnowflakeStreamlitsIn:
     def database(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current database in use or for a specified database (db_name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#database DataSnowflakeStreamlits#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#database DataSnowflakeStreamlits#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -551,7 +551,7 @@ class DataSnowflakeStreamlitsIn:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current schema in use or a specified schema (schema_name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#schema DataSnowflakeStreamlits#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#schema DataSnowflakeStreamlits#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -682,8 +682,8 @@ class DataSnowflakeStreamlitsLimit:
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#rows DataSnowflakeStreamlits#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#from DataSnowflakeStreamlits#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#rows DataSnowflakeStreamlits#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#from DataSnowflakeStreamlits#from}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c6ba8ac07644701edbb303fde4ecd1c837eed256626f35e3b75e45235d8e91b)
@@ -699,7 +699,7 @@ class DataSnowflakeStreamlitsLimit:
     def rows(self) -> jsii.Number:
         '''The maximum number of rows to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#rows DataSnowflakeStreamlits#rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#rows DataSnowflakeStreamlits#rows}
         '''
         result = self._values.get("rows")
         assert result is not None, "Required property 'rows' is missing"
@@ -711,7 +711,7 @@ class DataSnowflakeStreamlitsLimit:
 
         After the first match, the limit on the number of rows will be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/streamlits#from DataSnowflakeStreamlits#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/streamlits#from DataSnowflakeStreamlits#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)

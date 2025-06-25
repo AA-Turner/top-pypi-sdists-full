@@ -14,27 +14,28 @@
 
 """Classes for interacting with objects on a YubiHSM."""
 
-from .defs import ALGORITHM, CAPABILITY, COMMAND, OBJECT, ORIGIN
-from .exceptions import YubiHsmInvalidResponseError
-from .utils import password_to_key
-from . import core
+import copy
+import gzip
+import struct
+from dataclasses import dataclass
+from typing import ClassVar, NamedTuple, Optional, Type, TypeVar, Union
 
-from cryptography.hazmat.backends import default_backend
 from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
+from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
-    PublicFormat,
-    PrivateFormat,
     NoEncryption,
+    PrivateFormat,
+    PublicFormat,
 )
-from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
-from dataclasses import dataclass
-from typing import ClassVar, Union, Optional, TypeVar, NamedTuple, Type
-import copy
-import struct
 
+from . import core
+from .defs import ALGORITHM, CAPABILITY, COMMAND, OBJECT, ORIGIN, Version
+from .exceptions import YubiHsmInvalidResponseError
+from .utils import password_to_key
 
 LABEL_LENGTH = 40
 
@@ -115,6 +116,112 @@ class ObjectInfo:
         data[7] = ORIGIN(data[7])
         data[8] = _label_unpack(data[8])
         return cls(*data)
+
+
+def _get_bytes(c: x509.Certificate, oid: int) -> bytes:
+    return c.extensions.get_extension_for_oid(
+        x509.ObjectIdentifier(f"1.3.6.1.4.1.41482.4.{oid}")
+    ).value.public_bytes()
+
+
+def _get_int(c: x509.Certificate, oid: int) -> int:
+    return int.from_bytes(_get_bytes(c, oid)[2:], "big")
+
+
+T_AttestationExtensions = TypeVar(
+    "T_AttestationExtensions", bound="AttestationExtensions"
+)
+
+
+@dataclass
+class AttestationExtensions:
+    """Base attestation extensions.
+
+    :ivar firmware_version: YubiHSM firmware version.
+    :ivar serial: YubiHSM serial number.
+    """
+
+    firmware_version: Version
+    serial: int
+
+    @classmethod
+    def parse(
+        cls: Type[T_AttestationExtensions], certificate: x509.Certificate, *args
+    ) -> T_AttestationExtensions:
+        if cls == AttestationExtensions:
+            # When called on the base class, identify which subclass to use
+            try:
+                _get_bytes(certificate, 3)
+                return KeyAttestationExtensions.parse(certificate)  # type: ignore
+            except x509.ExtensionNotFound:
+                return DeviceAttestationExtensions.parse(certificate)  # type: ignore
+
+        version: Version = tuple(_get_bytes(certificate, 1)[-3:])  # type: ignore
+        serial = _get_int(certificate, 2)
+        return cls(version, serial, *args)
+
+
+@dataclass
+class DeviceAttestationExtensions(AttestationExtensions):
+    """Device attestation extensions. Available on YubiHSM FIPS only.
+
+    :ivar fips_certificate: The FIPS certificate.
+    """
+
+    fips_certificate: Optional[int]
+
+    @classmethod
+    def parse(cls, certificate: x509.Certificate, *args):
+        # Available on YubiHSM FIPS only
+        try:
+            fips_certificate = _get_int(certificate, 10)
+        except x509.ExtensionNotFound:
+            fips_certificate = None
+
+        return super(DeviceAttestationExtensions, cls).parse(
+            certificate, fips_certificate
+        )
+
+
+@dataclass
+class KeyAttestationExtensions(AttestationExtensions):
+    """Key attestation extensions.
+
+    :ivar origin: The origin of the key.
+    :ivar domains: The set of domains assigned to the key object.
+    :ivar capabilities: The set of capabilities assigned to the key object.
+    :ivar object_id: The ID of the key object.
+    :ivar label: The label of the key object.
+    :ivar fips_approved: (available on YubiHSM FIPS >= 2.4.1 only) True if
+        the key attestation was generated in FIPS-approved mode.
+    """
+
+    origin: ORIGIN
+    domains: int
+    capabilities: CAPABILITY
+    object_id: int
+    label: Union[str, bytes]
+    fips_approved: Optional[bool]
+
+    @classmethod
+    def parse(cls, certificate: x509.Certificate, *args):
+        """Extracts the attributes from an an attestation certificate."""
+
+        origin = ORIGIN(_get_int(certificate, 3))
+        domains = _get_int(certificate, 4)
+        capabilities = CAPABILITY(_get_int(certificate, 5))
+        object_id = _get_int(certificate, 6)
+        label = _label_unpack(_get_bytes(certificate, 9)[2:])
+
+        # Available on YubiHSM FIPS >= 2.4.1 only
+        try:
+            fips_approved = bool(_get_int(certificate, 12))
+        except x509.ExtensionNotFound:
+            fips_approved = None
+
+        return super(KeyAttestationExtensions, cls).parse(
+            certificate, origin, domains, capabilities, object_id, label, fips_approved
+        )
 
 
 T_Object = TypeVar("T_Object", bound="YhsmObject")
@@ -273,6 +380,7 @@ class Opaque(YhsmObject):
         domains: int,
         capabilities: CAPABILITY,
         certificate: x509.Certificate,
+        compress: bool = False,
     ) -> "Opaque":
         """Import an X509 certificate into the YubiHSM as an Opaque.
 
@@ -283,9 +391,12 @@ class Opaque(YhsmObject):
         :param domains: The set of domains to assign the object to.
         :param capabilities: The set of capabilities to give the object.
         :param certificate: A certificate to import.
+        :param compress: (optional) Compress the certificate.
         :return: A reference to the newly created object.
         """
         encoded_cert = certificate.public_bytes(Encoding.DER)
+        if compress:
+            encoded_cert = gzip.compress(encoded_cert)
         return cls.put(
             session,
             object_id,
@@ -301,7 +412,13 @@ class Opaque(YhsmObject):
 
         :return: The certificate stored for the object.
         """
-        return x509.load_der_x509_certificate(self.get(), default_backend())
+        cert_data = self.get()
+        try:
+            # Try to decompress cert
+            cert_data = gzip.decompress(cert_data)
+        except gzip.BadGzipFile:
+            pass
+        return x509.load_der_x509_certificate(cert_data, default_backend())
 
 
 class AuthenticationKey(YhsmObject):
@@ -1155,6 +1272,16 @@ class PublicWrapKey(YhsmObject):
 
         return cls._from_command(session, COMMAND.PUT_PUBLIC_WRAP_KEY, msg)
 
+    def get_public_key(self) -> rsa.RSAPublicKey:
+        """Get the public wrapkey."""
+        msg = struct.pack("!HB", self.id, self.object_type)
+        ret = self.session.send_secure_cmd(COMMAND.GET_PUBLIC_KEY, msg)
+        raw_key = ret[1:]
+        num = int.from_bytes(raw_key, "big")
+        return rsa.RSAPublicNumbers(e=RSA_PUBLIC_EXPONENT, n=num).public_key(
+            backend=default_backend()
+        )
+
     def _rsa_wrap_cmd_data(
         self,
         obj: YhsmObject,
@@ -1486,9 +1613,7 @@ class OtpAeadKey(YhsmObject):
             domains,
             capabilities,
             algorithm,
-        ) + struct.pack(
-            "<I", nonce_id
-        )  # nonce ID is stored in little-endian.
+        ) + struct.pack("<I", nonce_id)  # nonce ID is stored in little-endian.
         msg += key
         return cls._from_command(session, COMMAND.PUT_OTP_AEAD_KEY, msg)
 

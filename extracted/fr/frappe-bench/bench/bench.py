@@ -365,7 +365,10 @@ class BenchSetup(Base):
 
 		if not os.path.exists(self.bench.python):
 			if os.environ.get("BENCH_USE_UV"):
-				self.run("uv venv env --seed", cwd=self.bench.name)
+				if os.environ.get("FRAPPE_DOCKER_BUILD"):
+					self.run("uv venv env --seed --link-mode=copy", cwd=self.bench.name)
+				else:
+					self.run("uv venv env --seed", cwd=self.bench.name)
 			else:
 				venv = get_venv_path(verbose=verbose, python=python)
 				self.run(f"{venv} env", cwd=self.bench.name)

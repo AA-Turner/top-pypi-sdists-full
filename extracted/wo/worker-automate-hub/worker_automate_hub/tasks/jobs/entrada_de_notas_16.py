@@ -207,7 +207,14 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 )
                 combo_box_natureza_operacao.click()
                 await worker_sleep(4)
-                set_combobox("||List", "1403 - COMPRA DE MERCADORIAS- 1.403")
+                tipos_natureza = ["1403 - COMPRA DE MERCADORIAS- 1.403", "1403-COMPRA DE MERCADORIAS- 1.403"]
+                for tipo in tipos_natureza:
+                    try:
+                        combo_box_natureza_operacao.select(tipo)
+                        send_keys('{ENTER}')
+                    except:
+                        pass
+                 
                 await worker_sleep(3)
             elif nota.get("cfop") == "6910":
                 combo_box_natureza_operacao = main_window.child_window(

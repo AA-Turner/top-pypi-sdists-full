@@ -1,7 +1,7 @@
 r'''
 # `google_network_services_mesh`
 
-Refer to the Terraform Registry for docs: [`google_network_services_mesh`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh).
+Refer to the Terraform Registry for docs: [`google_network_services_mesh`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleNetworkServicesMesh(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleNetworkServicesMesh.GoogleNetworkServicesMesh",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh google_network_services_mesh}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh google_network_services_mesh}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleNetworkServicesMesh(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh google_network_services_mesh} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh google_network_services_mesh} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Short name of the Mesh resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#name GoogleNetworkServicesMesh#name}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#description GoogleNetworkServicesMesh#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#id GoogleNetworkServicesMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interception_port: Optional. If set to a valid TCP port (1-65535), instructs the SIDECAR proxy to listen on the specified port of localhost (127.0.0.1) address. The SIDECAR proxy will expect all traffic to be redirected to this port regardless of its actual ip:port destination. If unset, a port '15001' is used as the interception port. This will is applicable only for sidecar proxy deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#interception_port GoogleNetworkServicesMesh#interception_port}
-        :param labels: Set of label tags associated with the Mesh resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#labels GoogleNetworkServicesMesh#labels}
-        :param location: Location (region) of the Mesh resource to be created. Only the value 'global' is currently allowed; defaults to 'global' if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#location GoogleNetworkServicesMesh#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#project GoogleNetworkServicesMesh#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#timeouts GoogleNetworkServicesMesh#timeouts}
+        :param name: Short name of the Mesh resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#name GoogleNetworkServicesMesh#name}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#description GoogleNetworkServicesMesh#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#id GoogleNetworkServicesMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interception_port: Optional. If set to a valid TCP port (1-65535), instructs the SIDECAR proxy to listen on the specified port of localhost (127.0.0.1) address. The SIDECAR proxy will expect all traffic to be redirected to this port regardless of its actual ip:port destination. If unset, a port '15001' is used as the interception port. This will is applicable only for sidecar proxy deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#interception_port GoogleNetworkServicesMesh#interception_port}
+        :param labels: Set of label tags associated with the Mesh resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#labels GoogleNetworkServicesMesh#labels}
+        :param location: Location (region) of the Mesh resource to be created. Only the value 'global' is currently allowed; defaults to 'global' if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#location GoogleNetworkServicesMesh#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#project GoogleNetworkServicesMesh#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#timeouts GoogleNetworkServicesMesh#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleNetworkServicesMesh(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleNetworkServicesMesh to import.
-        :param import_from_id: The id of the existing GoogleNetworkServicesMesh that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleNetworkServicesMesh that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleNetworkServicesMesh to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GoogleNetworkServicesMesh(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#create GoogleNetworkServicesMesh#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#delete GoogleNetworkServicesMesh#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#update GoogleNetworkServicesMesh#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#create GoogleNetworkServicesMesh#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#delete GoogleNetworkServicesMesh#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#update GoogleNetworkServicesMesh#update}.
         '''
         value = GoogleNetworkServicesMeshTimeouts(
             create=create, delete=delete, update=update
@@ -403,14 +403,14 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Short name of the Mesh resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#name GoogleNetworkServicesMesh#name}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#description GoogleNetworkServicesMesh#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#id GoogleNetworkServicesMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interception_port: Optional. If set to a valid TCP port (1-65535), instructs the SIDECAR proxy to listen on the specified port of localhost (127.0.0.1) address. The SIDECAR proxy will expect all traffic to be redirected to this port regardless of its actual ip:port destination. If unset, a port '15001' is used as the interception port. This will is applicable only for sidecar proxy deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#interception_port GoogleNetworkServicesMesh#interception_port}
-        :param labels: Set of label tags associated with the Mesh resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#labels GoogleNetworkServicesMesh#labels}
-        :param location: Location (region) of the Mesh resource to be created. Only the value 'global' is currently allowed; defaults to 'global' if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#location GoogleNetworkServicesMesh#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#project GoogleNetworkServicesMesh#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#timeouts GoogleNetworkServicesMesh#timeouts}
+        :param name: Short name of the Mesh resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#name GoogleNetworkServicesMesh#name}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#description GoogleNetworkServicesMesh#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#id GoogleNetworkServicesMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interception_port: Optional. If set to a valid TCP port (1-65535), instructs the SIDECAR proxy to listen on the specified port of localhost (127.0.0.1) address. The SIDECAR proxy will expect all traffic to be redirected to this port regardless of its actual ip:port destination. If unset, a port '15001' is used as the interception port. This will is applicable only for sidecar proxy deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#interception_port GoogleNetworkServicesMesh#interception_port}
+        :param labels: Set of label tags associated with the Mesh resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#labels GoogleNetworkServicesMesh#labels}
+        :param location: Location (region) of the Mesh resource to be created. Only the value 'global' is currently allowed; defaults to 'global' if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#location GoogleNetworkServicesMesh#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#project GoogleNetworkServicesMesh#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#timeouts GoogleNetworkServicesMesh#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -533,7 +533,7 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Short name of the Mesh resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#name GoogleNetworkServicesMesh#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#name GoogleNetworkServicesMesh#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -543,14 +543,14 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A free-text description of the resource. Max length 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#description GoogleNetworkServicesMesh#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#description GoogleNetworkServicesMesh#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#id GoogleNetworkServicesMesh#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#id GoogleNetworkServicesMesh#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -568,7 +568,7 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         '15001' is used as the interception port. This will is applicable only for sidecar proxy
         deployments.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#interception_port GoogleNetworkServicesMesh#interception_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#interception_port GoogleNetworkServicesMesh#interception_port}
         '''
         result = self._values.get("interception_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -580,7 +580,7 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#labels GoogleNetworkServicesMesh#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#labels GoogleNetworkServicesMesh#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -591,14 +591,14 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only the value 'global' is currently allowed; defaults to 'global' if omitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#location GoogleNetworkServicesMesh#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#location GoogleNetworkServicesMesh#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#project GoogleNetworkServicesMesh#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#project GoogleNetworkServicesMesh#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -606,7 +606,7 @@ class GoogleNetworkServicesMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleNetworkServicesMeshTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#timeouts GoogleNetworkServicesMesh#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#timeouts GoogleNetworkServicesMesh#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleNetworkServicesMeshTimeouts"], result)
@@ -637,9 +637,9 @@ class GoogleNetworkServicesMeshTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#create GoogleNetworkServicesMesh#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#delete GoogleNetworkServicesMesh#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#update GoogleNetworkServicesMesh#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#create GoogleNetworkServicesMesh#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#delete GoogleNetworkServicesMesh#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#update GoogleNetworkServicesMesh#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c435f75b6f91ee3349d2cc594c400ed4626d6483011854227578087bfcaf5c93)
@@ -656,19 +656,19 @@ class GoogleNetworkServicesMeshTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#create GoogleNetworkServicesMesh#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#create GoogleNetworkServicesMesh#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#delete GoogleNetworkServicesMesh#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#delete GoogleNetworkServicesMesh#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_network_services_mesh#update GoogleNetworkServicesMesh#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_network_services_mesh#update GoogleNetworkServicesMesh#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

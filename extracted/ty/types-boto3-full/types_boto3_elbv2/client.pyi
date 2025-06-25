@@ -33,6 +33,9 @@ from .paginator import (
     DescribeRulesPaginator,
     DescribeSSLPoliciesPaginator,
     DescribeTargetGroupsPaginator,
+    DescribeTrustStoreAssociationsPaginator,
+    DescribeTrustStoreRevocationsPaginator,
+    DescribeTrustStoresPaginator,
 )
 from .type_defs import (
     AddListenerCertificatesInputTypeDef,
@@ -817,6 +820,39 @@ class ElasticLoadBalancingv2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_target_groups"]
     ) -> DescribeTargetGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elbv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_trust_store_associations"]
+    ) -> DescribeTrustStoreAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elbv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_trust_store_revocations"]
+    ) -> DescribeTrustStoreRevocationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elbv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elbv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_trust_stores"]
+    ) -> DescribeTrustStoresPaginator:
         """
         Create a paginator for an operation.
 

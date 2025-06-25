@@ -23,11 +23,11 @@ Changelog = "https://github.com/Crown-Commercial-Service/ccs-digitalmarketplace-
 
 [project.optional-dependencies]
 dev = [
-  'flake8>=7.1.1',
-  'black',
-  'pytest',
-  'fleep',
-  'pre-commit',
+  'flake8==7.3.0',
+  'black==25.1.0',
+  'pytest==8.4.1',
+  'fleep==1.0.1',
+  'pre-commit==4.2.0',
 ]
 
 [tool.setuptools.dynamic]

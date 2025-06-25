@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pluginlib
-Version: 0.9.4
+Version: 0.10.0
 Summary: A framework for creating and importing plugins
 Home-page: https://github.com/Rockhopper-Technologies/pluginlib
 Author: Avram Lubkin
@@ -15,8 +15,6 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
@@ -28,8 +26,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.6
 License-File: LICENSE
-Requires-Dist: setuptools
+Requires-Dist: packaging
+Requires-Dist: importlib-metadata; python_version < "3.10"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. start-badges
 
@@ -154,7 +165,7 @@ For more information, see the `Abstract Methods`_ section.
     import pluginlib
 
     @pluginlib.Parent('parser')
-    class Parser(object):
+    class Parser():
 
         @pluginlib.abstractmethod
         def parse(self, string):

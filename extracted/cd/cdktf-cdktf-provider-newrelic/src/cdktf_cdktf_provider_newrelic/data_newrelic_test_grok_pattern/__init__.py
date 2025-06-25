@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_test_grok_pattern`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_test_grok_pattern`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern).
+Refer to the Terraform Registry for docs: [`data_newrelic_test_grok_pattern`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicTestGrokPattern(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicTestGrokPattern.DataNewrelicTestGrokPattern",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern newrelic_test_grok_pattern}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern newrelic_test_grok_pattern}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataNewrelicTestGrokPattern(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern newrelic_test_grok_pattern} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern newrelic_test_grok_pattern} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param grok: The Grok pattern to test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#grok DataNewrelicTestGrokPattern#grok}
-        :param log_lines: The log lines to test the Grok pattern against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#log_lines DataNewrelicTestGrokPattern#log_lines}
-        :param account_id: The account id associated with the test grok. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#account_id DataNewrelicTestGrokPattern#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#id DataNewrelicTestGrokPattern#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param grok: The Grok pattern to test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#grok DataNewrelicTestGrokPattern#grok}
+        :param log_lines: The log lines to test the Grok pattern against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#log_lines DataNewrelicTestGrokPattern#log_lines}
+        :param account_id: The account id associated with the test grok. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#account_id DataNewrelicTestGrokPattern#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#id DataNewrelicTestGrokPattern#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataNewrelicTestGrokPattern(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicTestGrokPattern to import.
-        :param import_from_id: The id of the existing DataNewrelicTestGrokPattern that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicTestGrokPattern that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicTestGrokPattern to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class DataNewrelicTestGrokPatternConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param grok: The Grok pattern to test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#grok DataNewrelicTestGrokPattern#grok}
-        :param log_lines: The log lines to test the Grok pattern against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#log_lines DataNewrelicTestGrokPattern#log_lines}
-        :param account_id: The account id associated with the test grok. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#account_id DataNewrelicTestGrokPattern#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#id DataNewrelicTestGrokPattern#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param grok: The Grok pattern to test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#grok DataNewrelicTestGrokPattern#grok}
+        :param log_lines: The log lines to test the Grok pattern against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#log_lines DataNewrelicTestGrokPattern#log_lines}
+        :param account_id: The account id associated with the test grok. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#account_id DataNewrelicTestGrokPattern#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#id DataNewrelicTestGrokPattern#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class DataNewrelicTestGrokPatternConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def grok(self) -> builtins.str:
         '''The Grok pattern to test.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#grok DataNewrelicTestGrokPattern#grok}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#grok DataNewrelicTestGrokPattern#grok}
         '''
         result = self._values.get("grok")
         assert result is not None, "Required property 'grok' is missing"
@@ -380,7 +380,7 @@ class DataNewrelicTestGrokPatternConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_lines(self) -> typing.List[builtins.str]:
         '''The log lines to test the Grok pattern against.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#log_lines DataNewrelicTestGrokPattern#log_lines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#log_lines DataNewrelicTestGrokPattern#log_lines}
         '''
         result = self._values.get("log_lines")
         assert result is not None, "Required property 'log_lines' is missing"
@@ -390,14 +390,14 @@ class DataNewrelicTestGrokPatternConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id associated with the test grok.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#account_id DataNewrelicTestGrokPattern#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#account_id DataNewrelicTestGrokPattern#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/test_grok_pattern#id DataNewrelicTestGrokPattern#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/test_grok_pattern#id DataNewrelicTestGrokPattern#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

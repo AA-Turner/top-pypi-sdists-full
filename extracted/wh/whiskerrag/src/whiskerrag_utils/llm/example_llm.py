@@ -3,7 +3,6 @@ from typing import Any, AsyncIterator, Dict, List, Union
 from openai import BaseModel
 
 from whiskerrag_types.interface.llm_interface import BaseLLM, ContentType
-from whiskerrag_types.model.knowledge import Knowledge
 from whiskerrag_utils.registry import RegisterTypeEnum, register
 
 
@@ -19,8 +18,7 @@ class ExampleResponse(BaseModel):
 class ExampleLLM(BaseLLM[ExampleResponse]):
     """示例LLM实现，用于演示注册系统"""
 
-    def __init__(self, knowledge: Knowledge, model_name: str = "example-llm"):
-        super().__init__(knowledge)
+    def __init__(self, model_name: str = "example-llm"):
         self.model_name = model_name
 
     async def chat(
@@ -67,29 +65,7 @@ class ExampleLLM(BaseLLM[ExampleResponse]):
     async def sync_health_check(cls) -> bool:
         """健康检查"""
         try:
-            from whiskerrag_types.model.knowledge import Knowledge, KnowledgeTypeEnum
-            from whiskerrag_types.model.knowledge_source import (
-                KnowledgeSourceEnum,
-                TextSourceConfig,
-            )
-            from whiskerrag_types.model.splitter import TextSplitConfig
-
-            test_knowledge = Knowledge(
-                space_id="test-space",
-                tenant_id="test-tenant",
-                knowledge_name="测试知识",
-                knowledge_type=KnowledgeTypeEnum.TEXT,
-                source_type=KnowledgeSourceEnum.USER_INPUT_TEXT,
-                source_config=TextSourceConfig(text="test"),
-                split_config=TextSplitConfig(
-                    type="text",
-                    separators=["\n\n", "\n", " "],
-                    is_separator_regex=False,
-                    keep_separator=False,
-                ),
-            )
-
-            instance = cls(test_knowledge)
+            instance = cls()
             test_response = await instance.chat("test")
             return isinstance(test_response, ExampleResponse)
         except Exception as e:

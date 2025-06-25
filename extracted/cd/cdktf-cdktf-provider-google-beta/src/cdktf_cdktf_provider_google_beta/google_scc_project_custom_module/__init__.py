@@ -1,7 +1,7 @@
 r'''
 # `google_scc_project_custom_module`
 
-Refer to the Terraform Registry for docs: [`google_scc_project_custom_module`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module).
+Refer to the Terraform Registry for docs: [`google_scc_project_custom_module`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSccProjectCustomModule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSccProjectCustomModule.GoogleSccProjectCustomModule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module google_scc_project_custom_module}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module google_scc_project_custom_module}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleSccProjectCustomModule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module google_scc_project_custom_module} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module google_scc_project_custom_module} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#custom_config GoogleSccProjectCustomModule#custom_config}
-        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#display_name GoogleSccProjectCustomModule#display_name}
-        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#enablement_state GoogleSccProjectCustomModule#enablement_state}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#id GoogleSccProjectCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#project GoogleSccProjectCustomModule#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#timeouts GoogleSccProjectCustomModule#timeouts}
+        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#custom_config GoogleSccProjectCustomModule#custom_config}
+        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#display_name GoogleSccProjectCustomModule#display_name}
+        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#enablement_state GoogleSccProjectCustomModule#enablement_state}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#id GoogleSccProjectCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#project GoogleSccProjectCustomModule#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#timeouts GoogleSccProjectCustomModule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleSccProjectCustomModule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSccProjectCustomModule to import.
-        :param import_from_id: The id of the existing GoogleSccProjectCustomModule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSccProjectCustomModule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSccProjectCustomModule to import is found.
         '''
         if __debug__:
@@ -141,12 +141,12 @@ class GoogleSccProjectCustomModule(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#predicate GoogleSccProjectCustomModule#predicate}
-        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#recommendation GoogleSccProjectCustomModule#recommendation}
-        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#resource_selector GoogleSccProjectCustomModule#resource_selector}
-        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#severity GoogleSccProjectCustomModule#severity}
-        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#custom_output GoogleSccProjectCustomModule#custom_output}
-        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#predicate GoogleSccProjectCustomModule#predicate}
+        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#recommendation GoogleSccProjectCustomModule#recommendation}
+        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#resource_selector GoogleSccProjectCustomModule#resource_selector}
+        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#severity GoogleSccProjectCustomModule#severity}
+        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#custom_output GoogleSccProjectCustomModule#custom_output}
+        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
         '''
         value = GoogleSccProjectCustomModuleCustomConfig(
             predicate=predicate,
@@ -168,9 +168,9 @@ class GoogleSccProjectCustomModule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#create GoogleSccProjectCustomModule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#delete GoogleSccProjectCustomModule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#update GoogleSccProjectCustomModule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#create GoogleSccProjectCustomModule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#delete GoogleSccProjectCustomModule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#update GoogleSccProjectCustomModule#update}.
         '''
         value = GoogleSccProjectCustomModuleTimeouts(
             create=create, delete=delete, update=update
@@ -363,12 +363,12 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#custom_config GoogleSccProjectCustomModule#custom_config}
-        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#display_name GoogleSccProjectCustomModule#display_name}
-        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#enablement_state GoogleSccProjectCustomModule#enablement_state}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#id GoogleSccProjectCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#project GoogleSccProjectCustomModule#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#timeouts GoogleSccProjectCustomModule#timeouts}
+        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#custom_config GoogleSccProjectCustomModule#custom_config}
+        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#display_name GoogleSccProjectCustomModule#display_name}
+        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#enablement_state GoogleSccProjectCustomModule#enablement_state}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#id GoogleSccProjectCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#project GoogleSccProjectCustomModule#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#timeouts GoogleSccProjectCustomModule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -485,7 +485,7 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def custom_config(self) -> "GoogleSccProjectCustomModuleCustomConfig":
         '''custom_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#custom_config GoogleSccProjectCustomModule#custom_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#custom_config GoogleSccProjectCustomModule#custom_config}
         '''
         result = self._values.get("custom_config")
         assert result is not None, "Required property 'custom_config' is missing"
@@ -501,7 +501,7 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         128 characters, start with a lowercase letter, and contain alphanumeric
         characters or underscores only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#display_name GoogleSccProjectCustomModule#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#display_name GoogleSccProjectCustomModule#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -511,7 +511,7 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def enablement_state(self) -> builtins.str:
         '''The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#enablement_state GoogleSccProjectCustomModule#enablement_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#enablement_state GoogleSccProjectCustomModule#enablement_state}
         '''
         result = self._values.get("enablement_state")
         assert result is not None, "Required property 'enablement_state' is missing"
@@ -519,7 +519,7 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#id GoogleSccProjectCustomModule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#id GoogleSccProjectCustomModule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -529,7 +529,7 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#project GoogleSccProjectCustomModule#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#project GoogleSccProjectCustomModule#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -537,7 +537,7 @@ class GoogleSccProjectCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["GoogleSccProjectCustomModuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#timeouts GoogleSccProjectCustomModule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#timeouts GoogleSccProjectCustomModule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSccProjectCustomModuleTimeouts"], result)
@@ -578,12 +578,12 @@ class GoogleSccProjectCustomModuleCustomConfig:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#predicate GoogleSccProjectCustomModule#predicate}
-        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#recommendation GoogleSccProjectCustomModule#recommendation}
-        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#resource_selector GoogleSccProjectCustomModule#resource_selector}
-        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#severity GoogleSccProjectCustomModule#severity}
-        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#custom_output GoogleSccProjectCustomModule#custom_output}
-        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#predicate GoogleSccProjectCustomModule#predicate}
+        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#recommendation GoogleSccProjectCustomModule#recommendation}
+        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#resource_selector GoogleSccProjectCustomModule#resource_selector}
+        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#severity GoogleSccProjectCustomModule#severity}
+        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#custom_output GoogleSccProjectCustomModule#custom_output}
+        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
         '''
         if isinstance(predicate, dict):
             predicate = GoogleSccProjectCustomModuleCustomConfigPredicate(**predicate)
@@ -614,7 +614,7 @@ class GoogleSccProjectCustomModuleCustomConfig:
     def predicate(self) -> "GoogleSccProjectCustomModuleCustomConfigPredicate":
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#predicate GoogleSccProjectCustomModule#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#predicate GoogleSccProjectCustomModule#predicate}
         '''
         result = self._values.get("predicate")
         assert result is not None, "Required property 'predicate' is missing"
@@ -627,7 +627,7 @@ class GoogleSccProjectCustomModuleCustomConfig:
         This explanation is returned with each finding generated by
         this module in the nextSteps property of the finding JSON.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#recommendation GoogleSccProjectCustomModule#recommendation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#recommendation GoogleSccProjectCustomModule#recommendation}
         '''
         result = self._values.get("recommendation")
         assert result is not None, "Required property 'recommendation' is missing"
@@ -639,7 +639,7 @@ class GoogleSccProjectCustomModuleCustomConfig:
     ) -> "GoogleSccProjectCustomModuleCustomConfigResourceSelector":
         '''resource_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#resource_selector GoogleSccProjectCustomModule#resource_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#resource_selector GoogleSccProjectCustomModule#resource_selector}
         '''
         result = self._values.get("resource_selector")
         assert result is not None, "Required property 'resource_selector' is missing"
@@ -649,7 +649,7 @@ class GoogleSccProjectCustomModuleCustomConfig:
     def severity(self) -> builtins.str:
         '''The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#severity GoogleSccProjectCustomModule#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#severity GoogleSccProjectCustomModule#severity}
         '''
         result = self._values.get("severity")
         assert result is not None, "Required property 'severity' is missing"
@@ -661,7 +661,7 @@ class GoogleSccProjectCustomModuleCustomConfig:
     ) -> typing.Optional["GoogleSccProjectCustomModuleCustomConfigCustomOutput"]:
         '''custom_output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#custom_output GoogleSccProjectCustomModule#custom_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#custom_output GoogleSccProjectCustomModule#custom_output}
         '''
         result = self._values.get("custom_output")
         return typing.cast(typing.Optional["GoogleSccProjectCustomModuleCustomConfigCustomOutput"], result)
@@ -673,7 +673,7 @@ class GoogleSccProjectCustomModuleCustomConfig:
         This explanation is returned with each finding instance to
         help investigators understand the detected issue. The text must be enclosed in quotation marks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -702,7 +702,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutput:
         properties: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#properties GoogleSccProjectCustomModule#properties}
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#properties GoogleSccProjectCustomModule#properties}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6519fe30af34a470fd86bdec7bc76bf89c4a6edbcb531d07f4234c07cc1fe6a3)
@@ -717,7 +717,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutput:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties"]]]:
         '''properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#properties GoogleSccProjectCustomModule#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#properties GoogleSccProjectCustomModule#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties"]]], result)
@@ -816,8 +816,8 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties:
         value_expression: typing.Optional[typing.Union["GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpression", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Name of the property for the custom output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#name GoogleSccProjectCustomModule#name}
-        :param value_expression: value_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#value_expression GoogleSccProjectCustomModule#value_expression}
+        :param name: Name of the property for the custom output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#name GoogleSccProjectCustomModule#name}
+        :param value_expression: value_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#value_expression GoogleSccProjectCustomModule#value_expression}
         '''
         if isinstance(value_expression, dict):
             value_expression = GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpression(**value_expression)
@@ -835,7 +835,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the property for the custom output.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#name GoogleSccProjectCustomModule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#name GoogleSccProjectCustomModule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -846,7 +846,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties:
     ) -> typing.Optional["GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpression"]:
         '''value_expression block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#value_expression GoogleSccProjectCustomModule#value_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#value_expression GoogleSccProjectCustomModule#value_expression}
         '''
         result = self._values.get("value_expression")
         return typing.cast(typing.Optional["GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpression"], result)
@@ -992,10 +992,10 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesOutputRefere
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
         '''
         value = GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpression(
             expression=expression,
@@ -1083,10 +1083,10 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpress
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09b29de9c74e8fa4af41450ff4b75f9d6e5cdb623bb6513aad633380157e77d1)
@@ -1108,7 +1108,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpress
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1121,7 +1121,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpress
         This is a longer text which describes the
         expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1130,7 +1130,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpress
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1139,7 +1139,7 @@ class GoogleSccProjectCustomModuleCustomConfigCustomOutputPropertiesValueExpress
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1301,7 +1301,7 @@ class GoogleSccProjectCustomModuleCustomConfigOutputReference(
         properties: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleSccProjectCustomModuleCustomConfigCustomOutputProperties, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#properties GoogleSccProjectCustomModule#properties}
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#properties GoogleSccProjectCustomModule#properties}
         '''
         value = GoogleSccProjectCustomModuleCustomConfigCustomOutput(
             properties=properties
@@ -1319,10 +1319,10 @@ class GoogleSccProjectCustomModuleCustomConfigOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
         '''
         value = GoogleSccProjectCustomModuleCustomConfigPredicate(
             expression=expression,
@@ -1340,7 +1340,7 @@ class GoogleSccProjectCustomModuleCustomConfigOutputReference(
         resource_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#resource_types GoogleSccProjectCustomModule#resource_types}
+        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#resource_types GoogleSccProjectCustomModule#resource_types}
         '''
         value = GoogleSccProjectCustomModuleCustomConfigResourceSelector(
             resource_types=resource_types
@@ -1487,10 +1487,10 @@ class GoogleSccProjectCustomModuleCustomConfigPredicate:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae470717307e34c08d211ec3875c8b74aea794aae3d16ac9015b2ba8eecfee8b)
@@ -1512,7 +1512,7 @@ class GoogleSccProjectCustomModuleCustomConfigPredicate:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#expression GoogleSccProjectCustomModule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1525,7 +1525,7 @@ class GoogleSccProjectCustomModuleCustomConfigPredicate:
         This is a longer text which describes the
         expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#description GoogleSccProjectCustomModule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1534,7 +1534,7 @@ class GoogleSccProjectCustomModuleCustomConfigPredicate:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#location GoogleSccProjectCustomModule#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1543,7 +1543,7 @@ class GoogleSccProjectCustomModuleCustomConfigPredicate:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#title GoogleSccProjectCustomModule#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1686,7 +1686,7 @@ class GoogleSccProjectCustomModuleCustomConfigPredicateOutputReference(
 class GoogleSccProjectCustomModuleCustomConfigResourceSelector:
     def __init__(self, *, resource_types: typing.Sequence[builtins.str]) -> None:
         '''
-        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#resource_types GoogleSccProjectCustomModule#resource_types}
+        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#resource_types GoogleSccProjectCustomModule#resource_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a76f596834cc5dd3b209e40a3297a8c66f9074159d83622e7c9ab6aeed74a04)
@@ -1699,7 +1699,7 @@ class GoogleSccProjectCustomModuleCustomConfigResourceSelector:
     def resource_types(self) -> typing.List[builtins.str]:
         '''The resource types to run the detector on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#resource_types GoogleSccProjectCustomModule#resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#resource_types GoogleSccProjectCustomModule#resource_types}
         '''
         result = self._values.get("resource_types")
         assert result is not None, "Required property 'resource_types' is missing"
@@ -1786,9 +1786,9 @@ class GoogleSccProjectCustomModuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#create GoogleSccProjectCustomModule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#delete GoogleSccProjectCustomModule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#update GoogleSccProjectCustomModule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#create GoogleSccProjectCustomModule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#delete GoogleSccProjectCustomModule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#update GoogleSccProjectCustomModule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e9f840ae5e31b1a670252e8a32a293f79869a18479d3a6383d23957f5caa599)
@@ -1805,19 +1805,19 @@ class GoogleSccProjectCustomModuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#create GoogleSccProjectCustomModule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#create GoogleSccProjectCustomModule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#delete GoogleSccProjectCustomModule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#delete GoogleSccProjectCustomModule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_scc_project_custom_module#update GoogleSccProjectCustomModule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_project_custom_module#update GoogleSccProjectCustomModule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

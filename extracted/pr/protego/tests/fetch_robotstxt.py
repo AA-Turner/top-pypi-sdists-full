@@ -2,16 +2,26 @@
 
 Usage
 -----
->>> python fetch_robotstxt.py -l top-10000-websites.txt -d test_data
+$ python fetch_robotstxt.py -l top-10000-websites.txt -d test_data
 """
 
+from __future__ import annotations
+
 import argparse
-import os
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 import scrapy
 from scrapy.crawler import CrawlerProcess
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from scrapy.http import Response
+    from twisted.python.failure import Failure
+
 
 parser = argparse.ArgumentParser(description="Download robots.txt of given websites.")
 parser.add_argument(
@@ -20,6 +30,7 @@ parser.add_argument(
     action="append",
     dest="websites",
     help="Adds to the list of websites.",
+    type=Path,
 )
 parser.add_argument(
     "-d",
@@ -27,6 +38,7 @@ parser.add_argument(
     action="store",
     dest="directory",
     help="Directory to save robots.txt files.",
+    type=Path,
 )
 args = parser.parse_args()
 
@@ -38,27 +50,26 @@ if not args.directory or not args.websites:
 class RobotstxtSpider(scrapy.Spider):
     name = "robotstxt_spider"
 
-    def start_requests(self):
+    def start_requests(self) -> Iterable[scrapy.Request]:
+        w: Path
         for w in args.websites:
-            if os.path.isfile(w):
-                with open(w, "r") as f:
+            if w.is_file():
+                with w.open() as f:
                     for domain in f:
-                        domain = domain.strip()
                         yield scrapy.Request(
-                            url="https://{}/robots.txt".format(domain),
+                            url=f"https://{domain.strip()}/robots.txt",
                             callback=self.parse,
                             errback=self.err_cb,
                         )
 
-    def parse(self, response):
+    def parse(self, response: Response, **kwargs: Any) -> Any:
         filename = urlparse(response.url).netloc
-        if not os.path.exists(args.directory):
-            os.mkdir(args.directory)
-        with open(os.path.join(args.directory, filename), "wb") as f:
-            f.write(response.body)
+        if not args.directory.exists():
+            args.directory.mkdir()
+        (args.directory / filename).write_bytes(response.body)
 
-    def err_cb(self, failure):
-        request = failure.request
+    def err_cb(self, failure: Failure) -> Iterable[scrapy.Request]:
+        request = failure.request  # type: ignore[attr-defined]
         parts = urlparse(request.url)
         parts = ParseResult(
             "http", parts.netloc, parts.path, parts.params, parts.query, parts.fragment

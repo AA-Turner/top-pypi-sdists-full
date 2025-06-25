@@ -16761,6 +16761,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
         else:
             try:
                 if not is_circle and PACK_TYPE == 'sticker':
+                    print(f"auuu {input_file=}")
                     cap = cv2.VideoCapture(input_file)
                     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -16769,18 +16770,35 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                     # clip = mp.VideoFileClip(input_file)
                     # width, height = clip.size
 
+                    if width % 2 != 0: width -= 1
+                    if height % 2 != 0: height -= 1
+
                     if width != height and (width > side_sz or height > side_sz):
                         if width > height:
-                            pixels_str = f"{side_sz}x{int(side_sz * (height / width))}"
+                            h2 = int(side_sz * (height / width))
+                            if h2 % 2 != 0: h2 -= 1
+                            pixels_str = f"{side_sz}x{h2}"
                         else:
-                            pixels_str = f"{int(side_sz * (width / height))}x{side_sz}"
+                            w2 = int(side_sz * (width / height))
+                            if w2 % 2 != 0: w2 -= 1
+                            pixels_str = f"{w2}x{side_sz}"
             except Exception as e:
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
 
             try:
+                # if is_circle:
+                # ffmpeg_command = [
+                #     'ffmpeg', '-i', input_file, '-filter_complex_threads', '2',
+                #     '-r', str(fps),
+                #     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
+                #     '-pix_fmt', 'yuv420p',
+                #     '-s', pixels_str, '-t', '3', '-an', '-y', file_mp4
+                # ]
+                # else:
                 ffmpeg_command = ['ffmpeg', '-i', input_file, '-filter_complex_threads', '2', '-r', str(fps), '-b:v',
-                                  '40k', '-crf', '30', '-s', pixels_str, '-t', '3', '-an', '-y', file_mp4]
+                              '40k', '-crf', '30', '-s', pixels_str, '-t', '3', '-an', '-y', file_mp4]
+                print(f"{ffmpeg_command=}")
                 p = await asyncio.create_subprocess_exec(*ffmpeg_command)
                 await p.communicate()
 
@@ -16799,7 +16817,15 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                 # rounded = 'split[s0][s1];[s0]pad=width=512:height=512:color=black[s2];[s1]scale=512:512:force_original_aspect_ratio=decrease[s3];[s2][s3]overlay=W-w-1:H-h-1,drawbox=0:0:iw:ih:color=black@0.0[rounded]'
                 print(f'here 2, {i_input_data=}, {os.path.exists(input_file)=}')
 
-        ffmpeg_command = ['ffmpeg', '-i', i_input_data, '-filter_complex', rounded, '-filter_complex_threads', '2',
+        if is_circle:
+            ffmpeg_command = [
+                'ffmpeg', '-i', i_input_data, '-filter_complex', rounded, '-filter_complex_threads', '2',
+                '-c:v', 'libvpx-vp9', '-r', str(fps),
+                '-b:v', '0', '-crf', '20', '-quality', 'good', '-cpu-used', '1',
+                '-s', pixels_str, '-pix_fmt', 'yuva420p', '-t', '3', '-an', '-y', file_webm
+            ]
+        else:
+            ffmpeg_command = ['ffmpeg', '-i', i_input_data, '-filter_complex', rounded, '-filter_complex_threads', '2',
                           '-c:v', 'libvpx-vp9', '-r', str(fps), '-b:v', bitrate, '-crf', '30', '-s', pixels_str,
                           '-pix_fmt', 'yuva420p', '-t', '3', '-an', '-y', file_webm]
         print(f"{ffmpeg_command=}")

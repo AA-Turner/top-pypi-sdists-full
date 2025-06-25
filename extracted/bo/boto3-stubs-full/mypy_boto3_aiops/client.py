@@ -175,8 +175,7 @@ class AIOpsClient(BaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceOutputTypeDef:
         """
-        Displays the tags associated with a Amazon Q Developer operational
-        investigations resource.
+        Displays the tags associated with a CloudWatch investigations resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/aiops/client/list_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_aiops/client/#list_tags_for_resource)

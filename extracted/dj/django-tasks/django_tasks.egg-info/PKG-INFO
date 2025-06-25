@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tasks
-Version: 0.7.0
+Version: 0.8.0
 Summary: An implementation and backport of background workers and tasks in Django
 Author: Jake Howard
 License: Copyright (c) Jake Howard and individual contributors.
@@ -157,6 +157,26 @@ modified_task = calculate_meaning_of_life.using(priority=10)
 
 In addition to the above attributes, `run_after` can be passed to specify a specific time the task should run.
 
+#### Task context
+
+Sometimes the running task may need to know context about how it was enqueued. To receive the task context as an argument to your task function, pass `takes_context` to the decorator and ensure the task takes a `context` as the first argument.
+
+```python
+from django_tasks import task, TaskContext
+
+
+@task(takes_context=True)
+def calculate_meaning_of_life(context: TaskContext) -> int:
+    return 42
+```
+
+The task context has the following attributes:
+
+- `task_result`: The running task result
+- `attempt`: The current attempt number for the task
+
+This API will be extended with additional features in future.
+
 ### Enqueueing tasks
 
 To execute a task, call the `enqueue` method on it:
@@ -276,24 +296,32 @@ assert result.return_value == 42
 If a result has been updated in the background, you can call `refresh` on it to update its values. Results obtained using `get_result` will always be up-to-date.
 
 ```python
-assert result.status == ResultStatus.NEW
+assert result.status == ResultStatus.READY
 result.refresh()
 assert result.status == ResultStatus.SUCCEEDED
 ```
 
-#### Exceptions
+#### Errors
 
-If a task raised an exception, its `.exception_class` will be the exception class raised:
+If a task raised an exception, its `.errors` contains information about the error:
 
 ```python
-assert result.exception_class == ValueError
+assert result.errors[0].exception_class == ValueError
 ```
 
 Note that this is just the type of exception, and contains no other values. The traceback information is reduced to a string that you can print to help debugging:
 
 ```python
-assert isinstance(result.traceback, str)
+assert isinstance(result.errors[0].traceback, str)
 ```
+
+Note that currently, whilst `.errors` is a list, it will only ever contain a single element.
+
+#### Attempts
+
+The number of times a task has been run is stored as the `.attempts` attribute. This will currently only ever be 0 or 1.
+
+The date of the last attempt is stored as `.last_attempted_at`.
 
 ### Backend introspecting
 
@@ -319,6 +347,7 @@ Whilst signals are available, they may not be the most maintainable approach.
 
 - `django_tasks.signals.task_enqueued`: Called when a task is enqueued. The sender is the backend class. Also called with the enqueued `task_result`.
 - `django_tasks.signals.task_finished`: Called when a task finishes (`SUCCEEDED` or `FAILED`). The sender is the backend class. Also called with the finished `task_result`.
+- `django_tasks.signals.task_started`: Called immediately before a task starts executing. The sender is the backend class. Also called with the started `task_result`.
 
 ## RQ
 

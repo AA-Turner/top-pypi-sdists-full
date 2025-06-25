@@ -433,6 +433,11 @@ class FeatureResult(BaseModel):
     meta: Optional[FeatureResolutionMeta] = None
     """Detailed information about how this feature was computed."""
 
+    metadata_val: Optional[int] = None
+    """
+    Value of the internal metadata that encodes information about how this feature was computed.
+    """
+
 
 class ExchangeCredentialsRequest(BaseModel):
     client_id: str

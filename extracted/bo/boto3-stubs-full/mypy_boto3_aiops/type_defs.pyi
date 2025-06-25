@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_aiops.type_defs import EncryptionConfigurationTypeDef
+    from mypy_boto3_aiops.type_defs import CrossAccountConfigurationTypeDef
 
-    data: EncryptionConfigurationTypeDef = ...
+    data: CrossAccountConfigurationTypeDef = ...
     ```
 """
 
@@ -35,6 +35,7 @@ else:
 __all__ = (
     "CreateInvestigationGroupInputTypeDef",
     "CreateInvestigationGroupOutputTypeDef",
+    "CrossAccountConfigurationTypeDef",
     "DeleteInvestigationGroupPolicyRequestTypeDef",
     "DeleteInvestigationGroupRequestTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -57,6 +58,9 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateInvestigationGroupRequestTypeDef",
 )
+
+class CrossAccountConfigurationTypeDef(TypedDict):
+    sourceRoleArn: NotRequired[str]
 
 EncryptionConfigurationTypeDef = TypedDict(
     "EncryptionConfigurationTypeDef",
@@ -122,6 +126,7 @@ class CreateInvestigationGroupInputTypeDef(TypedDict):
     tagKeyBoundaries: NotRequired[Sequence[str]]
     chatbotNotificationChannel: NotRequired[Mapping[str, Sequence[str]]]
     isCloudTrailEventHistoryEnabled: NotRequired[bool]
+    crossAccountConfigurations: NotRequired[Sequence[CrossAccountConfigurationTypeDef]]
 
 class UpdateInvestigationGroupRequestTypeDef(TypedDict):
     identifier: str
@@ -130,6 +135,7 @@ class UpdateInvestigationGroupRequestTypeDef(TypedDict):
     tagKeyBoundaries: NotRequired[Sequence[str]]
     chatbotNotificationChannel: NotRequired[Mapping[str, Sequence[str]]]
     isCloudTrailEventHistoryEnabled: NotRequired[bool]
+    crossAccountConfigurations: NotRequired[Sequence[CrossAccountConfigurationTypeDef]]
 
 class CreateInvestigationGroupOutputTypeDef(TypedDict):
     arn: str
@@ -156,6 +162,7 @@ class GetInvestigationGroupResponseTypeDef(TypedDict):
     chatbotNotificationChannel: Dict[str, List[str]]
     tagKeyBoundaries: List[str]
     isCloudTrailEventHistoryEnabled: bool
+    crossAccountConfigurations: List[CrossAccountConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceOutputTypeDef(TypedDict):

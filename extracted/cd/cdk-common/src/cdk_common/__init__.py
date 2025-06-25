@@ -5552,6 +5552,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSPCSCOMPUTE_NODE_POLICY = "AWSPCSCOMPUTE_NODE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

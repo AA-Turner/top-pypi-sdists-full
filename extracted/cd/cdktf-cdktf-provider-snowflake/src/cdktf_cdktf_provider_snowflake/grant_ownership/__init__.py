@@ -1,7 +1,7 @@
 r'''
 # `snowflake_grant_ownership`
 
-Refer to the Terraform Registry for docs: [`snowflake_grant_ownership`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership).
+Refer to the Terraform Registry for docs: [`snowflake_grant_ownership`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GrantOwnership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.grantOwnership.GrantOwnership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership snowflake_grant_ownership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership snowflake_grant_ownership}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GrantOwnership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership snowflake_grant_ownership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership snowflake_grant_ownership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param on: on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#on GrantOwnership#on}
-        :param account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#account_role_name GrantOwnership#account_role_name}
-        :param database_role_name: The fully qualified name of the database role to which privileges will be granted. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#database_role_name GrantOwnership#database_role_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#id GrantOwnership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param outbound_privileges: Specifies whether to remove or transfer all existing outbound privileges on the object when ownership is transferred to a new role. Available options are: REVOKE for removing existing privileges and COPY to transfer them with ownership. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#optional-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#outbound_privileges GrantOwnership#outbound_privileges}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#timeouts GrantOwnership#timeouts}
+        :param on: on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#on GrantOwnership#on}
+        :param account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#account_role_name GrantOwnership#account_role_name}
+        :param database_role_name: The fully qualified name of the database role to which privileges will be granted. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#database_role_name GrantOwnership#database_role_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#id GrantOwnership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param outbound_privileges: Specifies whether to remove or transfer all existing outbound privileges on the object when ownership is transferred to a new role. Available options are: REVOKE for removing existing privileges and COPY to transfer them with ownership. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#optional-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#outbound_privileges GrantOwnership#outbound_privileges}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#timeouts GrantOwnership#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GrantOwnership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GrantOwnership to import.
-        :param import_from_id: The id of the existing GrantOwnership that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GrantOwnership that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GrantOwnership to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class GrantOwnership(
         object_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param all: all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#all GrantOwnership#all}
-        :param future: future block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#future GrantOwnership#future}
-        :param object_name: Specifies the identifier for the object on which you are transferring ownership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_name GrantOwnership#object_name}
-        :param object_type: Specifies the type of object on which you are transferring ownership. Available values are: AGGREGATION POLICY | ALERT | AUTHENTICATION POLICY | COMPUTE POOL | DATA METRIC FUNCTION | DATABASE | DATABASE ROLE | DYNAMIC TABLE | EVENT TABLE | EXTERNAL TABLE | EXTERNAL VOLUME | FAILOVER GROUP | FILE FORMAT | FUNCTION | GIT REPOSITORY | HYBRID TABLE | ICEBERG TABLE | IMAGE REPOSITORY | INTEGRATION | MATERIALIZED VIEW | NETWORK POLICY | NETWORK RULE | PACKAGES POLICY | PIPE | PROCEDURE | MASKING POLICY | PASSWORD POLICY | PROJECTION POLICY | REPLICATION GROUP | RESOURCE MONITOR | ROLE | ROW ACCESS POLICY | SCHEMA | SESSION POLICY | SECRET | SEQUENCE | STAGE | STREAM | TABLE | TAG | TASK | USER | VIEW | WAREHOUSE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type GrantOwnership#object_type}
+        :param all: all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#all GrantOwnership#all}
+        :param future: future block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#future GrantOwnership#future}
+        :param object_name: Specifies the identifier for the object on which you are transferring ownership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_name GrantOwnership#object_name}
+        :param object_type: Specifies the type of object on which you are transferring ownership. Available values are: AGGREGATION POLICY | ALERT | AUTHENTICATION POLICY | COMPUTE POOL | DATA METRIC FUNCTION | DATABASE | DATABASE ROLE | DYNAMIC TABLE | EVENT TABLE | EXTERNAL TABLE | EXTERNAL VOLUME | FAILOVER GROUP | FILE FORMAT | FUNCTION | GIT REPOSITORY | HYBRID TABLE | ICEBERG TABLE | IMAGE REPOSITORY | INTEGRATION | MATERIALIZED VIEW | NETWORK POLICY | NETWORK RULE | PACKAGES POLICY | PIPE | PROCEDURE | MASKING POLICY | PASSWORD POLICY | PROJECTION POLICY | REPLICATION GROUP | RESOURCE MONITOR | ROLE | ROW ACCESS POLICY | SCHEMA | SESSION POLICY | SECRET | SEQUENCE | STAGE | STREAM | TABLE | TAG | TASK | USER | VIEW | WAREHOUSE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type GrantOwnership#object_type}
         '''
         value = GrantOwnershipOn(
             all=all, future=future, object_name=object_name, object_type=object_type
@@ -160,10 +160,10 @@ class GrantOwnership(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#create GrantOwnership#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#delete GrantOwnership#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#read GrantOwnership#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#update GrantOwnership#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#create GrantOwnership#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#delete GrantOwnership#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#read GrantOwnership#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#update GrantOwnership#update}.
         '''
         value = GrantOwnershipTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -340,12 +340,12 @@ class GrantOwnershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param on: on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#on GrantOwnership#on}
-        :param account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#account_role_name GrantOwnership#account_role_name}
-        :param database_role_name: The fully qualified name of the database role to which privileges will be granted. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#database_role_name GrantOwnership#database_role_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#id GrantOwnership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param outbound_privileges: Specifies whether to remove or transfer all existing outbound privileges on the object when ownership is transferred to a new role. Available options are: REVOKE for removing existing privileges and COPY to transfer them with ownership. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#optional-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#outbound_privileges GrantOwnership#outbound_privileges}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#timeouts GrantOwnership#timeouts}
+        :param on: on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#on GrantOwnership#on}
+        :param account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#account_role_name GrantOwnership#account_role_name}
+        :param database_role_name: The fully qualified name of the database role to which privileges will be granted. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#database_role_name GrantOwnership#database_role_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#id GrantOwnership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param outbound_privileges: Specifies whether to remove or transfer all existing outbound privileges on the object when ownership is transferred to a new role. Available options are: REVOKE for removing existing privileges and COPY to transfer them with ownership. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#optional-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#outbound_privileges GrantOwnership#outbound_privileges}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#timeouts GrantOwnership#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -464,7 +464,7 @@ class GrantOwnershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def on(self) -> "GrantOwnershipOn":
         '''on block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#on GrantOwnership#on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#on GrantOwnership#on}
         '''
         result = self._values.get("on")
         assert result is not None, "Required property 'on' is missing"
@@ -476,7 +476,7 @@ class GrantOwnershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./account_role>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#account_role_name GrantOwnership#account_role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#account_role_name GrantOwnership#account_role_name}
         '''
         result = self._values.get("account_role_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -487,14 +487,14 @@ class GrantOwnershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./database_role>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#database_role_name GrantOwnership#database_role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#database_role_name GrantOwnership#database_role_name}
         '''
         result = self._values.get("database_role_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#id GrantOwnership#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#id GrantOwnership#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -508,7 +508,7 @@ class GrantOwnershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Available options are: REVOKE for removing existing privileges and COPY to transfer them with ownership. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#optional-parameters>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#outbound_privileges GrantOwnership#outbound_privileges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#outbound_privileges GrantOwnership#outbound_privileges}
         '''
         result = self._values.get("outbound_privileges")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -517,7 +517,7 @@ class GrantOwnershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GrantOwnershipTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#timeouts GrantOwnership#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#timeouts GrantOwnership#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GrantOwnershipTimeouts"], result)
@@ -554,10 +554,10 @@ class GrantOwnershipOn:
         object_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param all: all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#all GrantOwnership#all}
-        :param future: future block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#future GrantOwnership#future}
-        :param object_name: Specifies the identifier for the object on which you are transferring ownership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_name GrantOwnership#object_name}
-        :param object_type: Specifies the type of object on which you are transferring ownership. Available values are: AGGREGATION POLICY | ALERT | AUTHENTICATION POLICY | COMPUTE POOL | DATA METRIC FUNCTION | DATABASE | DATABASE ROLE | DYNAMIC TABLE | EVENT TABLE | EXTERNAL TABLE | EXTERNAL VOLUME | FAILOVER GROUP | FILE FORMAT | FUNCTION | GIT REPOSITORY | HYBRID TABLE | ICEBERG TABLE | IMAGE REPOSITORY | INTEGRATION | MATERIALIZED VIEW | NETWORK POLICY | NETWORK RULE | PACKAGES POLICY | PIPE | PROCEDURE | MASKING POLICY | PASSWORD POLICY | PROJECTION POLICY | REPLICATION GROUP | RESOURCE MONITOR | ROLE | ROW ACCESS POLICY | SCHEMA | SESSION POLICY | SECRET | SEQUENCE | STAGE | STREAM | TABLE | TAG | TASK | USER | VIEW | WAREHOUSE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type GrantOwnership#object_type}
+        :param all: all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#all GrantOwnership#all}
+        :param future: future block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#future GrantOwnership#future}
+        :param object_name: Specifies the identifier for the object on which you are transferring ownership. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_name GrantOwnership#object_name}
+        :param object_type: Specifies the type of object on which you are transferring ownership. Available values are: AGGREGATION POLICY | ALERT | AUTHENTICATION POLICY | COMPUTE POOL | DATA METRIC FUNCTION | DATABASE | DATABASE ROLE | DYNAMIC TABLE | EVENT TABLE | EXTERNAL TABLE | EXTERNAL VOLUME | FAILOVER GROUP | FILE FORMAT | FUNCTION | GIT REPOSITORY | HYBRID TABLE | ICEBERG TABLE | IMAGE REPOSITORY | INTEGRATION | MATERIALIZED VIEW | NETWORK POLICY | NETWORK RULE | PACKAGES POLICY | PIPE | PROCEDURE | MASKING POLICY | PASSWORD POLICY | PROJECTION POLICY | REPLICATION GROUP | RESOURCE MONITOR | ROLE | ROW ACCESS POLICY | SCHEMA | SESSION POLICY | SECRET | SEQUENCE | STAGE | STREAM | TABLE | TAG | TASK | USER | VIEW | WAREHOUSE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type GrantOwnership#object_type}
         '''
         if isinstance(all, dict):
             all = GrantOwnershipOnAll(**all)
@@ -583,7 +583,7 @@ class GrantOwnershipOn:
     def all(self) -> typing.Optional["GrantOwnershipOnAll"]:
         '''all block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#all GrantOwnership#all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#all GrantOwnership#all}
         '''
         result = self._values.get("all")
         return typing.cast(typing.Optional["GrantOwnershipOnAll"], result)
@@ -592,7 +592,7 @@ class GrantOwnershipOn:
     def future(self) -> typing.Optional["GrantOwnershipOnFuture"]:
         '''future block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#future GrantOwnership#future}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#future GrantOwnership#future}
         '''
         result = self._values.get("future")
         return typing.cast(typing.Optional["GrantOwnershipOnFuture"], result)
@@ -601,7 +601,7 @@ class GrantOwnershipOn:
     def object_name(self) -> typing.Optional[builtins.str]:
         '''Specifies the identifier for the object on which you are transferring ownership.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_name GrantOwnership#object_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_name GrantOwnership#object_name}
         '''
         result = self._values.get("object_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -612,7 +612,7 @@ class GrantOwnershipOn:
 
         Available values are: AGGREGATION POLICY | ALERT | AUTHENTICATION POLICY | COMPUTE POOL | DATA METRIC FUNCTION | DATABASE | DATABASE ROLE | DYNAMIC TABLE | EVENT TABLE | EXTERNAL TABLE | EXTERNAL VOLUME | FAILOVER GROUP | FILE FORMAT | FUNCTION | GIT REPOSITORY | HYBRID TABLE | ICEBERG TABLE | IMAGE REPOSITORY | INTEGRATION | MATERIALIZED VIEW | NETWORK POLICY | NETWORK RULE | PACKAGES POLICY | PIPE | PROCEDURE | MASKING POLICY | PASSWORD POLICY | PROJECTION POLICY | REPLICATION GROUP | RESOURCE MONITOR | ROLE | ROW ACCESS POLICY | SCHEMA | SESSION POLICY | SECRET | SEQUENCE | STAGE | STREAM | TABLE | TAG | TASK | USER | VIEW | WAREHOUSE
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type GrantOwnership#object_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type GrantOwnership#object_type}
         '''
         result = self._values.get("object_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -647,9 +647,9 @@ class GrantOwnershipOnAll:
         in_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
-        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
-        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
+        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
+        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
+        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d36ca1dab57427ba36b98fcde8887523198fdc63ac285737909cd3739c90ab5e)
@@ -670,7 +670,7 @@ class GrantOwnershipOnAll:
 
         Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
         '''
         result = self._values.get("object_type_plural")
         assert result is not None, "Required property 'object_type_plural' is missing"
@@ -680,7 +680,7 @@ class GrantOwnershipOnAll:
     def in_database(self) -> typing.Optional[builtins.str]:
         '''The fully qualified name of the database. For more information about this resource, see `docs <./database>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
         '''
         result = self._values.get("in_database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -689,7 +689,7 @@ class GrantOwnershipOnAll:
     def in_schema(self) -> typing.Optional[builtins.str]:
         '''The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
         '''
         result = self._values.get("in_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -816,9 +816,9 @@ class GrantOwnershipOnFuture:
         in_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
-        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
-        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
+        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
+        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
+        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93dc2a3d46c8de683b44434565a5523d62d97c0d4d14cea6e54cec2ffff5995c)
@@ -839,7 +839,7 @@ class GrantOwnershipOnFuture:
 
         Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
         '''
         result = self._values.get("object_type_plural")
         assert result is not None, "Required property 'object_type_plural' is missing"
@@ -849,7 +849,7 @@ class GrantOwnershipOnFuture:
     def in_database(self) -> typing.Optional[builtins.str]:
         '''The fully qualified name of the database. For more information about this resource, see `docs <./database>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
         '''
         result = self._values.get("in_database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -858,7 +858,7 @@ class GrantOwnershipOnFuture:
     def in_schema(self) -> typing.Optional[builtins.str]:
         '''The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
         '''
         result = self._values.get("in_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -996,9 +996,9 @@ class GrantOwnershipOnOutputReference(
         in_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
-        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
-        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
+        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
+        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
+        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
         '''
         value = GrantOwnershipOnAll(
             object_type_plural=object_type_plural,
@@ -1017,9 +1017,9 @@ class GrantOwnershipOnOutputReference(
         in_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
-        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
-        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
+        :param object_type_plural: Specifies the type of object in plural form on which you are transferring ownership. Available values are: AGGREGATION POLICIES | ALERTS | AUTHENTICATION POLICIES | COMPUTE POOLS | DATA METRIC FUNCTIONS | DATABASES | DATABASE ROLES | DYNAMIC TABLES | EVENT TABLES | EXTERNAL TABLES | EXTERNAL VOLUMES | FAILOVER GROUPS | FILE FORMATS | FUNCTIONS | GIT REPOSITORIES | HYBRID TABLES | ICEBERG TABLES | IMAGE REPOSITORIES | INTEGRATIONS | MATERIALIZED VIEWS | NETWORK POLICIES | NETWORK RULES | PACKAGES POLICIES | PIPES | PROCEDURES | MASKING POLICIES | PASSWORD POLICIES | PROJECTION POLICIES | REPLICATION GROUPS | RESOURCE MONITORS | ROLES | ROW ACCESS POLICIES | SCHEMAS | SESSION POLICIES | SECRETS | SEQUENCES | STAGES | STREAMS | TABLES | TAGS | TASKS | USERS | VIEWS | WAREHOUSES. For more information head over to `Snowflake documentation <https://docs.snowflake.com/en/sql-reference/sql/grant-ownership#required-parameters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#object_type_plural GrantOwnership#object_type_plural}
+        :param in_database: The fully qualified name of the database. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_database GrantOwnership#in_database}
+        :param in_schema: The fully qualified name of the schema. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#in_schema GrantOwnership#in_schema}
         '''
         value = GrantOwnershipOnFuture(
             object_type_plural=object_type_plural,
@@ -1132,10 +1132,10 @@ class GrantOwnershipTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#create GrantOwnership#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#delete GrantOwnership#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#read GrantOwnership#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#update GrantOwnership#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#create GrantOwnership#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#delete GrantOwnership#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#read GrantOwnership#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#update GrantOwnership#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dab1a448426b268afb2fcab563446b022f8d4e6cb50da29ab7f057465ac7c95e)
@@ -1155,25 +1155,25 @@ class GrantOwnershipTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#create GrantOwnership#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#create GrantOwnership#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#delete GrantOwnership#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#delete GrantOwnership#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#read GrantOwnership#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#read GrantOwnership#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_ownership#update GrantOwnership#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_ownership#update GrantOwnership#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

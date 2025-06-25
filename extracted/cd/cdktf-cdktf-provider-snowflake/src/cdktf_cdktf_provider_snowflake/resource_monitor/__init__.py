@@ -1,7 +1,7 @@
 r'''
 # `snowflake_resource_monitor`
 
-Refer to the Terraform Registry for docs: [`snowflake_resource_monitor`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor).
+Refer to the Terraform Registry for docs: [`snowflake_resource_monitor`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ResourceMonitor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.resourceMonitor.ResourceMonitor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor snowflake_resource_monitor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor snowflake_resource_monitor}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ResourceMonitor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor snowflake_resource_monitor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor snowflake_resource_monitor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Identifier for the resource monitor; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#name ResourceMonitor#name}
-        :param credit_quota: The number of credits allocated to the resource monitor per frequency interval. When total usage for all warehouses assigned to the monitor reaches this number for the current frequency interval, the resource monitor is considered to be at 100% of quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#credit_quota ResourceMonitor#credit_quota}
-        :param end_timestamp: The date and time when the resource monitor suspends the assigned warehouses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#end_timestamp ResourceMonitor#end_timestamp}
-        :param frequency: The frequency interval at which the credit usage resets to 0. Valid values are (case-insensitive): ``MONTHLY`` | ``DAILY`` | ``WEEKLY`` | ``YEARLY`` | ``NEVER``. If you set a ``frequency`` for a resource monitor, you must also set ``start_timestamp``. If you specify ``NEVER`` for the frequency, the credit usage for the warehouse does not reset. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#frequency ResourceMonitor#frequency}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#id ResourceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notify_triggers: Specifies a list of percentages of the credit quota. After reaching any of the values the users passed in the notify_users field will be notified (to receive the notification they should have notifications enabled). Values over 100 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#notify_triggers ResourceMonitor#notify_triggers}
-        :param notify_users: Specifies the list of users (their identifiers) to receive email notifications on resource monitors. For more information about this resource, see `docs <./user>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#notify_users ResourceMonitor#notify_users}
-        :param start_timestamp: The date and time when the resource monitor starts monitoring credit usage for the assigned warehouses. If you set a ``start_timestamp`` for a resource monitor, you must also set ``frequency``. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#start_timestamp ResourceMonitor#start_timestamp}
-        :param suspend_immediate_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses immediately cancel any currently running queries or statements. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#suspend_immediate_trigger ResourceMonitor#suspend_immediate_trigger}
-        :param suspend_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses while allowing currently running queries to complete will be suspended. No new queries can be executed by the warehouses until the credit quota for the resource monitor is increased. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#suspend_trigger ResourceMonitor#suspend_trigger}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#timeouts ResourceMonitor#timeouts}
+        :param name: Identifier for the resource monitor; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#name ResourceMonitor#name}
+        :param credit_quota: The number of credits allocated to the resource monitor per frequency interval. When total usage for all warehouses assigned to the monitor reaches this number for the current frequency interval, the resource monitor is considered to be at 100% of quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#credit_quota ResourceMonitor#credit_quota}
+        :param end_timestamp: The date and time when the resource monitor suspends the assigned warehouses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#end_timestamp ResourceMonitor#end_timestamp}
+        :param frequency: The frequency interval at which the credit usage resets to 0. Valid values are (case-insensitive): ``MONTHLY`` | ``DAILY`` | ``WEEKLY`` | ``YEARLY`` | ``NEVER``. If you set a ``frequency`` for a resource monitor, you must also set ``start_timestamp``. If you specify ``NEVER`` for the frequency, the credit usage for the warehouse does not reset. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#frequency ResourceMonitor#frequency}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#id ResourceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notify_triggers: Specifies a list of percentages of the credit quota. After reaching any of the values the users passed in the notify_users field will be notified (to receive the notification they should have notifications enabled). Values over 100 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#notify_triggers ResourceMonitor#notify_triggers}
+        :param notify_users: Specifies the list of users (their identifiers) to receive email notifications on resource monitors. For more information about this resource, see `docs <./user>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#notify_users ResourceMonitor#notify_users}
+        :param start_timestamp: The date and time when the resource monitor starts monitoring credit usage for the assigned warehouses. If you set a ``start_timestamp`` for a resource monitor, you must also set ``frequency``. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#start_timestamp ResourceMonitor#start_timestamp}
+        :param suspend_immediate_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses immediately cancel any currently running queries or statements. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#suspend_immediate_trigger ResourceMonitor#suspend_immediate_trigger}
+        :param suspend_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses while allowing currently running queries to complete will be suspended. No new queries can be executed by the warehouses until the credit quota for the resource monitor is increased. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#suspend_trigger ResourceMonitor#suspend_trigger}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#timeouts ResourceMonitor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ResourceMonitor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ResourceMonitor to import.
-        :param import_from_id: The id of the existing ResourceMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ResourceMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ResourceMonitor to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class ResourceMonitor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#create ResourceMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#delete ResourceMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#read ResourceMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#update ResourceMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#create ResourceMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#delete ResourceMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#read ResourceMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#update ResourceMonitor#update}.
         '''
         value = ResourceMonitorTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -466,17 +466,17 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Identifier for the resource monitor; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#name ResourceMonitor#name}
-        :param credit_quota: The number of credits allocated to the resource monitor per frequency interval. When total usage for all warehouses assigned to the monitor reaches this number for the current frequency interval, the resource monitor is considered to be at 100% of quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#credit_quota ResourceMonitor#credit_quota}
-        :param end_timestamp: The date and time when the resource monitor suspends the assigned warehouses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#end_timestamp ResourceMonitor#end_timestamp}
-        :param frequency: The frequency interval at which the credit usage resets to 0. Valid values are (case-insensitive): ``MONTHLY`` | ``DAILY`` | ``WEEKLY`` | ``YEARLY`` | ``NEVER``. If you set a ``frequency`` for a resource monitor, you must also set ``start_timestamp``. If you specify ``NEVER`` for the frequency, the credit usage for the warehouse does not reset. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#frequency ResourceMonitor#frequency}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#id ResourceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notify_triggers: Specifies a list of percentages of the credit quota. After reaching any of the values the users passed in the notify_users field will be notified (to receive the notification they should have notifications enabled). Values over 100 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#notify_triggers ResourceMonitor#notify_triggers}
-        :param notify_users: Specifies the list of users (their identifiers) to receive email notifications on resource monitors. For more information about this resource, see `docs <./user>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#notify_users ResourceMonitor#notify_users}
-        :param start_timestamp: The date and time when the resource monitor starts monitoring credit usage for the assigned warehouses. If you set a ``start_timestamp`` for a resource monitor, you must also set ``frequency``. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#start_timestamp ResourceMonitor#start_timestamp}
-        :param suspend_immediate_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses immediately cancel any currently running queries or statements. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#suspend_immediate_trigger ResourceMonitor#suspend_immediate_trigger}
-        :param suspend_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses while allowing currently running queries to complete will be suspended. No new queries can be executed by the warehouses until the credit quota for the resource monitor is increased. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#suspend_trigger ResourceMonitor#suspend_trigger}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#timeouts ResourceMonitor#timeouts}
+        :param name: Identifier for the resource monitor; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#name ResourceMonitor#name}
+        :param credit_quota: The number of credits allocated to the resource monitor per frequency interval. When total usage for all warehouses assigned to the monitor reaches this number for the current frequency interval, the resource monitor is considered to be at 100% of quota. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#credit_quota ResourceMonitor#credit_quota}
+        :param end_timestamp: The date and time when the resource monitor suspends the assigned warehouses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#end_timestamp ResourceMonitor#end_timestamp}
+        :param frequency: The frequency interval at which the credit usage resets to 0. Valid values are (case-insensitive): ``MONTHLY`` | ``DAILY`` | ``WEEKLY`` | ``YEARLY`` | ``NEVER``. If you set a ``frequency`` for a resource monitor, you must also set ``start_timestamp``. If you specify ``NEVER`` for the frequency, the credit usage for the warehouse does not reset. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#frequency ResourceMonitor#frequency}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#id ResourceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notify_triggers: Specifies a list of percentages of the credit quota. After reaching any of the values the users passed in the notify_users field will be notified (to receive the notification they should have notifications enabled). Values over 100 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#notify_triggers ResourceMonitor#notify_triggers}
+        :param notify_users: Specifies the list of users (their identifiers) to receive email notifications on resource monitors. For more information about this resource, see `docs <./user>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#notify_users ResourceMonitor#notify_users}
+        :param start_timestamp: The date and time when the resource monitor starts monitoring credit usage for the assigned warehouses. If you set a ``start_timestamp`` for a resource monitor, you must also set ``frequency``. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#start_timestamp ResourceMonitor#start_timestamp}
+        :param suspend_immediate_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses immediately cancel any currently running queries or statements. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#suspend_immediate_trigger ResourceMonitor#suspend_immediate_trigger}
+        :param suspend_trigger: Represents a numeric value specified as a percentage of the credit quota. Values over 100 are supported. After reaching this value, all assigned warehouses while allowing currently running queries to complete will be suspended. No new queries can be executed by the warehouses until the credit quota for the resource monitor is increased. In addition, this action sends a notification to all users who have enabled notifications for themselves. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#suspend_trigger ResourceMonitor#suspend_trigger}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#timeouts ResourceMonitor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -610,7 +610,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#name ResourceMonitor#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#name ResourceMonitor#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -622,7 +622,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When total usage for all warehouses assigned to the monitor reaches this number for the current frequency interval, the resource monitor is considered to be at 100% of quota.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#credit_quota ResourceMonitor#credit_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#credit_quota ResourceMonitor#credit_quota}
         '''
         result = self._values.get("credit_quota")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -631,7 +631,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_timestamp(self) -> typing.Optional[builtins.str]:
         '''The date and time when the resource monitor suspends the assigned warehouses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#end_timestamp ResourceMonitor#end_timestamp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#end_timestamp ResourceMonitor#end_timestamp}
         '''
         result = self._values.get("end_timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -642,14 +642,14 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are (case-insensitive): ``MONTHLY`` | ``DAILY`` | ``WEEKLY`` | ``YEARLY`` | ``NEVER``. If you set a ``frequency`` for a resource monitor, you must also set ``start_timestamp``. If you specify ``NEVER`` for the frequency, the credit usage for the warehouse does not reset. After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#frequency ResourceMonitor#frequency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#frequency ResourceMonitor#frequency}
         '''
         result = self._values.get("frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#id ResourceMonitor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#id ResourceMonitor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -663,7 +663,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         After reaching any of the values the users passed in the notify_users field will be notified (to receive the notification they should have notifications enabled). Values over 100 are supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#notify_triggers ResourceMonitor#notify_triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#notify_triggers ResourceMonitor#notify_triggers}
         '''
         result = self._values.get("notify_triggers")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -674,7 +674,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./user>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#notify_users ResourceMonitor#notify_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#notify_users ResourceMonitor#notify_users}
         '''
         result = self._values.get("notify_users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -685,7 +685,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If you set a ``start_timestamp`` for a resource monitor, you must also set ``frequency``.  After removing this field from the config, the previously set value will be preserved on the Snowflake side, not the default value. That's due to Snowflake limitation and the lack of unset functionality for this parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#start_timestamp ResourceMonitor#start_timestamp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#start_timestamp ResourceMonitor#start_timestamp}
         '''
         result = self._values.get("start_timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -696,7 +696,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Values over 100 are supported. After reaching this value, all assigned warehouses immediately cancel any currently running queries or statements. In addition, this action sends a notification to all users who have enabled notifications for themselves.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#suspend_immediate_trigger ResourceMonitor#suspend_immediate_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#suspend_immediate_trigger ResourceMonitor#suspend_immediate_trigger}
         '''
         result = self._values.get("suspend_immediate_trigger")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -707,7 +707,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Values over 100 are supported. After reaching this value, all assigned warehouses while allowing currently running queries to complete will be suspended. No new queries can be executed by the warehouses until the credit quota for the resource monitor is increased. In addition, this action sends a notification to all users who have enabled notifications for themselves.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#suspend_trigger ResourceMonitor#suspend_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#suspend_trigger ResourceMonitor#suspend_trigger}
         '''
         result = self._values.get("suspend_trigger")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -716,7 +716,7 @@ class ResourceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ResourceMonitorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#timeouts ResourceMonitor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#timeouts ResourceMonitor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ResourceMonitorTimeouts"], result)
@@ -951,10 +951,10 @@ class ResourceMonitorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#create ResourceMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#delete ResourceMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#read ResourceMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#update ResourceMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#create ResourceMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#delete ResourceMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#read ResourceMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#update ResourceMonitor#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b985a86f25ddcdb52577e34fa272e3ff2298ae34700adfd562f64fb1a9c25d8)
@@ -974,25 +974,25 @@ class ResourceMonitorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#create ResourceMonitor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#create ResourceMonitor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#delete ResourceMonitor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#delete ResourceMonitor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#read ResourceMonitor#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#read ResourceMonitor#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/resource_monitor#update ResourceMonitor#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/resource_monitor#update ResourceMonitor#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

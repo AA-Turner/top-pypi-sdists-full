@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ladybug-geometry-polyskel
-Version: 1.7.28
+Version: 1.7.29
 Summary: A library with poly skeleton methods using ladybug-geometry
 Home-page: https://github.com/ladybug-tools/ladybug-geometry-polyskel
 Author: Ladybug Tools
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ladybug-geometry==1.34.7
+Requires-Dist: ladybug-geometry==1.34.8
 Provides-Extra: cli
 Requires-Dist: click>=7.1.2; extra == "cli"
 

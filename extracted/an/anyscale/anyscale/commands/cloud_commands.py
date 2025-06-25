@@ -1129,7 +1129,7 @@ def add_collaborators(cloud: str, users_file: str,) -> None:
 @click.option(
     "--output",
     "-o",
-    help="File to write the full cloud YAML to.",
+    help="File to write the output YAML to.",
     type=str,
     required=False,
 )
@@ -1154,18 +1154,21 @@ def get_cloud(
             log.error("Cloud not found.")
             return
 
-        if output:
-            # Include all cloud deployments for the cloud.
-            result = CloudController().get_cloud_deployments(cloud_id=cloud.id)
+        # Include all cloud deployments for the cloud.
+        cloud_deployments = CloudController().get_cloud_deployments(cloud_id=cloud.id)
+        result = {
+            "name": cloud.name,
+            "id": cloud.id,
+            "created_at": cloud.created_at,
+            "is_default": cloud.is_default,
+            "deployments": cloud_deployments.get("deployments", []),
+        }
 
+        if output:
             with open(output, "w") as f:
                 yaml.dump(result, f, sort_keys=False)
-
         else:
-            cloud_dict = (
-                cloud.to_dict() if hasattr(cloud, "to_dict") else cloud.__dict__
-            )
-            print(yaml.dump(cloud_dict, sort_keys=False))
+            print(yaml.dump(result, sort_keys=False))
 
     except ValueError as e:
         log.error(f"Error retrieving cloud: {e}")

@@ -25,6 +25,7 @@ from weread2notionpro.utils  import (
     get_title,
     timestamp_to_date,
     get_property_value,
+    get_properties
 )
 TAG_ICON_URL = "https://www.notion.so/icons/tag_gray.svg"
 USER_ICON_URL = "https://www.notion.so/icons/user-circle-filled_gray.svg"
@@ -106,6 +107,22 @@ class NotionHelper:
             self.create_setting_database()
         if self.setting_database_id:
             self.insert_to_setting_database()
+        self.bookmark_database_properties=self.get_property_type(self.bookmark_database_id)
+        for key,value in self.bookmark_database_properties.items():
+            if value  =="title":
+                self.bookmark_database_title = key
+        self.review_database_properties=self.get_property_type(self.review_database_id)
+        for key,value in self.review_database_properties.items():
+            if value  =="title":
+                self.review_database_title = key
+
+    def get_property_type(self,database_id):
+        """获取一个database的property和类型的映射关系"""
+        result = {}
+        r = self.client.databases.retrieve(database_id=database_id)
+        for key,value in r.get("properties").items():
+            result[key] = value.get("type")
+        return result
 
     def extract_page_id(self, notion_url):
         # 正则表达式匹配 32 个字符的 Notion page_id
@@ -372,49 +389,51 @@ class NotionHelper:
 
     def insert_bookmark(self, id, bookmark):
         icon = get_icon(BOOKMARK_ICON_URL)
-        properties = {
-            "Name": get_title(bookmark.get("markText", "")),
-            "bookId": get_rich_text(bookmark.get("bookId")),
-            "range": get_rich_text(bookmark.get("range")),
-            "bookmarkId": get_rich_text(bookmark.get("bookmarkId")),
-            "blockId": get_rich_text(bookmark.get("blockId")),
-            "chapterUid": get_number(bookmark.get("chapterUid")),
-            "bookVersion": get_number(bookmark.get("bookVersion")),
-            "colorStyle": get_number(bookmark.get("colorStyle")),
-            "type": get_number(bookmark.get("type")),
-            "style": get_number(bookmark.get("style")),
-            "书籍": get_relation([id]),
+        item = {
+            self.bookmark_database_title: bookmark.get("markText", ""),
+            "bookId": bookmark.get("bookId"),
+            "range": bookmark.get("range"),
+            "bookmarkId": bookmark.get("bookmarkId"),
+            "blockId": bookmark.get("blockId"),
+            "chapterUid": bookmark.get("chapterUid"),
+            "bookVersion": bookmark.get("bookVersion"),
+            "colorStyle": bookmark.get("colorStyle"),
+            "type": bookmark.get("type"),
+            "style": bookmark.get("style"),
+            "书籍": [id],
         }
         if "createTime" in bookmark:
-            create_time = timestamp_to_date(int(bookmark.get("createTime")))
-            properties["Date"] = get_date(create_time.strftime("%Y-%m-%d %H:%M:%S"))
-            self.get_date_relation(properties, create_time)
+            item["Date"] = bookmark.get("createTime")
+        properties = get_properties(item, self.bookmark_database_properties)
+        if item["Date"]:
+            self.get_date_relation(properties, timestamp_to_date(item["Date"]))
         parent = {"database_id": self.bookmark_database_id, "type": "database_id"}
         self.create_page(parent, properties, icon)
 
     def insert_review(self, id, review):
         time.sleep(0.1)
         icon = get_icon(TAG_ICON_URL)
-        properties = {
-            "Name": get_title(review.get("content", "")),
-            "bookId": get_rich_text(review.get("bookId")),
-            "reviewId": get_rich_text(review.get("reviewId")),
-            "blockId": get_rich_text(review.get("blockId")),
-            "chapterUid": get_number(review.get("chapterUid")),
-            "bookVersion": get_number(review.get("bookVersion")),
-            "type": get_number(review.get("type")),
-            "书籍": get_relation([id]),
+        item = {
+            self.review_database_title: review.get("content", ""),
+            "bookId": review.get("bookId"),
+            "reviewId":review.get("reviewId"),
+            "blockId": review.get("blockId"),
+            "chapterUid": review.get("chapterUid"),
+            "bookVersion": review.get("bookVersion"),
+            "type": review.get("type"),
+            "书籍": [id],
         }
         if "range" in review:
-            properties["range"] = get_rich_text(review.get("range"))
+            item["range"] = review.get("range")
         if "star" in review:
-            properties["star"] = get_number(review.get("star"))
+            item["star"] = review.get("star")
         if "abstract" in review:
-            properties["abstract"] = get_rich_text(review.get("abstract"))
+            item["abstract"] = review.get("abstract")
         if "createTime" in review:
-            create_time = timestamp_to_date(int(review.get("createTime")))
-            properties["Date"] = get_date(create_time.strftime("%Y-%m-%d %H:%M:%S"))
-            self.get_date_relation(properties, create_time)
+            item["Date"] = int(review.get("createTime"))
+        properties = get_properties(item, self.review_database_properties)
+        if item["Date"]:
+            self.get_date_relation(properties, timestamp_to_date(item["Date"]))
         parent = {"database_id": self.review_database_id, "type": "database_id"}
         self.create_page(parent, properties, icon)
 

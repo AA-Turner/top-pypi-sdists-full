@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_zone`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_zone`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone).
+Refer to the Terraform Registry for docs: [`google_dataplex_zone`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataplexZone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataplexZone.GoogleDataplexZone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone google_dataplex_zone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone google_dataplex_zone}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleDataplexZone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone google_dataplex_zone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone google_dataplex_zone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#discovery_spec GoogleDataplexZone#discovery_spec}
-        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#lake GoogleDataplexZone#lake}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#location GoogleDataplexZone#location}
-        :param name: The name of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#name GoogleDataplexZone#name}
-        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#resource_spec GoogleDataplexZone#resource_spec}
-        :param type: Required. Immutable. The type of the zone. Possible values: TYPE_UNSPECIFIED, RAW, CURATED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#type GoogleDataplexZone#type}
-        :param description: Optional. Description of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#description GoogleDataplexZone#description}
-        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#display_name GoogleDataplexZone#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#id GoogleDataplexZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. User defined labels for the zone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#labels GoogleDataplexZone#labels}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#project GoogleDataplexZone#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#timeouts GoogleDataplexZone#timeouts}
+        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#discovery_spec GoogleDataplexZone#discovery_spec}
+        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#lake GoogleDataplexZone#lake}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#location GoogleDataplexZone#location}
+        :param name: The name of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#name GoogleDataplexZone#name}
+        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#resource_spec GoogleDataplexZone#resource_spec}
+        :param type: Required. Immutable. The type of the zone. Possible values: TYPE_UNSPECIFIED, RAW, CURATED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#type GoogleDataplexZone#type}
+        :param description: Optional. Description of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#description GoogleDataplexZone#description}
+        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#display_name GoogleDataplexZone#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#id GoogleDataplexZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. User defined labels for the zone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#labels GoogleDataplexZone#labels}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#project GoogleDataplexZone#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#timeouts GoogleDataplexZone#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleDataplexZone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataplexZone to import.
-        :param import_from_id: The id of the existing GoogleDataplexZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataplexZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataplexZone to import is found.
         '''
         if __debug__:
@@ -159,12 +159,12 @@ class GoogleDataplexZone(
         schedule: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#enabled GoogleDataplexZone#enabled}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#csv_options GoogleDataplexZone#csv_options}
-        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#exclude_patterns GoogleDataplexZone#exclude_patterns}
-        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#include_patterns GoogleDataplexZone#include_patterns}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#json_options GoogleDataplexZone#json_options}
-        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#schedule GoogleDataplexZone#schedule}
+        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#enabled GoogleDataplexZone#enabled}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#csv_options GoogleDataplexZone#csv_options}
+        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#exclude_patterns GoogleDataplexZone#exclude_patterns}
+        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#include_patterns GoogleDataplexZone#include_patterns}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#json_options GoogleDataplexZone#json_options}
+        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#schedule GoogleDataplexZone#schedule}
         '''
         value = GoogleDataplexZoneDiscoverySpec(
             enabled=enabled,
@@ -180,7 +180,7 @@ class GoogleDataplexZone(
     @jsii.member(jsii_name="putResourceSpec")
     def put_resource_spec(self, *, location_type: builtins.str) -> None:
         '''
-        :param location_type: Required. Immutable. The location type of the resources that are allowed to be attached to the assets within this zone. Possible values: LOCATION_TYPE_UNSPECIFIED, SINGLE_REGION, MULTI_REGION Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#location_type GoogleDataplexZone#location_type}
+        :param location_type: Required. Immutable. The location type of the resources that are allowed to be attached to the assets within this zone. Possible values: LOCATION_TYPE_UNSPECIFIED, SINGLE_REGION, MULTI_REGION Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#location_type GoogleDataplexZone#location_type}
         '''
         value = GoogleDataplexZoneResourceSpec(location_type=location_type)
 
@@ -195,9 +195,9 @@ class GoogleDataplexZone(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#create GoogleDataplexZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#delete GoogleDataplexZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#update GoogleDataplexZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#create GoogleDataplexZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#delete GoogleDataplexZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#update GoogleDataplexZone#update}.
         '''
         value = GoogleDataplexZoneTimeouts(create=create, delete=delete, update=update)
 
@@ -673,18 +673,18 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#discovery_spec GoogleDataplexZone#discovery_spec}
-        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#lake GoogleDataplexZone#lake}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#location GoogleDataplexZone#location}
-        :param name: The name of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#name GoogleDataplexZone#name}
-        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#resource_spec GoogleDataplexZone#resource_spec}
-        :param type: Required. Immutable. The type of the zone. Possible values: TYPE_UNSPECIFIED, RAW, CURATED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#type GoogleDataplexZone#type}
-        :param description: Optional. Description of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#description GoogleDataplexZone#description}
-        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#display_name GoogleDataplexZone#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#id GoogleDataplexZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. User defined labels for the zone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#labels GoogleDataplexZone#labels}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#project GoogleDataplexZone#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#timeouts GoogleDataplexZone#timeouts}
+        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#discovery_spec GoogleDataplexZone#discovery_spec}
+        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#lake GoogleDataplexZone#lake}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#location GoogleDataplexZone#location}
+        :param name: The name of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#name GoogleDataplexZone#name}
+        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#resource_spec GoogleDataplexZone#resource_spec}
+        :param type: Required. Immutable. The type of the zone. Possible values: TYPE_UNSPECIFIED, RAW, CURATED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#type GoogleDataplexZone#type}
+        :param description: Optional. Description of the zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#description GoogleDataplexZone#description}
+        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#display_name GoogleDataplexZone#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#id GoogleDataplexZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. User defined labels for the zone. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#labels GoogleDataplexZone#labels}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#project GoogleDataplexZone#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#timeouts GoogleDataplexZone#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -818,7 +818,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def discovery_spec(self) -> "GoogleDataplexZoneDiscoverySpec":
         '''discovery_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#discovery_spec GoogleDataplexZone#discovery_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#discovery_spec GoogleDataplexZone#discovery_spec}
         '''
         result = self._values.get("discovery_spec")
         assert result is not None, "Required property 'discovery_spec' is missing"
@@ -828,7 +828,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lake(self) -> builtins.str:
         '''The lake for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#lake GoogleDataplexZone#lake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#lake GoogleDataplexZone#lake}
         '''
         result = self._values.get("lake")
         assert result is not None, "Required property 'lake' is missing"
@@ -838,7 +838,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#location GoogleDataplexZone#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#location GoogleDataplexZone#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -848,7 +848,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#name GoogleDataplexZone#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#name GoogleDataplexZone#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -858,7 +858,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_spec(self) -> "GoogleDataplexZoneResourceSpec":
         '''resource_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#resource_spec GoogleDataplexZone#resource_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#resource_spec GoogleDataplexZone#resource_spec}
         '''
         result = self._values.get("resource_spec")
         assert result is not None, "Required property 'resource_spec' is missing"
@@ -868,7 +868,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''Required. Immutable. The type of the zone. Possible values: TYPE_UNSPECIFIED, RAW, CURATED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#type GoogleDataplexZone#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#type GoogleDataplexZone#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -878,7 +878,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. Description of the zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#description GoogleDataplexZone#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#description GoogleDataplexZone#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -887,14 +887,14 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. User friendly display name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#display_name GoogleDataplexZone#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#display_name GoogleDataplexZone#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#id GoogleDataplexZone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#id GoogleDataplexZone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -909,7 +909,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field ``effective_labels`` for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#labels GoogleDataplexZone#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#labels GoogleDataplexZone#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -918,7 +918,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#project GoogleDataplexZone#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#project GoogleDataplexZone#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -927,7 +927,7 @@ class GoogleDataplexZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDataplexZoneTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#timeouts GoogleDataplexZone#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#timeouts GoogleDataplexZone#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDataplexZoneTimeouts"], result)
@@ -968,12 +968,12 @@ class GoogleDataplexZoneDiscoverySpec:
         schedule: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#enabled GoogleDataplexZone#enabled}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#csv_options GoogleDataplexZone#csv_options}
-        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#exclude_patterns GoogleDataplexZone#exclude_patterns}
-        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#include_patterns GoogleDataplexZone#include_patterns}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#json_options GoogleDataplexZone#json_options}
-        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#schedule GoogleDataplexZone#schedule}
+        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#enabled GoogleDataplexZone#enabled}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#csv_options GoogleDataplexZone#csv_options}
+        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#exclude_patterns GoogleDataplexZone#exclude_patterns}
+        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#include_patterns GoogleDataplexZone#include_patterns}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#json_options GoogleDataplexZone#json_options}
+        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#schedule GoogleDataplexZone#schedule}
         '''
         if isinstance(csv_options, dict):
             csv_options = GoogleDataplexZoneDiscoverySpecCsvOptions(**csv_options)
@@ -1005,7 +1005,7 @@ class GoogleDataplexZoneDiscoverySpec:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Required. Whether discovery is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#enabled GoogleDataplexZone#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#enabled GoogleDataplexZone#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1017,7 +1017,7 @@ class GoogleDataplexZoneDiscoverySpec:
     ) -> typing.Optional["GoogleDataplexZoneDiscoverySpecCsvOptions"]:
         '''csv_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#csv_options GoogleDataplexZone#csv_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#csv_options GoogleDataplexZone#csv_options}
         '''
         result = self._values.get("csv_options")
         return typing.cast(typing.Optional["GoogleDataplexZoneDiscoverySpecCsvOptions"], result)
@@ -1028,7 +1028,7 @@ class GoogleDataplexZoneDiscoverySpec:
 
         The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#exclude_patterns GoogleDataplexZone#exclude_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#exclude_patterns GoogleDataplexZone#exclude_patterns}
         '''
         result = self._values.get("exclude_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1039,7 +1039,7 @@ class GoogleDataplexZoneDiscoverySpec:
 
         The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#include_patterns GoogleDataplexZone#include_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#include_patterns GoogleDataplexZone#include_patterns}
         '''
         result = self._values.get("include_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1050,7 +1050,7 @@ class GoogleDataplexZoneDiscoverySpec:
     ) -> typing.Optional["GoogleDataplexZoneDiscoverySpecJsonOptions"]:
         '''json_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#json_options GoogleDataplexZone#json_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#json_options GoogleDataplexZone#json_options}
         '''
         result = self._values.get("json_options")
         return typing.cast(typing.Optional["GoogleDataplexZoneDiscoverySpecJsonOptions"], result)
@@ -1061,7 +1061,7 @@ class GoogleDataplexZoneDiscoverySpec:
 
         Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#schedule GoogleDataplexZone#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#schedule GoogleDataplexZone#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1098,10 +1098,10 @@ class GoogleDataplexZoneDiscoverySpecCsvOptions:
         header_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#delimiter GoogleDataplexZone#delimiter}
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
-        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#header_rows GoogleDataplexZone#header_rows}
+        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#delimiter GoogleDataplexZone#delimiter}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
+        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#header_rows GoogleDataplexZone#header_rows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b84456d5f1715d76eaef56ae723d957a9b27407a456fc71ebf72ef4c3c1dec2)
@@ -1123,7 +1123,7 @@ class GoogleDataplexZoneDiscoverySpecCsvOptions:
     def delimiter(self) -> typing.Optional[builtins.str]:
         '''Optional. The delimiter being used to separate values. This defaults to ','.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#delimiter GoogleDataplexZone#delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#delimiter GoogleDataplexZone#delimiter}
         '''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1136,7 +1136,7 @@ class GoogleDataplexZoneDiscoverySpecCsvOptions:
 
         Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
         '''
         result = self._values.get("disable_type_inference")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1145,7 +1145,7 @@ class GoogleDataplexZoneDiscoverySpecCsvOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''Optional. The character encoding of the data. The default is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1154,7 +1154,7 @@ class GoogleDataplexZoneDiscoverySpecCsvOptions:
     def header_rows(self) -> typing.Optional[jsii.Number]:
         '''Optional. The number of rows to interpret as header rows that should be skipped when reading data rows.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#header_rows GoogleDataplexZone#header_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#header_rows GoogleDataplexZone#header_rows}
         '''
         result = self._values.get("header_rows")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1316,8 +1316,8 @@ class GoogleDataplexZoneDiscoverySpecJsonOptions:
         encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41b2b658a731613db47bb32d712af786e1ce8b5de63afb8f3f40d475af8ff8f2)
@@ -1337,7 +1337,7 @@ class GoogleDataplexZoneDiscoverySpecJsonOptions:
 
         Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
         '''
         result = self._values.get("disable_type_inference")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1346,7 +1346,7 @@ class GoogleDataplexZoneDiscoverySpecJsonOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''Optional. The character encoding of the data. The default is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1480,10 +1480,10 @@ class GoogleDataplexZoneDiscoverySpecOutputReference(
         header_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#delimiter GoogleDataplexZone#delimiter}
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
-        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#header_rows GoogleDataplexZone#header_rows}
+        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#delimiter GoogleDataplexZone#delimiter}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
+        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#header_rows GoogleDataplexZone#header_rows}
         '''
         value = GoogleDataplexZoneDiscoverySpecCsvOptions(
             delimiter=delimiter,
@@ -1502,8 +1502,8 @@ class GoogleDataplexZoneDiscoverySpecOutputReference(
         encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#disable_type_inference GoogleDataplexZone#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#encoding GoogleDataplexZone#encoding}
         '''
         value = GoogleDataplexZoneDiscoverySpecJsonOptions(
             disable_type_inference=disable_type_inference, encoding=encoding
@@ -1652,7 +1652,7 @@ class GoogleDataplexZoneDiscoverySpecOutputReference(
 class GoogleDataplexZoneResourceSpec:
     def __init__(self, *, location_type: builtins.str) -> None:
         '''
-        :param location_type: Required. Immutable. The location type of the resources that are allowed to be attached to the assets within this zone. Possible values: LOCATION_TYPE_UNSPECIFIED, SINGLE_REGION, MULTI_REGION Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#location_type GoogleDataplexZone#location_type}
+        :param location_type: Required. Immutable. The location type of the resources that are allowed to be attached to the assets within this zone. Possible values: LOCATION_TYPE_UNSPECIFIED, SINGLE_REGION, MULTI_REGION Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#location_type GoogleDataplexZone#location_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d640f0ef446078a189ec2be0d47240730a3e15792c81c124121ac8ff82146efa)
@@ -1667,7 +1667,7 @@ class GoogleDataplexZoneResourceSpec:
 
         Immutable. The location type of the resources that are allowed to be attached to the assets within this zone. Possible values: LOCATION_TYPE_UNSPECIFIED, SINGLE_REGION, MULTI_REGION
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#location_type GoogleDataplexZone#location_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#location_type GoogleDataplexZone#location_type}
         '''
         result = self._values.get("location_type")
         assert result is not None, "Required property 'location_type' is missing"
@@ -1752,9 +1752,9 @@ class GoogleDataplexZoneTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#create GoogleDataplexZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#delete GoogleDataplexZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#update GoogleDataplexZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#create GoogleDataplexZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#delete GoogleDataplexZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#update GoogleDataplexZone#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e143dfdef9c4f0099ca3bca6cb87721503a729df865bd0da3cf211ee12695e8)
@@ -1771,19 +1771,19 @@ class GoogleDataplexZoneTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#create GoogleDataplexZone#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#create GoogleDataplexZone#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#delete GoogleDataplexZone#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#delete GoogleDataplexZone#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataplex_zone#update GoogleDataplexZone#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_zone#update GoogleDataplexZone#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

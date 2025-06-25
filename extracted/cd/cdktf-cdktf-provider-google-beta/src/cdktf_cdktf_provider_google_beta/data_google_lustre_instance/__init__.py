@@ -1,7 +1,7 @@
 r'''
 # `data_google_lustre_instance`
 
-Refer to the Terraform Registry for docs: [`data_google_lustre_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance).
+Refer to the Terraform Registry for docs: [`data_google_lustre_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleLustreInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleLustreInstance.DataGoogleLustreInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance google_lustre_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance google_lustre_instance}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleLustreInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance google_lustre_instance} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance google_lustre_instance} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Required. The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#instance_id DataGoogleLustreInstance#instance_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#id DataGoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#project DataGoogleLustreInstance#project}.
-        :param zone: Zone of Lustre instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#zone DataGoogleLustreInstance#zone}
+        :param instance_id: The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#instance_id DataGoogleLustreInstance#instance_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#id DataGoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#project DataGoogleLustreInstance#project}.
+        :param zone: Zone of Lustre instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#zone DataGoogleLustreInstance#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleLustreInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleLustreInstance to import.
-        :param import_from_id: The id of the existing DataGoogleLustreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleLustreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleLustreInstance to import is found.
         '''
         if __debug__:
@@ -202,6 +202,11 @@ class DataGoogleLustreInstance(
     @jsii.member(jsii_name="network")
     def network(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "network"))
+
+    @builtins.property
+    @jsii.member(jsii_name="perUnitStorageThroughput")
+    def per_unit_storage_throughput(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "perUnitStorageThroughput"))
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -328,10 +333,10 @@ class DataGoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Required. The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#instance_id DataGoogleLustreInstance#instance_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#id DataGoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#project DataGoogleLustreInstance#project}.
-        :param zone: Zone of Lustre instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#zone DataGoogleLustreInstance#zone}
+        :param instance_id: The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#instance_id DataGoogleLustreInstance#instance_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#id DataGoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#project DataGoogleLustreInstance#project}.
+        :param zone: Zone of Lustre instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#zone DataGoogleLustreInstance#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -438,14 +443,14 @@ class DataGoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Required. The name of the Managed Lustre instance.
+        '''The name of the Managed Lustre instance.
 
         - Must contain only lowercase letters, numbers, and hyphens.
         - Must start with a letter.
         - Must be between 1-63 characters.
         - Must end with a number or a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#instance_id DataGoogleLustreInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#instance_id DataGoogleLustreInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -453,7 +458,7 @@ class DataGoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#id DataGoogleLustreInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#id DataGoogleLustreInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -463,7 +468,7 @@ class DataGoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#project DataGoogleLustreInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#project DataGoogleLustreInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -471,7 +476,7 @@ class DataGoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''Zone of Lustre instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_lustre_instance#zone DataGoogleLustreInstance#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_lustre_instance#zone DataGoogleLustreInstance#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)

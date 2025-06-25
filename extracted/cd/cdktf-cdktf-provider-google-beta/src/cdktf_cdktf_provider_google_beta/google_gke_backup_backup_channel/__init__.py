@@ -1,7 +1,7 @@
 r'''
 # `google_gke_backup_backup_channel`
 
-Refer to the Terraform Registry for docs: [`google_gke_backup_backup_channel`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel).
+Refer to the Terraform Registry for docs: [`google_gke_backup_backup_channel`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleGkeBackupBackupChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleGkeBackupBackupChannel.GoogleGkeBackupBackupChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel google_gke_backup_backup_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel google_gke_backup_backup_channel}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleGkeBackupBackupChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel google_gke_backup_backup_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel google_gke_backup_backup_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_project: The project where Backups are allowed to be stored. The format is 'projects/{project}'. {project} can be project number or project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#destination_project GoogleGkeBackupBackupChannel#destination_project}
-        :param location: The region of the Backup Channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#location GoogleGkeBackupBackupChannel#location}
-        :param name: The full name of the BackupChannel Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#name GoogleGkeBackupBackupChannel#name}
-        :param description: User specified descriptive string for this BackupChannel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#description GoogleGkeBackupBackupChannel#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#id GoogleGkeBackupBackupChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#labels GoogleGkeBackupBackupChannel#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#project GoogleGkeBackupBackupChannel#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#timeouts GoogleGkeBackupBackupChannel#timeouts}
+        :param destination_project: The project where Backups are allowed to be stored. The format is 'projects/{project}'. {project} can be project number or project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#destination_project GoogleGkeBackupBackupChannel#destination_project}
+        :param location: The region of the Backup Channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#location GoogleGkeBackupBackupChannel#location}
+        :param name: The full name of the BackupChannel Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#name GoogleGkeBackupBackupChannel#name}
+        :param description: User specified descriptive string for this BackupChannel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#description GoogleGkeBackupBackupChannel#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#id GoogleGkeBackupBackupChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#labels GoogleGkeBackupBackupChannel#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#project GoogleGkeBackupBackupChannel#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#timeouts GoogleGkeBackupBackupChannel#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleGkeBackupBackupChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleGkeBackupBackupChannel to import.
-        :param import_from_id: The id of the existing GoogleGkeBackupBackupChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleGkeBackupBackupChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleGkeBackupBackupChannel to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GoogleGkeBackupBackupChannel(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#create GoogleGkeBackupBackupChannel#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#delete GoogleGkeBackupBackupChannel#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#update GoogleGkeBackupBackupChannel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#create GoogleGkeBackupBackupChannel#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#delete GoogleGkeBackupBackupChannel#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#update GoogleGkeBackupBackupChannel#update}.
         '''
         value = GoogleGkeBackupBackupChannelTimeouts(
             create=create, delete=delete, update=update
@@ -395,14 +395,14 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_project: The project where Backups are allowed to be stored. The format is 'projects/{project}'. {project} can be project number or project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#destination_project GoogleGkeBackupBackupChannel#destination_project}
-        :param location: The region of the Backup Channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#location GoogleGkeBackupBackupChannel#location}
-        :param name: The full name of the BackupChannel Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#name GoogleGkeBackupBackupChannel#name}
-        :param description: User specified descriptive string for this BackupChannel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#description GoogleGkeBackupBackupChannel#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#id GoogleGkeBackupBackupChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#labels GoogleGkeBackupBackupChannel#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#project GoogleGkeBackupBackupChannel#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#timeouts GoogleGkeBackupBackupChannel#timeouts}
+        :param destination_project: The project where Backups are allowed to be stored. The format is 'projects/{project}'. {project} can be project number or project id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#destination_project GoogleGkeBackupBackupChannel#destination_project}
+        :param location: The region of the Backup Channel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#location GoogleGkeBackupBackupChannel#location}
+        :param name: The full name of the BackupChannel Resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#name GoogleGkeBackupBackupChannel#name}
+        :param description: User specified descriptive string for this BackupChannel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#description GoogleGkeBackupBackupChannel#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#id GoogleGkeBackupBackupChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Description: A set of custom labels supplied by the user. A list of key->value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#labels GoogleGkeBackupBackupChannel#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#project GoogleGkeBackupBackupChannel#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#timeouts GoogleGkeBackupBackupChannel#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -523,7 +523,7 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def destination_project(self) -> builtins.str:
         '''The project where Backups are allowed to be stored. The format is 'projects/{project}'. {project} can be project number or project id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#destination_project GoogleGkeBackupBackupChannel#destination_project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#destination_project GoogleGkeBackupBackupChannel#destination_project}
         '''
         result = self._values.get("destination_project")
         assert result is not None, "Required property 'destination_project' is missing"
@@ -533,7 +533,7 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def location(self) -> builtins.str:
         '''The region of the Backup Channel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#location GoogleGkeBackupBackupChannel#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#location GoogleGkeBackupBackupChannel#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -543,7 +543,7 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def name(self) -> builtins.str:
         '''The full name of the BackupChannel Resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#name GoogleGkeBackupBackupChannel#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#name GoogleGkeBackupBackupChannel#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -553,14 +553,14 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def description(self) -> typing.Optional[builtins.str]:
         '''User specified descriptive string for this BackupChannel.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#description GoogleGkeBackupBackupChannel#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#description GoogleGkeBackupBackupChannel#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#id GoogleGkeBackupBackupChannel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#id GoogleGkeBackupBackupChannel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -578,14 +578,14 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#labels GoogleGkeBackupBackupChannel#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#labels GoogleGkeBackupBackupChannel#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#project GoogleGkeBackupBackupChannel#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#project GoogleGkeBackupBackupChannel#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -593,7 +593,7 @@ class GoogleGkeBackupBackupChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["GoogleGkeBackupBackupChannelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#timeouts GoogleGkeBackupBackupChannel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#timeouts GoogleGkeBackupBackupChannel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleGkeBackupBackupChannelTimeouts"], result)
@@ -624,9 +624,9 @@ class GoogleGkeBackupBackupChannelTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#create GoogleGkeBackupBackupChannel#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#delete GoogleGkeBackupBackupChannel#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#update GoogleGkeBackupBackupChannel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#create GoogleGkeBackupBackupChannel#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#delete GoogleGkeBackupBackupChannel#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#update GoogleGkeBackupBackupChannel#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6276dae71aad4c56d65f06f36103616abbc026114bb477f78bb181492a76dd9)
@@ -643,19 +643,19 @@ class GoogleGkeBackupBackupChannelTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#create GoogleGkeBackupBackupChannel#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#create GoogleGkeBackupBackupChannel#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#delete GoogleGkeBackupBackupChannel#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#delete GoogleGkeBackupBackupChannel#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gke_backup_backup_channel#update GoogleGkeBackupBackupChannel#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_gke_backup_backup_channel#update GoogleGkeBackupBackupChannel#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

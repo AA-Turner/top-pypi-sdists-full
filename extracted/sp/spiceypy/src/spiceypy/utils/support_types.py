@@ -1,7 +1,7 @@
 """
 The MIT License (MIT)
 
-Copyright (c) [2015-2022] [Andrew Annex]
+Copyright (c) [2015-2025] [Andrew Annex]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -86,8 +86,7 @@ def to_int_matrix(x):
 
 def is_iterable(i) -> bool:
     """
-    From stackoverflow
-    https://stackoverflow.com/questions/1055360/how-to-tell-a-variable-is-iterable-but-not-a-string/44328500#44328500
+    From stackoverflow "how-to-tell-a-variable-is-iterable-but-not-a-string"
     :param i: input collection
     :return: if the input is iterable but not a string
     """

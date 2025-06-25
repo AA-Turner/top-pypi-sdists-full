@@ -1,7 +1,7 @@
 r'''
 # `google_spanner_database_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_spanner_database_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding).
+Refer to the Terraform Registry for docs: [`google_spanner_database_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSpannerDatabaseIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSpannerDatabaseIamBinding.GoogleSpannerDatabaseIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding google_spanner_database_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding google_spanner_database_iam_binding}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleSpannerDatabaseIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding google_spanner_database_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding google_spanner_database_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#database GoogleSpannerDatabaseIamBinding#database}.
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#instance GoogleSpannerDatabaseIamBinding#instance}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#members GoogleSpannerDatabaseIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#role GoogleSpannerDatabaseIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#condition GoogleSpannerDatabaseIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#id GoogleSpannerDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#project GoogleSpannerDatabaseIamBinding#project}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#database GoogleSpannerDatabaseIamBinding#database}.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#instance GoogleSpannerDatabaseIamBinding#instance}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#members GoogleSpannerDatabaseIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#role GoogleSpannerDatabaseIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#condition GoogleSpannerDatabaseIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#id GoogleSpannerDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#project GoogleSpannerDatabaseIamBinding#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleSpannerDatabaseIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSpannerDatabaseIamBinding to import.
-        :param import_from_id: The id of the existing GoogleSpannerDatabaseIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSpannerDatabaseIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSpannerDatabaseIamBinding to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GoogleSpannerDatabaseIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#expression GoogleSpannerDatabaseIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#title GoogleSpannerDatabaseIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#description GoogleSpannerDatabaseIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#expression GoogleSpannerDatabaseIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#title GoogleSpannerDatabaseIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#description GoogleSpannerDatabaseIamBinding#description}.
         '''
         value = GoogleSpannerDatabaseIamBindingCondition(
             expression=expression, title=title, description=description
@@ -314,9 +314,9 @@ class GoogleSpannerDatabaseIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#expression GoogleSpannerDatabaseIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#title GoogleSpannerDatabaseIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#description GoogleSpannerDatabaseIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#expression GoogleSpannerDatabaseIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#title GoogleSpannerDatabaseIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#description GoogleSpannerDatabaseIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30ea010876bb44df0c5edd5be06b38f73ba811dff83c351f15d4e987582453b3)
@@ -332,21 +332,21 @@ class GoogleSpannerDatabaseIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#expression GoogleSpannerDatabaseIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#expression GoogleSpannerDatabaseIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#title GoogleSpannerDatabaseIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#title GoogleSpannerDatabaseIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#description GoogleSpannerDatabaseIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#description GoogleSpannerDatabaseIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -502,13 +502,13 @@ class GoogleSpannerDatabaseIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#database GoogleSpannerDatabaseIamBinding#database}.
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#instance GoogleSpannerDatabaseIamBinding#instance}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#members GoogleSpannerDatabaseIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#role GoogleSpannerDatabaseIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#condition GoogleSpannerDatabaseIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#id GoogleSpannerDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#project GoogleSpannerDatabaseIamBinding#project}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#database GoogleSpannerDatabaseIamBinding#database}.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#instance GoogleSpannerDatabaseIamBinding#instance}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#members GoogleSpannerDatabaseIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#role GoogleSpannerDatabaseIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#condition GoogleSpannerDatabaseIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#id GoogleSpannerDatabaseIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#project GoogleSpannerDatabaseIamBinding#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -623,28 +623,28 @@ class GoogleSpannerDatabaseIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#database GoogleSpannerDatabaseIamBinding#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#database GoogleSpannerDatabaseIamBinding#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#instance GoogleSpannerDatabaseIamBinding#instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#instance GoogleSpannerDatabaseIamBinding#instance}.'''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#members GoogleSpannerDatabaseIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#members GoogleSpannerDatabaseIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#role GoogleSpannerDatabaseIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#role GoogleSpannerDatabaseIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -653,14 +653,14 @@ class GoogleSpannerDatabaseIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def condition(self) -> typing.Optional[GoogleSpannerDatabaseIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#condition GoogleSpannerDatabaseIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#condition GoogleSpannerDatabaseIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleSpannerDatabaseIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#id GoogleSpannerDatabaseIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#id GoogleSpannerDatabaseIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -670,7 +670,7 @@ class GoogleSpannerDatabaseIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_database_iam_binding#project GoogleSpannerDatabaseIamBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_database_iam_binding#project GoogleSpannerDatabaseIamBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

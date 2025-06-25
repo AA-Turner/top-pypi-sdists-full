@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from langchain_core.messages import BaseMessage
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
 from whiskerrag_types.model.retrieval import RetrievalConfig
@@ -8,12 +8,11 @@ from whiskerrag_types.model.retrieval import RetrievalConfig
 
 class KnowledgeScope(BaseModel):
     space_ids: Optional[List[str]] = None
-    tenant_id: str
     auth_info: str
 
 
 class ProResearchRequest(BaseModel):
-    messages: List[BaseMessage] = Field(
+    messages: List[ChatCompletionMessageParam] = Field(
         default=[],
         json_schema_extra={"description": "The messages to be sent to the agent."},
     )

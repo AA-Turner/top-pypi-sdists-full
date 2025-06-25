@@ -76,7 +76,6 @@ from ._jiter import JsonValue as JsonValue
 from ._jiter import json_cache_clear as json_cache_clear
 from ._jiter import json_cache_usage as json_cache_usage
 from ._jiter import parse_json as parse_json
-from ._jiter import parse_json_bytes as parse_json_bytes
 from ._jiter import parse_jsonl as parse_jsonl
 from ._jiter import read_json as read_json
 from ._quick_maths import quick_maths as quick_maths
@@ -158,6 +157,7 @@ from ._which import which_all as which_all
 from ._which import which_re as which_re
 from .errors import FeatureNotEnabledError as FeatureNotEnabledError
 from .JSON import stringify as stringify
+from .orjson import orjson_default as orjson_default
 from .sh import cd as cd
 from .sh import home as home
 from .sh import ls as ls

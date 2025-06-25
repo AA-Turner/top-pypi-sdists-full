@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mailgun
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python SDK for Mailgun
 Author-email: diskovod <diskovodik@gmail.com>, Mailgun <api@mailgun.com>
 Maintainer-email: Serhii Kupriienko <kupriienko.serhii@gmail.com>
@@ -28,7 +28,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.3
+Requires-Dist: requests>=2.32.4
 Provides-Extra: linting
 Requires-Dist: make; extra == "linting"
 Requires-Dist: toml; extra == "linting"
@@ -333,7 +333,6 @@ Pass the components of the messages such as To, From, Subject, HTML and text par
 
 ```python
 import os
-from pathlib import Path
 from mailgun.client import Client
 
 key: str = os.environ["APIKEY"]

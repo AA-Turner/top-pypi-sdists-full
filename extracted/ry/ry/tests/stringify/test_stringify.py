@@ -28,7 +28,25 @@ def py_stringify(data: t.Any) -> bytes:
 
 def oj_stringify(data: t.Any) -> bytes:
     """Convert data to a JSON string using orjson."""
+    if orjson is None:
+        msg = "orjson is not installed, cannot use oj_stringify"
+        raise ImportError(msg)
     return orjson.dumps(data)
+
+
+def test_stringify_pybytes_output() -> None:
+    data = {
+        "key": "val",
+        "list": [1, 2, 3],
+        "dict": {"a": 1, "b": 2},
+    }
+    rs_bytes = ry.stringify(data)
+    assert isinstance(rs_bytes, ry.Bytes), "Result should be a `ry.Bytes`"
+    py_bytes = ry.stringify(data, pybytes=True)
+    assert isinstance(py_bytes, bytes), "Result should be a `bytes`"
+    parsed_py = ry.parse_json(py_bytes)
+    parsed_rs = ry.parse_json(rs_bytes)
+    assert parsed_py == parsed_rs
 
 
 def _test_stringify_json(data: t.Any) -> None:
@@ -55,8 +73,12 @@ def _test_stringify_json_orjson_compatible(data: t.Any) -> None:
     """Test that stringify_json produces valid JSON strings compatible with orjson."""
 
     json_bytes = ry.stringify(data)
+    try:
+        oj_res = oj_stringify(data)
+    except TypeError as _e:
+        return  # orjson does not support this data type, skip the test
+
     assert isinstance(json_bytes, ry.Bytes), "Result should be a `ry.Bytes`"
-    oj_res = oj_stringify(data)
 
     json_str = json_bytes.decode("utf-8")
 
@@ -164,12 +186,6 @@ def test_uuid_keys() -> None:
     }
     with pytest.raises(TypeError):
         _json_bytes = ry.stringify(data)
-        return
-    # parsed = ry.parse_json(json_bytes)
-    # assert parsed == {
-    #     str(pyuuid.NAMESPACE_DNS): "py",
-    #     str(ry.uuid.NAMESPACE_URL): "ry",
-    # }
 
 
 PYTYPES_JSON_SER = [
@@ -191,10 +207,12 @@ PYTYPES_JSON_SER = [
         "inf": float("inf"),
         "nan": float("nan"),
         "neg_inf": float("-inf"),
-        "datetime": pydt.datetime(2023, 10, 1, 12, 0, 0),
-        "date": pydt.date(2023, 10, 1),
-        "time": pydt.time(12, 0, 0),
         "list": [1, 2, 3],
+        "date": pydt.date(2023, 10, 1),
+        "datetime": pydt.datetime(2023, 10, 1, 12, 0, 0),
+        "time": pydt.time(12, 0, 0),
+        "timedelta": pydt.timedelta(days=1, seconds=3600),
+        # TODO: add tzinfo/timezone? "tzinfo": pydt.datetime.now(pydt.timezone.utc).tzinfo,
     },
 ]
 
@@ -212,6 +230,15 @@ RYTYPES_JSON_SER = {
     "ulid": ry.ulid.ULID("01H7Z5F8Y3V9G4J6K8D5E6F7G8"),
     # url ~ ryo3-url
     "url": ry.URL("https://example.com"),
+    # http
+    "headers": ry.Headers(
+        {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "X-Content-Type-Options": "nosniff",
+        }
+    ),
+    "http-status": ry.HttpStatus(200),
     # jiff ~ ryo3-jiff
     "date": ry.date(2020, 8, 26),
     "datetime": ry.datetime(2020, 8, 26, 6, 27, 0, 0),
@@ -220,14 +247,19 @@ RYTYPES_JSON_SER = {
     "time": ry.time(6, 27, 0, 0),
     "timespan": ry.timespan(weeks=1),
     "timestamp": ry.Timestamp.from_millisecond(1598438400000),
+    "timezone": ry.TimeZone("America/New_York"),
     "zoned": ry.datetime(2020, 8, 26, 6, 27, 0, 0).in_tz("America/New_York"),
-    # "offset": ry.Offset(1),
-    # "iso_week_date": ry.date(2020, 8, 26).iso_week_date(),
 }
 EXPECTED = {
     "uuid": "88475448-f091-42ef-b574-2452952931c1",
     "ulid": "01H7Z5F8Y3V9G4J6K8D5E6F7G8",
     "url": "https://example.com/",
+    "headers": {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-content-type-options": "nosniff",
+    },
+    "http-status": 200,
     "date": "2020-08-26",
     "datetime": "2020-08-26T06:27:00",
     "+signed_duration": "PT3S",
@@ -235,6 +267,7 @@ EXPECTED = {
     "time": "06:27:00",
     "timespan": "P1W",
     "timestamp": "2020-08-26T10:40:00Z",
+    "timezone": "America/New_York",
     "zoned": "2020-08-26T06:27:00-04:00[America/New_York]",
 }
 
@@ -247,7 +280,10 @@ def test_stringify_ry_types() -> None:
 
     def _format_different() -> str:
         different_vals = {
-            k: {"expected": EXPECTED[k], "actual": v}
+            k: {
+                "expected": EXPECTED.get(k, f"Expected value for {k} not found"),
+                "actual": v,
+            }
             for k, v in parsed.items()
             if EXPECTED.get(k) != v
         }
@@ -259,3 +295,95 @@ def test_stringify_ry_types() -> None:
     assert parsed == EXPECTED, (
         f"Parsed JSON does not match expected result: \n{_format_different()}\n"
     )
+
+
+def test_stringify_some_mapping() -> None:
+    """Test that `stringify` handles some mapping types correctly."""
+    data = {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": "value3",
+    }
+
+    class SomeMapping(t.Mapping[str, str]):
+        def __init__(self, data: dict[str, str]) -> None:
+            self._data = data
+
+        def __getitem__(self, key: str) -> str:
+            return self._data[key]
+
+        def __iter__(self) -> t.Iterator[str]:
+            return iter(self._data)
+
+        def __len__(self) -> int:
+            return len(self._data)
+
+    res = ry.stringify(data, fmt=True)
+    parsed = ry.parse_json(res)
+    assert isinstance(parsed, dict), "Parsed result should be a dictionary"
+    assert parsed == data, (
+        f"Parsed JSON does not match original data: {parsed} != {data}"
+    )
+
+
+def test_stringify_deque() -> None:
+    """Test that `stringify` handles deque correctly."""
+    from collections import deque
+
+    data = {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": deque(["a", "b", "c"]),
+    }
+    res = ry.stringify(data, fmt=True)
+    parsed = ry.parse_json(res)
+    assert isinstance(parsed, dict), "Parsed result should be a dictionary"
+    assert parsed["key3"] == ["a", "b", "c"], (
+        f"Parsed JSON does not match original deque: {parsed['key3']} != ['a', 'b', 'c']"
+    )
+
+
+class TestStringifyDefault:
+    class SomeSTupidCustomType:
+        value: str
+
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+        def __repr__(self) -> str:
+            return f"{self.__class__.__name__}({self.value})"
+
+    def test_stringify_custom_type_no_default_throws_err(self) -> None:
+        """Test that stringify raises an error for custom types without a default."""
+
+        with pytest.raises(TypeError, match="Failed to serialize"):
+            ry.stringify(self.SomeSTupidCustomType("test"))
+
+    def test_stringify_custom_type_with_default(self) -> None:
+        """Test that stringify works for custom types with a default."""
+
+        def _default_fn(obj: t.Any) -> t.Any:
+            if isinstance(obj, self.SomeSTupidCustomType):
+                return obj.value
+            msg = f"Cannot serialize {obj}"
+            raise TypeError(msg)
+
+        data = {
+            "key1": "value1",
+            "key2": self.SomeSTupidCustomType("test"),
+        }
+        res = ry.stringify(data, default=_default_fn, fmt=True)
+        parsed = ry.parse_json(res)
+        assert isinstance(parsed, dict), "Parsed result should be a dictionary"
+        assert parsed["key2"] == "test", (
+            f"Parsed JSON does not match original custom type: {parsed['key2']} != 'test'"
+        )
+
+    def test_stringify_default_is_not_callable(self) -> None:
+        """Test that stringify raises an error if default is not callable."""
+        data = {
+            "key1": "value1",
+            "key2": self.SomeSTupidCustomType("test"),
+        }
+        with pytest.raises(TypeError, match="'str' is not callable"):
+            ry.stringify(data, default="poopy::not-a-callable", fmt=True)  # type: ignore[call-overload]

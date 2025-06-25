@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.4.7.post1
+Version: 0.4.8
 Summary: SGLang is yet another fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -230,6 +230,7 @@ Requires-Dist: modelscope; extra == "runtime-common"
 Requires-Dist: msgspec; extra == "runtime-common"
 Requires-Dist: ninja; extra == "runtime-common"
 Requires-Dist: orjson; extra == "runtime-common"
+Requires-Dist: outlines==0.1.11; extra == "runtime-common"
 Requires-Dist: packaging; extra == "runtime-common"
 Requires-Dist: partial_json_parser; extra == "runtime-common"
 Requires-Dist: pillow; extra == "runtime-common"
@@ -249,13 +250,12 @@ Requires-Dist: xgrammar==0.1.19; extra == "runtime-common"
 Provides-Extra: srt
 Requires-Dist: sglang[runtime_common]; extra == "srt"
 Requires-Dist: sgl-kernel==0.1.9; extra == "srt"
-Requires-Dist: flashinfer_python==0.2.6.post1; extra == "srt"
 Requires-Dist: torch==2.7.1; extra == "srt"
 Requires-Dist: torchaudio==2.7.1; extra == "srt"
 Requires-Dist: torchvision==0.22.1; extra == "srt"
 Requires-Dist: cuda-python; extra == "srt"
-Requires-Dist: outlines<=0.1.11,>=0.0.44; extra == "srt"
 Requires-Dist: einops; extra == "srt"
+Requires-Dist: flashinfer_python==0.2.6.post1; extra == "srt"
 Provides-Extra: blackwell
 Requires-Dist: sglang[runtime_common]; extra == "blackwell"
 Requires-Dist: sgl-kernel; extra == "blackwell"
@@ -263,27 +263,21 @@ Requires-Dist: torch==2.7.1; extra == "blackwell"
 Requires-Dist: torchaudio==2.7.1; extra == "blackwell"
 Requires-Dist: torchvision==0.22.1; extra == "blackwell"
 Requires-Dist: cuda-python; extra == "blackwell"
-Requires-Dist: outlines<=0.1.11,>=0.0.44; extra == "blackwell"
 Requires-Dist: einops; extra == "blackwell"
 Requires-Dist: flashinfer_python==0.2.6.post1; extra == "blackwell"
 Provides-Extra: srt-hip
 Requires-Dist: sglang[runtime_common]; extra == "srt-hip"
 Requires-Dist: torch; extra == "srt-hip"
 Requires-Dist: vllm==0.6.7.dev2; extra == "srt-hip"
-Requires-Dist: outlines==0.1.11; extra == "srt-hip"
 Provides-Extra: srt-xpu
 Requires-Dist: sglang[runtime_common]; extra == "srt-xpu"
-Requires-Dist: outlines<=0.1.11,>=0.0.44; extra == "srt-xpu"
 Provides-Extra: srt-hpu
 Requires-Dist: sglang[runtime_common]; extra == "srt-hpu"
-Requires-Dist: outlines<=0.1.11,>=0.0.44; extra == "srt-hpu"
 Provides-Extra: srt-cpu
 Requires-Dist: sglang[runtime_common]; extra == "srt-cpu"
-Requires-Dist: outlines<=0.1.11,>=0.0.44; extra == "srt-cpu"
 Requires-Dist: einops; extra == "srt-cpu"
 Provides-Extra: srt-npu
 Requires-Dist: sglang[runtime_common]; extra == "srt-npu"
-Requires-Dist: outlines<=0.1.11,>=0.0.44; extra == "srt-npu"
 Provides-Extra: openai
 Requires-Dist: openai>=1.0; extra == "openai"
 Requires-Dist: tiktoken; extra == "openai"
@@ -292,7 +286,7 @@ Requires-Dist: anthropic>=0.20.0; extra == "anthropic"
 Provides-Extra: litellm
 Requires-Dist: litellm>=1.0.0; extra == "litellm"
 Provides-Extra: torch-memory-saver
-Requires-Dist: torch_memory_saver>=0.0.4; extra == "torch-memory-saver"
+Requires-Dist: torch_memory_saver>=0.0.8; extra == "torch-memory-saver"
 Provides-Extra: decord
 Requires-Dist: decord; extra == "decord"
 Provides-Extra: test

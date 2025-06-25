@@ -12,12 +12,12 @@ from redis.asyncio.connection import SSLConnection as AsyncSSLConnection
 from redis.connection import SSLConnection
 from redis.exceptions import ResponseError
 
+from redisvl import __version__
 from redisvl.exceptions import RedisModuleVersionError
 from redisvl.redis.constants import DEFAULT_REQUIRED_MODULES, REDIS_URL_ENV_VAR
 from redisvl.redis.utils import convert_bytes, is_cluster_url
 from redisvl.types import AsyncRedisClient, RedisClient, SyncRedisClient
 from redisvl.utils.utils import deprecated_function
-from redisvl.version import __version__
 
 
 def compare_versions(version1: str, version2: str):
@@ -357,6 +357,9 @@ class RedisConnectionFactory:
                 "RedisCluster is not supported for sync-to-async conversion."
             )
 
+        # At this point, redis_client is guaranteed to be Redis type
+        assert isinstance(redis_client, Redis)  # Type narrowing for MyPy
+
         # pick the right connection class
         connection_class: Type[AsyncAbstractConnection] = (
             AsyncSSLConnection
@@ -397,7 +400,9 @@ class RedisConnectionFactory:
             redis_client.client_setinfo("LIB-NAME", _lib_name)
         except ResponseError:
             # Fall back to a simple log echo
-            redis_client.echo(_lib_name)
+            # For RedisCluster, echo is not available
+            if hasattr(redis_client, "echo"):
+                redis_client.echo(_lib_name)
 
         # Get list of modules
         installed_modules = RedisConnectionFactory.get_modules(redis_client)
@@ -423,6 +428,8 @@ class RedisConnectionFactory:
         except ResponseError:
             # Fall back to a simple log echo
             await redis_client.echo(_lib_name)
+            if hasattr(redis_client, "echo"):
+                await redis_client.echo(_lib_name)
 
         # Get list of modules
         installed_modules = await RedisConnectionFactory.get_modules_async(redis_client)

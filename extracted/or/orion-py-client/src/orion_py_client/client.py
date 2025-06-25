@@ -80,9 +80,12 @@ class OrionPyClient:
                     if curr_datatype == "DataTypeFP8E5M2":
                         values.fp32_values.extend(
                             [np.float32(row[feature]) for feature in features]
+                        )                        
+                    elif curr_datatype == "DataTypeFP8E4M3":
+                        values.fp32_values.extend(
+                            [np.float32(row[feature]) for feature in features]
                         )
-                        
-                    if curr_datatype == "DataTypeFP16":
+                    elif curr_datatype == "DataTypeFP16":
                         values.fp32_values.extend(
                             [np.float32(row[feature]) for feature in features]
                         )
@@ -226,6 +229,8 @@ class OrionPyClient:
                                 bool_values=[bool(x) for x in row[feature]]
                             )
                             values.vector.append(Vector(values=vector_values))
+                    else:
+                        raise ValueError(f"Unsupported data type: {curr_datatype} for feature group: {fg_label}")
 
                     feature_values.append(FeatureValues(values=values))
 

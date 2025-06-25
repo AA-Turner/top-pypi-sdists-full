@@ -1,7 +1,7 @@
 r'''
 # `google_compute_future_reservation`
 
-Refer to the Terraform Registry for docs: [`google_compute_future_reservation`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation).
+Refer to the Terraform Registry for docs: [`google_compute_future_reservation`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeFutureReservation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeFutureReservation.GoogleComputeFutureReservation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation google_compute_future_reservation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation google_compute_future_reservation}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class GoogleComputeFutureReservation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation google_compute_future_reservation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation google_compute_future_reservation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the las character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#name GoogleComputeFutureReservation#name}
-        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#time_window GoogleComputeFutureReservation#time_window}
-        :param auto_created_reservations_delete_time: Future timestamp when the FR auto-created reservations will be deleted by Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_created_reservations_delete_time GoogleComputeFutureReservation#auto_created_reservations_delete_time}
-        :param auto_created_reservations_duration: auto_created_reservations_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_created_reservations_duration GoogleComputeFutureReservation#auto_created_reservations_duration}
-        :param auto_delete_auto_created_reservations: Setting for enabling or disabling automatic deletion for auto-created reservation. If set to true, auto-created reservations will be deleted at Future Reservation's end time (default) or at user's defined timestamp if any of the [autoCreatedReservationsDeleteTime, autoCreatedReservationsDuration] values is specified. For keeping auto-created reservation indefinitely, this value should be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_delete_auto_created_reservations GoogleComputeFutureReservation#auto_delete_auto_created_reservations}
-        :param commitment_info: commitment_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_info GoogleComputeFutureReservation#commitment_info}
-        :param deployment_type: Type of the deployment requested as part of future reservation. Possible values: ["DENSE", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#deployment_type GoogleComputeFutureReservation#deployment_type}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#description GoogleComputeFutureReservation#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name_prefix: Name prefix for the reservations to be created at the time of delivery. The name prefix must comply with RFC1035. Maximum allowed length for name prefix is 20. Automatically created reservations name format will be -date-####. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#name_prefix GoogleComputeFutureReservation#name_prefix}
-        :param planning_status: Planning state before being submitted for evaluation Possible values: ["DRAFT", "SUBMITTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#planning_status GoogleComputeFutureReservation#planning_status}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project GoogleComputeFutureReservation#project}.
-        :param reservation_mode: The reservation mode which determines reservation-termination behavior and expected pricing. Possible values: ["CALENDAR", "DEFAULT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#reservation_mode GoogleComputeFutureReservation#reservation_mode}
-        :param reservation_name: Name of reservations where the capacity is provisioned at the time of delivery of future reservations. If the reservation with the given name does not exist already, it is created automatically at the time of Approval with INACTIVE state till specified start-time. Either provide the reservationName or a namePrefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#reservation_name GoogleComputeFutureReservation#reservation_name}
-        :param scheduling_type: Maintenance information for this reservation Possible values: ["GROUPED", "INDEPENDENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#scheduling_type GoogleComputeFutureReservation#scheduling_type}
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#share_settings GoogleComputeFutureReservation#share_settings}
-        :param specific_reservation_required: Indicates whether the auto-created reservation can be consumed by VMs with affinity for "any" reservation. If the field is set, then only VMs that target the reservation by name can consume from the delivered reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#specific_reservation_required GoogleComputeFutureReservation#specific_reservation_required}
-        :param specific_sku_properties: specific_sku_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#specific_sku_properties GoogleComputeFutureReservation#specific_sku_properties}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#timeouts GoogleComputeFutureReservation#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the las character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#name GoogleComputeFutureReservation#name}
+        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#time_window GoogleComputeFutureReservation#time_window}
+        :param auto_created_reservations_delete_time: Future timestamp when the FR auto-created reservations will be deleted by Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_created_reservations_delete_time GoogleComputeFutureReservation#auto_created_reservations_delete_time}
+        :param auto_created_reservations_duration: auto_created_reservations_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_created_reservations_duration GoogleComputeFutureReservation#auto_created_reservations_duration}
+        :param auto_delete_auto_created_reservations: Setting for enabling or disabling automatic deletion for auto-created reservation. If set to true, auto-created reservations will be deleted at Future Reservation's end time (default) or at user's defined timestamp if any of the [autoCreatedReservationsDeleteTime, autoCreatedReservationsDuration] values is specified. For keeping auto-created reservation indefinitely, this value should be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_delete_auto_created_reservations GoogleComputeFutureReservation#auto_delete_auto_created_reservations}
+        :param commitment_info: commitment_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_info GoogleComputeFutureReservation#commitment_info}
+        :param deployment_type: Type of the deployment requested as part of future reservation. Possible values: ["DENSE", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#deployment_type GoogleComputeFutureReservation#deployment_type}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#description GoogleComputeFutureReservation#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name_prefix: Name prefix for the reservations to be created at the time of delivery. The name prefix must comply with RFC1035. Maximum allowed length for name prefix is 20. Automatically created reservations name format will be -date-####. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#name_prefix GoogleComputeFutureReservation#name_prefix}
+        :param planning_status: Planning state before being submitted for evaluation Possible values: ["DRAFT", "SUBMITTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#planning_status GoogleComputeFutureReservation#planning_status}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project GoogleComputeFutureReservation#project}.
+        :param reservation_mode: The reservation mode which determines reservation-termination behavior and expected pricing. Possible values: ["CALENDAR", "DEFAULT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#reservation_mode GoogleComputeFutureReservation#reservation_mode}
+        :param reservation_name: Name of reservations where the capacity is provisioned at the time of delivery of future reservations. If the reservation with the given name does not exist already, it is created automatically at the time of Approval with INACTIVE state till specified start-time. Either provide the reservationName or a namePrefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#reservation_name GoogleComputeFutureReservation#reservation_name}
+        :param scheduling_type: Maintenance information for this reservation Possible values: ["GROUPED", "INDEPENDENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#scheduling_type GoogleComputeFutureReservation#scheduling_type}
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#share_settings GoogleComputeFutureReservation#share_settings}
+        :param specific_reservation_required: Indicates whether the auto-created reservation can be consumed by VMs with affinity for "any" reservation. If the field is set, then only VMs that target the reservation by name can consume from the delivered reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#specific_reservation_required GoogleComputeFutureReservation#specific_reservation_required}
+        :param specific_sku_properties: specific_sku_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#specific_sku_properties GoogleComputeFutureReservation#specific_sku_properties}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#timeouts GoogleComputeFutureReservation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class GoogleComputeFutureReservation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeFutureReservation to import.
-        :param import_from_id: The id of the existing GoogleComputeFutureReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeFutureReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeFutureReservation to import is found.
         '''
         if __debug__:
@@ -176,8 +176,8 @@ class GoogleComputeFutureReservation(
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
         '''
         value = GoogleComputeFutureReservationAutoCreatedReservationsDuration(
             nanos=nanos, seconds=seconds
@@ -194,9 +194,9 @@ class GoogleComputeFutureReservation(
         previous_commitment_terms: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param commitment_name: name of the commitment where capacity is being delivered to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_name GoogleComputeFutureReservation#commitment_name}
-        :param commitment_plan: Indicates if a Commitment needs to be created as part of FR delivery. If this field is not present, then no commitment needs to be created. Possible values: ["INVALID", "THIRTY_SIX_MONTH", "TWELVE_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_plan GoogleComputeFutureReservation#commitment_plan}
-        :param previous_commitment_terms: Only applicable if FR is delivering to the same reservation. If set, all parent commitments will be extended to match the end date of the plan for this commitment. Possible values: ["EXTEND"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#previous_commitment_terms GoogleComputeFutureReservation#previous_commitment_terms}
+        :param commitment_name: name of the commitment where capacity is being delivered to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_name GoogleComputeFutureReservation#commitment_name}
+        :param commitment_plan: Indicates if a Commitment needs to be created as part of FR delivery. If this field is not present, then no commitment needs to be created. Possible values: ["INVALID", "THIRTY_SIX_MONTH", "TWELVE_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_plan GoogleComputeFutureReservation#commitment_plan}
+        :param previous_commitment_terms: Only applicable if FR is delivering to the same reservation. If set, all parent commitments will be extended to match the end date of the plan for this commitment. Possible values: ["EXTEND"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#previous_commitment_terms GoogleComputeFutureReservation#previous_commitment_terms}
         '''
         value = GoogleComputeFutureReservationCommitmentInfo(
             commitment_name=commitment_name,
@@ -215,9 +215,9 @@ class GoogleComputeFutureReservation(
         share_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project_map GoogleComputeFutureReservation#project_map}
-        :param projects: list of Project names to specify consumer projects for this shared-reservation. This is only valid when shareType's value is SPECIFIC_PROJECTS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#projects GoogleComputeFutureReservation#projects}
-        :param share_type: Type of sharing for this future reservation. Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#share_type GoogleComputeFutureReservation#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project_map GoogleComputeFutureReservation#project_map}
+        :param projects: list of Project names to specify consumer projects for this shared-reservation. This is only valid when shareType's value is SPECIFIC_PROJECTS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#projects GoogleComputeFutureReservation#projects}
+        :param share_type: Type of sharing for this future reservation. Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#share_type GoogleComputeFutureReservation#share_type}
         '''
         value = GoogleComputeFutureReservationShareSettings(
             project_map=project_map, projects=projects, share_type=share_type
@@ -234,9 +234,9 @@ class GoogleComputeFutureReservation(
         total_count: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#instance_properties GoogleComputeFutureReservation#instance_properties}
-        :param source_instance_template: The instance template that will be used to populate the ReservedInstanceProperties of the future reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#source_instance_template GoogleComputeFutureReservation#source_instance_template}
-        :param total_count: Total number of instances for which capacity assurance is requested at a future time period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#total_count GoogleComputeFutureReservation#total_count}
+        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#instance_properties GoogleComputeFutureReservation#instance_properties}
+        :param source_instance_template: The instance template that will be used to populate the ReservedInstanceProperties of the future reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#source_instance_template GoogleComputeFutureReservation#source_instance_template}
+        :param total_count: Total number of instances for which capacity assurance is requested at a future time period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#total_count GoogleComputeFutureReservation#total_count}
         '''
         value = GoogleComputeFutureReservationSpecificSkuProperties(
             instance_properties=instance_properties,
@@ -255,9 +255,9 @@ class GoogleComputeFutureReservation(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#create GoogleComputeFutureReservation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#delete GoogleComputeFutureReservation#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#update GoogleComputeFutureReservation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#create GoogleComputeFutureReservation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#delete GoogleComputeFutureReservation#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#update GoogleComputeFutureReservation#update}.
         '''
         value = GoogleComputeFutureReservationTimeouts(
             create=create, delete=delete, update=update
@@ -274,9 +274,9 @@ class GoogleComputeFutureReservation(
         end_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_time: Start time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#start_time GoogleComputeFutureReservation#start_time}
-        :param duration: duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#duration GoogleComputeFutureReservation#duration}
-        :param end_time: End time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#end_time GoogleComputeFutureReservation#end_time}
+        :param start_time: Start time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#start_time GoogleComputeFutureReservation#start_time}
+        :param duration: duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#duration GoogleComputeFutureReservation#duration}
+        :param end_time: End time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#end_time GoogleComputeFutureReservation#end_time}
         '''
         value = GoogleComputeFutureReservationTimeWindow(
             start_time=start_time, duration=duration, end_time=end_time
@@ -721,8 +721,8 @@ class GoogleComputeFutureReservationAutoCreatedReservationsDuration:
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5941a957c783d71d9130fbb103f8b927824afebd1632f2fec3ea4beb3eda8091)
@@ -740,7 +740,7 @@ class GoogleComputeFutureReservationAutoCreatedReservationsDuration:
 
         Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -749,7 +749,7 @@ class GoogleComputeFutureReservationAutoCreatedReservationsDuration:
     def seconds(self) -> typing.Optional[builtins.str]:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -864,9 +864,9 @@ class GoogleComputeFutureReservationCommitmentInfo:
         previous_commitment_terms: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param commitment_name: name of the commitment where capacity is being delivered to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_name GoogleComputeFutureReservation#commitment_name}
-        :param commitment_plan: Indicates if a Commitment needs to be created as part of FR delivery. If this field is not present, then no commitment needs to be created. Possible values: ["INVALID", "THIRTY_SIX_MONTH", "TWELVE_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_plan GoogleComputeFutureReservation#commitment_plan}
-        :param previous_commitment_terms: Only applicable if FR is delivering to the same reservation. If set, all parent commitments will be extended to match the end date of the plan for this commitment. Possible values: ["EXTEND"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#previous_commitment_terms GoogleComputeFutureReservation#previous_commitment_terms}
+        :param commitment_name: name of the commitment where capacity is being delivered to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_name GoogleComputeFutureReservation#commitment_name}
+        :param commitment_plan: Indicates if a Commitment needs to be created as part of FR delivery. If this field is not present, then no commitment needs to be created. Possible values: ["INVALID", "THIRTY_SIX_MONTH", "TWELVE_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_plan GoogleComputeFutureReservation#commitment_plan}
+        :param previous_commitment_terms: Only applicable if FR is delivering to the same reservation. If set, all parent commitments will be extended to match the end date of the plan for this commitment. Possible values: ["EXTEND"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#previous_commitment_terms GoogleComputeFutureReservation#previous_commitment_terms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e3efc9a8b21ac6b3f167a1c18c34667cc1eb25c1e0be178be3eb8fb855f6d00)
@@ -885,7 +885,7 @@ class GoogleComputeFutureReservationCommitmentInfo:
     def commitment_name(self) -> typing.Optional[builtins.str]:
         '''name of the commitment where capacity is being delivered to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_name GoogleComputeFutureReservation#commitment_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_name GoogleComputeFutureReservation#commitment_name}
         '''
         result = self._values.get("commitment_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -896,7 +896,7 @@ class GoogleComputeFutureReservationCommitmentInfo:
 
         If this field is not present, then no commitment needs to be created. Possible values: ["INVALID", "THIRTY_SIX_MONTH", "TWELVE_MONTH"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_plan GoogleComputeFutureReservation#commitment_plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_plan GoogleComputeFutureReservation#commitment_plan}
         '''
         result = self._values.get("commitment_plan")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -907,7 +907,7 @@ class GoogleComputeFutureReservationCommitmentInfo:
 
         If set, all parent commitments will be extended to match the end date of the plan for this commitment. Possible values: ["EXTEND"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#previous_commitment_terms GoogleComputeFutureReservation#previous_commitment_terms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#previous_commitment_terms GoogleComputeFutureReservation#previous_commitment_terms}
         '''
         result = self._values.get("previous_commitment_terms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1096,25 +1096,25 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the las character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#name GoogleComputeFutureReservation#name}
-        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#time_window GoogleComputeFutureReservation#time_window}
-        :param auto_created_reservations_delete_time: Future timestamp when the FR auto-created reservations will be deleted by Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_created_reservations_delete_time GoogleComputeFutureReservation#auto_created_reservations_delete_time}
-        :param auto_created_reservations_duration: auto_created_reservations_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_created_reservations_duration GoogleComputeFutureReservation#auto_created_reservations_duration}
-        :param auto_delete_auto_created_reservations: Setting for enabling or disabling automatic deletion for auto-created reservation. If set to true, auto-created reservations will be deleted at Future Reservation's end time (default) or at user's defined timestamp if any of the [autoCreatedReservationsDeleteTime, autoCreatedReservationsDuration] values is specified. For keeping auto-created reservation indefinitely, this value should be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_delete_auto_created_reservations GoogleComputeFutureReservation#auto_delete_auto_created_reservations}
-        :param commitment_info: commitment_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_info GoogleComputeFutureReservation#commitment_info}
-        :param deployment_type: Type of the deployment requested as part of future reservation. Possible values: ["DENSE", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#deployment_type GoogleComputeFutureReservation#deployment_type}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#description GoogleComputeFutureReservation#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name_prefix: Name prefix for the reservations to be created at the time of delivery. The name prefix must comply with RFC1035. Maximum allowed length for name prefix is 20. Automatically created reservations name format will be -date-####. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#name_prefix GoogleComputeFutureReservation#name_prefix}
-        :param planning_status: Planning state before being submitted for evaluation Possible values: ["DRAFT", "SUBMITTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#planning_status GoogleComputeFutureReservation#planning_status}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project GoogleComputeFutureReservation#project}.
-        :param reservation_mode: The reservation mode which determines reservation-termination behavior and expected pricing. Possible values: ["CALENDAR", "DEFAULT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#reservation_mode GoogleComputeFutureReservation#reservation_mode}
-        :param reservation_name: Name of reservations where the capacity is provisioned at the time of delivery of future reservations. If the reservation with the given name does not exist already, it is created automatically at the time of Approval with INACTIVE state till specified start-time. Either provide the reservationName or a namePrefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#reservation_name GoogleComputeFutureReservation#reservation_name}
-        :param scheduling_type: Maintenance information for this reservation Possible values: ["GROUPED", "INDEPENDENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#scheduling_type GoogleComputeFutureReservation#scheduling_type}
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#share_settings GoogleComputeFutureReservation#share_settings}
-        :param specific_reservation_required: Indicates whether the auto-created reservation can be consumed by VMs with affinity for "any" reservation. If the field is set, then only VMs that target the reservation by name can consume from the delivered reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#specific_reservation_required GoogleComputeFutureReservation#specific_reservation_required}
-        :param specific_sku_properties: specific_sku_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#specific_sku_properties GoogleComputeFutureReservation#specific_sku_properties}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#timeouts GoogleComputeFutureReservation#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the las character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#name GoogleComputeFutureReservation#name}
+        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#time_window GoogleComputeFutureReservation#time_window}
+        :param auto_created_reservations_delete_time: Future timestamp when the FR auto-created reservations will be deleted by Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_created_reservations_delete_time GoogleComputeFutureReservation#auto_created_reservations_delete_time}
+        :param auto_created_reservations_duration: auto_created_reservations_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_created_reservations_duration GoogleComputeFutureReservation#auto_created_reservations_duration}
+        :param auto_delete_auto_created_reservations: Setting for enabling or disabling automatic deletion for auto-created reservation. If set to true, auto-created reservations will be deleted at Future Reservation's end time (default) or at user's defined timestamp if any of the [autoCreatedReservationsDeleteTime, autoCreatedReservationsDuration] values is specified. For keeping auto-created reservation indefinitely, this value should be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_delete_auto_created_reservations GoogleComputeFutureReservation#auto_delete_auto_created_reservations}
+        :param commitment_info: commitment_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_info GoogleComputeFutureReservation#commitment_info}
+        :param deployment_type: Type of the deployment requested as part of future reservation. Possible values: ["DENSE", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#deployment_type GoogleComputeFutureReservation#deployment_type}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#description GoogleComputeFutureReservation#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name_prefix: Name prefix for the reservations to be created at the time of delivery. The name prefix must comply with RFC1035. Maximum allowed length for name prefix is 20. Automatically created reservations name format will be -date-####. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#name_prefix GoogleComputeFutureReservation#name_prefix}
+        :param planning_status: Planning state before being submitted for evaluation Possible values: ["DRAFT", "SUBMITTED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#planning_status GoogleComputeFutureReservation#planning_status}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project GoogleComputeFutureReservation#project}.
+        :param reservation_mode: The reservation mode which determines reservation-termination behavior and expected pricing. Possible values: ["CALENDAR", "DEFAULT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#reservation_mode GoogleComputeFutureReservation#reservation_mode}
+        :param reservation_name: Name of reservations where the capacity is provisioned at the time of delivery of future reservations. If the reservation with the given name does not exist already, it is created automatically at the time of Approval with INACTIVE state till specified start-time. Either provide the reservationName or a namePrefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#reservation_name GoogleComputeFutureReservation#reservation_name}
+        :param scheduling_type: Maintenance information for this reservation Possible values: ["GROUPED", "INDEPENDENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#scheduling_type GoogleComputeFutureReservation#scheduling_type}
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#share_settings GoogleComputeFutureReservation#share_settings}
+        :param specific_reservation_required: Indicates whether the auto-created reservation can be consumed by VMs with affinity for "any" reservation. If the field is set, then only VMs that target the reservation by name can consume from the delivered reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#specific_reservation_required GoogleComputeFutureReservation#specific_reservation_required}
+        :param specific_sku_properties: specific_sku_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#specific_sku_properties GoogleComputeFutureReservation#specific_sku_properties}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#timeouts GoogleComputeFutureReservation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1287,7 +1287,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         characters must be a dash, lowercase letter, or digit, except the las
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#name GoogleComputeFutureReservation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#name GoogleComputeFutureReservation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1297,7 +1297,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def time_window(self) -> "GoogleComputeFutureReservationTimeWindow":
         '''time_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#time_window GoogleComputeFutureReservation#time_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#time_window GoogleComputeFutureReservation#time_window}
         '''
         result = self._values.get("time_window")
         assert result is not None, "Required property 'time_window' is missing"
@@ -1307,7 +1307,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def auto_created_reservations_delete_time(self) -> typing.Optional[builtins.str]:
         '''Future timestamp when the FR auto-created reservations will be deleted by Compute Engine.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_created_reservations_delete_time GoogleComputeFutureReservation#auto_created_reservations_delete_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_created_reservations_delete_time GoogleComputeFutureReservation#auto_created_reservations_delete_time}
         '''
         result = self._values.get("auto_created_reservations_delete_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1318,7 +1318,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[GoogleComputeFutureReservationAutoCreatedReservationsDuration]:
         '''auto_created_reservations_duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_created_reservations_duration GoogleComputeFutureReservation#auto_created_reservations_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_created_reservations_duration GoogleComputeFutureReservation#auto_created_reservations_duration}
         '''
         result = self._values.get("auto_created_reservations_duration")
         return typing.cast(typing.Optional[GoogleComputeFutureReservationAutoCreatedReservationsDuration], result)
@@ -1331,7 +1331,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         If set to true, auto-created reservations will be deleted at Future Reservation's end time (default) or at user's defined timestamp if any of the [autoCreatedReservationsDeleteTime, autoCreatedReservationsDuration] values is specified. For keeping auto-created reservation indefinitely, this value should be set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#auto_delete_auto_created_reservations GoogleComputeFutureReservation#auto_delete_auto_created_reservations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#auto_delete_auto_created_reservations GoogleComputeFutureReservation#auto_delete_auto_created_reservations}
         '''
         result = self._values.get("auto_delete_auto_created_reservations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1342,7 +1342,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[GoogleComputeFutureReservationCommitmentInfo]:
         '''commitment_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#commitment_info GoogleComputeFutureReservation#commitment_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#commitment_info GoogleComputeFutureReservation#commitment_info}
         '''
         result = self._values.get("commitment_info")
         return typing.cast(typing.Optional[GoogleComputeFutureReservationCommitmentInfo], result)
@@ -1351,7 +1351,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def deployment_type(self) -> typing.Optional[builtins.str]:
         '''Type of the deployment requested as part of future reservation. Possible values: ["DENSE", "FLEXIBLE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#deployment_type GoogleComputeFutureReservation#deployment_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#deployment_type GoogleComputeFutureReservation#deployment_type}
         '''
         result = self._values.get("deployment_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1360,14 +1360,14 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#description GoogleComputeFutureReservation#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#description GoogleComputeFutureReservation#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1381,7 +1381,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         The name prefix must comply with RFC1035. Maximum allowed length for name prefix is 20. Automatically created reservations name format will be -date-####.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#name_prefix GoogleComputeFutureReservation#name_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#name_prefix GoogleComputeFutureReservation#name_prefix}
         '''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1390,14 +1390,14 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def planning_status(self) -> typing.Optional[builtins.str]:
         '''Planning state before being submitted for evaluation Possible values: ["DRAFT", "SUBMITTED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#planning_status GoogleComputeFutureReservation#planning_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#planning_status GoogleComputeFutureReservation#planning_status}
         '''
         result = self._values.get("planning_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project GoogleComputeFutureReservation#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project GoogleComputeFutureReservation#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1405,7 +1405,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def reservation_mode(self) -> typing.Optional[builtins.str]:
         '''The reservation mode which determines reservation-termination behavior and expected pricing. Possible values: ["CALENDAR", "DEFAULT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#reservation_mode GoogleComputeFutureReservation#reservation_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#reservation_mode GoogleComputeFutureReservation#reservation_mode}
         '''
         result = self._values.get("reservation_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1416,7 +1416,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         If the reservation with the given name does not exist already, it is created automatically at the time of Approval with INACTIVE state till specified start-time. Either provide the reservationName or a namePrefix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#reservation_name GoogleComputeFutureReservation#reservation_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#reservation_name GoogleComputeFutureReservation#reservation_name}
         '''
         result = self._values.get("reservation_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1425,7 +1425,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def scheduling_type(self) -> typing.Optional[builtins.str]:
         '''Maintenance information for this reservation Possible values: ["GROUPED", "INDEPENDENT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#scheduling_type GoogleComputeFutureReservation#scheduling_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#scheduling_type GoogleComputeFutureReservation#scheduling_type}
         '''
         result = self._values.get("scheduling_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1436,7 +1436,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["GoogleComputeFutureReservationShareSettings"]:
         '''share_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#share_settings GoogleComputeFutureReservation#share_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#share_settings GoogleComputeFutureReservation#share_settings}
         '''
         result = self._values.get("share_settings")
         return typing.cast(typing.Optional["GoogleComputeFutureReservationShareSettings"], result)
@@ -1449,7 +1449,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         If the field is set, then only VMs that target the reservation by name can consume from the delivered reservation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#specific_reservation_required GoogleComputeFutureReservation#specific_reservation_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#specific_reservation_required GoogleComputeFutureReservation#specific_reservation_required}
         '''
         result = self._values.get("specific_reservation_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1460,7 +1460,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["GoogleComputeFutureReservationSpecificSkuProperties"]:
         '''specific_sku_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#specific_sku_properties GoogleComputeFutureReservation#specific_sku_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#specific_sku_properties GoogleComputeFutureReservation#specific_sku_properties}
         '''
         result = self._values.get("specific_sku_properties")
         return typing.cast(typing.Optional["GoogleComputeFutureReservationSpecificSkuProperties"], result)
@@ -1469,7 +1469,7 @@ class GoogleComputeFutureReservationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleComputeFutureReservationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#timeouts GoogleComputeFutureReservation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#timeouts GoogleComputeFutureReservation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeFutureReservationTimeouts"], result)
@@ -1504,9 +1504,9 @@ class GoogleComputeFutureReservationShareSettings:
         share_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project_map GoogleComputeFutureReservation#project_map}
-        :param projects: list of Project names to specify consumer projects for this shared-reservation. This is only valid when shareType's value is SPECIFIC_PROJECTS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#projects GoogleComputeFutureReservation#projects}
-        :param share_type: Type of sharing for this future reservation. Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#share_type GoogleComputeFutureReservation#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project_map GoogleComputeFutureReservation#project_map}
+        :param projects: list of Project names to specify consumer projects for this shared-reservation. This is only valid when shareType's value is SPECIFIC_PROJECTS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#projects GoogleComputeFutureReservation#projects}
+        :param share_type: Type of sharing for this future reservation. Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#share_type GoogleComputeFutureReservation#share_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bbefe66851cc40796cce17897c184afbce2cee6a71582314549a69766b2b2dc3)
@@ -1527,7 +1527,7 @@ class GoogleComputeFutureReservationShareSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeFutureReservationShareSettingsProjectMap"]]]:
         '''project_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project_map GoogleComputeFutureReservation#project_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project_map GoogleComputeFutureReservation#project_map}
         '''
         result = self._values.get("project_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeFutureReservationShareSettingsProjectMap"]]], result)
@@ -1538,7 +1538,7 @@ class GoogleComputeFutureReservationShareSettings:
 
         This is only valid when shareType's value is SPECIFIC_PROJECTS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#projects GoogleComputeFutureReservation#projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#projects GoogleComputeFutureReservation#projects}
         '''
         result = self._values.get("projects")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1547,7 +1547,7 @@ class GoogleComputeFutureReservationShareSettings:
     def share_type(self) -> typing.Optional[builtins.str]:
         '''Type of sharing for this future reservation. Possible values: ["LOCAL", "SPECIFIC_PROJECTS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#share_type GoogleComputeFutureReservation#share_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#share_type GoogleComputeFutureReservation#share_type}
         '''
         result = self._values.get("share_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1688,8 +1688,8 @@ class GoogleComputeFutureReservationShareSettingsProjectMap:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: The project ID, should be same as the key of this project config in the parent map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project_id GoogleComputeFutureReservation#project_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: The project ID, should be same as the key of this project config in the parent map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project_id GoogleComputeFutureReservation#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2dbfce69fa5a24900ea3f22f830d8cc80d3050e0979b2607dacfa68364f83e57)
@@ -1703,7 +1703,7 @@ class GoogleComputeFutureReservationShareSettingsProjectMap:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#id GoogleComputeFutureReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1716,7 +1716,7 @@ class GoogleComputeFutureReservationShareSettingsProjectMap:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The project ID, should be same as the key of this project config in the parent map.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#project_id GoogleComputeFutureReservation#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#project_id GoogleComputeFutureReservation#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1926,9 +1926,9 @@ class GoogleComputeFutureReservationSpecificSkuProperties:
         total_count: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#instance_properties GoogleComputeFutureReservation#instance_properties}
-        :param source_instance_template: The instance template that will be used to populate the ReservedInstanceProperties of the future reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#source_instance_template GoogleComputeFutureReservation#source_instance_template}
-        :param total_count: Total number of instances for which capacity assurance is requested at a future time period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#total_count GoogleComputeFutureReservation#total_count}
+        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#instance_properties GoogleComputeFutureReservation#instance_properties}
+        :param source_instance_template: The instance template that will be used to populate the ReservedInstanceProperties of the future reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#source_instance_template GoogleComputeFutureReservation#source_instance_template}
+        :param total_count: Total number of instances for which capacity assurance is requested at a future time period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#total_count GoogleComputeFutureReservation#total_count}
         '''
         if isinstance(instance_properties, dict):
             instance_properties = GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties(**instance_properties)
@@ -1951,7 +1951,7 @@ class GoogleComputeFutureReservationSpecificSkuProperties:
     ) -> typing.Optional["GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties"]:
         '''instance_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#instance_properties GoogleComputeFutureReservation#instance_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#instance_properties GoogleComputeFutureReservation#instance_properties}
         '''
         result = self._values.get("instance_properties")
         return typing.cast(typing.Optional["GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties"], result)
@@ -1960,7 +1960,7 @@ class GoogleComputeFutureReservationSpecificSkuProperties:
     def source_instance_template(self) -> typing.Optional[builtins.str]:
         '''The instance template that will be used to populate the ReservedInstanceProperties of the future reservation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#source_instance_template GoogleComputeFutureReservation#source_instance_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#source_instance_template GoogleComputeFutureReservation#source_instance_template}
         '''
         result = self._values.get("source_instance_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1969,7 +1969,7 @@ class GoogleComputeFutureReservationSpecificSkuProperties:
     def total_count(self) -> typing.Optional[builtins.str]:
         '''Total number of instances for which capacity assurance is requested at a future time period.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#total_count GoogleComputeFutureReservation#total_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#total_count GoogleComputeFutureReservation#total_count}
         '''
         result = self._values.get("total_count")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2012,13 +2012,13 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
         min_cpu_platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#guest_accelerators GoogleComputeFutureReservation#guest_accelerators}
-        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#local_ssds GoogleComputeFutureReservation#local_ssds}
-        :param location_hint: An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#location_hint GoogleComputeFutureReservation#location_hint}
-        :param machine_type: Specifies type of machine (name only) which has fixed number of vCPUs and fixed amount of memory. This also includes specifying custom machine type following custom-NUMBER_OF_CPUS-AMOUNT_OF_MEMORY pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#machine_type GoogleComputeFutureReservation#machine_type}
-        :param maintenance_freeze_duration_hours: Specifies the number of hours after reservation creation where instances using the reservation won't be scheduled for maintenance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#maintenance_freeze_duration_hours GoogleComputeFutureReservation#maintenance_freeze_duration_hours}
-        :param maintenance_interval: Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC Possible values: ["PERIODIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#maintenance_interval GoogleComputeFutureReservation#maintenance_interval}
-        :param min_cpu_platform: Minimum cpu platform the reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#min_cpu_platform GoogleComputeFutureReservation#min_cpu_platform}
+        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#guest_accelerators GoogleComputeFutureReservation#guest_accelerators}
+        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#local_ssds GoogleComputeFutureReservation#local_ssds}
+        :param location_hint: An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#location_hint GoogleComputeFutureReservation#location_hint}
+        :param machine_type: Specifies type of machine (name only) which has fixed number of vCPUs and fixed amount of memory. This also includes specifying custom machine type following custom-NUMBER_OF_CPUS-AMOUNT_OF_MEMORY pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#machine_type GoogleComputeFutureReservation#machine_type}
+        :param maintenance_freeze_duration_hours: Specifies the number of hours after reservation creation where instances using the reservation won't be scheduled for maintenance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#maintenance_freeze_duration_hours GoogleComputeFutureReservation#maintenance_freeze_duration_hours}
+        :param maintenance_interval: Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC Possible values: ["PERIODIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#maintenance_interval GoogleComputeFutureReservation#maintenance_interval}
+        :param min_cpu_platform: Minimum cpu platform the reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#min_cpu_platform GoogleComputeFutureReservation#min_cpu_platform}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e57d23fab88c8fdea736df8760db33c8443c73843f8e99188354d4dc8394f00)
@@ -2051,7 +2051,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesGuestAccelerators"]]]:
         '''guest_accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#guest_accelerators GoogleComputeFutureReservation#guest_accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#guest_accelerators GoogleComputeFutureReservation#guest_accelerators}
         '''
         result = self._values.get("guest_accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesGuestAccelerators"]]], result)
@@ -2062,7 +2062,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesLocalSsds"]]]:
         '''local_ssds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#local_ssds GoogleComputeFutureReservation#local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#local_ssds GoogleComputeFutureReservation#local_ssds}
         '''
         result = self._values.get("local_ssds")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesLocalSsds"]]], result)
@@ -2073,7 +2073,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
 
         This field is for use by internal tools that use the public API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#location_hint GoogleComputeFutureReservation#location_hint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#location_hint GoogleComputeFutureReservation#location_hint}
         '''
         result = self._values.get("location_hint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2084,7 +2084,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
 
         This also includes specifying custom machine type following custom-NUMBER_OF_CPUS-AMOUNT_OF_MEMORY pattern.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#machine_type GoogleComputeFutureReservation#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#machine_type GoogleComputeFutureReservation#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2093,7 +2093,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
     def maintenance_freeze_duration_hours(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of hours after reservation creation where instances using the reservation won't be scheduled for maintenance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#maintenance_freeze_duration_hours GoogleComputeFutureReservation#maintenance_freeze_duration_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#maintenance_freeze_duration_hours GoogleComputeFutureReservation#maintenance_freeze_duration_hours}
         '''
         result = self._values.get("maintenance_freeze_duration_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2102,7 +2102,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
     def maintenance_interval(self) -> typing.Optional[builtins.str]:
         '''Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC Possible values: ["PERIODIC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#maintenance_interval GoogleComputeFutureReservation#maintenance_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#maintenance_interval GoogleComputeFutureReservation#maintenance_interval}
         '''
         result = self._values.get("maintenance_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2111,7 +2111,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties:
     def min_cpu_platform(self) -> typing.Optional[builtins.str]:
         '''Minimum cpu platform the reservation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#min_cpu_platform GoogleComputeFutureReservation#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#min_cpu_platform GoogleComputeFutureReservation#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2144,8 +2144,8 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesGuest
         accelerator_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerator_count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#accelerator_count GoogleComputeFutureReservation#accelerator_count}
-        :param accelerator_type: Full or partial URL of the accelerator type resource to attach to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#accelerator_type GoogleComputeFutureReservation#accelerator_type}
+        :param accelerator_count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#accelerator_count GoogleComputeFutureReservation#accelerator_count}
+        :param accelerator_type: Full or partial URL of the accelerator type resource to attach to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#accelerator_type GoogleComputeFutureReservation#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe819a2ab84c429624672c4575f9beb582e7d4a9815ecfed205eaefa470a0e0f)
@@ -2161,7 +2161,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesGuest
     def accelerator_count(self) -> typing.Optional[jsii.Number]:
         '''The number of the guest accelerator cards exposed to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#accelerator_count GoogleComputeFutureReservation#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#accelerator_count GoogleComputeFutureReservation#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2170,7 +2170,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesGuest
     def accelerator_type(self) -> typing.Optional[builtins.str]:
         '''Full or partial URL of the accelerator type resource to attach to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#accelerator_type GoogleComputeFutureReservation#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#accelerator_type GoogleComputeFutureReservation#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2379,8 +2379,8 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesLocal
         interface: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: Specifies the size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#disk_size_gb GoogleComputeFutureReservation#disk_size_gb}
-        :param interface: Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. Possible values: ["SCSI", "NVME"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#interface GoogleComputeFutureReservation#interface}
+        :param disk_size_gb: Specifies the size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#disk_size_gb GoogleComputeFutureReservation#disk_size_gb}
+        :param interface: Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. Possible values: ["SCSI", "NVME"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#interface GoogleComputeFutureReservation#interface}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69ee80d7ba1a0563dae3039934d31503ca87bfef1a085b20ab1cb72bb8847508)
@@ -2396,7 +2396,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesLocal
     def disk_size_gb(self) -> typing.Optional[builtins.str]:
         '''Specifies the size of the disk in base-2 GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#disk_size_gb GoogleComputeFutureReservation#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#disk_size_gb GoogleComputeFutureReservation#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2407,7 +2407,7 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesInstancePropertiesLocal
 
         The default is SCSI. Possible values: ["SCSI", "NVME"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#interface GoogleComputeFutureReservation#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#interface GoogleComputeFutureReservation#interface}
         '''
         result = self._values.get("interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2841,13 +2841,13 @@ class GoogleComputeFutureReservationSpecificSkuPropertiesOutputReference(
         min_cpu_platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#guest_accelerators GoogleComputeFutureReservation#guest_accelerators}
-        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#local_ssds GoogleComputeFutureReservation#local_ssds}
-        :param location_hint: An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#location_hint GoogleComputeFutureReservation#location_hint}
-        :param machine_type: Specifies type of machine (name only) which has fixed number of vCPUs and fixed amount of memory. This also includes specifying custom machine type following custom-NUMBER_OF_CPUS-AMOUNT_OF_MEMORY pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#machine_type GoogleComputeFutureReservation#machine_type}
-        :param maintenance_freeze_duration_hours: Specifies the number of hours after reservation creation where instances using the reservation won't be scheduled for maintenance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#maintenance_freeze_duration_hours GoogleComputeFutureReservation#maintenance_freeze_duration_hours}
-        :param maintenance_interval: Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC Possible values: ["PERIODIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#maintenance_interval GoogleComputeFutureReservation#maintenance_interval}
-        :param min_cpu_platform: Minimum cpu platform the reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#min_cpu_platform GoogleComputeFutureReservation#min_cpu_platform}
+        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#guest_accelerators GoogleComputeFutureReservation#guest_accelerators}
+        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#local_ssds GoogleComputeFutureReservation#local_ssds}
+        :param location_hint: An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#location_hint GoogleComputeFutureReservation#location_hint}
+        :param machine_type: Specifies type of machine (name only) which has fixed number of vCPUs and fixed amount of memory. This also includes specifying custom machine type following custom-NUMBER_OF_CPUS-AMOUNT_OF_MEMORY pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#machine_type GoogleComputeFutureReservation#machine_type}
+        :param maintenance_freeze_duration_hours: Specifies the number of hours after reservation creation where instances using the reservation won't be scheduled for maintenance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#maintenance_freeze_duration_hours GoogleComputeFutureReservation#maintenance_freeze_duration_hours}
+        :param maintenance_interval: Specifies the frequency of planned maintenance events. The accepted values are: PERIODIC Possible values: ["PERIODIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#maintenance_interval GoogleComputeFutureReservation#maintenance_interval}
+        :param min_cpu_platform: Minimum cpu platform the reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#min_cpu_platform GoogleComputeFutureReservation#min_cpu_platform}
         '''
         value = GoogleComputeFutureReservationSpecificSkuPropertiesInstanceProperties(
             guest_accelerators=guest_accelerators,
@@ -5027,9 +5027,9 @@ class GoogleComputeFutureReservationTimeWindow:
         end_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_time: Start time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#start_time GoogleComputeFutureReservation#start_time}
-        :param duration: duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#duration GoogleComputeFutureReservation#duration}
-        :param end_time: End time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#end_time GoogleComputeFutureReservation#end_time}
+        :param start_time: Start time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#start_time GoogleComputeFutureReservation#start_time}
+        :param duration: duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#duration GoogleComputeFutureReservation#duration}
+        :param end_time: End time of the future reservation in RFC3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#end_time GoogleComputeFutureReservation#end_time}
         '''
         if isinstance(duration, dict):
             duration = GoogleComputeFutureReservationTimeWindowDuration(**duration)
@@ -5050,7 +5050,7 @@ class GoogleComputeFutureReservationTimeWindow:
     def start_time(self) -> builtins.str:
         '''Start time of the future reservation in RFC3339 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#start_time GoogleComputeFutureReservation#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#start_time GoogleComputeFutureReservation#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -5062,7 +5062,7 @@ class GoogleComputeFutureReservationTimeWindow:
     ) -> typing.Optional["GoogleComputeFutureReservationTimeWindowDuration"]:
         '''duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#duration GoogleComputeFutureReservation#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#duration GoogleComputeFutureReservation#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional["GoogleComputeFutureReservationTimeWindowDuration"], result)
@@ -5071,7 +5071,7 @@ class GoogleComputeFutureReservationTimeWindow:
     def end_time(self) -> typing.Optional[builtins.str]:
         '''End time of the future reservation in RFC3339 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#end_time GoogleComputeFutureReservation#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#end_time GoogleComputeFutureReservation#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5101,8 +5101,8 @@ class GoogleComputeFutureReservationTimeWindowDuration:
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b01026143f0e5f0fc694e693b9fa4f0c384498764a6c31cf268179608a5a08e)
@@ -5118,7 +5118,7 @@ class GoogleComputeFutureReservationTimeWindowDuration:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Span of time that's a fraction of a second at nanosecond resolution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5127,7 +5127,7 @@ class GoogleComputeFutureReservationTimeWindowDuration:
     def seconds(self) -> typing.Optional[builtins.str]:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5252,8 +5252,8 @@ class GoogleComputeFutureReservationTimeWindowOutputReference(
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#nanos GoogleComputeFutureReservation#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#seconds GoogleComputeFutureReservation#seconds}
         '''
         value = GoogleComputeFutureReservationTimeWindowDuration(
             nanos=nanos, seconds=seconds
@@ -5349,9 +5349,9 @@ class GoogleComputeFutureReservationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#create GoogleComputeFutureReservation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#delete GoogleComputeFutureReservation#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#update GoogleComputeFutureReservation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#create GoogleComputeFutureReservation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#delete GoogleComputeFutureReservation#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#update GoogleComputeFutureReservation#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed1388e739f27e4a3a52236a23149d7ceaeaebf4c1b6e5ea915b2db6d3a22578)
@@ -5368,19 +5368,19 @@ class GoogleComputeFutureReservationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#create GoogleComputeFutureReservation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#create GoogleComputeFutureReservation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#delete GoogleComputeFutureReservation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#delete GoogleComputeFutureReservation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_future_reservation#update GoogleComputeFutureReservation#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_future_reservation#update GoogleComputeFutureReservation#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

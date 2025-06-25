@@ -1,7 +1,7 @@
 r'''
 # `google_compute_instance_template_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_compute_instance_template_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy).
+Refer to the Terraform Registry for docs: [`google_compute_instance_template_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeInstanceTemplateIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeInstanceTemplateIamPolicy.GoogleComputeInstanceTemplateIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy google_compute_instance_template_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy google_compute_instance_template_iam_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GoogleComputeInstanceTemplateIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy google_compute_instance_template_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy google_compute_instance_template_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#name GoogleComputeInstanceTemplateIamPolicy#name}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#policy_data GoogleComputeInstanceTemplateIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#id GoogleComputeInstanceTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#project GoogleComputeInstanceTemplateIamPolicy#project}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#name GoogleComputeInstanceTemplateIamPolicy#name}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#policy_data GoogleComputeInstanceTemplateIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#id GoogleComputeInstanceTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#project GoogleComputeInstanceTemplateIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GoogleComputeInstanceTemplateIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeInstanceTemplateIamPolicy to import.
-        :param import_from_id: The id of the existing GoogleComputeInstanceTemplateIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeInstanceTemplateIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeInstanceTemplateIamPolicy to import is found.
         '''
         if __debug__:
@@ -261,10 +261,10 @@ class GoogleComputeInstanceTemplateIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#name GoogleComputeInstanceTemplateIamPolicy#name}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#policy_data GoogleComputeInstanceTemplateIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#id GoogleComputeInstanceTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#project GoogleComputeInstanceTemplateIamPolicy#project}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#name GoogleComputeInstanceTemplateIamPolicy#name}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#policy_data GoogleComputeInstanceTemplateIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#id GoogleComputeInstanceTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#project GoogleComputeInstanceTemplateIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,21 +370,21 @@ class GoogleComputeInstanceTemplateIamPolicyConfig(
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#name GoogleComputeInstanceTemplateIamPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#name GoogleComputeInstanceTemplateIamPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#policy_data GoogleComputeInstanceTemplateIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#policy_data GoogleComputeInstanceTemplateIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#id GoogleComputeInstanceTemplateIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#id GoogleComputeInstanceTemplateIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -394,7 +394,7 @@ class GoogleComputeInstanceTemplateIamPolicyConfig(
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_instance_template_iam_policy#project GoogleComputeInstanceTemplateIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_instance_template_iam_policy#project GoogleComputeInstanceTemplateIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

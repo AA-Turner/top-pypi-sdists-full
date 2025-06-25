@@ -1,4 +1,10 @@
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Optional,
+    Union,
+)
 
 from pydantic_core.core_schema import (
     ValidationInfo,
@@ -9,8 +15,9 @@ from pydantic_core.core_schema import (
 
 from eth_pydantic_types._error import HexValueError
 from eth_pydantic_types.hex.base import BaseHex
-from eth_pydantic_types.serializers import hex_serializer
+from eth_pydantic_types.serializers import create_hex_serializer, hex_serializer
 from eth_pydantic_types.utils import (
+    PadDirection,
     get_hash_examples,
     get_hash_pattern,
     validate_hex_str,
@@ -19,6 +26,7 @@ from eth_pydantic_types.utils import (
 
 if TYPE_CHECKING:
     from pydantic_core import CoreSchema
+    from typing_extensions import TypeAlias
 
 
 class BaseHexInt(int, BaseHex):
@@ -27,7 +35,7 @@ class BaseHexInt(int, BaseHex):
         return no_info_before_validator_function(cls.__eth_pydantic_validate__, int_schema())
 
     @classmethod
-    def __eth_pydantic_validate__(cls, value):
+    def __eth_pydantic_validate__(cls, value, **kwargs):
         return value  # Override.
 
     @classmethod
@@ -44,7 +52,7 @@ class BaseHexInt(int, BaseHex):
             return cls.from_bytes(data)
 
         elif isinstance(data, str):
-            return int(validate_hex_str(data), 16)
+            return cls(int(validate_hex_str(data), 16))
 
         raise HexValueError(data)
 
@@ -62,7 +70,9 @@ class HexInt(BaseHexInt):
         return schema
 
     @classmethod
-    def __eth_pydantic_validate__(cls, value: Any, info: Optional[ValidationInfo] = None) -> int:
+    def __eth_pydantic_validate__(
+        cls, value: Any, info: Optional[ValidationInfo] = None, **kwargs
+    ) -> int:
         return cls(cls.validate_hex(value))
 
 
@@ -81,13 +91,20 @@ class BoundHexInt(BaseHexInt):
             min_int = 0
             max_int = 2 ** (8 * cls.size) - 1
 
-        return with_info_before_validator_function(
+        schema = with_info_before_validator_function(
             cls.__eth_pydantic_validate__,
             int_schema(le=max_int, ge=min_int),
         )
 
+        # NOTE: Integers should always pad left; else the value increases.
+        schema["serialization"] = create_hex_serializer(size=cls.size, pad=PadDirection.LEFT)
+
+        return schema
+
     @classmethod
-    def __eth_pydantic_validate__(cls, value: Any, info: Optional[ValidationInfo] = None) -> int:
+    def __eth_pydantic_validate__(
+        cls, value: Any, info: Optional[ValidationInfo] = None, **kwargs
+    ) -> int:
         hex_int = cls.validate_hex(value)
         sized_value = cls.validate_size(hex_int)
         return cls(sized_value)
@@ -102,3 +119,11 @@ class BoundHexInt(BaseHexInt):
         str_size = cls.size * 2
         cls.schema_pattern = get_hash_pattern(str_size)
         cls.schema_examples = get_hash_examples(str_size)
+
+
+class HexInt32(BoundHexInt):
+    size: ClassVar[int] = 32
+
+
+# UInt256 is a common name for this type across other EVM packages, hence this alias.
+UInt256: "TypeAlias" = HexInt32

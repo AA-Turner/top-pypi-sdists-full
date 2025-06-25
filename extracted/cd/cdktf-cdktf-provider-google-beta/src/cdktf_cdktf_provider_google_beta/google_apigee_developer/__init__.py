@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_developer`
 
-Refer to the Terraform Registry for docs: [`google_apigee_developer`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer).
+Refer to the Terraform Registry for docs: [`google_apigee_developer`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApigeeDeveloper(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApigeeDeveloper.GoogleApigeeDeveloper",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer google_apigee_developer}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer google_apigee_developer}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleApigeeDeveloper(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer google_apigee_developer} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer google_apigee_developer} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param email: Email address of the developer. This value is used to uniquely identify the developer in Apigee hybrid. Note that the email address has to be in lowercase only.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#email GoogleApigeeDeveloper#email}
-        :param first_name: First name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#first_name GoogleApigeeDeveloper#first_name}
-        :param last_name: Last name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#last_name GoogleApigeeDeveloper#last_name}
-        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#org_id GoogleApigeeDeveloper#org_id}
-        :param user_name: User name of the developer. Not used by Apigee hybrid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#user_name GoogleApigeeDeveloper#user_name}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#attributes GoogleApigeeDeveloper#attributes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#id GoogleApigeeDeveloper#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#timeouts GoogleApigeeDeveloper#timeouts}
+        :param email: Email address of the developer. This value is used to uniquely identify the developer in Apigee hybrid. Note that the email address has to be in lowercase only.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#email GoogleApigeeDeveloper#email}
+        :param first_name: First name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#first_name GoogleApigeeDeveloper#first_name}
+        :param last_name: Last name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#last_name GoogleApigeeDeveloper#last_name}
+        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#org_id GoogleApigeeDeveloper#org_id}
+        :param user_name: User name of the developer. Not used by Apigee hybrid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#user_name GoogleApigeeDeveloper#user_name}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#attributes GoogleApigeeDeveloper#attributes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#id GoogleApigeeDeveloper#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#timeouts GoogleApigeeDeveloper#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleApigeeDeveloper(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApigeeDeveloper to import.
-        :param import_from_id: The id of the existing GoogleApigeeDeveloper that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApigeeDeveloper that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApigeeDeveloper to import is found.
         '''
         if __debug__:
@@ -157,9 +157,9 @@ class GoogleApigeeDeveloper(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#create GoogleApigeeDeveloper#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#delete GoogleApigeeDeveloper#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#update GoogleApigeeDeveloper#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#create GoogleApigeeDeveloper#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#delete GoogleApigeeDeveloper#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#update GoogleApigeeDeveloper#update}.
         '''
         value = GoogleApigeeDeveloperTimeouts(
             create=create, delete=delete, update=update
@@ -352,8 +352,8 @@ class GoogleApigeeDeveloperAttributes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#name GoogleApigeeDeveloper#name}
-        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#value GoogleApigeeDeveloper#value}
+        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#name GoogleApigeeDeveloper#name}
+        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#value GoogleApigeeDeveloper#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e1e958ce0df22b2ddc2341e13eb5213e40ca4f8ad45774804112ffc2a58275b)
@@ -369,7 +369,7 @@ class GoogleApigeeDeveloperAttributes:
     def name(self) -> typing.Optional[builtins.str]:
         '''Key of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#name GoogleApigeeDeveloper#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#name GoogleApigeeDeveloper#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -378,7 +378,7 @@ class GoogleApigeeDeveloperAttributes:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#value GoogleApigeeDeveloper#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#value GoogleApigeeDeveloper#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -623,14 +623,14 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param email: Email address of the developer. This value is used to uniquely identify the developer in Apigee hybrid. Note that the email address has to be in lowercase only.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#email GoogleApigeeDeveloper#email}
-        :param first_name: First name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#first_name GoogleApigeeDeveloper#first_name}
-        :param last_name: Last name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#last_name GoogleApigeeDeveloper#last_name}
-        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#org_id GoogleApigeeDeveloper#org_id}
-        :param user_name: User name of the developer. Not used by Apigee hybrid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#user_name GoogleApigeeDeveloper#user_name}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#attributes GoogleApigeeDeveloper#attributes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#id GoogleApigeeDeveloper#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#timeouts GoogleApigeeDeveloper#timeouts}
+        :param email: Email address of the developer. This value is used to uniquely identify the developer in Apigee hybrid. Note that the email address has to be in lowercase only.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#email GoogleApigeeDeveloper#email}
+        :param first_name: First name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#first_name GoogleApigeeDeveloper#first_name}
+        :param last_name: Last name of the developer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#last_name GoogleApigeeDeveloper#last_name}
+        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#org_id GoogleApigeeDeveloper#org_id}
+        :param user_name: User name of the developer. Not used by Apigee hybrid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#user_name GoogleApigeeDeveloper#user_name}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#attributes GoogleApigeeDeveloper#attributes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#id GoogleApigeeDeveloper#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#timeouts GoogleApigeeDeveloper#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -751,7 +751,7 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This value is used to uniquely identify the developer in Apigee hybrid. Note that the email address has to be in lowercase only..
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#email GoogleApigeeDeveloper#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#email GoogleApigeeDeveloper#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -761,7 +761,7 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def first_name(self) -> builtins.str:
         '''First name of the developer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#first_name GoogleApigeeDeveloper#first_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#first_name GoogleApigeeDeveloper#first_name}
         '''
         result = self._values.get("first_name")
         assert result is not None, "Required property 'first_name' is missing"
@@ -771,7 +771,7 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def last_name(self) -> builtins.str:
         '''Last name of the developer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#last_name GoogleApigeeDeveloper#last_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#last_name GoogleApigeeDeveloper#last_name}
         '''
         result = self._values.get("last_name")
         assert result is not None, "Required property 'last_name' is missing"
@@ -781,7 +781,7 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#org_id GoogleApigeeDeveloper#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#org_id GoogleApigeeDeveloper#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -791,7 +791,7 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_name(self) -> builtins.str:
         '''User name of the developer. Not used by Apigee hybrid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#user_name GoogleApigeeDeveloper#user_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#user_name GoogleApigeeDeveloper#user_name}
         '''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
@@ -803,14 +803,14 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleApigeeDeveloperAttributes]]]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#attributes GoogleApigeeDeveloper#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#attributes GoogleApigeeDeveloper#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleApigeeDeveloperAttributes]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#id GoogleApigeeDeveloper#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#id GoogleApigeeDeveloper#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -822,7 +822,7 @@ class GoogleApigeeDeveloperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleApigeeDeveloperTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#timeouts GoogleApigeeDeveloper#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#timeouts GoogleApigeeDeveloper#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApigeeDeveloperTimeouts"], result)
@@ -853,9 +853,9 @@ class GoogleApigeeDeveloperTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#create GoogleApigeeDeveloper#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#delete GoogleApigeeDeveloper#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#update GoogleApigeeDeveloper#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#create GoogleApigeeDeveloper#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#delete GoogleApigeeDeveloper#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#update GoogleApigeeDeveloper#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f37236025fb58b3c8b736b669273b4aeddf1763855b74d9538a9d3fe32007922)
@@ -872,19 +872,19 @@ class GoogleApigeeDeveloperTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#create GoogleApigeeDeveloper#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#create GoogleApigeeDeveloper#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#delete GoogleApigeeDeveloper#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#delete GoogleApigeeDeveloper#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_developer#update GoogleApigeeDeveloper#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_developer#update GoogleApigeeDeveloper#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

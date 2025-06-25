@@ -1,7 +1,7 @@
 r'''
 # `snowflake_secret_with_basic_authentication`
 
-Refer to the Terraform Registry for docs: [`snowflake_secret_with_basic_authentication`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication).
+Refer to the Terraform Registry for docs: [`snowflake_secret_with_basic_authentication`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecretWithBasicAuthentication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.secretWithBasicAuthentication.SecretWithBasicAuthentication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication snowflake_secret_with_basic_authentication}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication snowflake_secret_with_basic_authentication}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SecretWithBasicAuthentication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication snowflake_secret_with_basic_authentication} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication snowflake_secret_with_basic_authentication} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database in which to create the secret Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#database SecretWithBasicAuthentication#database}
-        :param name: String that specifies the identifier (i.e. name) for the secret, must be unique in your schema. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#name SecretWithBasicAuthentication#name}
-        :param password: Specifies the password value to store in the secret. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#password SecretWithBasicAuthentication#password}
-        :param schema: The schema in which to create the secret. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#schema SecretWithBasicAuthentication#schema}
-        :param username: Specifies the username value to store in the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#username SecretWithBasicAuthentication#username}
-        :param comment: Specifies a comment for the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#comment SecretWithBasicAuthentication#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#id SecretWithBasicAuthentication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#timeouts SecretWithBasicAuthentication#timeouts}
+        :param database: The database in which to create the secret Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#database SecretWithBasicAuthentication#database}
+        :param name: String that specifies the identifier (i.e. name) for the secret, must be unique in your schema. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#name SecretWithBasicAuthentication#name}
+        :param password: Specifies the password value to store in the secret. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#password SecretWithBasicAuthentication#password}
+        :param schema: The schema in which to create the secret. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#schema SecretWithBasicAuthentication#schema}
+        :param username: Specifies the username value to store in the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#username SecretWithBasicAuthentication#username}
+        :param comment: Specifies a comment for the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#comment SecretWithBasicAuthentication#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#id SecretWithBasicAuthentication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#timeouts SecretWithBasicAuthentication#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SecretWithBasicAuthentication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecretWithBasicAuthentication to import.
-        :param import_from_id: The id of the existing SecretWithBasicAuthentication that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecretWithBasicAuthentication that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecretWithBasicAuthentication to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class SecretWithBasicAuthentication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#create SecretWithBasicAuthentication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#delete SecretWithBasicAuthentication#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#read SecretWithBasicAuthentication#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#update SecretWithBasicAuthentication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#create SecretWithBasicAuthentication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#delete SecretWithBasicAuthentication#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#read SecretWithBasicAuthentication#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#update SecretWithBasicAuthentication#update}.
         '''
         value = SecretWithBasicAuthenticationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -382,14 +382,14 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database in which to create the secret Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#database SecretWithBasicAuthentication#database}
-        :param name: String that specifies the identifier (i.e. name) for the secret, must be unique in your schema. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#name SecretWithBasicAuthentication#name}
-        :param password: Specifies the password value to store in the secret. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#password SecretWithBasicAuthentication#password}
-        :param schema: The schema in which to create the secret. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#schema SecretWithBasicAuthentication#schema}
-        :param username: Specifies the username value to store in the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#username SecretWithBasicAuthentication#username}
-        :param comment: Specifies a comment for the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#comment SecretWithBasicAuthentication#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#id SecretWithBasicAuthentication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#timeouts SecretWithBasicAuthentication#timeouts}
+        :param database: The database in which to create the secret Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#database SecretWithBasicAuthentication#database}
+        :param name: String that specifies the identifier (i.e. name) for the secret, must be unique in your schema. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#name SecretWithBasicAuthentication#name}
+        :param password: Specifies the password value to store in the secret. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#password SecretWithBasicAuthentication#password}
+        :param schema: The schema in which to create the secret. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#schema SecretWithBasicAuthentication#schema}
+        :param username: Specifies the username value to store in the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#username SecretWithBasicAuthentication#username}
+        :param comment: Specifies a comment for the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#comment SecretWithBasicAuthentication#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#id SecretWithBasicAuthentication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#timeouts SecretWithBasicAuthentication#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -508,7 +508,7 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def database(self) -> builtins.str:
         '''The database in which to create the secret Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#database SecretWithBasicAuthentication#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#database SecretWithBasicAuthentication#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -518,7 +518,7 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def name(self) -> builtins.str:
         '''String that specifies the identifier (i.e. name) for the secret, must be unique in your schema. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#name SecretWithBasicAuthentication#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#name SecretWithBasicAuthentication#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -530,7 +530,7 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#password SecretWithBasicAuthentication#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#password SecretWithBasicAuthentication#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -542,7 +542,7 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#schema SecretWithBasicAuthentication#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#schema SecretWithBasicAuthentication#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -552,7 +552,7 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def username(self) -> builtins.str:
         '''Specifies the username value to store in the secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#username SecretWithBasicAuthentication#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#username SecretWithBasicAuthentication#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -562,14 +562,14 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#comment SecretWithBasicAuthentication#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#comment SecretWithBasicAuthentication#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#id SecretWithBasicAuthentication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#id SecretWithBasicAuthentication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -581,7 +581,7 @@ class SecretWithBasicAuthenticationConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["SecretWithBasicAuthenticationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#timeouts SecretWithBasicAuthentication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#timeouts SecretWithBasicAuthentication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecretWithBasicAuthenticationTimeouts"], result)
@@ -1005,10 +1005,10 @@ class SecretWithBasicAuthenticationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#create SecretWithBasicAuthentication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#delete SecretWithBasicAuthentication#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#read SecretWithBasicAuthentication#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#update SecretWithBasicAuthentication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#create SecretWithBasicAuthentication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#delete SecretWithBasicAuthentication#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#read SecretWithBasicAuthentication#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#update SecretWithBasicAuthentication#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00171618eebc6b0634512f0110ee9439ea1034d35b1b751b400b306348de876a)
@@ -1028,25 +1028,25 @@ class SecretWithBasicAuthenticationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#create SecretWithBasicAuthentication#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#create SecretWithBasicAuthentication#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#delete SecretWithBasicAuthentication#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#delete SecretWithBasicAuthentication#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#read SecretWithBasicAuthentication#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#read SecretWithBasicAuthentication#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/secret_with_basic_authentication#update SecretWithBasicAuthentication#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/secret_with_basic_authentication#update SecretWithBasicAuthentication#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

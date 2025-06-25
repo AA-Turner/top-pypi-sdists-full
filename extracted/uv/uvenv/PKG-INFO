@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: uvenv
-Version: 3.9.11
+Version: 3.9.12
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Development Status :: 4 - Beta
-Requires-Dist: uv==0.7.13
+Requires-Dist: uv==0.7.14
 Requires-Dist: pip
 Requires-Dist: patchelf ; platform_system == 'Linux'
 Requires-Dist: maturin[zig] ; extra == 'dev'

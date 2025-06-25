@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google-beta provider version 6.40.0
+# CDKTF prebuilt bindings for hashicorp/google-beta provider version 6.41.0
 
-This repo builds and publishes the [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google-beta provider versi
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0)
+* [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -593,6 +593,7 @@ __all__ = [
     "google_apihub_api_hub_instance",
     "google_apihub_curation",
     "google_apihub_host_project_registration",
+    "google_apihub_plugin_instance",
     "google_apikeys_key",
     "google_app_engine_application",
     "google_app_engine_application_url_dispatch_rules",
@@ -942,6 +943,7 @@ __all__ = [
     "google_compute_url_map",
     "google_compute_vpn_gateway",
     "google_compute_vpn_tunnel",
+    "google_contact_center_insights_view",
     "google_container_analysis_note",
     "google_container_analysis_note_iam_binding",
     "google_container_analysis_note_iam_member",
@@ -1064,6 +1066,7 @@ __all__ = [
     "google_dataproc_metastore_table_iam_binding",
     "google_dataproc_metastore_table_iam_member",
     "google_dataproc_metastore_table_iam_policy",
+    "google_dataproc_session_template",
     "google_dataproc_workflow_template",
     "google_datastream_connection_profile",
     "google_datastream_private_connection",
@@ -1084,6 +1087,7 @@ __all__ = [
     "google_dialogflow_cx_tool",
     "google_dialogflow_cx_version",
     "google_dialogflow_cx_webhook",
+    "google_dialogflow_encryption_spec",
     "google_dialogflow_entity_type",
     "google_dialogflow_fulfillment",
     "google_dialogflow_intent",
@@ -2178,6 +2182,7 @@ from . import google_apigee_target_server
 from . import google_apihub_api_hub_instance
 from . import google_apihub_curation
 from . import google_apihub_host_project_registration
+from . import google_apihub_plugin_instance
 from . import google_apikeys_key
 from . import google_app_engine_application
 from . import google_app_engine_application_url_dispatch_rules
@@ -2527,6 +2532,7 @@ from . import google_compute_target_tcp_proxy
 from . import google_compute_url_map
 from . import google_compute_vpn_gateway
 from . import google_compute_vpn_tunnel
+from . import google_contact_center_insights_view
 from . import google_container_analysis_note
 from . import google_container_analysis_note_iam_binding
 from . import google_container_analysis_note_iam_member
@@ -2649,6 +2655,7 @@ from . import google_dataproc_metastore_service_iam_policy
 from . import google_dataproc_metastore_table_iam_binding
 from . import google_dataproc_metastore_table_iam_member
 from . import google_dataproc_metastore_table_iam_policy
+from . import google_dataproc_session_template
 from . import google_dataproc_workflow_template
 from . import google_datastream_connection_profile
 from . import google_datastream_private_connection
@@ -2669,6 +2676,7 @@ from . import google_dialogflow_cx_test_case
 from . import google_dialogflow_cx_tool
 from . import google_dialogflow_cx_version
 from . import google_dialogflow_cx_webhook
+from . import google_dialogflow_encryption_spec
 from . import google_dialogflow_entity_type
 from . import google_dialogflow_fulfillment
 from . import google_dialogflow_intent

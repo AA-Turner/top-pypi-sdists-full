@@ -1,7 +1,7 @@
 r'''
 # `google_vmwareengine_private_cloud`
 
-Refer to the Terraform Registry for docs: [`google_vmwareengine_private_cloud`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud).
+Refer to the Terraform Registry for docs: [`google_vmwareengine_private_cloud`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleVmwareenginePrivateCloud(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleVmwareenginePrivateCloud.GoogleVmwareenginePrivateCloud",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud google_vmwareengine_private_cloud}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud google_vmwareengine_private_cloud}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleVmwareenginePrivateCloud(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud google_vmwareengine_private_cloud} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud google_vmwareengine_private_cloud} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location where the PrivateCloud should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#location GoogleVmwareenginePrivateCloud#location}
-        :param management_cluster: management_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#management_cluster GoogleVmwareenginePrivateCloud#management_cluster}
-        :param name: The ID of the PrivateCloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#name GoogleVmwareenginePrivateCloud#name}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#network_config GoogleVmwareenginePrivateCloud#network_config}
-        :param deletion_delay_hours: The number of hours to delay this request. You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#deletion_delay_hours GoogleVmwareenginePrivateCloud#deletion_delay_hours}
-        :param description: User-provided description for this private cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#description GoogleVmwareenginePrivateCloud#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#id GoogleVmwareenginePrivateCloud#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#project GoogleVmwareenginePrivateCloud#project}.
-        :param send_deletion_delay_hours_if_zero: While set true, deletion_delay_hours value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#send_deletion_delay_hours_if_zero GoogleVmwareenginePrivateCloud#send_deletion_delay_hours_if_zero}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#timeouts GoogleVmwareenginePrivateCloud#timeouts}
-        :param type: Initial type of the private cloud. Possible values: ["STANDARD", "TIME_LIMITED", "STRETCHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#type GoogleVmwareenginePrivateCloud#type}
+        :param location: The location where the PrivateCloud should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#location GoogleVmwareenginePrivateCloud#location}
+        :param management_cluster: management_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#management_cluster GoogleVmwareenginePrivateCloud#management_cluster}
+        :param name: The ID of the PrivateCloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#name GoogleVmwareenginePrivateCloud#name}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#network_config GoogleVmwareenginePrivateCloud#network_config}
+        :param deletion_delay_hours: The number of hours to delay this request. You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#deletion_delay_hours GoogleVmwareenginePrivateCloud#deletion_delay_hours}
+        :param description: User-provided description for this private cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#description GoogleVmwareenginePrivateCloud#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#id GoogleVmwareenginePrivateCloud#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#project GoogleVmwareenginePrivateCloud#project}.
+        :param send_deletion_delay_hours_if_zero: While set true, deletion_delay_hours value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#send_deletion_delay_hours_if_zero GoogleVmwareenginePrivateCloud#send_deletion_delay_hours_if_zero}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#timeouts GoogleVmwareenginePrivateCloud#timeouts}
+        :param type: Initial type of the private cloud. Possible values: ["STANDARD", "TIME_LIMITED", "STRETCHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#type GoogleVmwareenginePrivateCloud#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleVmwareenginePrivateCloud(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleVmwareenginePrivateCloud to import.
-        :param import_from_id: The id of the existing GoogleVmwareenginePrivateCloud that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleVmwareenginePrivateCloud that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleVmwareenginePrivateCloud to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class GoogleVmwareenginePrivateCloud(
         stretched_cluster_config: typing.Optional[typing.Union["GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cluster_id: The user-provided identifier of the new Cluster. The identifier must meet the following requirements: - Only contains 1-63 alphanumeric characters and hyphens - Begins with an alphabetical character - Ends with a non-hyphen character - Not formatted as a UUID - Complies with RFC 1034 (https://datatracker.ietf.org/doc/html/rfc1034) (section 3.5) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cluster_id GoogleVmwareenginePrivateCloud#cluster_id}
-        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_settings GoogleVmwareenginePrivateCloud#autoscaling_settings}
-        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_configs GoogleVmwareenginePrivateCloud#node_type_configs}
-        :param stretched_cluster_config: stretched_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#stretched_cluster_config GoogleVmwareenginePrivateCloud#stretched_cluster_config}
+        :param cluster_id: The user-provided identifier of the new Cluster. The identifier must meet the following requirements: - Only contains 1-63 alphanumeric characters and hyphens - Begins with an alphabetical character - Ends with a non-hyphen character - Not formatted as a UUID - Complies with RFC 1034 (https://datatracker.ietf.org/doc/html/rfc1034) (section 3.5) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cluster_id GoogleVmwareenginePrivateCloud#cluster_id}
+        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_settings GoogleVmwareenginePrivateCloud#autoscaling_settings}
+        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_configs GoogleVmwareenginePrivateCloud#node_type_configs}
+        :param stretched_cluster_config: stretched_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#stretched_cluster_config GoogleVmwareenginePrivateCloud#stretched_cluster_config}
         '''
         value = GoogleVmwareenginePrivateCloudManagementCluster(
             cluster_id=cluster_id,
@@ -176,8 +176,8 @@ class GoogleVmwareenginePrivateCloud(
         vmware_engine_network: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param management_cidr: Management CIDR used by VMware management appliances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#management_cidr GoogleVmwareenginePrivateCloud#management_cidr}
-        :param vmware_engine_network: The relative resource name of the VMware Engine network attached to the private cloud. Specify the name in the following form: projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project} can either be a project number or a project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#vmware_engine_network GoogleVmwareenginePrivateCloud#vmware_engine_network}
+        :param management_cidr: Management CIDR used by VMware management appliances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#management_cidr GoogleVmwareenginePrivateCloud#management_cidr}
+        :param vmware_engine_network: The relative resource name of the VMware Engine network attached to the private cloud. Specify the name in the following form: projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project} can either be a project number or a project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#vmware_engine_network GoogleVmwareenginePrivateCloud#vmware_engine_network}
         '''
         value = GoogleVmwareenginePrivateCloudNetworkConfig(
             management_cidr=management_cidr,
@@ -195,9 +195,9 @@ class GoogleVmwareenginePrivateCloud(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#create GoogleVmwareenginePrivateCloud#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#delete GoogleVmwareenginePrivateCloud#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#update GoogleVmwareenginePrivateCloud#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#create GoogleVmwareenginePrivateCloud#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#delete GoogleVmwareenginePrivateCloud#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#update GoogleVmwareenginePrivateCloud#update}.
         '''
         value = GoogleVmwareenginePrivateCloudTimeouts(
             create=create, delete=delete, update=update
@@ -510,17 +510,17 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location where the PrivateCloud should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#location GoogleVmwareenginePrivateCloud#location}
-        :param management_cluster: management_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#management_cluster GoogleVmwareenginePrivateCloud#management_cluster}
-        :param name: The ID of the PrivateCloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#name GoogleVmwareenginePrivateCloud#name}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#network_config GoogleVmwareenginePrivateCloud#network_config}
-        :param deletion_delay_hours: The number of hours to delay this request. You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#deletion_delay_hours GoogleVmwareenginePrivateCloud#deletion_delay_hours}
-        :param description: User-provided description for this private cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#description GoogleVmwareenginePrivateCloud#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#id GoogleVmwareenginePrivateCloud#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#project GoogleVmwareenginePrivateCloud#project}.
-        :param send_deletion_delay_hours_if_zero: While set true, deletion_delay_hours value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#send_deletion_delay_hours_if_zero GoogleVmwareenginePrivateCloud#send_deletion_delay_hours_if_zero}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#timeouts GoogleVmwareenginePrivateCloud#timeouts}
-        :param type: Initial type of the private cloud. Possible values: ["STANDARD", "TIME_LIMITED", "STRETCHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#type GoogleVmwareenginePrivateCloud#type}
+        :param location: The location where the PrivateCloud should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#location GoogleVmwareenginePrivateCloud#location}
+        :param management_cluster: management_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#management_cluster GoogleVmwareenginePrivateCloud#management_cluster}
+        :param name: The ID of the PrivateCloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#name GoogleVmwareenginePrivateCloud#name}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#network_config GoogleVmwareenginePrivateCloud#network_config}
+        :param deletion_delay_hours: The number of hours to delay this request. You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#deletion_delay_hours GoogleVmwareenginePrivateCloud#deletion_delay_hours}
+        :param description: User-provided description for this private cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#description GoogleVmwareenginePrivateCloud#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#id GoogleVmwareenginePrivateCloud#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#project GoogleVmwareenginePrivateCloud#project}.
+        :param send_deletion_delay_hours_if_zero: While set true, deletion_delay_hours value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#send_deletion_delay_hours_if_zero GoogleVmwareenginePrivateCloud#send_deletion_delay_hours_if_zero}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#timeouts GoogleVmwareenginePrivateCloud#timeouts}
+        :param type: Initial type of the private cloud. Possible values: ["STANDARD", "TIME_LIMITED", "STRETCHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#type GoogleVmwareenginePrivateCloud#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -653,7 +653,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def location(self) -> builtins.str:
         '''The location where the PrivateCloud should reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#location GoogleVmwareenginePrivateCloud#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#location GoogleVmwareenginePrivateCloud#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -663,7 +663,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def management_cluster(self) -> "GoogleVmwareenginePrivateCloudManagementCluster":
         '''management_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#management_cluster GoogleVmwareenginePrivateCloud#management_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#management_cluster GoogleVmwareenginePrivateCloud#management_cluster}
         '''
         result = self._values.get("management_cluster")
         assert result is not None, "Required property 'management_cluster' is missing"
@@ -673,7 +673,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def name(self) -> builtins.str:
         '''The ID of the PrivateCloud.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#name GoogleVmwareenginePrivateCloud#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#name GoogleVmwareenginePrivateCloud#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -683,7 +683,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def network_config(self) -> "GoogleVmwareenginePrivateCloudNetworkConfig":
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#network_config GoogleVmwareenginePrivateCloud#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#network_config GoogleVmwareenginePrivateCloud#network_config}
         '''
         result = self._values.get("network_config")
         assert result is not None, "Required property 'network_config' is missing"
@@ -695,7 +695,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#deletion_delay_hours GoogleVmwareenginePrivateCloud#deletion_delay_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#deletion_delay_hours GoogleVmwareenginePrivateCloud#deletion_delay_hours}
         '''
         result = self._values.get("deletion_delay_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -704,14 +704,14 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def description(self) -> typing.Optional[builtins.str]:
         '''User-provided description for this private cloud.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#description GoogleVmwareenginePrivateCloud#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#description GoogleVmwareenginePrivateCloud#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#id GoogleVmwareenginePrivateCloud#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#id GoogleVmwareenginePrivateCloud#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -721,7 +721,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#project GoogleVmwareenginePrivateCloud#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#project GoogleVmwareenginePrivateCloud#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -733,7 +733,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#send_deletion_delay_hours_if_zero GoogleVmwareenginePrivateCloud#send_deletion_delay_hours_if_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#send_deletion_delay_hours_if_zero GoogleVmwareenginePrivateCloud#send_deletion_delay_hours_if_zero}
         '''
         result = self._values.get("send_deletion_delay_hours_if_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -742,7 +742,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleVmwareenginePrivateCloudTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#timeouts GoogleVmwareenginePrivateCloud#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#timeouts GoogleVmwareenginePrivateCloud#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleVmwareenginePrivateCloudTimeouts"], result)
@@ -751,7 +751,7 @@ class GoogleVmwareenginePrivateCloudConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def type(self) -> typing.Optional[builtins.str]:
         '''Initial type of the private cloud. Possible values: ["STANDARD", "TIME_LIMITED", "STRETCHED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#type GoogleVmwareenginePrivateCloud#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#type GoogleVmwareenginePrivateCloud#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -947,10 +947,10 @@ class GoogleVmwareenginePrivateCloudManagementCluster:
         stretched_cluster_config: typing.Optional[typing.Union["GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cluster_id: The user-provided identifier of the new Cluster. The identifier must meet the following requirements: - Only contains 1-63 alphanumeric characters and hyphens - Begins with an alphabetical character - Ends with a non-hyphen character - Not formatted as a UUID - Complies with RFC 1034 (https://datatracker.ietf.org/doc/html/rfc1034) (section 3.5) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cluster_id GoogleVmwareenginePrivateCloud#cluster_id}
-        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_settings GoogleVmwareenginePrivateCloud#autoscaling_settings}
-        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_configs GoogleVmwareenginePrivateCloud#node_type_configs}
-        :param stretched_cluster_config: stretched_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#stretched_cluster_config GoogleVmwareenginePrivateCloud#stretched_cluster_config}
+        :param cluster_id: The user-provided identifier of the new Cluster. The identifier must meet the following requirements: - Only contains 1-63 alphanumeric characters and hyphens - Begins with an alphabetical character - Ends with a non-hyphen character - Not formatted as a UUID - Complies with RFC 1034 (https://datatracker.ietf.org/doc/html/rfc1034) (section 3.5) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cluster_id GoogleVmwareenginePrivateCloud#cluster_id}
+        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_settings GoogleVmwareenginePrivateCloud#autoscaling_settings}
+        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_configs GoogleVmwareenginePrivateCloud#node_type_configs}
+        :param stretched_cluster_config: stretched_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#stretched_cluster_config GoogleVmwareenginePrivateCloud#stretched_cluster_config}
         '''
         if isinstance(autoscaling_settings, dict):
             autoscaling_settings = GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings(**autoscaling_settings)
@@ -984,7 +984,7 @@ class GoogleVmwareenginePrivateCloudManagementCluster:
         - Not formatted as a UUID
         - Complies with RFC 1034 (https://datatracker.ietf.org/doc/html/rfc1034) (section 3.5)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cluster_id GoogleVmwareenginePrivateCloud#cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cluster_id GoogleVmwareenginePrivateCloud#cluster_id}
         '''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
@@ -996,7 +996,7 @@ class GoogleVmwareenginePrivateCloudManagementCluster:
     ) -> typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings"]:
         '''autoscaling_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_settings GoogleVmwareenginePrivateCloud#autoscaling_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_settings GoogleVmwareenginePrivateCloud#autoscaling_settings}
         '''
         result = self._values.get("autoscaling_settings")
         return typing.cast(typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings"], result)
@@ -1007,7 +1007,7 @@ class GoogleVmwareenginePrivateCloudManagementCluster:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleVmwareenginePrivateCloudManagementClusterNodeTypeConfigs"]]]:
         '''node_type_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_configs GoogleVmwareenginePrivateCloud#node_type_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_configs GoogleVmwareenginePrivateCloud#node_type_configs}
         '''
         result = self._values.get("node_type_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleVmwareenginePrivateCloudManagementClusterNodeTypeConfigs"]]], result)
@@ -1018,7 +1018,7 @@ class GoogleVmwareenginePrivateCloudManagementCluster:
     ) -> typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig"]:
         '''stretched_cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#stretched_cluster_config GoogleVmwareenginePrivateCloud#stretched_cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#stretched_cluster_config GoogleVmwareenginePrivateCloud#stretched_cluster_config}
         '''
         result = self._values.get("stretched_cluster_config")
         return typing.cast(typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig"], result)
@@ -1055,10 +1055,10 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings:
         min_cluster_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_policies GoogleVmwareenginePrivateCloud#autoscaling_policies}
-        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cool_down_period GoogleVmwareenginePrivateCloud#cool_down_period}
-        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#max_cluster_node_count GoogleVmwareenginePrivateCloud#max_cluster_node_count}
-        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#min_cluster_node_count GoogleVmwareenginePrivateCloud#min_cluster_node_count}
+        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_policies GoogleVmwareenginePrivateCloud#autoscaling_policies}
+        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cool_down_period GoogleVmwareenginePrivateCloud#cool_down_period}
+        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#max_cluster_node_count GoogleVmwareenginePrivateCloud#max_cluster_node_count}
+        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#min_cluster_node_count GoogleVmwareenginePrivateCloud#min_cluster_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8963e4446786394ff545264986547c697c6cfbe2034fb99b41bf62c5ab894d58)
@@ -1082,7 +1082,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPolicies"]]:
         '''autoscaling_policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_policies GoogleVmwareenginePrivateCloud#autoscaling_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_policies GoogleVmwareenginePrivateCloud#autoscaling_policies}
         '''
         result = self._values.get("autoscaling_policies")
         assert result is not None, "Required property 'autoscaling_policies' is missing"
@@ -1097,7 +1097,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings:
         Cool down period must be in whole minutes (for example, 30m, 31m, 50m).
         Mandatory for successful addition of autoscaling settings in cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cool_down_period GoogleVmwareenginePrivateCloud#cool_down_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cool_down_period GoogleVmwareenginePrivateCloud#cool_down_period}
         '''
         result = self._values.get("cool_down_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1106,7 +1106,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings:
     def max_cluster_node_count(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#max_cluster_node_count GoogleVmwareenginePrivateCloud#max_cluster_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#max_cluster_node_count GoogleVmwareenginePrivateCloud#max_cluster_node_count}
         '''
         result = self._values.get("max_cluster_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1115,7 +1115,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings:
     def min_cluster_node_count(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#min_cluster_node_count GoogleVmwareenginePrivateCloud#min_cluster_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#min_cluster_node_count GoogleVmwareenginePrivateCloud#min_cluster_node_count}
         '''
         result = self._values.get("min_cluster_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1156,12 +1156,12 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
         storage_thresholds: typing.Optional[typing.Union["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscale_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscale_policy_id GoogleVmwareenginePrivateCloud#autoscale_policy_id}.
-        :param node_type_id: The canonical identifier of the node type to add or remove. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}
-        :param scale_out_size: Number of nodes to add to a cluster during a scale-out operation. Must be divisible by 2 for stretched clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out_size GoogleVmwareenginePrivateCloud#scale_out_size}
-        :param consumed_memory_thresholds: consumed_memory_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#consumed_memory_thresholds GoogleVmwareenginePrivateCloud#consumed_memory_thresholds}
-        :param cpu_thresholds: cpu_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cpu_thresholds GoogleVmwareenginePrivateCloud#cpu_thresholds}
-        :param storage_thresholds: storage_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#storage_thresholds GoogleVmwareenginePrivateCloud#storage_thresholds}
+        :param autoscale_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscale_policy_id GoogleVmwareenginePrivateCloud#autoscale_policy_id}.
+        :param node_type_id: The canonical identifier of the node type to add or remove. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}
+        :param scale_out_size: Number of nodes to add to a cluster during a scale-out operation. Must be divisible by 2 for stretched clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out_size GoogleVmwareenginePrivateCloud#scale_out_size}
+        :param consumed_memory_thresholds: consumed_memory_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#consumed_memory_thresholds GoogleVmwareenginePrivateCloud#consumed_memory_thresholds}
+        :param cpu_thresholds: cpu_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cpu_thresholds GoogleVmwareenginePrivateCloud#cpu_thresholds}
+        :param storage_thresholds: storage_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#storage_thresholds GoogleVmwareenginePrivateCloud#storage_thresholds}
         '''
         if isinstance(consumed_memory_thresholds, dict):
             consumed_memory_thresholds = GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds(**consumed_memory_thresholds)
@@ -1191,7 +1191,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
 
     @builtins.property
     def autoscale_policy_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscale_policy_id GoogleVmwareenginePrivateCloud#autoscale_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscale_policy_id GoogleVmwareenginePrivateCloud#autoscale_policy_id}.'''
         result = self._values.get("autoscale_policy_id")
         assert result is not None, "Required property 'autoscale_policy_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1200,7 +1200,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def node_type_id(self) -> builtins.str:
         '''The canonical identifier of the node type to add or remove.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}
         '''
         result = self._values.get("node_type_id")
         assert result is not None, "Required property 'node_type_id' is missing"
@@ -1210,7 +1210,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_out_size(self) -> jsii.Number:
         '''Number of nodes to add to a cluster during a scale-out operation. Must be divisible by 2 for stretched clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out_size GoogleVmwareenginePrivateCloud#scale_out_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out_size GoogleVmwareenginePrivateCloud#scale_out_size}
         '''
         result = self._values.get("scale_out_size")
         assert result is not None, "Required property 'scale_out_size' is missing"
@@ -1222,7 +1222,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     ) -> typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds"]:
         '''consumed_memory_thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#consumed_memory_thresholds GoogleVmwareenginePrivateCloud#consumed_memory_thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#consumed_memory_thresholds GoogleVmwareenginePrivateCloud#consumed_memory_thresholds}
         '''
         result = self._values.get("consumed_memory_thresholds")
         return typing.cast(typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds"], result)
@@ -1233,7 +1233,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     ) -> typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds"]:
         '''cpu_thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cpu_thresholds GoogleVmwareenginePrivateCloud#cpu_thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cpu_thresholds GoogleVmwareenginePrivateCloud#cpu_thresholds}
         '''
         result = self._values.get("cpu_thresholds")
         return typing.cast(typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds"], result)
@@ -1244,7 +1244,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     ) -> typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds"]:
         '''storage_thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#storage_thresholds GoogleVmwareenginePrivateCloud#storage_thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#storage_thresholds GoogleVmwareenginePrivateCloud#storage_thresholds}
         '''
         result = self._values.get("storage_thresholds")
         return typing.cast(typing.Optional["GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds"], result)
@@ -1269,8 +1269,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
 class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds:
     def __init__(self, *, scale_in: jsii.Number, scale_out: jsii.Number) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22dcf218e7876dffaea41e514eea0ee6948c8dc9a00760d63073444da1a37388)
@@ -1285,7 +1285,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_in(self) -> jsii.Number:
         '''The utilization triggering the scale-in operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
         '''
         result = self._values.get("scale_in")
         assert result is not None, "Required property 'scale_in' is missing"
@@ -1295,7 +1295,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_out(self) -> jsii.Number:
         '''The utilization triggering the scale-out operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         result = self._values.get("scale_out")
         assert result is not None, "Required property 'scale_out' is missing"
@@ -1393,8 +1393,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
 class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds:
     def __init__(self, *, scale_in: jsii.Number, scale_out: jsii.Number) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0877b57acc44c5e8127a53a1fcb52da6014c5f23f877c0a2b46caf5e4a4b522f)
@@ -1409,7 +1409,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_in(self) -> jsii.Number:
         '''The utilization triggering the scale-in operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
         '''
         result = self._values.get("scale_in")
         assert result is not None, "Required property 'scale_in' is missing"
@@ -1419,7 +1419,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_out(self) -> jsii.Number:
         '''The utilization triggering the scale-out operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         result = self._values.get("scale_out")
         assert result is not None, "Required property 'scale_out' is missing"
@@ -1636,8 +1636,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
         scale_out: jsii.Number,
     ) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         value = GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds(
             scale_in=scale_in, scale_out=scale_out
@@ -1653,8 +1653,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
         scale_out: jsii.Number,
     ) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         value = GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds(
             scale_in=scale_in, scale_out=scale_out
@@ -1670,8 +1670,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
         scale_out: jsii.Number,
     ) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         value = GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds(
             scale_in=scale_in, scale_out=scale_out
@@ -1810,8 +1810,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
 class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds:
     def __init__(self, *, scale_in: jsii.Number, scale_out: jsii.Number) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__145f032542fac82f2ef24d2e63533e346a6819717bd20b9f1b481b220c14d86d)
@@ -1826,7 +1826,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_in(self) -> jsii.Number:
         '''The utilization triggering the scale-in operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_in GoogleVmwareenginePrivateCloud#scale_in}
         '''
         result = self._values.get("scale_in")
         assert result is not None, "Required property 'scale_in' is missing"
@@ -1836,7 +1836,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscal
     def scale_out(self) -> jsii.Number:
         '''The utilization triggering the scale-out operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#scale_out GoogleVmwareenginePrivateCloud#scale_out}
         '''
         result = self._values.get("scale_out")
         assert result is not None, "Required property 'scale_out' is missing"
@@ -2072,9 +2072,9 @@ class GoogleVmwareenginePrivateCloudManagementClusterNodeTypeConfigs:
         custom_core_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_count: The number of nodes of this type in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_count GoogleVmwareenginePrivateCloud#node_count}
-        :param node_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}.
-        :param custom_core_count: Customized number of cores available to each node of the type. This number must always be one of 'nodeType.availableCustomCoreCounts'. If zero is provided max value from 'nodeType.availableCustomCoreCounts' will be used. This cannot be changed once the PrivateCloud is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#custom_core_count GoogleVmwareenginePrivateCloud#custom_core_count}
+        :param node_count: The number of nodes of this type in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_count GoogleVmwareenginePrivateCloud#node_count}
+        :param node_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}.
+        :param custom_core_count: Customized number of cores available to each node of the type. This number must always be one of 'nodeType.availableCustomCoreCounts'. If zero is provided max value from 'nodeType.availableCustomCoreCounts' will be used. This cannot be changed once the PrivateCloud is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#custom_core_count GoogleVmwareenginePrivateCloud#custom_core_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0300e7c0a678665cfd0aebef0705209edf46d9207a44b95dd7ddf37e8abf5c37)
@@ -2092,7 +2092,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterNodeTypeConfigs:
     def node_count(self) -> jsii.Number:
         '''The number of nodes of this type in the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_count GoogleVmwareenginePrivateCloud#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_count GoogleVmwareenginePrivateCloud#node_count}
         '''
         result = self._values.get("node_count")
         assert result is not None, "Required property 'node_count' is missing"
@@ -2100,7 +2100,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterNodeTypeConfigs:
 
     @builtins.property
     def node_type_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#node_type_id GoogleVmwareenginePrivateCloud#node_type_id}.'''
         result = self._values.get("node_type_id")
         assert result is not None, "Required property 'node_type_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2113,7 +2113,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterNodeTypeConfigs:
         If zero is provided max value from 'nodeType.availableCustomCoreCounts' will be used.
         This cannot be changed once the PrivateCloud is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#custom_core_count GoogleVmwareenginePrivateCloud#custom_core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#custom_core_count GoogleVmwareenginePrivateCloud#custom_core_count}
         '''
         result = self._values.get("custom_core_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2352,10 +2352,10 @@ class GoogleVmwareenginePrivateCloudManagementClusterOutputReference(
         min_cluster_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_policies GoogleVmwareenginePrivateCloud#autoscaling_policies}
-        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#cool_down_period GoogleVmwareenginePrivateCloud#cool_down_period}
-        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#max_cluster_node_count GoogleVmwareenginePrivateCloud#max_cluster_node_count}
-        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#min_cluster_node_count GoogleVmwareenginePrivateCloud#min_cluster_node_count}
+        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#autoscaling_policies GoogleVmwareenginePrivateCloud#autoscaling_policies}
+        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#cool_down_period GoogleVmwareenginePrivateCloud#cool_down_period}
+        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#max_cluster_node_count GoogleVmwareenginePrivateCloud#max_cluster_node_count}
+        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#min_cluster_node_count GoogleVmwareenginePrivateCloud#min_cluster_node_count}
         '''
         value = GoogleVmwareenginePrivateCloudManagementClusterAutoscalingSettings(
             autoscaling_policies=autoscaling_policies,
@@ -2387,8 +2387,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterOutputReference(
         secondary_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param preferred_location: Zone that will remain operational when connection between the two zones is lost. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#preferred_location GoogleVmwareenginePrivateCloud#preferred_location}
-        :param secondary_location: Additional zone for a higher level of availability and load balancing. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#secondary_location GoogleVmwareenginePrivateCloud#secondary_location}
+        :param preferred_location: Zone that will remain operational when connection between the two zones is lost. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#preferred_location GoogleVmwareenginePrivateCloud#preferred_location}
+        :param secondary_location: Additional zone for a higher level of availability and load balancing. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#secondary_location GoogleVmwareenginePrivateCloud#secondary_location}
         '''
         value = GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig(
             preferred_location=preferred_location,
@@ -2502,8 +2502,8 @@ class GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig:
         secondary_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param preferred_location: Zone that will remain operational when connection between the two zones is lost. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#preferred_location GoogleVmwareenginePrivateCloud#preferred_location}
-        :param secondary_location: Additional zone for a higher level of availability and load balancing. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#secondary_location GoogleVmwareenginePrivateCloud#secondary_location}
+        :param preferred_location: Zone that will remain operational when connection between the two zones is lost. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#preferred_location GoogleVmwareenginePrivateCloud#preferred_location}
+        :param secondary_location: Additional zone for a higher level of availability and load balancing. Specify the zone in the following format: projects/{project}/locations/{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#secondary_location GoogleVmwareenginePrivateCloud#secondary_location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4043d55e193b1d729c4e9e2319d65bf043013ccdebd5736e43828d8413573bf1)
@@ -2521,7 +2521,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig:
 
         Specify the zone in the following format: projects/{project}/locations/{location}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#preferred_location GoogleVmwareenginePrivateCloud#preferred_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#preferred_location GoogleVmwareenginePrivateCloud#preferred_location}
         '''
         result = self._values.get("preferred_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2530,7 +2530,7 @@ class GoogleVmwareenginePrivateCloudManagementClusterStretchedClusterConfig:
     def secondary_location(self) -> typing.Optional[builtins.str]:
         '''Additional zone for a higher level of availability and load balancing. Specify the zone in the following format: projects/{project}/locations/{location}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#secondary_location GoogleVmwareenginePrivateCloud#secondary_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#secondary_location GoogleVmwareenginePrivateCloud#secondary_location}
         '''
         result = self._values.get("secondary_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2643,8 +2643,8 @@ class GoogleVmwareenginePrivateCloudNetworkConfig:
         vmware_engine_network: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param management_cidr: Management CIDR used by VMware management appliances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#management_cidr GoogleVmwareenginePrivateCloud#management_cidr}
-        :param vmware_engine_network: The relative resource name of the VMware Engine network attached to the private cloud. Specify the name in the following form: projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project} can either be a project number or a project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#vmware_engine_network GoogleVmwareenginePrivateCloud#vmware_engine_network}
+        :param management_cidr: Management CIDR used by VMware management appliances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#management_cidr GoogleVmwareenginePrivateCloud#management_cidr}
+        :param vmware_engine_network: The relative resource name of the VMware Engine network attached to the private cloud. Specify the name in the following form: projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project} can either be a project number or a project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#vmware_engine_network GoogleVmwareenginePrivateCloud#vmware_engine_network}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4fb001508bd40e0ec2f2fda9a6691c319e9c3c1adabf634e709ca3fd191739a)
@@ -2660,7 +2660,7 @@ class GoogleVmwareenginePrivateCloudNetworkConfig:
     def management_cidr(self) -> builtins.str:
         '''Management CIDR used by VMware management appliances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#management_cidr GoogleVmwareenginePrivateCloud#management_cidr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#management_cidr GoogleVmwareenginePrivateCloud#management_cidr}
         '''
         result = self._values.get("management_cidr")
         assert result is not None, "Required property 'management_cidr' is missing"
@@ -2673,7 +2673,7 @@ class GoogleVmwareenginePrivateCloudNetworkConfig:
         Specify the name in the following form: projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId}
         where {project} can either be a project number or a project ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#vmware_engine_network GoogleVmwareenginePrivateCloud#vmware_engine_network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#vmware_engine_network GoogleVmwareenginePrivateCloud#vmware_engine_network}
         '''
         result = self._values.get("vmware_engine_network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2954,9 +2954,9 @@ class GoogleVmwareenginePrivateCloudTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#create GoogleVmwareenginePrivateCloud#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#delete GoogleVmwareenginePrivateCloud#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#update GoogleVmwareenginePrivateCloud#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#create GoogleVmwareenginePrivateCloud#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#delete GoogleVmwareenginePrivateCloud#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#update GoogleVmwareenginePrivateCloud#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__457980453ff982703f4d6d5c3ab877b63bbfb8451e9611ef4dc417937e16bd99)
@@ -2973,19 +2973,19 @@ class GoogleVmwareenginePrivateCloudTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#create GoogleVmwareenginePrivateCloud#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#create GoogleVmwareenginePrivateCloud#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#delete GoogleVmwareenginePrivateCloud#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#delete GoogleVmwareenginePrivateCloud#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vmwareengine_private_cloud#update GoogleVmwareenginePrivateCloud#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vmwareengine_private_cloud#update GoogleVmwareenginePrivateCloud#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

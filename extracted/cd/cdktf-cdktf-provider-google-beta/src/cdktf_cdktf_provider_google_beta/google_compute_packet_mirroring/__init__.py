@@ -1,7 +1,7 @@
 r'''
 # `google_compute_packet_mirroring`
 
-Refer to the Terraform Registry for docs: [`google_compute_packet_mirroring`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring).
+Refer to the Terraform Registry for docs: [`google_compute_packet_mirroring`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputePacketMirroring(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputePacketMirroring.GoogleComputePacketMirroring",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring google_compute_packet_mirroring}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring google_compute_packet_mirroring}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleComputePacketMirroring(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring google_compute_packet_mirroring} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring google_compute_packet_mirroring} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collector_ilb: collector_ilb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#collector_ilb GoogleComputePacketMirroring#collector_ilb}
-        :param mirrored_resources: mirrored_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#mirrored_resources GoogleComputePacketMirroring#mirrored_resources}
-        :param name: The name of the packet mirroring rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#name GoogleComputePacketMirroring#name}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#network GoogleComputePacketMirroring#network}
-        :param description: A human-readable description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#description GoogleComputePacketMirroring#description}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#filter GoogleComputePacketMirroring#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#id GoogleComputePacketMirroring#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param priority: Since only one rule can be active at a time, priority is used to break ties in the case of two rules that apply to the same instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#priority GoogleComputePacketMirroring#priority}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#project GoogleComputePacketMirroring#project}.
-        :param region: The Region in which the created address should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#region GoogleComputePacketMirroring#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#timeouts GoogleComputePacketMirroring#timeouts}
+        :param collector_ilb: collector_ilb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#collector_ilb GoogleComputePacketMirroring#collector_ilb}
+        :param mirrored_resources: mirrored_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#mirrored_resources GoogleComputePacketMirroring#mirrored_resources}
+        :param name: The name of the packet mirroring rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#name GoogleComputePacketMirroring#name}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#network GoogleComputePacketMirroring#network}
+        :param description: A human-readable description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#description GoogleComputePacketMirroring#description}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#filter GoogleComputePacketMirroring#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#id GoogleComputePacketMirroring#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param priority: Since only one rule can be active at a time, priority is used to break ties in the case of two rules that apply to the same instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#priority GoogleComputePacketMirroring#priority}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#project GoogleComputePacketMirroring#project}.
+        :param region: The Region in which the created address should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#region GoogleComputePacketMirroring#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#timeouts GoogleComputePacketMirroring#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleComputePacketMirroring(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputePacketMirroring to import.
-        :param import_from_id: The id of the existing GoogleComputePacketMirroring that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputePacketMirroring that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputePacketMirroring to import is found.
         '''
         if __debug__:
@@ -147,7 +147,7 @@ class GoogleComputePacketMirroring(
     @jsii.member(jsii_name="putCollectorIlb")
     def put_collector_ilb(self, *, url: builtins.str) -> None:
         '''
-        :param url: The URL of the forwarding rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        :param url: The URL of the forwarding rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         value = GoogleComputePacketMirroringCollectorIlb(url=url)
 
@@ -162,9 +162,9 @@ class GoogleComputePacketMirroring(
         ip_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cidr_ranges: IP CIDR ranges that apply as a filter on the source (ingress) or destination (egress) IP in the IP header. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#cidr_ranges GoogleComputePacketMirroring#cidr_ranges}
-        :param direction: Direction of traffic to mirror. Default value: "BOTH" Possible values: ["INGRESS", "EGRESS", "BOTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#direction GoogleComputePacketMirroring#direction}
-        :param ip_protocols: Possible IP protocols including tcp, udp, icmp and esp. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#ip_protocols GoogleComputePacketMirroring#ip_protocols}
+        :param cidr_ranges: IP CIDR ranges that apply as a filter on the source (ingress) or destination (egress) IP in the IP header. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#cidr_ranges GoogleComputePacketMirroring#cidr_ranges}
+        :param direction: Direction of traffic to mirror. Default value: "BOTH" Possible values: ["INGRESS", "EGRESS", "BOTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#direction GoogleComputePacketMirroring#direction}
+        :param ip_protocols: Possible IP protocols including tcp, udp, icmp and esp. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#ip_protocols GoogleComputePacketMirroring#ip_protocols}
         '''
         value = GoogleComputePacketMirroringFilter(
             cidr_ranges=cidr_ranges, direction=direction, ip_protocols=ip_protocols
@@ -181,9 +181,9 @@ class GoogleComputePacketMirroring(
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param instances: instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#instances GoogleComputePacketMirroring#instances}
-        :param subnetworks: subnetworks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#subnetworks GoogleComputePacketMirroring#subnetworks}
-        :param tags: All instances with these tags will be mirrored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#tags GoogleComputePacketMirroring#tags}
+        :param instances: instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#instances GoogleComputePacketMirroring#instances}
+        :param subnetworks: subnetworks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#subnetworks GoogleComputePacketMirroring#subnetworks}
+        :param tags: All instances with these tags will be mirrored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#tags GoogleComputePacketMirroring#tags}
         '''
         value = GoogleComputePacketMirroringMirroredResources(
             instances=instances, subnetworks=subnetworks, tags=tags
@@ -194,7 +194,7 @@ class GoogleComputePacketMirroring(
     @jsii.member(jsii_name="putNetwork")
     def put_network(self, *, url: builtins.str) -> None:
         '''
-        :param url: The full self_link URL of the network where this rule is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        :param url: The full self_link URL of the network where this rule is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         value = GoogleComputePacketMirroringNetwork(url=url)
 
@@ -209,9 +209,9 @@ class GoogleComputePacketMirroring(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#create GoogleComputePacketMirroring#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#delete GoogleComputePacketMirroring#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#update GoogleComputePacketMirroring#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#create GoogleComputePacketMirroring#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#delete GoogleComputePacketMirroring#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#update GoogleComputePacketMirroring#update}.
         '''
         value = GoogleComputePacketMirroringTimeouts(
             create=create, delete=delete, update=update
@@ -431,7 +431,7 @@ class GoogleComputePacketMirroring(
 class GoogleComputePacketMirroringCollectorIlb:
     def __init__(self, *, url: builtins.str) -> None:
         '''
-        :param url: The URL of the forwarding rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        :param url: The URL of the forwarding rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecda79df25328a23fab05c2d506f3d06d74aeb3ece6289e2e1e132bade0374f3)
@@ -444,7 +444,7 @@ class GoogleComputePacketMirroringCollectorIlb:
     def url(self) -> builtins.str:
         '''The URL of the forwarding rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -572,17 +572,17 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collector_ilb: collector_ilb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#collector_ilb GoogleComputePacketMirroring#collector_ilb}
-        :param mirrored_resources: mirrored_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#mirrored_resources GoogleComputePacketMirroring#mirrored_resources}
-        :param name: The name of the packet mirroring rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#name GoogleComputePacketMirroring#name}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#network GoogleComputePacketMirroring#network}
-        :param description: A human-readable description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#description GoogleComputePacketMirroring#description}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#filter GoogleComputePacketMirroring#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#id GoogleComputePacketMirroring#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param priority: Since only one rule can be active at a time, priority is used to break ties in the case of two rules that apply to the same instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#priority GoogleComputePacketMirroring#priority}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#project GoogleComputePacketMirroring#project}.
-        :param region: The Region in which the created address should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#region GoogleComputePacketMirroring#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#timeouts GoogleComputePacketMirroring#timeouts}
+        :param collector_ilb: collector_ilb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#collector_ilb GoogleComputePacketMirroring#collector_ilb}
+        :param mirrored_resources: mirrored_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#mirrored_resources GoogleComputePacketMirroring#mirrored_resources}
+        :param name: The name of the packet mirroring rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#name GoogleComputePacketMirroring#name}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#network GoogleComputePacketMirroring#network}
+        :param description: A human-readable description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#description GoogleComputePacketMirroring#description}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#filter GoogleComputePacketMirroring#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#id GoogleComputePacketMirroring#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param priority: Since only one rule can be active at a time, priority is used to break ties in the case of two rules that apply to the same instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#priority GoogleComputePacketMirroring#priority}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#project GoogleComputePacketMirroring#project}.
+        :param region: The Region in which the created address should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#region GoogleComputePacketMirroring#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#timeouts GoogleComputePacketMirroring#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -719,7 +719,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def collector_ilb(self) -> GoogleComputePacketMirroringCollectorIlb:
         '''collector_ilb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#collector_ilb GoogleComputePacketMirroring#collector_ilb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#collector_ilb GoogleComputePacketMirroring#collector_ilb}
         '''
         result = self._values.get("collector_ilb")
         assert result is not None, "Required property 'collector_ilb' is missing"
@@ -729,7 +729,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def mirrored_resources(self) -> "GoogleComputePacketMirroringMirroredResources":
         '''mirrored_resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#mirrored_resources GoogleComputePacketMirroring#mirrored_resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#mirrored_resources GoogleComputePacketMirroring#mirrored_resources}
         '''
         result = self._values.get("mirrored_resources")
         assert result is not None, "Required property 'mirrored_resources' is missing"
@@ -739,7 +739,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def name(self) -> builtins.str:
         '''The name of the packet mirroring rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#name GoogleComputePacketMirroring#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#name GoogleComputePacketMirroring#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -749,7 +749,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def network(self) -> "GoogleComputePacketMirroringNetwork":
         '''network block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#network GoogleComputePacketMirroring#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#network GoogleComputePacketMirroring#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -759,7 +759,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#description GoogleComputePacketMirroring#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#description GoogleComputePacketMirroring#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -768,14 +768,14 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def filter(self) -> typing.Optional["GoogleComputePacketMirroringFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#filter GoogleComputePacketMirroring#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#filter GoogleComputePacketMirroring#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["GoogleComputePacketMirroringFilter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#id GoogleComputePacketMirroring#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#id GoogleComputePacketMirroring#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -787,14 +787,14 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def priority(self) -> typing.Optional[jsii.Number]:
         '''Since only one rule can be active at a time, priority is used to break ties in the case of two rules that apply to the same instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#priority GoogleComputePacketMirroring#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#priority GoogleComputePacketMirroring#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#project GoogleComputePacketMirroring#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#project GoogleComputePacketMirroring#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -802,7 +802,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def region(self) -> typing.Optional[builtins.str]:
         '''The Region in which the created address should reside. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#region GoogleComputePacketMirroring#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#region GoogleComputePacketMirroring#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -811,7 +811,7 @@ class GoogleComputePacketMirroringConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["GoogleComputePacketMirroringTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#timeouts GoogleComputePacketMirroring#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#timeouts GoogleComputePacketMirroring#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputePacketMirroringTimeouts"], result)
@@ -846,9 +846,9 @@ class GoogleComputePacketMirroringFilter:
         ip_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cidr_ranges: IP CIDR ranges that apply as a filter on the source (ingress) or destination (egress) IP in the IP header. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#cidr_ranges GoogleComputePacketMirroring#cidr_ranges}
-        :param direction: Direction of traffic to mirror. Default value: "BOTH" Possible values: ["INGRESS", "EGRESS", "BOTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#direction GoogleComputePacketMirroring#direction}
-        :param ip_protocols: Possible IP protocols including tcp, udp, icmp and esp. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#ip_protocols GoogleComputePacketMirroring#ip_protocols}
+        :param cidr_ranges: IP CIDR ranges that apply as a filter on the source (ingress) or destination (egress) IP in the IP header. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#cidr_ranges GoogleComputePacketMirroring#cidr_ranges}
+        :param direction: Direction of traffic to mirror. Default value: "BOTH" Possible values: ["INGRESS", "EGRESS", "BOTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#direction GoogleComputePacketMirroring#direction}
+        :param ip_protocols: Possible IP protocols including tcp, udp, icmp and esp. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#ip_protocols GoogleComputePacketMirroring#ip_protocols}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__291fcedc69043d46c6fafb07a2eb8c39e019dff2d3cd218593ea945b1aa3def0)
@@ -869,7 +869,7 @@ class GoogleComputePacketMirroringFilter:
 
         Only IPv4 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#cidr_ranges GoogleComputePacketMirroring#cidr_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#cidr_ranges GoogleComputePacketMirroring#cidr_ranges}
         '''
         result = self._values.get("cidr_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -878,7 +878,7 @@ class GoogleComputePacketMirroringFilter:
     def direction(self) -> typing.Optional[builtins.str]:
         '''Direction of traffic to mirror. Default value: "BOTH" Possible values: ["INGRESS", "EGRESS", "BOTH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#direction GoogleComputePacketMirroring#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#direction GoogleComputePacketMirroring#direction}
         '''
         result = self._values.get("direction")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -887,7 +887,7 @@ class GoogleComputePacketMirroringFilter:
     def ip_protocols(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Possible IP protocols including tcp, udp, icmp and esp.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#ip_protocols GoogleComputePacketMirroring#ip_protocols}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#ip_protocols GoogleComputePacketMirroring#ip_protocols}
         '''
         result = self._values.get("ip_protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1021,9 +1021,9 @@ class GoogleComputePacketMirroringMirroredResources:
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param instances: instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#instances GoogleComputePacketMirroring#instances}
-        :param subnetworks: subnetworks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#subnetworks GoogleComputePacketMirroring#subnetworks}
-        :param tags: All instances with these tags will be mirrored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#tags GoogleComputePacketMirroring#tags}
+        :param instances: instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#instances GoogleComputePacketMirroring#instances}
+        :param subnetworks: subnetworks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#subnetworks GoogleComputePacketMirroring#subnetworks}
+        :param tags: All instances with these tags will be mirrored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#tags GoogleComputePacketMirroring#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__938a9a05fef5f9fa2474240a6e529dabdb460aba5589af620d30b02770be1ef6)
@@ -1044,7 +1044,7 @@ class GoogleComputePacketMirroringMirroredResources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputePacketMirroringMirroredResourcesInstances"]]]:
         '''instances block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#instances GoogleComputePacketMirroring#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#instances GoogleComputePacketMirroring#instances}
         '''
         result = self._values.get("instances")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputePacketMirroringMirroredResourcesInstances"]]], result)
@@ -1055,7 +1055,7 @@ class GoogleComputePacketMirroringMirroredResources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputePacketMirroringMirroredResourcesSubnetworks"]]]:
         '''subnetworks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#subnetworks GoogleComputePacketMirroring#subnetworks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#subnetworks GoogleComputePacketMirroring#subnetworks}
         '''
         result = self._values.get("subnetworks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputePacketMirroringMirroredResourcesSubnetworks"]]], result)
@@ -1064,7 +1064,7 @@ class GoogleComputePacketMirroringMirroredResources:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''All instances with these tags will be mirrored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#tags GoogleComputePacketMirroring#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#tags GoogleComputePacketMirroring#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1089,7 +1089,7 @@ class GoogleComputePacketMirroringMirroredResources:
 class GoogleComputePacketMirroringMirroredResourcesInstances:
     def __init__(self, *, url: builtins.str) -> None:
         '''
-        :param url: The URL of the instances where this rule should be active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        :param url: The URL of the instances where this rule should be active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3165993fc4b27054720bf3772bc5794443cfd0b6998831eaf5324fc2a1317ba)
@@ -1102,7 +1102,7 @@ class GoogleComputePacketMirroringMirroredResourcesInstances:
     def url(self) -> builtins.str:
         '''The URL of the instances where this rule should be active.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -1401,7 +1401,7 @@ class GoogleComputePacketMirroringMirroredResourcesOutputReference(
 class GoogleComputePacketMirroringMirroredResourcesSubnetworks:
     def __init__(self, *, url: builtins.str) -> None:
         '''
-        :param url: The URL of the subnetwork where this rule should be active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        :param url: The URL of the subnetwork where this rule should be active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__994efdee8456aa4cfbc369cca485afa7a540c34059cd6097d539f28523c75795)
@@ -1414,7 +1414,7 @@ class GoogleComputePacketMirroringMirroredResourcesSubnetworks:
     def url(self) -> builtins.str:
         '''The URL of the subnetwork where this rule should be active.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -1594,7 +1594,7 @@ class GoogleComputePacketMirroringMirroredResourcesSubnetworksOutputReference(
 class GoogleComputePacketMirroringNetwork:
     def __init__(self, *, url: builtins.str) -> None:
         '''
-        :param url: The full self_link URL of the network where this rule is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        :param url: The full self_link URL of the network where this rule is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce11f1a0679a4e0a9f0951964586d65734ef23189b0643f4b1653b873beda0ab)
@@ -1607,7 +1607,7 @@ class GoogleComputePacketMirroringNetwork:
     def url(self) -> builtins.str:
         '''The full self_link URL of the network where this rule is active.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#url GoogleComputePacketMirroring#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -1692,9 +1692,9 @@ class GoogleComputePacketMirroringTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#create GoogleComputePacketMirroring#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#delete GoogleComputePacketMirroring#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#update GoogleComputePacketMirroring#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#create GoogleComputePacketMirroring#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#delete GoogleComputePacketMirroring#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#update GoogleComputePacketMirroring#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45a2e17f9d63e6c4b990c09ff6bba7657091d5b2c746fa40e11c0bc18365ccff)
@@ -1711,19 +1711,19 @@ class GoogleComputePacketMirroringTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#create GoogleComputePacketMirroring#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#create GoogleComputePacketMirroring#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#delete GoogleComputePacketMirroring#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#delete GoogleComputePacketMirroring#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_packet_mirroring#update GoogleComputePacketMirroring#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_packet_mirroring#update GoogleComputePacketMirroring#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

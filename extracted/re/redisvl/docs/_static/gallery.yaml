@@ -1,0 +1,12 @@
+- title: Arxiv Paper Search
+  website: https://github.com/redis-developer/redis-arxiv-search
+- title: eCommerce Search
+  website: https://github.com/redis-developer/redis-product-search
+- title: Real-Time Embeddings with Redis and Bytewax
+  website: https://github.com/awmatheson/real-time-embeddings
+- title: Redis RAG Workbench
+  website: https://github.com/redis-developer/redis-rag-workbench
+- title: LLM Recommender for Hotels
+  website: https://github.com/redis-developer/LLM-Recommender
+- title: Agentic RAG
+  website: https://github.com/redis-developer/agentic-rag

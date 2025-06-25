@@ -117,7 +117,9 @@ __all__ = (
     "LicenseConfigurationAssociationTypeDef",
     "LicenseConfigurationTypeDef",
     "LicenseConfigurationUsageTypeDef",
+    "LicenseConversionContextOutputTypeDef",
     "LicenseConversionContextTypeDef",
+    "LicenseConversionContextUnionTypeDef",
     "LicenseConversionTaskTypeDef",
     "LicenseOperationFailureTypeDef",
     "LicenseSpecificationTypeDef",
@@ -167,6 +169,7 @@ __all__ = (
     "OptionsTypeDef",
     "OrganizationConfigurationTypeDef",
     "PaginatorConfigTypeDef",
+    "ProductCodeListItemTypeDef",
     "ProductInformationFilterOutputTypeDef",
     "ProductInformationFilterTypeDef",
     "ProductInformationFilterUnionTypeDef",
@@ -249,10 +252,6 @@ class TagTypeDef(TypedDict):
 
 class OptionsTypeDef(TypedDict):
     ActivationOverrideBehavior: NotRequired[ActivationOverrideBehaviorType]
-
-
-class LicenseConversionContextTypeDef(TypedDict):
-    UsageOperation: NotRequired[str]
 
 
 class ReportFrequencyTypeDef(TypedDict):
@@ -400,6 +399,11 @@ class LicenseConfigurationUsageTypeDef(TypedDict):
     ResourceOwnerId: NotRequired[str]
     AssociationTime: NotRequired[datetime]
     ConsumedLicenses: NotRequired[int]
+
+
+class ProductCodeListItemTypeDef(TypedDict):
+    ProductCodeId: str
+    ProductCodeType: Literal["marketplace"]
 
 
 class LicenseSpecificationTypeDef(TypedDict):
@@ -687,37 +691,6 @@ class GrantTypeDef(TypedDict):
     Options: NotRequired[OptionsTypeDef]
 
 
-class CreateLicenseConversionTaskForResourceRequestTypeDef(TypedDict):
-    ResourceArn: str
-    SourceLicenseContext: LicenseConversionContextTypeDef
-    DestinationLicenseContext: LicenseConversionContextTypeDef
-
-
-class GetLicenseConversionTaskResponseTypeDef(TypedDict):
-    LicenseConversionTaskId: str
-    ResourceArn: str
-    SourceLicenseContext: LicenseConversionContextTypeDef
-    DestinationLicenseContext: LicenseConversionContextTypeDef
-    StatusMessage: str
-    Status: LicenseConversionTaskStatusType
-    StartTime: datetime
-    LicenseConversionTime: datetime
-    EndTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class LicenseConversionTaskTypeDef(TypedDict):
-    LicenseConversionTaskId: NotRequired[str]
-    ResourceArn: NotRequired[str]
-    SourceLicenseContext: NotRequired[LicenseConversionContextTypeDef]
-    DestinationLicenseContext: NotRequired[LicenseConversionContextTypeDef]
-    Status: NotRequired[LicenseConversionTaskStatusType]
-    StatusMessage: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    LicenseConversionTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-
-
 class LicenseUsageTypeDef(TypedDict):
     EntitlementUsages: NotRequired[List[EntitlementUsageTypeDef]]
 
@@ -828,6 +801,16 @@ class ListUsageForLicenseConfigurationResponseTypeDef(TypedDict):
     LicenseConfigurationUsageList: List[LicenseConfigurationUsageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class LicenseConversionContextOutputTypeDef(TypedDict):
+    UsageOperation: NotRequired[str]
+    ProductCodes: NotRequired[List[ProductCodeListItemTypeDef]]
+
+
+class LicenseConversionContextTypeDef(TypedDict):
+    UsageOperation: NotRequired[str]
+    ProductCodes: NotRequired[Sequence[ProductCodeListItemTypeDef]]
 
 
 class ListLicenseSpecificationsForResourceResponseTypeDef(TypedDict):
@@ -1002,15 +985,39 @@ class ListReceivedGrantsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class ListLicenseConversionTasksResponseTypeDef(TypedDict):
-    LicenseConversionTasks: List[LicenseConversionTaskTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class GetLicenseUsageResponseTypeDef(TypedDict):
     LicenseUsage: LicenseUsageTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetLicenseConversionTaskResponseTypeDef(TypedDict):
+    LicenseConversionTaskId: str
+    ResourceArn: str
+    SourceLicenseContext: LicenseConversionContextOutputTypeDef
+    DestinationLicenseContext: LicenseConversionContextOutputTypeDef
+    StatusMessage: str
+    Status: LicenseConversionTaskStatusType
+    StartTime: datetime
+    LicenseConversionTime: datetime
+    EndTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class LicenseConversionTaskTypeDef(TypedDict):
+    LicenseConversionTaskId: NotRequired[str]
+    ResourceArn: NotRequired[str]
+    SourceLicenseContext: NotRequired[LicenseConversionContextOutputTypeDef]
+    DestinationLicenseContext: NotRequired[LicenseConversionContextOutputTypeDef]
+    Status: NotRequired[LicenseConversionTaskStatusType]
+    StatusMessage: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    LicenseConversionTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+
+
+LicenseConversionContextUnionTypeDef = Union[
+    LicenseConversionContextTypeDef, LicenseConversionContextOutputTypeDef
+]
 
 
 class GetLicenseConfigurationResponseTypeDef(TypedDict):
@@ -1122,6 +1129,18 @@ class ListLicensesResponseTypeDef(TypedDict):
     Licenses: List[LicenseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ListLicenseConversionTasksResponseTypeDef(TypedDict):
+    LicenseConversionTasks: List[LicenseConversionTaskTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateLicenseConversionTaskForResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    SourceLicenseContext: LicenseConversionContextUnionTypeDef
+    DestinationLicenseContext: LicenseConversionContextUnionTypeDef
 
 
 class ListLicenseConfigurationsResponseTypeDef(TypedDict):

@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-emr',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1401"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1409"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Emr SDK for Python',
     long_description=open('README.rst').read(),

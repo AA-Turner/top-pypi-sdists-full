@@ -1,7 +1,7 @@
 r'''
 # `google_compute_reservation`
 
-Refer to the Terraform Registry for docs: [`google_compute_reservation`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation).
+Refer to the Terraform Registry for docs: [`google_compute_reservation`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeReservation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeReservation.GoogleComputeReservation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation google_compute_reservation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation google_compute_reservation}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleComputeReservation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation google_compute_reservation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation google_compute_reservation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#name GoogleComputeReservation#name}
-        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#specific_reservation GoogleComputeReservation#specific_reservation}
-        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#zone GoogleComputeReservation#zone}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#description GoogleComputeReservation#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project GoogleComputeReservation#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#share_settings GoogleComputeReservation#share_settings}
-        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#specific_reservation_required GoogleComputeReservation#specific_reservation_required}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#timeouts GoogleComputeReservation#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#name GoogleComputeReservation#name}
+        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#specific_reservation GoogleComputeReservation#specific_reservation}
+        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#zone GoogleComputeReservation#zone}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#description GoogleComputeReservation#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project GoogleComputeReservation#project}.
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#share_settings GoogleComputeReservation#share_settings}
+        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#specific_reservation_required GoogleComputeReservation#specific_reservation_required}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#timeouts GoogleComputeReservation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleComputeReservation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeReservation to import.
-        :param import_from_id: The id of the existing GoogleComputeReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeReservation to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class GoogleComputeReservation(
         share_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project_map GoogleComputeReservation#project_map}
-        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#share_type GoogleComputeReservation#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project_map GoogleComputeReservation#project_map}
+        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#share_type GoogleComputeReservation#share_type}
         '''
         value = GoogleComputeReservationShareSettings(
             project_map=project_map, share_type=share_type
@@ -163,8 +163,8 @@ class GoogleComputeReservation(
         instance_properties: typing.Union["GoogleComputeReservationSpecificReservationInstanceProperties", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#count GoogleComputeReservation#count}
-        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#instance_properties GoogleComputeReservation#instance_properties}
+        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#count GoogleComputeReservation#count}
+        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#instance_properties GoogleComputeReservation#instance_properties}
         '''
         value = GoogleComputeReservationSpecificReservation(
             count=count, instance_properties=instance_properties
@@ -181,9 +181,9 @@ class GoogleComputeReservation(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#create GoogleComputeReservation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#delete GoogleComputeReservation#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#update GoogleComputeReservation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#create GoogleComputeReservation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#delete GoogleComputeReservation#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#update GoogleComputeReservation#update}.
         '''
         value = GoogleComputeReservationTimeouts(
             create=create, delete=delete, update=update
@@ -447,15 +447,15 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#name GoogleComputeReservation#name}
-        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#specific_reservation GoogleComputeReservation#specific_reservation}
-        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#zone GoogleComputeReservation#zone}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#description GoogleComputeReservation#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project GoogleComputeReservation#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#share_settings GoogleComputeReservation#share_settings}
-        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#specific_reservation_required GoogleComputeReservation#specific_reservation_required}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#timeouts GoogleComputeReservation#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#name GoogleComputeReservation#name}
+        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#specific_reservation GoogleComputeReservation#specific_reservation}
+        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#zone GoogleComputeReservation#zone}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#description GoogleComputeReservation#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project GoogleComputeReservation#project}.
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#share_settings GoogleComputeReservation#share_settings}
+        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#specific_reservation_required GoogleComputeReservation#specific_reservation_required}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#timeouts GoogleComputeReservation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -591,7 +591,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#name GoogleComputeReservation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#name GoogleComputeReservation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -601,7 +601,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def specific_reservation(self) -> "GoogleComputeReservationSpecificReservation":
         '''specific_reservation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#specific_reservation GoogleComputeReservation#specific_reservation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#specific_reservation GoogleComputeReservation#specific_reservation}
         '''
         result = self._values.get("specific_reservation")
         assert result is not None, "Required property 'specific_reservation' is missing"
@@ -611,7 +611,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> builtins.str:
         '''The zone where the reservation is made.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#zone GoogleComputeReservation#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#zone GoogleComputeReservation#zone}
         '''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
@@ -621,14 +621,14 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#description GoogleComputeReservation#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#description GoogleComputeReservation#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -638,7 +638,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project GoogleComputeReservation#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project GoogleComputeReservation#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -648,7 +648,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeReservationShareSettings"]:
         '''share_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#share_settings GoogleComputeReservation#share_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#share_settings GoogleComputeReservation#share_settings}
         '''
         result = self._values.get("share_settings")
         return typing.cast(typing.Optional["GoogleComputeReservationShareSettings"], result)
@@ -662,7 +662,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Otherwise, it can be consumed by VMs with
         affinity for any reservation. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#specific_reservation_required GoogleComputeReservation#specific_reservation_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#specific_reservation_required GoogleComputeReservation#specific_reservation_required}
         '''
         result = self._values.get("specific_reservation_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -671,7 +671,7 @@ class GoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeReservationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#timeouts GoogleComputeReservation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#timeouts GoogleComputeReservation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeReservationTimeouts"], result)
@@ -701,8 +701,8 @@ class GoogleComputeReservationShareSettings:
         share_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project_map GoogleComputeReservation#project_map}
-        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#share_type GoogleComputeReservation#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project_map GoogleComputeReservation#project_map}
+        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#share_type GoogleComputeReservation#share_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e05d3d6ee792c6c93d90611cdbc7df1b7d2fbc55200bfa7547e1ad0c50b86a5)
@@ -720,7 +720,7 @@ class GoogleComputeReservationShareSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeReservationShareSettingsProjectMap"]]]:
         '''project_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project_map GoogleComputeReservation#project_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project_map GoogleComputeReservation#project_map}
         '''
         result = self._values.get("project_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeReservationShareSettingsProjectMap"]]], result)
@@ -729,7 +729,7 @@ class GoogleComputeReservationShareSettings:
     def share_type(self) -> typing.Optional[builtins.str]:
         '''Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#share_type GoogleComputeReservation#share_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#share_type GoogleComputeReservation#share_type}
         '''
         result = self._values.get("share_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -845,8 +845,8 @@ class GoogleComputeReservationShareSettingsProjectMap:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: The project id/number, should be same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project_id GoogleComputeReservation#project_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: The project id/number, should be same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project_id GoogleComputeReservation#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76c165a9a2f947028877cb8b0b5b06e640eb9b3ca89eb2d273a233e91e48d19a)
@@ -860,7 +860,7 @@ class GoogleComputeReservationShareSettingsProjectMap:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#id GoogleComputeReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -873,7 +873,7 @@ class GoogleComputeReservationShareSettingsProjectMap:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The project id/number, should be same as the key of this project config in the project map.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#project_id GoogleComputeReservation#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#project_id GoogleComputeReservation#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1078,8 +1078,8 @@ class GoogleComputeReservationSpecificReservation:
         instance_properties: typing.Union["GoogleComputeReservationSpecificReservationInstanceProperties", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#count GoogleComputeReservation#count}
-        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#instance_properties GoogleComputeReservation#instance_properties}
+        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#count GoogleComputeReservation#count}
+        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#instance_properties GoogleComputeReservation#instance_properties}
         '''
         if isinstance(instance_properties, dict):
             instance_properties = GoogleComputeReservationSpecificReservationInstanceProperties(**instance_properties)
@@ -1096,7 +1096,7 @@ class GoogleComputeReservationSpecificReservation:
     def count(self) -> jsii.Number:
         '''The number of resources that are allocated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#count GoogleComputeReservation#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#count GoogleComputeReservation#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -1108,7 +1108,7 @@ class GoogleComputeReservationSpecificReservation:
     ) -> "GoogleComputeReservationSpecificReservationInstanceProperties":
         '''instance_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#instance_properties GoogleComputeReservation#instance_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#instance_properties GoogleComputeReservation#instance_properties}
         '''
         result = self._values.get("instance_properties")
         assert result is not None, "Required property 'instance_properties' is missing"
@@ -1146,10 +1146,10 @@ class GoogleComputeReservationSpecificReservationInstanceProperties:
         min_cpu_platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#machine_type GoogleComputeReservation#machine_type}
-        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#guest_accelerators GoogleComputeReservation#guest_accelerators}
-        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#local_ssds GoogleComputeReservation#local_ssds}
-        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#min_cpu_platform GoogleComputeReservation#min_cpu_platform}
+        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#machine_type GoogleComputeReservation#machine_type}
+        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#guest_accelerators GoogleComputeReservation#guest_accelerators}
+        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#local_ssds GoogleComputeReservation#local_ssds}
+        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#min_cpu_platform GoogleComputeReservation#min_cpu_platform}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e59f25e718ae7262604f871b619b9c585bac68fd0d49d9dd820b989483ec607d)
@@ -1171,7 +1171,7 @@ class GoogleComputeReservationSpecificReservationInstanceProperties:
     def machine_type(self) -> builtins.str:
         '''The name of the machine type to reserve.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#machine_type GoogleComputeReservation#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#machine_type GoogleComputeReservation#machine_type}
         '''
         result = self._values.get("machine_type")
         assert result is not None, "Required property 'machine_type' is missing"
@@ -1183,7 +1183,7 @@ class GoogleComputeReservationSpecificReservationInstanceProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeReservationSpecificReservationInstancePropertiesGuestAccelerators"]]]:
         '''guest_accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#guest_accelerators GoogleComputeReservation#guest_accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#guest_accelerators GoogleComputeReservation#guest_accelerators}
         '''
         result = self._values.get("guest_accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeReservationSpecificReservationInstancePropertiesGuestAccelerators"]]], result)
@@ -1194,7 +1194,7 @@ class GoogleComputeReservationSpecificReservationInstanceProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeReservationSpecificReservationInstancePropertiesLocalSsds"]]]:
         '''local_ssds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#local_ssds GoogleComputeReservation#local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#local_ssds GoogleComputeReservation#local_ssds}
         '''
         result = self._values.get("local_ssds")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeReservationSpecificReservationInstancePropertiesLocalSsds"]]], result)
@@ -1208,7 +1208,7 @@ class GoogleComputeReservationSpecificReservationInstanceProperties:
         the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones)
         for information on available CPU platforms.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#min_cpu_platform GoogleComputeReservation#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#min_cpu_platform GoogleComputeReservation#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1241,8 +1241,8 @@ class GoogleComputeReservationSpecificReservationInstancePropertiesGuestAccelera
         accelerator_type: builtins.str,
     ) -> None:
         '''
-        :param accelerator_count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#accelerator_count GoogleComputeReservation#accelerator_count}
-        :param accelerator_type: The full or partial URL of the accelerator type to attach to this instance. For example: 'projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100'. If you are creating an instance template, specify only the accelerator name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#accelerator_type GoogleComputeReservation#accelerator_type}
+        :param accelerator_count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#accelerator_count GoogleComputeReservation#accelerator_count}
+        :param accelerator_type: The full or partial URL of the accelerator type to attach to this instance. For example: 'projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100'. If you are creating an instance template, specify only the accelerator name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#accelerator_type GoogleComputeReservation#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__401bef7a53b6d23f337e6940d2f812c72d5ca76edbab5eb62595d9372922b4c9)
@@ -1257,7 +1257,7 @@ class GoogleComputeReservationSpecificReservationInstancePropertiesGuestAccelera
     def accelerator_count(self) -> jsii.Number:
         '''The number of the guest accelerator cards exposed to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#accelerator_count GoogleComputeReservation#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#accelerator_count GoogleComputeReservation#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         assert result is not None, "Required property 'accelerator_count' is missing"
@@ -1269,7 +1269,7 @@ class GoogleComputeReservationSpecificReservationInstancePropertiesGuestAccelera
 
         If you are creating an instance template, specify only the accelerator name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#accelerator_type GoogleComputeReservation#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#accelerator_type GoogleComputeReservation#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         assert result is not None, "Required property 'accelerator_type' is missing"
@@ -1471,8 +1471,8 @@ class GoogleComputeReservationSpecificReservationInstancePropertiesLocalSsds:
         interface: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: The size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#disk_size_gb GoogleComputeReservation#disk_size_gb}
-        :param interface: The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#interface GoogleComputeReservation#interface}
+        :param disk_size_gb: The size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#disk_size_gb GoogleComputeReservation#disk_size_gb}
+        :param interface: The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#interface GoogleComputeReservation#interface}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a956f5bd0049c77c8e34f464c2e69258c9165051630d70dd32be0e6ae5e29122)
@@ -1488,7 +1488,7 @@ class GoogleComputeReservationSpecificReservationInstancePropertiesLocalSsds:
     def disk_size_gb(self) -> jsii.Number:
         '''The size of the disk in base-2 GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#disk_size_gb GoogleComputeReservation#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#disk_size_gb GoogleComputeReservation#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         assert result is not None, "Required property 'disk_size_gb' is missing"
@@ -1498,7 +1498,7 @@ class GoogleComputeReservationSpecificReservationInstancePropertiesLocalSsds:
     def interface(self) -> typing.Optional[builtins.str]:
         '''The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#interface GoogleComputeReservation#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#interface GoogleComputeReservation#interface}
         '''
         result = self._values.get("interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1858,10 +1858,10 @@ class GoogleComputeReservationSpecificReservationOutputReference(
         min_cpu_platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#machine_type GoogleComputeReservation#machine_type}
-        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#guest_accelerators GoogleComputeReservation#guest_accelerators}
-        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#local_ssds GoogleComputeReservation#local_ssds}
-        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#min_cpu_platform GoogleComputeReservation#min_cpu_platform}
+        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#machine_type GoogleComputeReservation#machine_type}
+        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#guest_accelerators GoogleComputeReservation#guest_accelerators}
+        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#local_ssds GoogleComputeReservation#local_ssds}
+        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#min_cpu_platform GoogleComputeReservation#min_cpu_platform}
         '''
         value = GoogleComputeReservationSpecificReservationInstanceProperties(
             machine_type=machine_type,
@@ -1940,9 +1940,9 @@ class GoogleComputeReservationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#create GoogleComputeReservation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#delete GoogleComputeReservation#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#update GoogleComputeReservation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#create GoogleComputeReservation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#delete GoogleComputeReservation#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#update GoogleComputeReservation#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c642263b0f04611f31a060617dbb4a4f6676fd4d998c2816edbde548b2f0d685)
@@ -1959,19 +1959,19 @@ class GoogleComputeReservationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#create GoogleComputeReservation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#create GoogleComputeReservation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#delete GoogleComputeReservation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#delete GoogleComputeReservation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_reservation#update GoogleComputeReservation#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_reservation#update GoogleComputeReservation#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_logging_folder_settings`
 
-Refer to the Terraform Registry for docs: [`google_logging_folder_settings`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings).
+Refer to the Terraform Registry for docs: [`google_logging_folder_settings`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleLoggingFolderSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleLoggingFolderSettings.GoogleLoggingFolderSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings google_logging_folder_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings google_logging_folder_settings}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleLoggingFolderSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings google_logging_folder_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings google_logging_folder_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param folder: The folder for which to retrieve settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#folder GoogleLoggingFolderSettings#folder}
-        :param disable_default_sink: If set to true, the _Default sink in newly created projects and folders will created in a disabled state. This can be used to automatically disable log storage if there is already an aggregated sink configured in the hierarchy. The _Default sink can be re-enabled manually if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#disable_default_sink GoogleLoggingFolderSettings#disable_default_sink}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#id GoogleLoggingFolderSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: The resource name for the configured Cloud KMS key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#kms_key_name GoogleLoggingFolderSettings#kms_key_name}
-        :param storage_location: The storage location that Cloud Logging will use to create new resources when a location is needed but not explicitly provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#storage_location GoogleLoggingFolderSettings#storage_location}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#timeouts GoogleLoggingFolderSettings#timeouts}
+        :param folder: The folder for which to retrieve settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#folder GoogleLoggingFolderSettings#folder}
+        :param disable_default_sink: If set to true, the _Default sink in newly created projects and folders will created in a disabled state. This can be used to automatically disable log storage if there is already an aggregated sink configured in the hierarchy. The _Default sink can be re-enabled manually if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#disable_default_sink GoogleLoggingFolderSettings#disable_default_sink}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#id GoogleLoggingFolderSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: The resource name for the configured Cloud KMS key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#kms_key_name GoogleLoggingFolderSettings#kms_key_name}
+        :param storage_location: The storage location that Cloud Logging will use to create new resources when a location is needed but not explicitly provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#storage_location GoogleLoggingFolderSettings#storage_location}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#timeouts GoogleLoggingFolderSettings#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleLoggingFolderSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleLoggingFolderSettings to import.
-        :param import_from_id: The id of the existing GoogleLoggingFolderSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleLoggingFolderSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleLoggingFolderSettings to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GoogleLoggingFolderSettings(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#create GoogleLoggingFolderSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#delete GoogleLoggingFolderSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#update GoogleLoggingFolderSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#create GoogleLoggingFolderSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#delete GoogleLoggingFolderSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#update GoogleLoggingFolderSettings#update}.
         '''
         value = GoogleLoggingFolderSettingsTimeouts(
             create=create, delete=delete, update=update
@@ -346,12 +346,12 @@ class GoogleLoggingFolderSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param folder: The folder for which to retrieve settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#folder GoogleLoggingFolderSettings#folder}
-        :param disable_default_sink: If set to true, the _Default sink in newly created projects and folders will created in a disabled state. This can be used to automatically disable log storage if there is already an aggregated sink configured in the hierarchy. The _Default sink can be re-enabled manually if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#disable_default_sink GoogleLoggingFolderSettings#disable_default_sink}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#id GoogleLoggingFolderSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: The resource name for the configured Cloud KMS key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#kms_key_name GoogleLoggingFolderSettings#kms_key_name}
-        :param storage_location: The storage location that Cloud Logging will use to create new resources when a location is needed but not explicitly provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#storage_location GoogleLoggingFolderSettings#storage_location}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#timeouts GoogleLoggingFolderSettings#timeouts}
+        :param folder: The folder for which to retrieve settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#folder GoogleLoggingFolderSettings#folder}
+        :param disable_default_sink: If set to true, the _Default sink in newly created projects and folders will created in a disabled state. This can be used to automatically disable log storage if there is already an aggregated sink configured in the hierarchy. The _Default sink can be re-enabled manually if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#disable_default_sink GoogleLoggingFolderSettings#disable_default_sink}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#id GoogleLoggingFolderSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: The resource name for the configured Cloud KMS key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#kms_key_name GoogleLoggingFolderSettings#kms_key_name}
+        :param storage_location: The storage location that Cloud Logging will use to create new resources when a location is needed but not explicitly provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#storage_location GoogleLoggingFolderSettings#storage_location}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#timeouts GoogleLoggingFolderSettings#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -468,7 +468,7 @@ class GoogleLoggingFolderSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def folder(self) -> builtins.str:
         '''The folder for which to retrieve settings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#folder GoogleLoggingFolderSettings#folder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#folder GoogleLoggingFolderSettings#folder}
         '''
         result = self._values.get("folder")
         assert result is not None, "Required property 'folder' is missing"
@@ -482,14 +482,14 @@ class GoogleLoggingFolderSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This can be used to automatically disable log storage if there is already an aggregated sink configured in the hierarchy. The _Default sink can be re-enabled manually if needed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#disable_default_sink GoogleLoggingFolderSettings#disable_default_sink}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#disable_default_sink GoogleLoggingFolderSettings#disable_default_sink}
         '''
         result = self._values.get("disable_default_sink")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#id GoogleLoggingFolderSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#id GoogleLoggingFolderSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -501,7 +501,7 @@ class GoogleLoggingFolderSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''The resource name for the configured Cloud KMS key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#kms_key_name GoogleLoggingFolderSettings#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#kms_key_name GoogleLoggingFolderSettings#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -510,7 +510,7 @@ class GoogleLoggingFolderSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_location(self) -> typing.Optional[builtins.str]:
         '''The storage location that Cloud Logging will use to create new resources when a location is needed but not explicitly provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#storage_location GoogleLoggingFolderSettings#storage_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#storage_location GoogleLoggingFolderSettings#storage_location}
         '''
         result = self._values.get("storage_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -519,7 +519,7 @@ class GoogleLoggingFolderSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleLoggingFolderSettingsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#timeouts GoogleLoggingFolderSettings#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#timeouts GoogleLoggingFolderSettings#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleLoggingFolderSettingsTimeouts"], result)
@@ -550,9 +550,9 @@ class GoogleLoggingFolderSettingsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#create GoogleLoggingFolderSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#delete GoogleLoggingFolderSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#update GoogleLoggingFolderSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#create GoogleLoggingFolderSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#delete GoogleLoggingFolderSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#update GoogleLoggingFolderSettings#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94ab7b83205cbb6739db50c4e6726c5afd3a6eeb33260603fd036b7746373d1d)
@@ -569,19 +569,19 @@ class GoogleLoggingFolderSettingsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#create GoogleLoggingFolderSettings#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#create GoogleLoggingFolderSettings#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#delete GoogleLoggingFolderSettings#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#delete GoogleLoggingFolderSettings#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_folder_settings#update GoogleLoggingFolderSettings#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_logging_folder_settings#update GoogleLoggingFolderSettings#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

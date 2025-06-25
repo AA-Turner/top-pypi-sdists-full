@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: esp_idf_panic_decoder
-Version: 1.3.0
+Version: 1.4.0
 Summary: ESP-IDF panic decoder
 Author: Espressif Systems
 License:                                  Apache License
@@ -219,6 +219,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -228,7 +229,8 @@ License-File: LICENSE
 Requires-Dist: pyelftools
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: commitizen; extra == "dev"
+Requires-Dist: czespressif; extra == "dev"
+Dynamic: license-file
 
 # ESP IDF panic decoder
 

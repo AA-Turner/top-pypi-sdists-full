@@ -1,7 +1,7 @@
 r'''
 # `google_vpc_access_connector`
 
-Refer to the Terraform Registry for docs: [`google_vpc_access_connector`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector).
+Refer to the Terraform Registry for docs: [`google_vpc_access_connector`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleVpcAccessConnector(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleVpcAccessConnector.GoogleVpcAccessConnector",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector google_vpc_access_connector}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector google_vpc_access_connector}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleVpcAccessConnector(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector google_vpc_access_connector} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector google_vpc_access_connector} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the resource (Max 25 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#id GoogleVpcAccessConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_cidr_range: The range of internal addresses that follows RFC 4632 notation. Example: '10.132.0.0/28'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#ip_cidr_range GoogleVpcAccessConnector#ip_cidr_range}
-        :param machine_type: Machine type of VM Instance underlying connector. Default is e2-micro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#machine_type GoogleVpcAccessConnector#machine_type}
-        :param max_instances: Maximum value of instances in autoscaling group underlying the connector. Value must be between 3 and 10, inclusive. Must be higher than the value specified by min_instances. Required alongside 'min_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#max_instances GoogleVpcAccessConnector#max_instances}
-        :param max_throughput: Maximum throughput of the connector in Mbps, must be greater than 'min_throughput'. Default is 300. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 300 through 1000. Must be higher than the value specified by min_throughput. Only one of 'max_throughput' and 'max_instances' can be specified. The use of max_throughput is discouraged in favor of max_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#max_throughput GoogleVpcAccessConnector#max_throughput}
-        :param min_instances: Minimum value of instances in autoscaling group underlying the connector. Value must be between 2 and 9, inclusive. Must be lower than the value specified by max_instances. Required alongside 'max_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#min_instances GoogleVpcAccessConnector#min_instances}
-        :param min_throughput: Minimum throughput of the connector in Mbps. Default and min is 200. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 200 through 900. Must be lower than the value specified by max_throughput. Only one of 'min_throughput' and 'min_instances' can be specified. The use of min_throughput is discouraged in favor of min_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#min_throughput GoogleVpcAccessConnector#min_throughput}
-        :param network: Name or self_link of the VPC network. Required if 'ip_cidr_range' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#network GoogleVpcAccessConnector#network}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#project GoogleVpcAccessConnector#project}.
-        :param region: Region where the VPC Access connector resides. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#region GoogleVpcAccessConnector#region}
-        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#subnet GoogleVpcAccessConnector#subnet}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#timeouts GoogleVpcAccessConnector#timeouts}
+        :param name: The name of the resource (Max 25 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#id GoogleVpcAccessConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_cidr_range: The range of internal addresses that follows RFC 4632 notation. Example: '10.132.0.0/28'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#ip_cidr_range GoogleVpcAccessConnector#ip_cidr_range}
+        :param machine_type: Machine type of VM Instance underlying connector. Default is e2-micro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#machine_type GoogleVpcAccessConnector#machine_type}
+        :param max_instances: Maximum value of instances in autoscaling group underlying the connector. Value must be between 3 and 10, inclusive. Must be higher than the value specified by min_instances. Required alongside 'min_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#max_instances GoogleVpcAccessConnector#max_instances}
+        :param max_throughput: Maximum throughput of the connector in Mbps, must be greater than 'min_throughput'. Default is 300. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 300 through 1000. Must be higher than the value specified by min_throughput. Only one of 'max_throughput' and 'max_instances' can be specified. The use of max_throughput is discouraged in favor of max_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#max_throughput GoogleVpcAccessConnector#max_throughput}
+        :param min_instances: Minimum value of instances in autoscaling group underlying the connector. Value must be between 2 and 9, inclusive. Must be lower than the value specified by max_instances. Required alongside 'max_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#min_instances GoogleVpcAccessConnector#min_instances}
+        :param min_throughput: Minimum throughput of the connector in Mbps. Default and min is 200. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 200 through 900. Must be lower than the value specified by max_throughput. Only one of 'min_throughput' and 'min_instances' can be specified. The use of min_throughput is discouraged in favor of min_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#min_throughput GoogleVpcAccessConnector#min_throughput}
+        :param network: Name or self_link of the VPC network. Required if 'ip_cidr_range' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#network GoogleVpcAccessConnector#network}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#project GoogleVpcAccessConnector#project}.
+        :param region: Region where the VPC Access connector resides. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#region GoogleVpcAccessConnector#region}
+        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#subnet GoogleVpcAccessConnector#subnet}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#timeouts GoogleVpcAccessConnector#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleVpcAccessConnector(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleVpcAccessConnector to import.
-        :param import_from_id: The id of the existing GoogleVpcAccessConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleVpcAccessConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleVpcAccessConnector to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class GoogleVpcAccessConnector(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Subnet name (relative, not fully qualified). E.g. if the full subnet selfLink is https://compute.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetName} the correct input for this field would be {subnetName}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
-        :param project_id: Project in which the subnet exists. If not set, this project is assumed to be the project for which the connector create request was issued. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#project_id GoogleVpcAccessConnector#project_id}
+        :param name: Subnet name (relative, not fully qualified). E.g. if the full subnet selfLink is https://compute.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetName} the correct input for this field would be {subnetName}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
+        :param project_id: Project in which the subnet exists. If not set, this project is assumed to be the project for which the connector create request was issued. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#project_id GoogleVpcAccessConnector#project_id}
         '''
         value = GoogleVpcAccessConnectorSubnet(name=name, project_id=project_id)
 
@@ -174,9 +174,9 @@ class GoogleVpcAccessConnector(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#create GoogleVpcAccessConnector#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#delete GoogleVpcAccessConnector#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#update GoogleVpcAccessConnector#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#create GoogleVpcAccessConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#delete GoogleVpcAccessConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#update GoogleVpcAccessConnector#update}.
         '''
         value = GoogleVpcAccessConnectorTimeouts(
             create=create, delete=delete, update=update
@@ -529,19 +529,19 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the resource (Max 25 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#id GoogleVpcAccessConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_cidr_range: The range of internal addresses that follows RFC 4632 notation. Example: '10.132.0.0/28'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#ip_cidr_range GoogleVpcAccessConnector#ip_cidr_range}
-        :param machine_type: Machine type of VM Instance underlying connector. Default is e2-micro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#machine_type GoogleVpcAccessConnector#machine_type}
-        :param max_instances: Maximum value of instances in autoscaling group underlying the connector. Value must be between 3 and 10, inclusive. Must be higher than the value specified by min_instances. Required alongside 'min_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#max_instances GoogleVpcAccessConnector#max_instances}
-        :param max_throughput: Maximum throughput of the connector in Mbps, must be greater than 'min_throughput'. Default is 300. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 300 through 1000. Must be higher than the value specified by min_throughput. Only one of 'max_throughput' and 'max_instances' can be specified. The use of max_throughput is discouraged in favor of max_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#max_throughput GoogleVpcAccessConnector#max_throughput}
-        :param min_instances: Minimum value of instances in autoscaling group underlying the connector. Value must be between 2 and 9, inclusive. Must be lower than the value specified by max_instances. Required alongside 'max_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#min_instances GoogleVpcAccessConnector#min_instances}
-        :param min_throughput: Minimum throughput of the connector in Mbps. Default and min is 200. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 200 through 900. Must be lower than the value specified by max_throughput. Only one of 'min_throughput' and 'min_instances' can be specified. The use of min_throughput is discouraged in favor of min_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#min_throughput GoogleVpcAccessConnector#min_throughput}
-        :param network: Name or self_link of the VPC network. Required if 'ip_cidr_range' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#network GoogleVpcAccessConnector#network}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#project GoogleVpcAccessConnector#project}.
-        :param region: Region where the VPC Access connector resides. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#region GoogleVpcAccessConnector#region}
-        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#subnet GoogleVpcAccessConnector#subnet}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#timeouts GoogleVpcAccessConnector#timeouts}
+        :param name: The name of the resource (Max 25 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#id GoogleVpcAccessConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_cidr_range: The range of internal addresses that follows RFC 4632 notation. Example: '10.132.0.0/28'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#ip_cidr_range GoogleVpcAccessConnector#ip_cidr_range}
+        :param machine_type: Machine type of VM Instance underlying connector. Default is e2-micro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#machine_type GoogleVpcAccessConnector#machine_type}
+        :param max_instances: Maximum value of instances in autoscaling group underlying the connector. Value must be between 3 and 10, inclusive. Must be higher than the value specified by min_instances. Required alongside 'min_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#max_instances GoogleVpcAccessConnector#max_instances}
+        :param max_throughput: Maximum throughput of the connector in Mbps, must be greater than 'min_throughput'. Default is 300. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 300 through 1000. Must be higher than the value specified by min_throughput. Only one of 'max_throughput' and 'max_instances' can be specified. The use of max_throughput is discouraged in favor of max_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#max_throughput GoogleVpcAccessConnector#max_throughput}
+        :param min_instances: Minimum value of instances in autoscaling group underlying the connector. Value must be between 2 and 9, inclusive. Must be lower than the value specified by max_instances. Required alongside 'max_instances' if not using 'min_throughput'/'max_throughput'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#min_instances GoogleVpcAccessConnector#min_instances}
+        :param min_throughput: Minimum throughput of the connector in Mbps. Default and min is 200. Refers to the expected throughput when using an e2-micro machine type. Value must be a multiple of 100 from 200 through 900. Must be lower than the value specified by max_throughput. Only one of 'min_throughput' and 'min_instances' can be specified. The use of min_throughput is discouraged in favor of min_instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#min_throughput GoogleVpcAccessConnector#min_throughput}
+        :param network: Name or self_link of the VPC network. Required if 'ip_cidr_range' is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#network GoogleVpcAccessConnector#network}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#project GoogleVpcAccessConnector#project}.
+        :param region: Region where the VPC Access connector resides. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#region GoogleVpcAccessConnector#region}
+        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#subnet GoogleVpcAccessConnector#subnet}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#timeouts GoogleVpcAccessConnector#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -681,7 +681,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the resource (Max 25 characters).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -689,7 +689,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#id GoogleVpcAccessConnector#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#id GoogleVpcAccessConnector#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -701,7 +701,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip_cidr_range(self) -> typing.Optional[builtins.str]:
         '''The range of internal addresses that follows RFC 4632 notation. Example: '10.132.0.0/28'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#ip_cidr_range GoogleVpcAccessConnector#ip_cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#ip_cidr_range GoogleVpcAccessConnector#ip_cidr_range}
         '''
         result = self._values.get("ip_cidr_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -710,7 +710,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''Machine type of VM Instance underlying connector. Default is e2-micro.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#machine_type GoogleVpcAccessConnector#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#machine_type GoogleVpcAccessConnector#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -722,7 +722,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Value must be between 3 and 10, inclusive. Must be
         higher than the value specified by min_instances. Required alongside 'min_instances' if not using 'min_throughput'/'max_throughput'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#max_instances GoogleVpcAccessConnector#max_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#max_instances GoogleVpcAccessConnector#max_instances}
         '''
         result = self._values.get("max_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -735,7 +735,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         when using an e2-micro machine type. Value must be a multiple of 100 from 300 through 1000. Must be higher than the value specified by
         min_throughput. Only one of 'max_throughput' and 'max_instances' can be specified. The use of max_throughput is discouraged in favor of max_instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#max_throughput GoogleVpcAccessConnector#max_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#max_throughput GoogleVpcAccessConnector#max_throughput}
         '''
         result = self._values.get("max_throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -747,7 +747,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Value must be between 2 and 9, inclusive. Must be
         lower than the value specified by max_instances. Required alongside 'max_instances' if not using 'min_throughput'/'max_throughput'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#min_instances GoogleVpcAccessConnector#min_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#min_instances GoogleVpcAccessConnector#min_instances}
         '''
         result = self._values.get("min_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -760,7 +760,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Value must be a multiple of 100 from 200 through 900. Must be lower than the value specified by max_throughput.
         Only one of 'min_throughput' and 'min_instances' can be specified. The use of min_throughput is discouraged in favor of min_instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#min_throughput GoogleVpcAccessConnector#min_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#min_throughput GoogleVpcAccessConnector#min_throughput}
         '''
         result = self._values.get("min_throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -769,14 +769,14 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> typing.Optional[builtins.str]:
         '''Name or self_link of the VPC network. Required if 'ip_cidr_range' is set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#network GoogleVpcAccessConnector#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#network GoogleVpcAccessConnector#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#project GoogleVpcAccessConnector#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#project GoogleVpcAccessConnector#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -784,7 +784,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where the VPC Access connector resides. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#region GoogleVpcAccessConnector#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#region GoogleVpcAccessConnector#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -793,7 +793,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subnet(self) -> typing.Optional["GoogleVpcAccessConnectorSubnet"]:
         '''subnet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#subnet GoogleVpcAccessConnector#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#subnet GoogleVpcAccessConnector#subnet}
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional["GoogleVpcAccessConnectorSubnet"], result)
@@ -802,7 +802,7 @@ class GoogleVpcAccessConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleVpcAccessConnectorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#timeouts GoogleVpcAccessConnector#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#timeouts GoogleVpcAccessConnector#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleVpcAccessConnectorTimeouts"], result)
@@ -832,8 +832,8 @@ class GoogleVpcAccessConnectorSubnet:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Subnet name (relative, not fully qualified). E.g. if the full subnet selfLink is https://compute.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetName} the correct input for this field would be {subnetName}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
-        :param project_id: Project in which the subnet exists. If not set, this project is assumed to be the project for which the connector create request was issued. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#project_id GoogleVpcAccessConnector#project_id}
+        :param name: Subnet name (relative, not fully qualified). E.g. if the full subnet selfLink is https://compute.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetName} the correct input for this field would be {subnetName}" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
+        :param project_id: Project in which the subnet exists. If not set, this project is assumed to be the project for which the connector create request was issued. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#project_id GoogleVpcAccessConnector#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__547976e403c56c6c69eaf43b89f5c2b3069d775a1e64d49871d126039a38ffed)
@@ -852,7 +852,7 @@ class GoogleVpcAccessConnectorSubnet:
         E.g. if the full subnet selfLink is
         https://compute.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetName} the correct input for this field would be {subnetName}"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#name GoogleVpcAccessConnector#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -863,7 +863,7 @@ class GoogleVpcAccessConnectorSubnet:
 
         If not set, this project is assumed to be the project for which the connector create request was issued.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#project_id GoogleVpcAccessConnector#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#project_id GoogleVpcAccessConnector#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -972,9 +972,9 @@ class GoogleVpcAccessConnectorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#create GoogleVpcAccessConnector#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#delete GoogleVpcAccessConnector#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#update GoogleVpcAccessConnector#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#create GoogleVpcAccessConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#delete GoogleVpcAccessConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#update GoogleVpcAccessConnector#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fd4443a2c960043596f286e6d0f5fec53d0029cea9298c7346e754ea8974b6a)
@@ -991,19 +991,19 @@ class GoogleVpcAccessConnectorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#create GoogleVpcAccessConnector#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#create GoogleVpcAccessConnector#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#delete GoogleVpcAccessConnector#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#delete GoogleVpcAccessConnector#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_vpc_access_connector#update GoogleVpcAccessConnector#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_vpc_access_connector#update GoogleVpcAccessConnector#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

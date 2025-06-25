@@ -1,4 +1,4 @@
-# Copyright 2014 - 2022 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,30 +8,29 @@
 **Test module for pluginlib._loader**
 """
 
+import importlib
 import os
 import sys
 import warnings
-
-from pkg_resources import Distribution, EntryPoint, working_set
+from unittest import mock, TestCase
 
 import pluginlib._loader as loader
 from pluginlib._objects import OrderedDict
+from pluginlib._util import PY_LT_3_10
 from pluginlib import BlacklistEntry, PluginImportError, EntryPointWarning, PluginWarning
 
-from tests import TestCase, OUTPUT, mock
+from tests import OUTPUT
 import tests.testdata
 import tests.testdata.parents
 
-try:
-    from importlib import reload
-except ImportError:
-    pass
+
+if PY_LT_3_10:
+    from importlib_metadata import EntryPoint, EntryPoints  # pylint: disable=import-error
+else:
+    from importlib.metadata import EntryPoint, EntryPoints
 
 
 DATAPATH = os.path.dirname(tests.testdata.__file__)
-DIST = Distribution.from_filename(tests.testdata.__file__)
-working_set.add(DIST)
-DIST._ep_map = {}  # pylint: disable=protected-access
 
 
 class TestPluginLoaderInit(TestCase):
@@ -102,10 +101,12 @@ class TestPluginLoaderInit(TestCase):
         self.assertEqual(repr(ploader), output)
 
         blacklist = [('parser', 'json'), ('parser', 'xml', '<', '1.0')]
-        output = "PluginLoader(blacklist=(%r, %r))" % (BlacklistEntry('parser', 'json'),
-                                                       BlacklistEntry('parser', 'xml', '<', '1.0'))
         ploader = loader.PluginLoader(blacklist=blacklist)
-        self.assertEqual(repr(ploader), output)
+
+        entry1 = BlacklistEntry('parser', 'json')
+        entry2 = BlacklistEntry('parser', 'xml', '<', '1.0')
+
+        self.assertEqual(repr(ploader), f'PluginLoader(blacklist=({entry1!r}, {entry2!r}))')
 
 
 def unload(module):
@@ -126,13 +127,10 @@ class TestPluginLoader(TestCase):
 
     def tearDown(self):
 
-        # Clear entry points
-        DIST._ep_map.clear()
-
         loader.get_plugins().clear()
         unload('tests.testdata.lib')
         unload('pluginlib.importer.')
-        reload(tests.testdata.parents)
+        importlib.reload(tests.testdata.parents)
 
     def test_load_lib(self):
         """Load modules from standard library"""
@@ -159,15 +157,18 @@ class TestPluginLoader(TestCase):
     def test_load_entry_points_pkg(self):
         """Load modules from entry points"""
 
-        # Entry point is package
-        epoint1 = EntryPoint.parse('hooks = tests.testdata.lib.hooks', dist=DIST)
-        # Entry point is module
-        epoint2 = EntryPoint.parse('parsers = tests.testdata.lib.parsers.xml', dist=DIST)
+        with mock.patch(
+            'pluginlib._loader.entry_points',
+            return_value=EntryPoints([
+                # Entry point is package
+                EntryPoint('hooks', 'tests.testdata.lib.hooks', 'pluginlib.test.plugins'),
+                # Entry point is module
+                EntryPoint('parsers', 'tests.testdata.lib.parsers.xml', 'pluginlib.test.plugins'),
+            ]),
+        ):
 
-        DIST._ep_map = {'pluginlib.test.plugins': {'hooks': epoint1, 'parsers': epoint2}}
-
-        ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
-        plugins = ploader.plugins
+            ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
+            plugins = ploader.plugins
 
         self.assertEqual(len(plugins), 3)
         self.assertTrue('parser' in plugins)
@@ -186,19 +187,23 @@ class TestPluginLoader(TestCase):
     def test_load_entry_points_bad(self):
         """Raise warning and continue when entry point fails - bad package"""
 
-        epoint1 = EntryPoint.parse('bad = not.a.real.module', dist=DIST)
-        epoint2 = EntryPoint.parse('parsers = tests.testdata.lib.parsers.xml', dist=DIST)
-        DIST._ep_map = {'pluginlib.test.plugins': {'bad': epoint1, 'parsers': epoint2}}
+        with mock.patch(
+            'pluginlib._loader.entry_points',
+            return_value=EntryPoints([
+                EntryPoint('bad', 'not.a.real.module', 'pluginlib.test.plugins'),
+                EntryPoint('parsers', 'tests.testdata.lib.parsers.xml', 'pluginlib.test.plugins'),
+            ]),
+        ):
 
-        ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
+            ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
 
-        with warnings.catch_warnings(record=True) as e:
-            warnings.simplefilter("always")
-            plugins = ploader.plugins
+            with warnings.catch_warnings(record=True) as e:
+                warnings.simplefilter("always")
+                plugins = ploader.plugins
 
-            self.assertEqual(len(e), 1)
-            self.assertTrue(issubclass(e[-1].category, EntryPointWarning))
-            self.assertRegex(str(e[-1].message), 'can not be loaded for entry point bad')
+                self.assertEqual(len(e), 1)
+                self.assertTrue(issubclass(e[-1].category, EntryPointWarning))
+                self.assertRegex(str(e[-1].message), 'can not be loaded for entry point bad')
 
         self.assertEqual(len(plugins.parser), 1)
         self.assertTrue('xml' in plugins.parser)
@@ -208,19 +213,23 @@ class TestPluginLoader(TestCase):
     def test_load_entry_points_bad2(self):
         """Raise warning and continue when entry point fails - bad module"""
 
-        epoint1 = EntryPoint.parse('bad = tests.testdata.lib.parsers.bad', dist=DIST)
-        epoint2 = EntryPoint.parse('parsers = tests.testdata.lib.parsers.xml', dist=DIST)
-        DIST._ep_map = {'pluginlib.test.plugins': {'bad': epoint1, 'parsers': epoint2}}
+        with mock.patch(
+            'pluginlib._loader.entry_points',
+            return_value=EntryPoints([
+                EntryPoint('bad', 'tests.testdata.lib.parsers.bad', 'pluginlib.test.plugins'),
+                EntryPoint('parsers', 'tests.testdata.lib.parsers.xml', 'pluginlib.test.plugins'),
+            ]),
+        ):
 
-        ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
+            ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
 
-        with warnings.catch_warnings(record=True) as e:
-            warnings.simplefilter("always")
-            plugins = ploader.plugins
+            with warnings.catch_warnings(record=True) as e:
+                warnings.simplefilter("always")
+                plugins = ploader.plugins
 
-            self.assertEqual(len(e), 1)
-            self.assertTrue(issubclass(e[-1].category, EntryPointWarning))
-            self.assertRegex(str(e[-1].message), 'can not be loaded for entry point bad')
+                self.assertEqual(len(e), 1)
+                self.assertTrue(issubclass(e[-1].category, EntryPointWarning))
+                self.assertRegex(str(e[-1].message), 'can not be loaded for entry point bad')
 
         self.assertEqual(len(plugins.parser), 1)
         self.assertTrue('xml' in plugins.parser)
@@ -230,18 +239,26 @@ class TestPluginLoader(TestCase):
     def test_load_entry_points_not_mod(self):
         """Raise warning and continue when entry point fails"""
 
-        epoint = EntryPoint.parse('parsers = tests.testdata.lib.parsers.xml:XML', dist=DIST)
-        DIST._ep_map = {'pluginlib.test.plugins': {'parsers': epoint}}
+        with mock.patch(
+            'pluginlib._loader.entry_points',
+            return_value=EntryPoints([
+                EntryPoint(
+                    'parsers', 'tests.testdata.lib.parsers.xml:XML', 'pluginlib.test.plugins'
+                ),
+            ]),
+        ):
 
-        ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
+            ploader = loader.PluginLoader(group='testdata', entry_point='pluginlib.test.plugins')
 
-        with warnings.catch_warnings(record=True) as e:
-            warnings.simplefilter("always")
-            plugins = ploader.plugins
+            with warnings.catch_warnings(record=True) as e:
+                warnings.simplefilter("always")
+                plugins = ploader.plugins
 
-            self.assertEqual(len(e), 1)
-            self.assertTrue(issubclass(e[-1].category, EntryPointWarning))
-            self.assertRegex(str(e[-1].message), "Entry point 'parsers' is not a module or package")
+                self.assertEqual(len(e), 1)
+                self.assertTrue(issubclass(e[-1].category, EntryPointWarning))
+                self.assertRegex(
+                    str(e[-1].message), "Entry point 'parsers' is not a module or package"
+                )
 
         self.assertEqual(len(plugins.parser), 1)
         self.assertTrue('xml' in plugins.parser)
@@ -265,6 +282,19 @@ class TestPluginLoader(TestCase):
         self.assertTrue('xml' in plugins.parser)
         self.assertTrue('json' in plugins.parser)
         self.assertEqual(plugins.parser.json.version, '2.0')
+
+    def test_load_modules_namespace(self):
+        """Load modules from namespace style package"""
+
+        ploader = loader.PluginLoader(group='testdata', modules=['tests.testdata.bare.hooks'])
+        plugins = ploader.plugins
+
+        self.assertEqual(len(plugins.hook), 2)
+        self.assertTrue('fish' in plugins.hook)
+        self.assertEqual(plugins.hook.fish.version, '1.2.3')
+        self.assertEqual(plugins.hook.fish.__module__,
+                         'tests.testdata.bare.hooks.fish')
+        self.assertTrue('grappling' in plugins.hook)
 
     def test_load_paths(self):
         """Load modules from paths"""

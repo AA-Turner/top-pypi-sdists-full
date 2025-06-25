@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_autoscaling_policy_iam_member`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_autoscaling_policy_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member).
+Refer to the Terraform Registry for docs: [`google_dataproc_autoscaling_policy_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataprocAutoscalingPolicyIamMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataprocAutoscalingPolicyIamMember.GoogleDataprocAutoscalingPolicyIamMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member google_dataproc_autoscaling_policy_iam_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member google_dataproc_autoscaling_policy_iam_member}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleDataprocAutoscalingPolicyIamMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member google_dataproc_autoscaling_policy_iam_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member google_dataproc_autoscaling_policy_iam_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#member GoogleDataprocAutoscalingPolicyIamMember#member}.
-        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#policy_id GoogleDataprocAutoscalingPolicyIamMember#policy_id}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#role GoogleDataprocAutoscalingPolicyIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#condition GoogleDataprocAutoscalingPolicyIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#id GoogleDataprocAutoscalingPolicyIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#location GoogleDataprocAutoscalingPolicyIamMember#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#project GoogleDataprocAutoscalingPolicyIamMember#project}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#member GoogleDataprocAutoscalingPolicyIamMember#member}.
+        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#policy_id GoogleDataprocAutoscalingPolicyIamMember#policy_id}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#role GoogleDataprocAutoscalingPolicyIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#condition GoogleDataprocAutoscalingPolicyIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#id GoogleDataprocAutoscalingPolicyIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#location GoogleDataprocAutoscalingPolicyIamMember#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#project GoogleDataprocAutoscalingPolicyIamMember#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleDataprocAutoscalingPolicyIamMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataprocAutoscalingPolicyIamMember to import.
-        :param import_from_id: The id of the existing GoogleDataprocAutoscalingPolicyIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataprocAutoscalingPolicyIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataprocAutoscalingPolicyIamMember to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GoogleDataprocAutoscalingPolicyIamMember(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#expression GoogleDataprocAutoscalingPolicyIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#title GoogleDataprocAutoscalingPolicyIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#description GoogleDataprocAutoscalingPolicyIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#expression GoogleDataprocAutoscalingPolicyIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#title GoogleDataprocAutoscalingPolicyIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#description GoogleDataprocAutoscalingPolicyIamMember#description}.
         '''
         value = GoogleDataprocAutoscalingPolicyIamMemberCondition(
             expression=expression, title=title, description=description
@@ -320,9 +320,9 @@ class GoogleDataprocAutoscalingPolicyIamMemberCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#expression GoogleDataprocAutoscalingPolicyIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#title GoogleDataprocAutoscalingPolicyIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#description GoogleDataprocAutoscalingPolicyIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#expression GoogleDataprocAutoscalingPolicyIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#title GoogleDataprocAutoscalingPolicyIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#description GoogleDataprocAutoscalingPolicyIamMember#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff12361c8895008eef5ac41aa082a6942b9d83718a143db46a6b9173193b9561)
@@ -338,21 +338,21 @@ class GoogleDataprocAutoscalingPolicyIamMemberCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#expression GoogleDataprocAutoscalingPolicyIamMember#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#expression GoogleDataprocAutoscalingPolicyIamMember#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#title GoogleDataprocAutoscalingPolicyIamMember#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#title GoogleDataprocAutoscalingPolicyIamMember#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#description GoogleDataprocAutoscalingPolicyIamMember#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#description GoogleDataprocAutoscalingPolicyIamMember#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,13 +510,13 @@ class GoogleDataprocAutoscalingPolicyIamMemberConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#member GoogleDataprocAutoscalingPolicyIamMember#member}.
-        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#policy_id GoogleDataprocAutoscalingPolicyIamMember#policy_id}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#role GoogleDataprocAutoscalingPolicyIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#condition GoogleDataprocAutoscalingPolicyIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#id GoogleDataprocAutoscalingPolicyIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#location GoogleDataprocAutoscalingPolicyIamMember#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#project GoogleDataprocAutoscalingPolicyIamMember#project}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#member GoogleDataprocAutoscalingPolicyIamMember#member}.
+        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#policy_id GoogleDataprocAutoscalingPolicyIamMember#policy_id}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#role GoogleDataprocAutoscalingPolicyIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#condition GoogleDataprocAutoscalingPolicyIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#id GoogleDataprocAutoscalingPolicyIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#location GoogleDataprocAutoscalingPolicyIamMember#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#project GoogleDataprocAutoscalingPolicyIamMember#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -632,21 +632,21 @@ class GoogleDataprocAutoscalingPolicyIamMemberConfig(
 
     @builtins.property
     def member(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#member GoogleDataprocAutoscalingPolicyIamMember#member}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#member GoogleDataprocAutoscalingPolicyIamMember#member}.'''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#policy_id GoogleDataprocAutoscalingPolicyIamMember#policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#policy_id GoogleDataprocAutoscalingPolicyIamMember#policy_id}.'''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#role GoogleDataprocAutoscalingPolicyIamMember#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#role GoogleDataprocAutoscalingPolicyIamMember#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -657,14 +657,14 @@ class GoogleDataprocAutoscalingPolicyIamMemberConfig(
     ) -> typing.Optional[GoogleDataprocAutoscalingPolicyIamMemberCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#condition GoogleDataprocAutoscalingPolicyIamMember#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#condition GoogleDataprocAutoscalingPolicyIamMember#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleDataprocAutoscalingPolicyIamMemberCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#id GoogleDataprocAutoscalingPolicyIamMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#id GoogleDataprocAutoscalingPolicyIamMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -674,13 +674,13 @@ class GoogleDataprocAutoscalingPolicyIamMemberConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#location GoogleDataprocAutoscalingPolicyIamMember#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#location GoogleDataprocAutoscalingPolicyIamMember#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#project GoogleDataprocAutoscalingPolicyIamMember#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataproc_autoscaling_policy_iam_member#project GoogleDataprocAutoscalingPolicyIamMember#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

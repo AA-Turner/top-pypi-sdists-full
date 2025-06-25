@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.80.1"
+__version__ = "3.81.0"
 
 # import apis into sdk package
 from pulpcore.client.pulp_file.api.acs_file_api import AcsFileApi

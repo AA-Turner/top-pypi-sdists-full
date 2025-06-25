@@ -1,7 +1,7 @@
 r'''
 # `google_colab_runtime_template`
 
-Refer to the Terraform Registry for docs: [`google_colab_runtime_template`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template).
+Refer to the Terraform Registry for docs: [`google_colab_runtime_template`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleColabRuntimeTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleColabRuntimeTemplate.GoogleColabRuntimeTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template google_colab_runtime_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template google_colab_runtime_template}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class GoogleColabRuntimeTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template google_colab_runtime_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template google_colab_runtime_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Required. The display name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#display_name GoogleColabRuntimeTemplate#display_name}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#location GoogleColabRuntimeTemplate#location}
-        :param data_persistent_disk_spec: data_persistent_disk_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#data_persistent_disk_spec GoogleColabRuntimeTemplate#data_persistent_disk_spec}
-        :param description: The description of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#description GoogleColabRuntimeTemplate#description}
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#encryption_spec GoogleColabRuntimeTemplate#encryption_spec}
-        :param euc_config: euc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#euc_config GoogleColabRuntimeTemplate#euc_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#id GoogleColabRuntimeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_shutdown_config: idle_shutdown_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#idle_shutdown_config GoogleColabRuntimeTemplate#idle_shutdown_config}
-        :param labels: Labels to identify and group the runtime template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#labels GoogleColabRuntimeTemplate#labels}
-        :param machine_spec: machine_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#machine_spec GoogleColabRuntimeTemplate#machine_spec}
-        :param name: The resource name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
-        :param network_spec: network_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network_spec GoogleColabRuntimeTemplate#network_spec}
-        :param network_tags: Applies the given Compute Engine tags to the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network_tags GoogleColabRuntimeTemplate#network_tags}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#project GoogleColabRuntimeTemplate#project}.
-        :param shielded_vm_config: shielded_vm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#shielded_vm_config GoogleColabRuntimeTemplate#shielded_vm_config}
-        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#software_config GoogleColabRuntimeTemplate#software_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#timeouts GoogleColabRuntimeTemplate#timeouts}
+        :param display_name: Required. The display name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#display_name GoogleColabRuntimeTemplate#display_name}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#location GoogleColabRuntimeTemplate#location}
+        :param data_persistent_disk_spec: data_persistent_disk_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#data_persistent_disk_spec GoogleColabRuntimeTemplate#data_persistent_disk_spec}
+        :param description: The description of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#description GoogleColabRuntimeTemplate#description}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#encryption_spec GoogleColabRuntimeTemplate#encryption_spec}
+        :param euc_config: euc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#euc_config GoogleColabRuntimeTemplate#euc_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#id GoogleColabRuntimeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_shutdown_config: idle_shutdown_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#idle_shutdown_config GoogleColabRuntimeTemplate#idle_shutdown_config}
+        :param labels: Labels to identify and group the runtime template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#labels GoogleColabRuntimeTemplate#labels}
+        :param machine_spec: machine_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#machine_spec GoogleColabRuntimeTemplate#machine_spec}
+        :param name: The resource name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
+        :param network_spec: network_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network_spec GoogleColabRuntimeTemplate#network_spec}
+        :param network_tags: Applies the given Compute Engine tags to the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network_tags GoogleColabRuntimeTemplate#network_tags}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#project GoogleColabRuntimeTemplate#project}.
+        :param shielded_vm_config: shielded_vm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#shielded_vm_config GoogleColabRuntimeTemplate#shielded_vm_config}
+        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#software_config GoogleColabRuntimeTemplate#software_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#timeouts GoogleColabRuntimeTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class GoogleColabRuntimeTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleColabRuntimeTemplate to import.
-        :param import_from_id: The id of the existing GoogleColabRuntimeTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleColabRuntimeTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleColabRuntimeTemplate to import is found.
         '''
         if __debug__:
@@ -170,8 +170,8 @@ class GoogleColabRuntimeTemplate(
         disk_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: The disk size of the runtime in GB. If specified, the diskType must also be specified. The minimum size is 10GB and the maximum is 65536GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#disk_size_gb GoogleColabRuntimeTemplate#disk_size_gb}
-        :param disk_type: The type of the persistent disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#disk_type GoogleColabRuntimeTemplate#disk_type}
+        :param disk_size_gb: The disk size of the runtime in GB. If specified, the diskType must also be specified. The minimum size is 10GB and the maximum is 65536GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#disk_size_gb GoogleColabRuntimeTemplate#disk_size_gb}
+        :param disk_type: The type of the persistent disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#disk_type GoogleColabRuntimeTemplate#disk_type}
         '''
         value = GoogleColabRuntimeTemplateDataPersistentDiskSpec(
             disk_size_gb=disk_size_gb, disk_type=disk_type
@@ -186,7 +186,7 @@ class GoogleColabRuntimeTemplate(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The Cloud KMS encryption key (customer-managed encryption key) used to protect the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#kms_key_name GoogleColabRuntimeTemplate#kms_key_name}
+        :param kms_key_name: The Cloud KMS encryption key (customer-managed encryption key) used to protect the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#kms_key_name GoogleColabRuntimeTemplate#kms_key_name}
         '''
         value = GoogleColabRuntimeTemplateEncryptionSpec(kms_key_name=kms_key_name)
 
@@ -199,7 +199,7 @@ class GoogleColabRuntimeTemplate(
         euc_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param euc_disabled: Disable end user credential access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#euc_disabled GoogleColabRuntimeTemplate#euc_disabled}
+        :param euc_disabled: Disable end user credential access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#euc_disabled GoogleColabRuntimeTemplate#euc_disabled}
         '''
         value = GoogleColabRuntimeTemplateEucConfig(euc_disabled=euc_disabled)
 
@@ -212,7 +212,7 @@ class GoogleColabRuntimeTemplate(
         idle_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param idle_timeout: The duration after which the runtime is automatically shut down. An input of 0s disables the idle shutdown feature, and a valid range is [10m, 24h]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#idle_timeout GoogleColabRuntimeTemplate#idle_timeout}
+        :param idle_timeout: The duration after which the runtime is automatically shut down. An input of 0s disables the idle shutdown feature, and a valid range is [10m, 24h]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#idle_timeout GoogleColabRuntimeTemplate#idle_timeout}
         '''
         value = GoogleColabRuntimeTemplateIdleShutdownConfig(idle_timeout=idle_timeout)
 
@@ -227,9 +227,9 @@ class GoogleColabRuntimeTemplate(
         machine_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerator_count: The number of accelerators used by the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#accelerator_count GoogleColabRuntimeTemplate#accelerator_count}
-        :param accelerator_type: The type of hardware accelerator used by the runtime. If specified, acceleratorCount must also be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#accelerator_type GoogleColabRuntimeTemplate#accelerator_type}
-        :param machine_type: The Compute Engine machine type selected for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#machine_type GoogleColabRuntimeTemplate#machine_type}
+        :param accelerator_count: The number of accelerators used by the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#accelerator_count GoogleColabRuntimeTemplate#accelerator_count}
+        :param accelerator_type: The type of hardware accelerator used by the runtime. If specified, acceleratorCount must also be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#accelerator_type GoogleColabRuntimeTemplate#accelerator_type}
+        :param machine_type: The Compute Engine machine type selected for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#machine_type GoogleColabRuntimeTemplate#machine_type}
         '''
         value = GoogleColabRuntimeTemplateMachineSpec(
             accelerator_count=accelerator_count,
@@ -248,9 +248,9 @@ class GoogleColabRuntimeTemplate(
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_internet_access: Enable public internet access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#enable_internet_access GoogleColabRuntimeTemplate#enable_internet_access}
-        :param network: The name of the VPC that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network GoogleColabRuntimeTemplate#network}
-        :param subnetwork: The name of the subnetwork that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#subnetwork GoogleColabRuntimeTemplate#subnetwork}
+        :param enable_internet_access: Enable public internet access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#enable_internet_access GoogleColabRuntimeTemplate#enable_internet_access}
+        :param network: The name of the VPC that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network GoogleColabRuntimeTemplate#network}
+        :param subnetwork: The name of the subnetwork that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#subnetwork GoogleColabRuntimeTemplate#subnetwork}
         '''
         value = GoogleColabRuntimeTemplateNetworkSpec(
             enable_internet_access=enable_internet_access,
@@ -267,7 +267,7 @@ class GoogleColabRuntimeTemplate(
         enable_secure_boot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_secure_boot: Enables secure boot for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#enable_secure_boot GoogleColabRuntimeTemplate#enable_secure_boot}
+        :param enable_secure_boot: Enables secure boot for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#enable_secure_boot GoogleColabRuntimeTemplate#enable_secure_boot}
         '''
         value = GoogleColabRuntimeTemplateShieldedVmConfig(
             enable_secure_boot=enable_secure_boot
@@ -283,8 +283,8 @@ class GoogleColabRuntimeTemplate(
         post_startup_script_config: typing.Optional[typing.Union["GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#env GoogleColabRuntimeTemplate#env}
-        :param post_startup_script_config: post_startup_script_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_config GoogleColabRuntimeTemplate#post_startup_script_config}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#env GoogleColabRuntimeTemplate#env}
+        :param post_startup_script_config: post_startup_script_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_config GoogleColabRuntimeTemplate#post_startup_script_config}
         '''
         value = GoogleColabRuntimeTemplateSoftwareConfig(
             env=env, post_startup_script_config=post_startup_script_config
@@ -301,9 +301,9 @@ class GoogleColabRuntimeTemplate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#create GoogleColabRuntimeTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#delete GoogleColabRuntimeTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#update GoogleColabRuntimeTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#create GoogleColabRuntimeTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#delete GoogleColabRuntimeTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#update GoogleColabRuntimeTemplate#update}.
         '''
         value = GoogleColabRuntimeTemplateTimeouts(
             create=create, delete=delete, update=update
@@ -718,23 +718,23 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Required. The display name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#display_name GoogleColabRuntimeTemplate#display_name}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#location GoogleColabRuntimeTemplate#location}
-        :param data_persistent_disk_spec: data_persistent_disk_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#data_persistent_disk_spec GoogleColabRuntimeTemplate#data_persistent_disk_spec}
-        :param description: The description of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#description GoogleColabRuntimeTemplate#description}
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#encryption_spec GoogleColabRuntimeTemplate#encryption_spec}
-        :param euc_config: euc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#euc_config GoogleColabRuntimeTemplate#euc_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#id GoogleColabRuntimeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_shutdown_config: idle_shutdown_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#idle_shutdown_config GoogleColabRuntimeTemplate#idle_shutdown_config}
-        :param labels: Labels to identify and group the runtime template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#labels GoogleColabRuntimeTemplate#labels}
-        :param machine_spec: machine_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#machine_spec GoogleColabRuntimeTemplate#machine_spec}
-        :param name: The resource name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
-        :param network_spec: network_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network_spec GoogleColabRuntimeTemplate#network_spec}
-        :param network_tags: Applies the given Compute Engine tags to the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network_tags GoogleColabRuntimeTemplate#network_tags}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#project GoogleColabRuntimeTemplate#project}.
-        :param shielded_vm_config: shielded_vm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#shielded_vm_config GoogleColabRuntimeTemplate#shielded_vm_config}
-        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#software_config GoogleColabRuntimeTemplate#software_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#timeouts GoogleColabRuntimeTemplate#timeouts}
+        :param display_name: Required. The display name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#display_name GoogleColabRuntimeTemplate#display_name}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#location GoogleColabRuntimeTemplate#location}
+        :param data_persistent_disk_spec: data_persistent_disk_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#data_persistent_disk_spec GoogleColabRuntimeTemplate#data_persistent_disk_spec}
+        :param description: The description of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#description GoogleColabRuntimeTemplate#description}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#encryption_spec GoogleColabRuntimeTemplate#encryption_spec}
+        :param euc_config: euc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#euc_config GoogleColabRuntimeTemplate#euc_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#id GoogleColabRuntimeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_shutdown_config: idle_shutdown_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#idle_shutdown_config GoogleColabRuntimeTemplate#idle_shutdown_config}
+        :param labels: Labels to identify and group the runtime template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#labels GoogleColabRuntimeTemplate#labels}
+        :param machine_spec: machine_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#machine_spec GoogleColabRuntimeTemplate#machine_spec}
+        :param name: The resource name of the Runtime Template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
+        :param network_spec: network_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network_spec GoogleColabRuntimeTemplate#network_spec}
+        :param network_tags: Applies the given Compute Engine tags to the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network_tags GoogleColabRuntimeTemplate#network_tags}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#project GoogleColabRuntimeTemplate#project}.
+        :param shielded_vm_config: shielded_vm_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#shielded_vm_config GoogleColabRuntimeTemplate#shielded_vm_config}
+        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#software_config GoogleColabRuntimeTemplate#software_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#timeouts GoogleColabRuntimeTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -899,7 +899,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Required. The display name of the Runtime Template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#display_name GoogleColabRuntimeTemplate#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#display_name GoogleColabRuntimeTemplate#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -909,7 +909,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource: https://cloud.google.com/colab/docs/locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#location GoogleColabRuntimeTemplate#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#location GoogleColabRuntimeTemplate#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -921,7 +921,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleColabRuntimeTemplateDataPersistentDiskSpec"]:
         '''data_persistent_disk_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#data_persistent_disk_spec GoogleColabRuntimeTemplate#data_persistent_disk_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#data_persistent_disk_spec GoogleColabRuntimeTemplate#data_persistent_disk_spec}
         '''
         result = self._values.get("data_persistent_disk_spec")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateDataPersistentDiskSpec"], result)
@@ -930,7 +930,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the Runtime Template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#description GoogleColabRuntimeTemplate#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#description GoogleColabRuntimeTemplate#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -941,7 +941,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleColabRuntimeTemplateEncryptionSpec"]:
         '''encryption_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#encryption_spec GoogleColabRuntimeTemplate#encryption_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#encryption_spec GoogleColabRuntimeTemplate#encryption_spec}
         '''
         result = self._values.get("encryption_spec")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateEncryptionSpec"], result)
@@ -950,14 +950,14 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def euc_config(self) -> typing.Optional["GoogleColabRuntimeTemplateEucConfig"]:
         '''euc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#euc_config GoogleColabRuntimeTemplate#euc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#euc_config GoogleColabRuntimeTemplate#euc_config}
         '''
         result = self._values.get("euc_config")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateEucConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#id GoogleColabRuntimeTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#id GoogleColabRuntimeTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -971,7 +971,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleColabRuntimeTemplateIdleShutdownConfig"]:
         '''idle_shutdown_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#idle_shutdown_config GoogleColabRuntimeTemplate#idle_shutdown_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#idle_shutdown_config GoogleColabRuntimeTemplate#idle_shutdown_config}
         '''
         result = self._values.get("idle_shutdown_config")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateIdleShutdownConfig"], result)
@@ -983,7 +983,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#labels GoogleColabRuntimeTemplate#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#labels GoogleColabRuntimeTemplate#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -992,7 +992,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def machine_spec(self) -> typing.Optional["GoogleColabRuntimeTemplateMachineSpec"]:
         '''machine_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#machine_spec GoogleColabRuntimeTemplate#machine_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#machine_spec GoogleColabRuntimeTemplate#machine_spec}
         '''
         result = self._values.get("machine_spec")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateMachineSpec"], result)
@@ -1001,7 +1001,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The resource name of the Runtime Template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1010,7 +1010,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_spec(self) -> typing.Optional["GoogleColabRuntimeTemplateNetworkSpec"]:
         '''network_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network_spec GoogleColabRuntimeTemplate#network_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network_spec GoogleColabRuntimeTemplate#network_spec}
         '''
         result = self._values.get("network_spec")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateNetworkSpec"], result)
@@ -1019,14 +1019,14 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Applies the given Compute Engine tags to the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network_tags GoogleColabRuntimeTemplate#network_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network_tags GoogleColabRuntimeTemplate#network_tags}
         '''
         result = self._values.get("network_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#project GoogleColabRuntimeTemplate#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#project GoogleColabRuntimeTemplate#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1036,7 +1036,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleColabRuntimeTemplateShieldedVmConfig"]:
         '''shielded_vm_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#shielded_vm_config GoogleColabRuntimeTemplate#shielded_vm_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#shielded_vm_config GoogleColabRuntimeTemplate#shielded_vm_config}
         '''
         result = self._values.get("shielded_vm_config")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateShieldedVmConfig"], result)
@@ -1047,7 +1047,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleColabRuntimeTemplateSoftwareConfig"]:
         '''software_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#software_config GoogleColabRuntimeTemplate#software_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#software_config GoogleColabRuntimeTemplate#software_config}
         '''
         result = self._values.get("software_config")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateSoftwareConfig"], result)
@@ -1056,7 +1056,7 @@ class GoogleColabRuntimeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleColabRuntimeTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#timeouts GoogleColabRuntimeTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#timeouts GoogleColabRuntimeTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateTimeouts"], result)
@@ -1086,8 +1086,8 @@ class GoogleColabRuntimeTemplateDataPersistentDiskSpec:
         disk_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: The disk size of the runtime in GB. If specified, the diskType must also be specified. The minimum size is 10GB and the maximum is 65536GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#disk_size_gb GoogleColabRuntimeTemplate#disk_size_gb}
-        :param disk_type: The type of the persistent disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#disk_type GoogleColabRuntimeTemplate#disk_type}
+        :param disk_size_gb: The disk size of the runtime in GB. If specified, the diskType must also be specified. The minimum size is 10GB and the maximum is 65536GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#disk_size_gb GoogleColabRuntimeTemplate#disk_size_gb}
+        :param disk_type: The type of the persistent disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#disk_type GoogleColabRuntimeTemplate#disk_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ab1b8ebc82db896ce9db108ccb68c632bcff1c87cebba41c3e8b6d054af6ed2)
@@ -1105,7 +1105,7 @@ class GoogleColabRuntimeTemplateDataPersistentDiskSpec:
 
         If specified, the diskType must also be specified. The minimum size is 10GB and the maximum is 65536GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#disk_size_gb GoogleColabRuntimeTemplate#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#disk_size_gb GoogleColabRuntimeTemplate#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1114,7 +1114,7 @@ class GoogleColabRuntimeTemplateDataPersistentDiskSpec:
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''The type of the persistent disk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#disk_type GoogleColabRuntimeTemplate#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#disk_type GoogleColabRuntimeTemplate#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1219,7 +1219,7 @@ class GoogleColabRuntimeTemplateDataPersistentDiskSpecOutputReference(
 class GoogleColabRuntimeTemplateEncryptionSpec:
     def __init__(self, *, kms_key_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_name: The Cloud KMS encryption key (customer-managed encryption key) used to protect the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#kms_key_name GoogleColabRuntimeTemplate#kms_key_name}
+        :param kms_key_name: The Cloud KMS encryption key (customer-managed encryption key) used to protect the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#kms_key_name GoogleColabRuntimeTemplate#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eec6e47cbddef9cdb802b1c5d3915a4e34430961f7367a1d093bf7f5ec17cdc7)
@@ -1232,7 +1232,7 @@ class GoogleColabRuntimeTemplateEncryptionSpec:
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''The Cloud KMS encryption key (customer-managed encryption key) used to protect the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#kms_key_name GoogleColabRuntimeTemplate#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#kms_key_name GoogleColabRuntimeTemplate#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1320,7 +1320,7 @@ class GoogleColabRuntimeTemplateEucConfig:
         euc_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param euc_disabled: Disable end user credential access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#euc_disabled GoogleColabRuntimeTemplate#euc_disabled}
+        :param euc_disabled: Disable end user credential access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#euc_disabled GoogleColabRuntimeTemplate#euc_disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e88f12713aa5df05fc23afe9259aa1a4aa1862e0bc6c2df021f80040c7dbd2ac)
@@ -1335,7 +1335,7 @@ class GoogleColabRuntimeTemplateEucConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Disable end user credential access for the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#euc_disabled GoogleColabRuntimeTemplate#euc_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#euc_disabled GoogleColabRuntimeTemplate#euc_disabled}
         '''
         result = self._values.get("euc_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1422,7 +1422,7 @@ class GoogleColabRuntimeTemplateEucConfigOutputReference(
 class GoogleColabRuntimeTemplateIdleShutdownConfig:
     def __init__(self, *, idle_timeout: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param idle_timeout: The duration after which the runtime is automatically shut down. An input of 0s disables the idle shutdown feature, and a valid range is [10m, 24h]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#idle_timeout GoogleColabRuntimeTemplate#idle_timeout}
+        :param idle_timeout: The duration after which the runtime is automatically shut down. An input of 0s disables the idle shutdown feature, and a valid range is [10m, 24h]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#idle_timeout GoogleColabRuntimeTemplate#idle_timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f33a07f139d045cc3d5a097d6aace69a1eaa3cc4301ab773915361c0a5dcd664)
@@ -1437,7 +1437,7 @@ class GoogleColabRuntimeTemplateIdleShutdownConfig:
 
         An input of 0s disables the idle shutdown feature, and a valid range is [10m, 24h].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#idle_timeout GoogleColabRuntimeTemplate#idle_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#idle_timeout GoogleColabRuntimeTemplate#idle_timeout}
         '''
         result = self._values.get("idle_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1531,9 +1531,9 @@ class GoogleColabRuntimeTemplateMachineSpec:
         machine_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerator_count: The number of accelerators used by the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#accelerator_count GoogleColabRuntimeTemplate#accelerator_count}
-        :param accelerator_type: The type of hardware accelerator used by the runtime. If specified, acceleratorCount must also be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#accelerator_type GoogleColabRuntimeTemplate#accelerator_type}
-        :param machine_type: The Compute Engine machine type selected for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#machine_type GoogleColabRuntimeTemplate#machine_type}
+        :param accelerator_count: The number of accelerators used by the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#accelerator_count GoogleColabRuntimeTemplate#accelerator_count}
+        :param accelerator_type: The type of hardware accelerator used by the runtime. If specified, acceleratorCount must also be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#accelerator_type GoogleColabRuntimeTemplate#accelerator_type}
+        :param machine_type: The Compute Engine machine type selected for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#machine_type GoogleColabRuntimeTemplate#machine_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63d861a93bac1e7c560746e19123cc144e127b23f665492c826a23f6ee8648e9)
@@ -1552,7 +1552,7 @@ class GoogleColabRuntimeTemplateMachineSpec:
     def accelerator_count(self) -> typing.Optional[jsii.Number]:
         '''The number of accelerators used by the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#accelerator_count GoogleColabRuntimeTemplate#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#accelerator_count GoogleColabRuntimeTemplate#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1561,7 +1561,7 @@ class GoogleColabRuntimeTemplateMachineSpec:
     def accelerator_type(self) -> typing.Optional[builtins.str]:
         '''The type of hardware accelerator used by the runtime. If specified, acceleratorCount must also be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#accelerator_type GoogleColabRuntimeTemplate#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#accelerator_type GoogleColabRuntimeTemplate#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1570,7 +1570,7 @@ class GoogleColabRuntimeTemplateMachineSpec:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The Compute Engine machine type selected for the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#machine_type GoogleColabRuntimeTemplate#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#machine_type GoogleColabRuntimeTemplate#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1704,9 +1704,9 @@ class GoogleColabRuntimeTemplateNetworkSpec:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_internet_access: Enable public internet access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#enable_internet_access GoogleColabRuntimeTemplate#enable_internet_access}
-        :param network: The name of the VPC that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network GoogleColabRuntimeTemplate#network}
-        :param subnetwork: The name of the subnetwork that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#subnetwork GoogleColabRuntimeTemplate#subnetwork}
+        :param enable_internet_access: Enable public internet access for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#enable_internet_access GoogleColabRuntimeTemplate#enable_internet_access}
+        :param network: The name of the VPC that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network GoogleColabRuntimeTemplate#network}
+        :param subnetwork: The name of the subnetwork that this runtime is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#subnetwork GoogleColabRuntimeTemplate#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0894e66d527a8ee9f89427a1901a00350a5df7c4a73fd63899b79831250eb0b8)
@@ -1727,7 +1727,7 @@ class GoogleColabRuntimeTemplateNetworkSpec:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable public internet access for the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#enable_internet_access GoogleColabRuntimeTemplate#enable_internet_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#enable_internet_access GoogleColabRuntimeTemplate#enable_internet_access}
         '''
         result = self._values.get("enable_internet_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1736,7 +1736,7 @@ class GoogleColabRuntimeTemplateNetworkSpec:
     def network(self) -> typing.Optional[builtins.str]:
         '''The name of the VPC that this runtime is in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#network GoogleColabRuntimeTemplate#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#network GoogleColabRuntimeTemplate#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1745,7 +1745,7 @@ class GoogleColabRuntimeTemplateNetworkSpec:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''The name of the subnetwork that this runtime is in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#subnetwork GoogleColabRuntimeTemplate#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#subnetwork GoogleColabRuntimeTemplate#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1880,7 +1880,7 @@ class GoogleColabRuntimeTemplateShieldedVmConfig:
         enable_secure_boot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_secure_boot: Enables secure boot for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#enable_secure_boot GoogleColabRuntimeTemplate#enable_secure_boot}
+        :param enable_secure_boot: Enables secure boot for the runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#enable_secure_boot GoogleColabRuntimeTemplate#enable_secure_boot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__562bc4d5e023f88a906b3e6bf4d5ad8a713e68c9a340bf23b19a1e344f79b6b7)
@@ -1895,7 +1895,7 @@ class GoogleColabRuntimeTemplateShieldedVmConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables secure boot for the runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#enable_secure_boot GoogleColabRuntimeTemplate#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#enable_secure_boot GoogleColabRuntimeTemplate#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1994,8 +1994,8 @@ class GoogleColabRuntimeTemplateSoftwareConfig:
         post_startup_script_config: typing.Optional[typing.Union["GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#env GoogleColabRuntimeTemplate#env}
-        :param post_startup_script_config: post_startup_script_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_config GoogleColabRuntimeTemplate#post_startup_script_config}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#env GoogleColabRuntimeTemplate#env}
+        :param post_startup_script_config: post_startup_script_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_config GoogleColabRuntimeTemplate#post_startup_script_config}
         '''
         if isinstance(post_startup_script_config, dict):
             post_startup_script_config = GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig(**post_startup_script_config)
@@ -2015,7 +2015,7 @@ class GoogleColabRuntimeTemplateSoftwareConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleColabRuntimeTemplateSoftwareConfigEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#env GoogleColabRuntimeTemplate#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#env GoogleColabRuntimeTemplate#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleColabRuntimeTemplateSoftwareConfigEnv"]]], result)
@@ -2026,7 +2026,7 @@ class GoogleColabRuntimeTemplateSoftwareConfig:
     ) -> typing.Optional["GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig"]:
         '''post_startup_script_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_config GoogleColabRuntimeTemplate#post_startup_script_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_config GoogleColabRuntimeTemplate#post_startup_script_config}
         '''
         result = self._values.get("post_startup_script_config")
         return typing.cast(typing.Optional["GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig"], result)
@@ -2056,8 +2056,8 @@ class GoogleColabRuntimeTemplateSoftwareConfigEnv:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the environment variable. Must be a valid C identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
-        :param value: Variables that reference a $(VAR_NAME) are expanded using the previous defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#value GoogleColabRuntimeTemplate#value}
+        :param name: Name of the environment variable. Must be a valid C identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
+        :param value: Variables that reference a $(VAR_NAME) are expanded using the previous defined environment variables in the container and any service environment variables. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#value GoogleColabRuntimeTemplate#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba054350738904dd6c1c82181901f1f8b4b9a53897e8a737b2df6751f2e31f82)
@@ -2073,7 +2073,7 @@ class GoogleColabRuntimeTemplateSoftwareConfigEnv:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the environment variable. Must be a valid C identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#name GoogleColabRuntimeTemplate#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2084,7 +2084,7 @@ class GoogleColabRuntimeTemplateSoftwareConfigEnv:
 
         If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#value GoogleColabRuntimeTemplate#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#value GoogleColabRuntimeTemplate#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2322,9 +2322,9 @@ class GoogleColabRuntimeTemplateSoftwareConfigOutputReference(
         post_startup_script_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param post_startup_script: Post startup script to run after runtime is started. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script GoogleColabRuntimeTemplate#post_startup_script}
-        :param post_startup_script_behavior: Post startup script behavior that defines download and execution behavior. Possible values: ["RUN_ONCE", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_behavior GoogleColabRuntimeTemplate#post_startup_script_behavior}
-        :param post_startup_script_url: Post startup script url to download. Example: https://bucket/script.sh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_url GoogleColabRuntimeTemplate#post_startup_script_url}
+        :param post_startup_script: Post startup script to run after runtime is started. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script GoogleColabRuntimeTemplate#post_startup_script}
+        :param post_startup_script_behavior: Post startup script behavior that defines download and execution behavior. Possible values: ["RUN_ONCE", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_behavior GoogleColabRuntimeTemplate#post_startup_script_behavior}
+        :param post_startup_script_url: Post startup script url to download. Example: https://bucket/script.sh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_url GoogleColabRuntimeTemplate#post_startup_script_url}
         '''
         value = GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig(
             post_startup_script=post_startup_script,
@@ -2404,9 +2404,9 @@ class GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig:
         post_startup_script_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param post_startup_script: Post startup script to run after runtime is started. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script GoogleColabRuntimeTemplate#post_startup_script}
-        :param post_startup_script_behavior: Post startup script behavior that defines download and execution behavior. Possible values: ["RUN_ONCE", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_behavior GoogleColabRuntimeTemplate#post_startup_script_behavior}
-        :param post_startup_script_url: Post startup script url to download. Example: https://bucket/script.sh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_url GoogleColabRuntimeTemplate#post_startup_script_url}
+        :param post_startup_script: Post startup script to run after runtime is started. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script GoogleColabRuntimeTemplate#post_startup_script}
+        :param post_startup_script_behavior: Post startup script behavior that defines download and execution behavior. Possible values: ["RUN_ONCE", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_behavior GoogleColabRuntimeTemplate#post_startup_script_behavior}
+        :param post_startup_script_url: Post startup script url to download. Example: https://bucket/script.sh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_url GoogleColabRuntimeTemplate#post_startup_script_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84c6ddb22780457811414827e9413661d1e7a18723d6f78264b6618eae666a96)
@@ -2425,7 +2425,7 @@ class GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig:
     def post_startup_script(self) -> typing.Optional[builtins.str]:
         '''Post startup script to run after runtime is started.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script GoogleColabRuntimeTemplate#post_startup_script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script GoogleColabRuntimeTemplate#post_startup_script}
         '''
         result = self._values.get("post_startup_script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2434,7 +2434,7 @@ class GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig:
     def post_startup_script_behavior(self) -> typing.Optional[builtins.str]:
         '''Post startup script behavior that defines download and execution behavior. Possible values: ["RUN_ONCE", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_behavior GoogleColabRuntimeTemplate#post_startup_script_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_behavior GoogleColabRuntimeTemplate#post_startup_script_behavior}
         '''
         result = self._values.get("post_startup_script_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2443,7 +2443,7 @@ class GoogleColabRuntimeTemplateSoftwareConfigPostStartupScriptConfig:
     def post_startup_script_url(self) -> typing.Optional[builtins.str]:
         '''Post startup script url to download. Example: https://bucket/script.sh.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#post_startup_script_url GoogleColabRuntimeTemplate#post_startup_script_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#post_startup_script_url GoogleColabRuntimeTemplate#post_startup_script_url}
         '''
         result = self._values.get("post_startup_script_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2575,9 +2575,9 @@ class GoogleColabRuntimeTemplateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#create GoogleColabRuntimeTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#delete GoogleColabRuntimeTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#update GoogleColabRuntimeTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#create GoogleColabRuntimeTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#delete GoogleColabRuntimeTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#update GoogleColabRuntimeTemplate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__329dfeca61766fe090791b1f19b3b8f6b064567e08dfff45056153e27abc0591)
@@ -2594,19 +2594,19 @@ class GoogleColabRuntimeTemplateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#create GoogleColabRuntimeTemplate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#create GoogleColabRuntimeTemplate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#delete GoogleColabRuntimeTemplate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#delete GoogleColabRuntimeTemplate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_colab_runtime_template#update GoogleColabRuntimeTemplate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_colab_runtime_template#update GoogleColabRuntimeTemplate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

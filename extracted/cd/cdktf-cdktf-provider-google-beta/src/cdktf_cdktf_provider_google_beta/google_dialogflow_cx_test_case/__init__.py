@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_test_case`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_test_case`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_test_case`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDialogflowCxTestCase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDialogflowCxTestCase.GoogleDialogflowCxTestCase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case google_dialogflow_cx_test_case}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case google_dialogflow_cx_test_case}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleDialogflowCxTestCase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case google_dialogflow_cx_test_case} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case google_dialogflow_cx_test_case} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#display_name GoogleDialogflowCxTestCase#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#id GoogleDialogflowCxTestCase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notes: Additional freeform notes about the test case. Limit of 400 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#notes GoogleDialogflowCxTestCase#notes}
-        :param parent: The agent to create the test case for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#parent GoogleDialogflowCxTestCase#parent}
-        :param tags: Tags are short descriptions that users may apply to test cases for organizational and filtering purposes. Each tag should start with "#" and has a limit of 30 characters Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#tags GoogleDialogflowCxTestCase#tags}
-        :param test_case_conversation_turns: test_case_conversation_turns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#test_case_conversation_turns GoogleDialogflowCxTestCase#test_case_conversation_turns}
-        :param test_config: test_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#test_config GoogleDialogflowCxTestCase#test_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#timeouts GoogleDialogflowCxTestCase#timeouts}
+        :param display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#display_name GoogleDialogflowCxTestCase#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#id GoogleDialogflowCxTestCase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notes: Additional freeform notes about the test case. Limit of 400 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#notes GoogleDialogflowCxTestCase#notes}
+        :param parent: The agent to create the test case for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#parent GoogleDialogflowCxTestCase#parent}
+        :param tags: Tags are short descriptions that users may apply to test cases for organizational and filtering purposes. Each tag should start with "#" and has a limit of 30 characters Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#tags GoogleDialogflowCxTestCase#tags}
+        :param test_case_conversation_turns: test_case_conversation_turns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#test_case_conversation_turns GoogleDialogflowCxTestCase#test_case_conversation_turns}
+        :param test_config: test_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#test_config GoogleDialogflowCxTestCase#test_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#timeouts GoogleDialogflowCxTestCase#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleDialogflowCxTestCase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDialogflowCxTestCase to import.
-        :param import_from_id: The id of the existing GoogleDialogflowCxTestCase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDialogflowCxTestCase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDialogflowCxTestCase to import is found.
         '''
         if __debug__:
@@ -157,9 +157,9 @@ class GoogleDialogflowCxTestCase(
         tracking_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param flow: Flow name to start the test case with. Format: projects//locations//agents//flows/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#flow GoogleDialogflowCxTestCase#flow}
-        :param page: The page to start the test case with. Format: projects//locations//agents//flows//pages/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#page GoogleDialogflowCxTestCase#page}
-        :param tracking_parameters: Session parameters to be compared when calculating differences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#tracking_parameters GoogleDialogflowCxTestCase#tracking_parameters}
+        :param flow: Flow name to start the test case with. Format: projects//locations//agents//flows/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#flow GoogleDialogflowCxTestCase#flow}
+        :param page: The page to start the test case with. Format: projects//locations//agents//flows//pages/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#page GoogleDialogflowCxTestCase#page}
+        :param tracking_parameters: Session parameters to be compared when calculating differences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#tracking_parameters GoogleDialogflowCxTestCase#tracking_parameters}
         '''
         value = GoogleDialogflowCxTestCaseTestConfig(
             flow=flow, page=page, tracking_parameters=tracking_parameters
@@ -176,9 +176,9 @@ class GoogleDialogflowCxTestCase(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#create GoogleDialogflowCxTestCase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#delete GoogleDialogflowCxTestCase#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#update GoogleDialogflowCxTestCase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#create GoogleDialogflowCxTestCase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#delete GoogleDialogflowCxTestCase#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#update GoogleDialogflowCxTestCase#update}.
         '''
         value = GoogleDialogflowCxTestCaseTimeouts(
             create=create, delete=delete, update=update
@@ -415,14 +415,14 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#display_name GoogleDialogflowCxTestCase#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#id GoogleDialogflowCxTestCase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notes: Additional freeform notes about the test case. Limit of 400 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#notes GoogleDialogflowCxTestCase#notes}
-        :param parent: The agent to create the test case for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#parent GoogleDialogflowCxTestCase#parent}
-        :param tags: Tags are short descriptions that users may apply to test cases for organizational and filtering purposes. Each tag should start with "#" and has a limit of 30 characters Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#tags GoogleDialogflowCxTestCase#tags}
-        :param test_case_conversation_turns: test_case_conversation_turns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#test_case_conversation_turns GoogleDialogflowCxTestCase#test_case_conversation_turns}
-        :param test_config: test_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#test_config GoogleDialogflowCxTestCase#test_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#timeouts GoogleDialogflowCxTestCase#timeouts}
+        :param display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#display_name GoogleDialogflowCxTestCase#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#id GoogleDialogflowCxTestCase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notes: Additional freeform notes about the test case. Limit of 400 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#notes GoogleDialogflowCxTestCase#notes}
+        :param parent: The agent to create the test case for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#parent GoogleDialogflowCxTestCase#parent}
+        :param tags: Tags are short descriptions that users may apply to test cases for organizational and filtering purposes. Each tag should start with "#" and has a limit of 30 characters Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#tags GoogleDialogflowCxTestCase#tags}
+        :param test_case_conversation_turns: test_case_conversation_turns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#test_case_conversation_turns GoogleDialogflowCxTestCase#test_case_conversation_turns}
+        :param test_config: test_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#test_config GoogleDialogflowCxTestCase#test_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#timeouts GoogleDialogflowCxTestCase#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -547,7 +547,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the test case, unique within the agent. Limit of 200 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#display_name GoogleDialogflowCxTestCase#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#display_name GoogleDialogflowCxTestCase#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -555,7 +555,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#id GoogleDialogflowCxTestCase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#id GoogleDialogflowCxTestCase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -567,7 +567,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notes(self) -> typing.Optional[builtins.str]:
         '''Additional freeform notes about the test case. Limit of 400 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#notes GoogleDialogflowCxTestCase#notes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#notes GoogleDialogflowCxTestCase#notes}
         '''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -576,7 +576,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create the test case for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#parent GoogleDialogflowCxTestCase#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#parent GoogleDialogflowCxTestCase#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -587,7 +587,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Each tag should start with "#" and has a limit of 30 characters
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#tags GoogleDialogflowCxTestCase#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#tags GoogleDialogflowCxTestCase#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -598,7 +598,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDialogflowCxTestCaseTestCaseConversationTurns"]]]:
         '''test_case_conversation_turns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#test_case_conversation_turns GoogleDialogflowCxTestCase#test_case_conversation_turns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#test_case_conversation_turns GoogleDialogflowCxTestCase#test_case_conversation_turns}
         '''
         result = self._values.get("test_case_conversation_turns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDialogflowCxTestCaseTestCaseConversationTurns"]]], result)
@@ -607,7 +607,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def test_config(self) -> typing.Optional["GoogleDialogflowCxTestCaseTestConfig"]:
         '''test_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#test_config GoogleDialogflowCxTestCase#test_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#test_config GoogleDialogflowCxTestCase#test_config}
         '''
         result = self._values.get("test_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestConfig"], result)
@@ -616,7 +616,7 @@ class GoogleDialogflowCxTestCaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDialogflowCxTestCaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#timeouts GoogleDialogflowCxTestCase#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#timeouts GoogleDialogflowCxTestCase#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTimeouts"], result)
@@ -2681,8 +2681,8 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurns:
         virtual_agent_output: typing.Optional[typing.Union["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param user_input: user_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#user_input GoogleDialogflowCxTestCase#user_input}
-        :param virtual_agent_output: virtual_agent_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#virtual_agent_output GoogleDialogflowCxTestCase#virtual_agent_output}
+        :param user_input: user_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#user_input GoogleDialogflowCxTestCase#user_input}
+        :param virtual_agent_output: virtual_agent_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#virtual_agent_output GoogleDialogflowCxTestCase#virtual_agent_output}
         '''
         if isinstance(user_input, dict):
             user_input = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput(**user_input)
@@ -2704,7 +2704,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurns:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput"]:
         '''user_input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#user_input GoogleDialogflowCxTestCase#user_input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#user_input GoogleDialogflowCxTestCase#user_input}
         '''
         result = self._values.get("user_input")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput"], result)
@@ -2715,7 +2715,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurns:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput"]:
         '''virtual_agent_output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#virtual_agent_output GoogleDialogflowCxTestCase#virtual_agent_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#virtual_agent_output GoogleDialogflowCxTestCase#virtual_agent_output}
         '''
         result = self._values.get("virtual_agent_output")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput"], result)
@@ -2861,10 +2861,10 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsOutputReference(
         is_webhook_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_sentiment_analysis: Whether sentiment analysis is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#enable_sentiment_analysis GoogleDialogflowCxTestCase#enable_sentiment_analysis}
-        :param injected_parameters: Parameters that need to be injected into the conversation during intent detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#injected_parameters GoogleDialogflowCxTestCase#injected_parameters}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#input GoogleDialogflowCxTestCase#input}
-        :param is_webhook_enabled: If webhooks should be allowed to trigger in response to the user utterance. Often if parameters are injected, webhooks should not be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#is_webhook_enabled GoogleDialogflowCxTestCase#is_webhook_enabled}
+        :param enable_sentiment_analysis: Whether sentiment analysis is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#enable_sentiment_analysis GoogleDialogflowCxTestCase#enable_sentiment_analysis}
+        :param injected_parameters: Parameters that need to be injected into the conversation during intent detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#injected_parameters GoogleDialogflowCxTestCase#injected_parameters}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#input GoogleDialogflowCxTestCase#input}
+        :param is_webhook_enabled: If webhooks should be allowed to trigger in response to the user utterance. Often if parameters are injected, webhooks should not be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#is_webhook_enabled GoogleDialogflowCxTestCase#is_webhook_enabled}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput(
             enable_sentiment_analysis=enable_sentiment_analysis,
@@ -2885,10 +2885,10 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsOutputReference(
         triggered_intent: typing.Optional[typing.Union["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTriggeredIntent", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param current_page: current_page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#current_page GoogleDialogflowCxTestCase#current_page}
-        :param session_parameters: The session parameters available to the bot at this point. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#session_parameters GoogleDialogflowCxTestCase#session_parameters}
-        :param text_responses: text_responses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text_responses GoogleDialogflowCxTestCase#text_responses}
-        :param triggered_intent: triggered_intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#triggered_intent GoogleDialogflowCxTestCase#triggered_intent}
+        :param current_page: current_page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#current_page GoogleDialogflowCxTestCase#current_page}
+        :param session_parameters: The session parameters available to the bot at this point. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#session_parameters GoogleDialogflowCxTestCase#session_parameters}
+        :param text_responses: text_responses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text_responses GoogleDialogflowCxTestCase#text_responses}
+        :param triggered_intent: triggered_intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#triggered_intent GoogleDialogflowCxTestCase#triggered_intent}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput(
             current_page=current_page,
@@ -2973,10 +2973,10 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput:
         is_webhook_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_sentiment_analysis: Whether sentiment analysis is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#enable_sentiment_analysis GoogleDialogflowCxTestCase#enable_sentiment_analysis}
-        :param injected_parameters: Parameters that need to be injected into the conversation during intent detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#injected_parameters GoogleDialogflowCxTestCase#injected_parameters}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#input GoogleDialogflowCxTestCase#input}
-        :param is_webhook_enabled: If webhooks should be allowed to trigger in response to the user utterance. Often if parameters are injected, webhooks should not be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#is_webhook_enabled GoogleDialogflowCxTestCase#is_webhook_enabled}
+        :param enable_sentiment_analysis: Whether sentiment analysis is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#enable_sentiment_analysis GoogleDialogflowCxTestCase#enable_sentiment_analysis}
+        :param injected_parameters: Parameters that need to be injected into the conversation during intent detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#injected_parameters GoogleDialogflowCxTestCase#injected_parameters}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#input GoogleDialogflowCxTestCase#input}
+        :param is_webhook_enabled: If webhooks should be allowed to trigger in response to the user utterance. Often if parameters are injected, webhooks should not be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#is_webhook_enabled GoogleDialogflowCxTestCase#is_webhook_enabled}
         '''
         if isinstance(input, dict):
             input = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput(**input)
@@ -3002,7 +3002,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether sentiment analysis is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#enable_sentiment_analysis GoogleDialogflowCxTestCase#enable_sentiment_analysis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#enable_sentiment_analysis GoogleDialogflowCxTestCase#enable_sentiment_analysis}
         '''
         result = self._values.get("enable_sentiment_analysis")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3011,7 +3011,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput:
     def injected_parameters(self) -> typing.Optional[builtins.str]:
         '''Parameters that need to be injected into the conversation during intent detection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#injected_parameters GoogleDialogflowCxTestCase#injected_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#injected_parameters GoogleDialogflowCxTestCase#injected_parameters}
         '''
         result = self._values.get("injected_parameters")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3022,7 +3022,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput"]:
         '''input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#input GoogleDialogflowCxTestCase#input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#input GoogleDialogflowCxTestCase#input}
         '''
         result = self._values.get("input")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput"], result)
@@ -3035,7 +3035,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInput:
 
         Often if parameters are injected, webhooks should not be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#is_webhook_enabled GoogleDialogflowCxTestCase#is_webhook_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#is_webhook_enabled GoogleDialogflowCxTestCase#is_webhook_enabled}
         '''
         result = self._values.get("is_webhook_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3072,10 +3072,10 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput:
         text: typing.Optional[typing.Union["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dtmf: dtmf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#dtmf GoogleDialogflowCxTestCase#dtmf}
-        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
-        :param language_code: The language of the input. See `Language Support <https://cloud.google.com/dialogflow/cx/docs/reference/language>`_ for a list of the currently supported language codes. Note that queries in the same session do not necessarily need to specify the same language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#language_code GoogleDialogflowCxTestCase#language_code}
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        :param dtmf: dtmf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#dtmf GoogleDialogflowCxTestCase#dtmf}
+        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
+        :param language_code: The language of the input. See `Language Support <https://cloud.google.com/dialogflow/cx/docs/reference/language>`_ for a list of the currently supported language codes. Note that queries in the same session do not necessarily need to specify the same language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#language_code GoogleDialogflowCxTestCase#language_code}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         if isinstance(dtmf, dict):
             dtmf = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf(**dtmf)
@@ -3105,7 +3105,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf"]:
         '''dtmf block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#dtmf GoogleDialogflowCxTestCase#dtmf}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#dtmf GoogleDialogflowCxTestCase#dtmf}
         '''
         result = self._values.get("dtmf")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf"], result)
@@ -3116,7 +3116,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputEvent"]:
         '''event block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
         '''
         result = self._values.get("event")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputEvent"], result)
@@ -3128,7 +3128,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput:
         See `Language Support <https://cloud.google.com/dialogflow/cx/docs/reference/language>`_ for a list of the currently supported language codes.
         Note that queries in the same session do not necessarily need to specify the same language.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#language_code GoogleDialogflowCxTestCase#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#language_code GoogleDialogflowCxTestCase#language_code}
         '''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3139,7 +3139,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText"]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText"], result)
@@ -3169,8 +3169,8 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf:
         finish_digit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param digits: The dtmf digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#digits GoogleDialogflowCxTestCase#digits}
-        :param finish_digit: The finish digit (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#finish_digit GoogleDialogflowCxTestCase#finish_digit}
+        :param digits: The dtmf digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#digits GoogleDialogflowCxTestCase#digits}
+        :param finish_digit: The finish digit (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#finish_digit GoogleDialogflowCxTestCase#finish_digit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f0c50c842fb24ad8534ebecefcbd01dede6b76e927052b7efd8ba16064cb006)
@@ -3186,7 +3186,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf:
     def digits(self) -> typing.Optional[builtins.str]:
         '''The dtmf digits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#digits GoogleDialogflowCxTestCase#digits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#digits GoogleDialogflowCxTestCase#digits}
         '''
         result = self._values.get("digits")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3195,7 +3195,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf:
     def finish_digit(self) -> typing.Optional[builtins.str]:
         '''The finish digit (if any).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#finish_digit GoogleDialogflowCxTestCase#finish_digit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#finish_digit GoogleDialogflowCxTestCase#finish_digit}
         '''
         result = self._values.get("finish_digit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3300,7 +3300,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmfOutpu
 class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputEvent:
     def __init__(self, *, event: builtins.str) -> None:
         '''
-        :param event: Name of the event. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
+        :param event: Name of the event. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a8ba077fcb2ab08e8cf32f93a14427e049fed29e4ae26dcd65b3b81e9dc1a3e)
@@ -3313,7 +3313,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputEvent:
     def event(self) -> builtins.str:
         '''Name of the event.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
         '''
         result = self._values.get("event")
         assert result is not None, "Required property 'event' is missing"
@@ -3414,8 +3414,8 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputOutputRef
         finish_digit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param digits: The dtmf digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#digits GoogleDialogflowCxTestCase#digits}
-        :param finish_digit: The finish digit (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#finish_digit GoogleDialogflowCxTestCase#finish_digit}
+        :param digits: The dtmf digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#digits GoogleDialogflowCxTestCase#digits}
+        :param finish_digit: The finish digit (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#finish_digit GoogleDialogflowCxTestCase#finish_digit}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputDtmf(
             digits=digits, finish_digit=finish_digit
@@ -3426,7 +3426,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputOutputRef
     @jsii.member(jsii_name="putEvent")
     def put_event(self, *, event: builtins.str) -> None:
         '''
-        :param event: Name of the event. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
+        :param event: Name of the event. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputEvent(
             event=event
@@ -3437,7 +3437,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputOutputRef
     @jsii.member(jsii_name="putText")
     def put_text(self, *, text: builtins.str) -> None:
         '''
-        :param text: The natural language text to be processed. Text length must not exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        :param text: The natural language text to be processed. Text length must not exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText(
             text=text
@@ -3546,7 +3546,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputOutputRef
 class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText:
     def __init__(self, *, text: builtins.str) -> None:
         '''
-        :param text: The natural language text to be processed. Text length must not exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        :param text: The natural language text to be processed. Text length must not exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9d5495d28a820f21eb289d501cb44ffaf3fc7cc44454025da696bac46a5ccc1)
@@ -3559,7 +3559,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText:
     def text(self) -> builtins.str:
         '''The natural language text to be processed. Text length must not exceed 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
@@ -3662,10 +3662,10 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputOutputReferenc
         text: typing.Optional[typing.Union[GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInputText, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dtmf: dtmf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#dtmf GoogleDialogflowCxTestCase#dtmf}
-        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
-        :param language_code: The language of the input. See `Language Support <https://cloud.google.com/dialogflow/cx/docs/reference/language>`_ for a list of the currently supported language codes. Note that queries in the same session do not necessarily need to specify the same language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#language_code GoogleDialogflowCxTestCase#language_code}
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        :param dtmf: dtmf block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#dtmf GoogleDialogflowCxTestCase#dtmf}
+        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#event GoogleDialogflowCxTestCase#event}
+        :param language_code: The language of the input. See `Language Support <https://cloud.google.com/dialogflow/cx/docs/reference/language>`_ for a list of the currently supported language codes. Note that queries in the same session do not necessarily need to specify the same language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#language_code GoogleDialogflowCxTestCase#language_code}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsUserInputInput(
             dtmf=dtmf, event=event, language_code=language_code, text=text
@@ -3806,10 +3806,10 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput:
         triggered_intent: typing.Optional[typing.Union["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTriggeredIntent", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param current_page: current_page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#current_page GoogleDialogflowCxTestCase#current_page}
-        :param session_parameters: The session parameters available to the bot at this point. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#session_parameters GoogleDialogflowCxTestCase#session_parameters}
-        :param text_responses: text_responses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text_responses GoogleDialogflowCxTestCase#text_responses}
-        :param triggered_intent: triggered_intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#triggered_intent GoogleDialogflowCxTestCase#triggered_intent}
+        :param current_page: current_page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#current_page GoogleDialogflowCxTestCase#current_page}
+        :param session_parameters: The session parameters available to the bot at this point. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#session_parameters GoogleDialogflowCxTestCase#session_parameters}
+        :param text_responses: text_responses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text_responses GoogleDialogflowCxTestCase#text_responses}
+        :param triggered_intent: triggered_intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#triggered_intent GoogleDialogflowCxTestCase#triggered_intent}
         '''
         if isinstance(current_page, dict):
             current_page = GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputCurrentPage(**current_page)
@@ -3837,7 +3837,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputCurrentPage"]:
         '''current_page block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#current_page GoogleDialogflowCxTestCase#current_page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#current_page GoogleDialogflowCxTestCase#current_page}
         '''
         result = self._values.get("current_page")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputCurrentPage"], result)
@@ -3846,7 +3846,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput:
     def session_parameters(self) -> typing.Optional[builtins.str]:
         '''The session parameters available to the bot at this point.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#session_parameters GoogleDialogflowCxTestCase#session_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#session_parameters GoogleDialogflowCxTestCase#session_parameters}
         '''
         result = self._values.get("session_parameters")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3857,7 +3857,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTextResponses"]]]:
         '''text_responses block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text_responses GoogleDialogflowCxTestCase#text_responses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text_responses GoogleDialogflowCxTestCase#text_responses}
         '''
         result = self._values.get("text_responses")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTextResponses"]]], result)
@@ -3868,7 +3868,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput:
     ) -> typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTriggeredIntent"]:
         '''triggered_intent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#triggered_intent GoogleDialogflowCxTestCase#triggered_intent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#triggered_intent GoogleDialogflowCxTestCase#triggered_intent}
         '''
         result = self._values.get("triggered_intent")
         return typing.cast(typing.Optional["GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTriggeredIntent"], result)
@@ -3893,7 +3893,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutput:
 class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputCurrentPage:
     def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param name: The unique identifier of the page. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
+        :param name: The unique identifier of the page. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bac2885c51d2c7cabd6a37b2ed7b0ffc21e5e004e2d672486f6135a2c67c9aa)
@@ -3906,7 +3906,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputCurre
     def name(self) -> typing.Optional[builtins.str]:
         '''The unique identifier of the page. Format: projects//locations//agents//flows//pages/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4010,7 +4010,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputOutpu
     @jsii.member(jsii_name="putCurrentPage")
     def put_current_page(self, *, name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param name: The unique identifier of the page. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
+        :param name: The unique identifier of the page. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputCurrentPage(
             name=name
@@ -4038,7 +4038,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputOutpu
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The unique identifier of the intent. Format: projects//locations//agents//intents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
+        :param name: The unique identifier of the intent. Format: projects//locations//agents//intents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
         '''
         value = GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTriggeredIntent(
             name=name
@@ -4151,7 +4151,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTextR
         text: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f059c0118478eb3ea390687c80db3f9645900790d85da84185883a9a01cfbc79)
@@ -4164,7 +4164,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTextR
     def text(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A collection of text responses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#text GoogleDialogflowCxTestCase#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4347,7 +4347,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTextR
 class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTriggeredIntent:
     def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param name: The unique identifier of the intent. Format: projects//locations//agents//intents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
+        :param name: The unique identifier of the intent. Format: projects//locations//agents//intents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03b9d58a7e0902f782870b68a22d395bf92a2acc692496f47bc14ca0368ed0af)
@@ -4360,7 +4360,7 @@ class GoogleDialogflowCxTestCaseTestCaseConversationTurnsVirtualAgentOutputTrigg
     def name(self) -> typing.Optional[builtins.str]:
         '''The unique identifier of the intent. Format: projects//locations//agents//intents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#name GoogleDialogflowCxTestCase#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4459,9 +4459,9 @@ class GoogleDialogflowCxTestCaseTestConfig:
         tracking_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param flow: Flow name to start the test case with. Format: projects//locations//agents//flows/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#flow GoogleDialogflowCxTestCase#flow}
-        :param page: The page to start the test case with. Format: projects//locations//agents//flows//pages/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#page GoogleDialogflowCxTestCase#page}
-        :param tracking_parameters: Session parameters to be compared when calculating differences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#tracking_parameters GoogleDialogflowCxTestCase#tracking_parameters}
+        :param flow: Flow name to start the test case with. Format: projects//locations//agents//flows/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#flow GoogleDialogflowCxTestCase#flow}
+        :param page: The page to start the test case with. Format: projects//locations//agents//flows//pages/. Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#page GoogleDialogflowCxTestCase#page}
+        :param tracking_parameters: Session parameters to be compared when calculating differences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#tracking_parameters GoogleDialogflowCxTestCase#tracking_parameters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf066508b24d3a5fcd800df0a595de5ad0215189376459962989c3f485d8517d)
@@ -4483,7 +4483,7 @@ class GoogleDialogflowCxTestCaseTestConfig:
         Format: projects//locations//agents//flows/.
         Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#flow GoogleDialogflowCxTestCase#flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#flow GoogleDialogflowCxTestCase#flow}
         '''
         result = self._values.get("flow")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4495,7 +4495,7 @@ class GoogleDialogflowCxTestCaseTestConfig:
         Format: projects//locations//agents//flows//pages/.
         Only one of flow and page should be set to indicate the starting point of the test case. If neither is set, the test case will start with start page on the default start flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#page GoogleDialogflowCxTestCase#page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#page GoogleDialogflowCxTestCase#page}
         '''
         result = self._values.get("page")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4504,7 +4504,7 @@ class GoogleDialogflowCxTestCaseTestConfig:
     def tracking_parameters(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Session parameters to be compared when calculating differences.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#tracking_parameters GoogleDialogflowCxTestCase#tracking_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#tracking_parameters GoogleDialogflowCxTestCase#tracking_parameters}
         '''
         result = self._values.get("tracking_parameters")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4634,9 +4634,9 @@ class GoogleDialogflowCxTestCaseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#create GoogleDialogflowCxTestCase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#delete GoogleDialogflowCxTestCase#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#update GoogleDialogflowCxTestCase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#create GoogleDialogflowCxTestCase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#delete GoogleDialogflowCxTestCase#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#update GoogleDialogflowCxTestCase#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__078fb25b1b59ce93d88830a6bd300af4f9787b37b543d7308729ccd95c0068cc)
@@ -4653,19 +4653,19 @@ class GoogleDialogflowCxTestCaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#create GoogleDialogflowCxTestCase#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#create GoogleDialogflowCxTestCase#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#delete GoogleDialogflowCxTestCase#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#delete GoogleDialogflowCxTestCase#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dialogflow_cx_test_case#update GoogleDialogflowCxTestCase#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_test_case#update GoogleDialogflowCxTestCase#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

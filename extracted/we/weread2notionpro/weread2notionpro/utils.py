@@ -16,6 +16,7 @@ from weread2notionpro.config  import (
     STATUS,
     TITLE,
     SELECT,
+    MULTI_SELECT,
 )
 import pendulum
 from dotenv import load_dotenv
@@ -229,22 +230,22 @@ def get_properties(dict1, dict2):
         property = None
         if type == TITLE:
             property = {
-                "title": [{"type": "text", "text": {"content": value[:MAX_LENGTH]}}]
+                "title": [
+                    {"type": "text", "text": {"content": value[:MAX_LENGTH]}}
+                ]
             }
         elif type == RICH_TEXT:
             property = {
-                "rich_text": [{"type": "text", "text": {"content": value[:MAX_LENGTH]}}]
+                "rich_text": [
+                    {"type": "text", "text": {"content": value[:MAX_LENGTH]}}
+                ]
             }
         elif type == NUMBER:
             property = {"number": value}
         elif type == STATUS:
             property = {"status": {"name": value}}
         elif type == FILES:
-            property = {
-                "files": [
-                    {"type": "external", "name": "Cover", "external": {"url": value}}
-                ]
-            }
+            property = {"files": [{"type": "external", "name": "Cover", "external": {"url": value}}]}
         elif type == DATE:
             property = {
                 "date": {
@@ -254,10 +255,12 @@ def get_properties(dict1, dict2):
                     "time_zone": "Asia/Shanghai",
                 }
             }
-        elif type == URL:
-            property = {"url": value}
-        elif type == SELECT:
-            property = {"select": {"name": value}}
+        elif type==URL:
+            property = {"url": value}        
+        elif type==SELECT:
+            property = {"select": {"name": value}}        
+        elif type==MULTI_SELECT:
+            property = {"multi_select": [{"name": name} for name in value]}
         elif type == RELATION:
             property = {"relation": [{"id": id} for id in value]}
         if property:

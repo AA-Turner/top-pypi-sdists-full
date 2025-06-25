@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "whiskerrag"
-version = "0.1.10"
+version = "0.1.14"
 description = "A utility package for RAG operations"
 authors = ["petercat.ai <antd.antgroup@gmail.com>"]
 readme = "README.md"
@@ -34,6 +34,7 @@ urllib3 = ">=1.25.3,<3.0.0"
 boto3 = "^1.38.13"
 gitpython = "^3.1.44"
 deprecated = "^1.2.18"
+openai = "^1.91.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3.4"

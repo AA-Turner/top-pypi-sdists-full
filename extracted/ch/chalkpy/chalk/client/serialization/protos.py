@@ -476,7 +476,6 @@ class OnlineQueryConverter:
             root_ts: Optional[dt.datetime] = None
             pkey: Any = None
             batch: pa.RecordBatch = arrow_ipc_to_record_batch(response_proto.scalars_data)
-
             if len(batch) != 1:
                 raise ValueError(f"Expected exactly one scalar data row in response, found {len(batch)}")
 
@@ -515,15 +514,25 @@ class OnlineQueryConverter:
                 metadata_col_name = GRPC_RESULT_METADATA_COL_PREFIX + col_name
                 if metadata_col_name in batch.schema.names:
                     metadata_col: pa.StructArray = batch[metadata_col_name]
-                    result.valid = metadata_col[0].is_valid
+                    assert isinstance(metadata_col, pa.StructArray)
+                    source_id_field = metadata_col.field("source_id")  # pyright: ignore
+                    source_id: str | None = source_id_field[0].as_py()
+                    source_type_field = metadata_col.field("source_type")  # pyright: ignore
+                    source_type: str | None = source_type_field[0].as_py()
+                    is_cache_hit = source_type in ["online_store", "offline_store"]
+                    resolver_fqn = source_id or "unknown"
+                    if "metadata_val" in metadata_col.type.names:
+                        metadata_col_val_field = metadata_col.field("metadata_val")  # pyright: ignore
+                        metadata_col_val = metadata_col_val_field[0].as_py()
+                        assert (
+                            isinstance(metadata_col_val, int) or metadata_col_val is None
+                        ), f"Expected metadata value, {metadata_col_val}, to be type int or None"
+                        result.metadata_val = metadata_col_val
+                        result.valid = result.metadata_val is not None
+                    else:
+                        # If metadata_val is not returned - these are set to None and "MISSING"
+                        result.valid = (source_id is not None) or (source_type != "MISSING")
                     if result.valid:
-                        assert isinstance(metadata_col, pa.StructArray)
-                        source_id_field = metadata_col.field("source_id")  # pyright: ignore
-                        source_id: str | None = source_id_field[0].as_py()
-                        source_type_field = metadata_col.field("source_type")  # pyright: ignore
-                        source_type: str | None = source_type_field[0].as_py()
-                        is_cache_hit = source_type in ["online_store", "offline_store"]
-                        resolver_fqn = source_id or "unknown"
                         result.meta = FeatureResolutionMeta(
                             chosen_resolver_fqn=resolver_fqn,
                             cache_hit=is_cache_hit,

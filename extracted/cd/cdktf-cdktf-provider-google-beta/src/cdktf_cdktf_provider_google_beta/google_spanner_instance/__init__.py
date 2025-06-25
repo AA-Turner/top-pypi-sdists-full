@@ -1,7 +1,7 @@
 r'''
 # `google_spanner_instance`
 
-Refer to the Terraform Registry for docs: [`google_spanner_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance).
+Refer to the Terraform Registry for docs: [`google_spanner_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSpannerInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSpannerInstance.GoogleSpannerInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance google_spanner_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance google_spanner_instance}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class GoogleSpannerInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance google_spanner_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance google_spanner_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param config: The name of the instance's configuration (similar but not quite the same as a region) which defines the geographic placement and replication of your databases in this instance. It determines where your data is stored. Values are typically of the form 'regional-europe-west1' , 'us-central' etc. In order to obtain a valid list please consult the `Configuration section of the docs <https://cloud.google.com/spanner/docs/instances>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#config GoogleSpannerInstance#config}
-        :param display_name: The descriptive name for this instance as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#display_name GoogleSpannerInstance#display_name}
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_config GoogleSpannerInstance#autoscaling_config}
-        :param default_backup_schedule_type: Controls the default backup behavior for new databases within the instance. Note that 'AUTOMATIC' is not permitted for free instances, as backups and backup schedules are not allowed for free instances. if unset or NONE, no default backup schedule will be created for new databases within the instance. Possible values: ["NONE", "AUTOMATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#default_backup_schedule_type GoogleSpannerInstance#default_backup_schedule_type}
-        :param edition: The edition selected for this instance. Different editions provide different capabilities at different price points. Possible values: ["EDITION_UNSPECIFIED", "STANDARD", "ENTERPRISE", "ENTERPRISE_PLUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#edition GoogleSpannerInstance#edition}
-        :param force_destroy: When deleting a spanner instance, this boolean option will delete all backups of this instance. This must be set to true if you created a backup manually in the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#force_destroy GoogleSpannerInstance#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#id GoogleSpannerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_type: The type of this instance. The type can be used to distinguish product variants, that can affect aspects like: usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances. When configured as FREE_INSTANCE, the field 'edition' should not be configured. Possible values: ["PROVISIONED", "FREE_INSTANCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#instance_type GoogleSpannerInstance#instance_type}
-        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#labels GoogleSpannerInstance#labels}
-        :param name: A unique identifier for the instance, which cannot be changed after the instance is created. The name must be between 6 and 30 characters in length. If not provided, a random string starting with 'tf-' will be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#name GoogleSpannerInstance#name}
-        :param num_nodes: The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#num_nodes GoogleSpannerInstance#num_nodes}
-        :param processing_units: The number of processing units allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#processing_units GoogleSpannerInstance#processing_units}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#project GoogleSpannerInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#timeouts GoogleSpannerInstance#timeouts}
+        :param config: The name of the instance's configuration (similar but not quite the same as a region) which defines the geographic placement and replication of your databases in this instance. It determines where your data is stored. Values are typically of the form 'regional-europe-west1' , 'us-central' etc. In order to obtain a valid list please consult the `Configuration section of the docs <https://cloud.google.com/spanner/docs/instances>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#config GoogleSpannerInstance#config}
+        :param display_name: The descriptive name for this instance as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#display_name GoogleSpannerInstance#display_name}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_config GoogleSpannerInstance#autoscaling_config}
+        :param default_backup_schedule_type: Controls the default backup behavior for new databases within the instance. Note that 'AUTOMATIC' is not permitted for free instances, as backups and backup schedules are not allowed for free instances. if unset or NONE, no default backup schedule will be created for new databases within the instance. Possible values: ["NONE", "AUTOMATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#default_backup_schedule_type GoogleSpannerInstance#default_backup_schedule_type}
+        :param edition: The edition selected for this instance. Different editions provide different capabilities at different price points. Possible values: ["EDITION_UNSPECIFIED", "STANDARD", "ENTERPRISE", "ENTERPRISE_PLUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#edition GoogleSpannerInstance#edition}
+        :param force_destroy: When deleting a spanner instance, this boolean option will delete all backups of this instance. This must be set to true if you created a backup manually in the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#force_destroy GoogleSpannerInstance#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#id GoogleSpannerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_type: The type of this instance. The type can be used to distinguish product variants, that can affect aspects like: usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances. When configured as FREE_INSTANCE, the field 'edition' should not be configured. Possible values: ["PROVISIONED", "FREE_INSTANCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#instance_type GoogleSpannerInstance#instance_type}
+        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#labels GoogleSpannerInstance#labels}
+        :param name: A unique identifier for the instance, which cannot be changed after the instance is created. The name must be between 6 and 30 characters in length. If not provided, a random string starting with 'tf-' will be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#name GoogleSpannerInstance#name}
+        :param num_nodes: The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#num_nodes GoogleSpannerInstance#num_nodes}
+        :param processing_units: The number of processing units allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#processing_units GoogleSpannerInstance#processing_units}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#project GoogleSpannerInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#timeouts GoogleSpannerInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class GoogleSpannerInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSpannerInstance to import.
-        :param import_from_id: The id of the existing GoogleSpannerInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSpannerInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSpannerInstance to import is found.
         '''
         if __debug__:
@@ -162,9 +162,9 @@ class GoogleSpannerInstance(
         autoscaling_targets: typing.Optional[typing.Union["GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param asymmetric_autoscaling_options: asymmetric_autoscaling_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#asymmetric_autoscaling_options GoogleSpannerInstance#asymmetric_autoscaling_options}
-        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
-        :param autoscaling_targets: autoscaling_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_targets GoogleSpannerInstance#autoscaling_targets}
+        :param asymmetric_autoscaling_options: asymmetric_autoscaling_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#asymmetric_autoscaling_options GoogleSpannerInstance#asymmetric_autoscaling_options}
+        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
+        :param autoscaling_targets: autoscaling_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_targets GoogleSpannerInstance#autoscaling_targets}
         '''
         value = GoogleSpannerInstanceAutoscalingConfig(
             asymmetric_autoscaling_options=asymmetric_autoscaling_options,
@@ -183,9 +183,9 @@ class GoogleSpannerInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#create GoogleSpannerInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#delete GoogleSpannerInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#update GoogleSpannerInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#create GoogleSpannerInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#delete GoogleSpannerInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#update GoogleSpannerInstance#update}.
         '''
         value = GoogleSpannerInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -525,9 +525,9 @@ class GoogleSpannerInstanceAutoscalingConfig:
         autoscaling_targets: typing.Optional[typing.Union["GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param asymmetric_autoscaling_options: asymmetric_autoscaling_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#asymmetric_autoscaling_options GoogleSpannerInstance#asymmetric_autoscaling_options}
-        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
-        :param autoscaling_targets: autoscaling_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_targets GoogleSpannerInstance#autoscaling_targets}
+        :param asymmetric_autoscaling_options: asymmetric_autoscaling_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#asymmetric_autoscaling_options GoogleSpannerInstance#asymmetric_autoscaling_options}
+        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
+        :param autoscaling_targets: autoscaling_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_targets GoogleSpannerInstance#autoscaling_targets}
         '''
         if isinstance(autoscaling_limits, dict):
             autoscaling_limits = GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits(**autoscaling_limits)
@@ -552,7 +552,7 @@ class GoogleSpannerInstanceAutoscalingConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptions"]]]:
         '''asymmetric_autoscaling_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#asymmetric_autoscaling_options GoogleSpannerInstance#asymmetric_autoscaling_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#asymmetric_autoscaling_options GoogleSpannerInstance#asymmetric_autoscaling_options}
         '''
         result = self._values.get("asymmetric_autoscaling_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptions"]]], result)
@@ -563,7 +563,7 @@ class GoogleSpannerInstanceAutoscalingConfig:
     ) -> typing.Optional["GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits"]:
         '''autoscaling_limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
         '''
         result = self._values.get("autoscaling_limits")
         return typing.cast(typing.Optional["GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits"], result)
@@ -574,7 +574,7 @@ class GoogleSpannerInstanceAutoscalingConfig:
     ) -> typing.Optional["GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets"]:
         '''autoscaling_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_targets GoogleSpannerInstance#autoscaling_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_targets GoogleSpannerInstance#autoscaling_targets}
         '''
         result = self._values.get("autoscaling_targets")
         return typing.cast(typing.Optional["GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets"], result)
@@ -604,8 +604,8 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptions:
         replica_selection: typing.Union["GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsReplicaSelection", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#overrides GoogleSpannerInstance#overrides}
-        :param replica_selection: replica_selection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#replica_selection GoogleSpannerInstance#replica_selection}
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#overrides GoogleSpannerInstance#overrides}
+        :param replica_selection: replica_selection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#replica_selection GoogleSpannerInstance#replica_selection}
         '''
         if isinstance(overrides, dict):
             overrides = GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverrides(**overrides)
@@ -626,7 +626,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptions:
     ) -> "GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverrides":
         '''overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#overrides GoogleSpannerInstance#overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#overrides GoogleSpannerInstance#overrides}
         '''
         result = self._values.get("overrides")
         assert result is not None, "Required property 'overrides' is missing"
@@ -638,7 +638,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptions:
     ) -> "GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsReplicaSelection":
         '''replica_selection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#replica_selection GoogleSpannerInstance#replica_selection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#replica_selection GoogleSpannerInstance#replica_selection}
         '''
         result = self._values.get("replica_selection")
         assert result is not None, "Required property 'replica_selection' is missing"
@@ -782,7 +782,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOutputRe
         autoscaling_limits: typing.Union["GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverridesAutoscalingLimits", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
+        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
         '''
         value = GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverrides(
             autoscaling_limits=autoscaling_limits
@@ -793,7 +793,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOutputRe
     @jsii.member(jsii_name="putReplicaSelection")
     def put_replica_selection(self, *, location: builtins.str) -> None:
         '''
-        :param location: The location of the replica to apply asymmetric autoscaling options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#location GoogleSpannerInstance#location}
+        :param location: The location of the replica to apply asymmetric autoscaling options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#location GoogleSpannerInstance#location}
         '''
         value = GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsReplicaSelection(
             location=location
@@ -859,7 +859,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
         autoscaling_limits: typing.Union["GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverridesAutoscalingLimits", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
+        :param autoscaling_limits: autoscaling_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
         '''
         if isinstance(autoscaling_limits, dict):
             autoscaling_limits = GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverridesAutoscalingLimits(**autoscaling_limits)
@@ -876,7 +876,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
     ) -> "GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverridesAutoscalingLimits":
         '''autoscaling_limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_limits GoogleSpannerInstance#autoscaling_limits}
         '''
         result = self._values.get("autoscaling_limits")
         assert result is not None, "Required property 'autoscaling_limits' is missing"
@@ -902,8 +902,8 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
 class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverridesAutoscalingLimits:
     def __init__(self, *, max_nodes: jsii.Number, min_nodes: jsii.Number) -> None:
         '''
-        :param max_nodes: The maximum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
-        :param min_nodes: The minimum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
+        :param max_nodes: The maximum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
+        :param min_nodes: The minimum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fe31dd24cf985f5254de16e162363b04350343e442be59825570a3136acafbc)
@@ -918,7 +918,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
     def max_nodes(self) -> jsii.Number:
         '''The maximum number of nodes for this specific replica.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
         '''
         result = self._values.get("max_nodes")
         assert result is not None, "Required property 'max_nodes' is missing"
@@ -928,7 +928,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
     def min_nodes(self) -> jsii.Number:
         '''The minimum number of nodes for this specific replica.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
         '''
         result = self._values.get("min_nodes")
         assert result is not None, "Required property 'min_nodes' is missing"
@@ -1046,8 +1046,8 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
         min_nodes: jsii.Number,
     ) -> None:
         '''
-        :param max_nodes: The maximum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
-        :param min_nodes: The minimum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
+        :param max_nodes: The maximum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
+        :param min_nodes: The minimum number of nodes for this specific replica. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
         '''
         value = GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverridesAutoscalingLimits(
             max_nodes=max_nodes, min_nodes=min_nodes
@@ -1095,7 +1095,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsOverride
 class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsReplicaSelection:
     def __init__(self, *, location: builtins.str) -> None:
         '''
-        :param location: The location of the replica to apply asymmetric autoscaling options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#location GoogleSpannerInstance#location}
+        :param location: The location of the replica to apply asymmetric autoscaling options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#location GoogleSpannerInstance#location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ed70c2471f59bccf2e76b8c02fffb80a05aa1ecf1ec7ddb3367a2ff52d7172b)
@@ -1108,7 +1108,7 @@ class GoogleSpannerInstanceAutoscalingConfigAsymmetricAutoscalingOptionsReplicaS
     def location(self) -> builtins.str:
         '''The location of the replica to apply asymmetric autoscaling options.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#location GoogleSpannerInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#location GoogleSpannerInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1201,10 +1201,10 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits:
         min_processing_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_nodes: Specifies maximum number of nodes allocated to the instance. If set, this number should be greater than or equal to min_nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
-        :param max_processing_units: Specifies maximum number of processing units allocated to the instance. If set, this number should be multiples of 1000 and be greater than or equal to min_processing_units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_processing_units GoogleSpannerInstance#max_processing_units}
-        :param min_nodes: Specifies number of nodes allocated to the instance. If set, this number should be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
-        :param min_processing_units: Specifies minimum number of processing units allocated to the instance. If set, this number should be multiples of 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_processing_units GoogleSpannerInstance#min_processing_units}
+        :param max_nodes: Specifies maximum number of nodes allocated to the instance. If set, this number should be greater than or equal to min_nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
+        :param max_processing_units: Specifies maximum number of processing units allocated to the instance. If set, this number should be multiples of 1000 and be greater than or equal to min_processing_units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_processing_units GoogleSpannerInstance#max_processing_units}
+        :param min_nodes: Specifies number of nodes allocated to the instance. If set, this number should be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
+        :param min_processing_units: Specifies minimum number of processing units allocated to the instance. If set, this number should be multiples of 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_processing_units GoogleSpannerInstance#min_processing_units}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a466096fc1f1f500b568fdf53af250240ca8e6dc2ab8c8d4ed29b567ce48ff54)
@@ -1229,7 +1229,7 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits:
         If set, this number
         should be greater than or equal to min_nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
         '''
         result = self._values.get("max_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1241,7 +1241,7 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits:
         If set, this number should be multiples of 1000 and be greater than or equal to
         min_processing_units.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_processing_units GoogleSpannerInstance#max_processing_units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_processing_units GoogleSpannerInstance#max_processing_units}
         '''
         result = self._values.get("max_processing_units")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1250,7 +1250,7 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits:
     def min_nodes(self) -> typing.Optional[jsii.Number]:
         '''Specifies number of nodes allocated to the instance. If set, this number should be greater than or equal to 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
         '''
         result = self._values.get("min_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1259,7 +1259,7 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits:
     def min_processing_units(self) -> typing.Optional[jsii.Number]:
         '''Specifies minimum number of processing units allocated to the instance. If set, this number should be multiples of 1000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_processing_units GoogleSpannerInstance#min_processing_units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_processing_units GoogleSpannerInstance#min_processing_units}
         '''
         result = self._values.get("min_processing_units")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1414,8 +1414,8 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets:
         storage_utilization_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param high_priority_cpu_utilization_percent: Specifies the target high priority cpu utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization).. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#high_priority_cpu_utilization_percent GoogleSpannerInstance#high_priority_cpu_utilization_percent}
-        :param storage_utilization_percent: Specifies the target storage utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#storage_utilization_percent GoogleSpannerInstance#storage_utilization_percent}
+        :param high_priority_cpu_utilization_percent: Specifies the target high priority cpu utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization).. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#high_priority_cpu_utilization_percent GoogleSpannerInstance#high_priority_cpu_utilization_percent}
+        :param storage_utilization_percent: Specifies the target storage utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#storage_utilization_percent GoogleSpannerInstance#storage_utilization_percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0719a59e9852d31ade7eb1f1024791206645444a20a135db6f39c32609ef585a)
@@ -1433,7 +1433,7 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets:
 
         This number is on a scale from 0 (no utilization) to 100 (full utilization)..
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#high_priority_cpu_utilization_percent GoogleSpannerInstance#high_priority_cpu_utilization_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#high_priority_cpu_utilization_percent GoogleSpannerInstance#high_priority_cpu_utilization_percent}
         '''
         result = self._values.get("high_priority_cpu_utilization_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1444,7 +1444,7 @@ class GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets:
 
         This number is on a scale from 0 (no utilization) to 100 (full utilization).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#storage_utilization_percent GoogleSpannerInstance#storage_utilization_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#storage_utilization_percent GoogleSpannerInstance#storage_utilization_percent}
         '''
         result = self._values.get("storage_utilization_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1586,10 +1586,10 @@ class GoogleSpannerInstanceAutoscalingConfigOutputReference(
         min_processing_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_nodes: Specifies maximum number of nodes allocated to the instance. If set, this number should be greater than or equal to min_nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
-        :param max_processing_units: Specifies maximum number of processing units allocated to the instance. If set, this number should be multiples of 1000 and be greater than or equal to min_processing_units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#max_processing_units GoogleSpannerInstance#max_processing_units}
-        :param min_nodes: Specifies number of nodes allocated to the instance. If set, this number should be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
-        :param min_processing_units: Specifies minimum number of processing units allocated to the instance. If set, this number should be multiples of 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#min_processing_units GoogleSpannerInstance#min_processing_units}
+        :param max_nodes: Specifies maximum number of nodes allocated to the instance. If set, this number should be greater than or equal to min_nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_nodes GoogleSpannerInstance#max_nodes}
+        :param max_processing_units: Specifies maximum number of processing units allocated to the instance. If set, this number should be multiples of 1000 and be greater than or equal to min_processing_units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#max_processing_units GoogleSpannerInstance#max_processing_units}
+        :param min_nodes: Specifies number of nodes allocated to the instance. If set, this number should be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_nodes GoogleSpannerInstance#min_nodes}
+        :param min_processing_units: Specifies minimum number of processing units allocated to the instance. If set, this number should be multiples of 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#min_processing_units GoogleSpannerInstance#min_processing_units}
         '''
         value = GoogleSpannerInstanceAutoscalingConfigAutoscalingLimits(
             max_nodes=max_nodes,
@@ -1608,8 +1608,8 @@ class GoogleSpannerInstanceAutoscalingConfigOutputReference(
         storage_utilization_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param high_priority_cpu_utilization_percent: Specifies the target high priority cpu utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization).. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#high_priority_cpu_utilization_percent GoogleSpannerInstance#high_priority_cpu_utilization_percent}
-        :param storage_utilization_percent: Specifies the target storage utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#storage_utilization_percent GoogleSpannerInstance#storage_utilization_percent}
+        :param high_priority_cpu_utilization_percent: Specifies the target high priority cpu utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization).. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#high_priority_cpu_utilization_percent GoogleSpannerInstance#high_priority_cpu_utilization_percent}
+        :param storage_utilization_percent: Specifies the target storage utilization percentage that the autoscaler should be trying to achieve for the instance. This number is on a scale from 0 (no utilization) to 100 (full utilization). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#storage_utilization_percent GoogleSpannerInstance#storage_utilization_percent}
         '''
         value = GoogleSpannerInstanceAutoscalingConfigAutoscalingTargets(
             high_priority_cpu_utilization_percent=high_priority_cpu_utilization_percent,
@@ -1749,20 +1749,20 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param config: The name of the instance's configuration (similar but not quite the same as a region) which defines the geographic placement and replication of your databases in this instance. It determines where your data is stored. Values are typically of the form 'regional-europe-west1' , 'us-central' etc. In order to obtain a valid list please consult the `Configuration section of the docs <https://cloud.google.com/spanner/docs/instances>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#config GoogleSpannerInstance#config}
-        :param display_name: The descriptive name for this instance as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#display_name GoogleSpannerInstance#display_name}
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_config GoogleSpannerInstance#autoscaling_config}
-        :param default_backup_schedule_type: Controls the default backup behavior for new databases within the instance. Note that 'AUTOMATIC' is not permitted for free instances, as backups and backup schedules are not allowed for free instances. if unset or NONE, no default backup schedule will be created for new databases within the instance. Possible values: ["NONE", "AUTOMATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#default_backup_schedule_type GoogleSpannerInstance#default_backup_schedule_type}
-        :param edition: The edition selected for this instance. Different editions provide different capabilities at different price points. Possible values: ["EDITION_UNSPECIFIED", "STANDARD", "ENTERPRISE", "ENTERPRISE_PLUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#edition GoogleSpannerInstance#edition}
-        :param force_destroy: When deleting a spanner instance, this boolean option will delete all backups of this instance. This must be set to true if you created a backup manually in the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#force_destroy GoogleSpannerInstance#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#id GoogleSpannerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_type: The type of this instance. The type can be used to distinguish product variants, that can affect aspects like: usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances. When configured as FREE_INSTANCE, the field 'edition' should not be configured. Possible values: ["PROVISIONED", "FREE_INSTANCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#instance_type GoogleSpannerInstance#instance_type}
-        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#labels GoogleSpannerInstance#labels}
-        :param name: A unique identifier for the instance, which cannot be changed after the instance is created. The name must be between 6 and 30 characters in length. If not provided, a random string starting with 'tf-' will be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#name GoogleSpannerInstance#name}
-        :param num_nodes: The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#num_nodes GoogleSpannerInstance#num_nodes}
-        :param processing_units: The number of processing units allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#processing_units GoogleSpannerInstance#processing_units}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#project GoogleSpannerInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#timeouts GoogleSpannerInstance#timeouts}
+        :param config: The name of the instance's configuration (similar but not quite the same as a region) which defines the geographic placement and replication of your databases in this instance. It determines where your data is stored. Values are typically of the form 'regional-europe-west1' , 'us-central' etc. In order to obtain a valid list please consult the `Configuration section of the docs <https://cloud.google.com/spanner/docs/instances>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#config GoogleSpannerInstance#config}
+        :param display_name: The descriptive name for this instance as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#display_name GoogleSpannerInstance#display_name}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_config GoogleSpannerInstance#autoscaling_config}
+        :param default_backup_schedule_type: Controls the default backup behavior for new databases within the instance. Note that 'AUTOMATIC' is not permitted for free instances, as backups and backup schedules are not allowed for free instances. if unset or NONE, no default backup schedule will be created for new databases within the instance. Possible values: ["NONE", "AUTOMATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#default_backup_schedule_type GoogleSpannerInstance#default_backup_schedule_type}
+        :param edition: The edition selected for this instance. Different editions provide different capabilities at different price points. Possible values: ["EDITION_UNSPECIFIED", "STANDARD", "ENTERPRISE", "ENTERPRISE_PLUS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#edition GoogleSpannerInstance#edition}
+        :param force_destroy: When deleting a spanner instance, this boolean option will delete all backups of this instance. This must be set to true if you created a backup manually in the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#force_destroy GoogleSpannerInstance#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#id GoogleSpannerInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_type: The type of this instance. The type can be used to distinguish product variants, that can affect aspects like: usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances. When configured as FREE_INSTANCE, the field 'edition' should not be configured. Possible values: ["PROVISIONED", "FREE_INSTANCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#instance_type GoogleSpannerInstance#instance_type}
+        :param labels: An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#labels GoogleSpannerInstance#labels}
+        :param name: A unique identifier for the instance, which cannot be changed after the instance is created. The name must be between 6 and 30 characters in length. If not provided, a random string starting with 'tf-' will be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#name GoogleSpannerInstance#name}
+        :param num_nodes: The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#num_nodes GoogleSpannerInstance#num_nodes}
+        :param processing_units: The number of processing units allocated to this instance. Exactly one of either num_nodes, processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#processing_units GoogleSpannerInstance#processing_units}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#project GoogleSpannerInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#timeouts GoogleSpannerInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1909,7 +1909,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         In order to obtain a valid list please consult the
         `Configuration section of the docs <https://cloud.google.com/spanner/docs/instances>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#config GoogleSpannerInstance#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#config GoogleSpannerInstance#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -1922,7 +1922,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Must be
         unique per project and between 4 and 30 characters in length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#display_name GoogleSpannerInstance#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#display_name GoogleSpannerInstance#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1934,7 +1934,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleSpannerInstanceAutoscalingConfig]:
         '''autoscaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#autoscaling_config GoogleSpannerInstance#autoscaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#autoscaling_config GoogleSpannerInstance#autoscaling_config}
         '''
         result = self._values.get("autoscaling_config")
         return typing.cast(typing.Optional[GoogleSpannerInstanceAutoscalingConfig], result)
@@ -1946,7 +1946,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Note that 'AUTOMATIC' is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
         if unset or NONE, no default backup schedule will be created for new databases within the instance. Possible values: ["NONE", "AUTOMATIC"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#default_backup_schedule_type GoogleSpannerInstance#default_backup_schedule_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#default_backup_schedule_type GoogleSpannerInstance#default_backup_schedule_type}
         '''
         result = self._values.get("default_backup_schedule_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1957,7 +1957,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Different editions provide different capabilities at different price points. Possible values: ["EDITION_UNSPECIFIED", "STANDARD", "ENTERPRISE", "ENTERPRISE_PLUS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#edition GoogleSpannerInstance#edition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#edition GoogleSpannerInstance#edition}
         '''
         result = self._values.get("edition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1970,14 +1970,14 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This must be set to true if you created a backup manually in the console.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#force_destroy GoogleSpannerInstance#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#force_destroy GoogleSpannerInstance#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#id GoogleSpannerInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#id GoogleSpannerInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1993,7 +1993,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances.
         When configured as FREE_INSTANCE, the field 'edition' should not be configured. Possible values: ["PROVISIONED", "FREE_INSTANCE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#instance_type GoogleSpannerInstance#instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#instance_type GoogleSpannerInstance#instance_type}
         '''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2005,7 +2005,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#labels GoogleSpannerInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#labels GoogleSpannerInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2018,7 +2018,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         in length.
         If not provided, a random string starting with 'tf-' will be selected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#name GoogleSpannerInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#name GoogleSpannerInstance#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2030,7 +2030,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Exactly one of either num_nodes, processing_units or
         autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#num_nodes GoogleSpannerInstance#num_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#num_nodes GoogleSpannerInstance#num_nodes}
         '''
         result = self._values.get("num_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2042,14 +2042,14 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Exactly one of either num_nodes,
         processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#processing_units GoogleSpannerInstance#processing_units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#processing_units GoogleSpannerInstance#processing_units}
         '''
         result = self._values.get("processing_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#project GoogleSpannerInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#project GoogleSpannerInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2057,7 +2057,7 @@ class GoogleSpannerInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleSpannerInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#timeouts GoogleSpannerInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#timeouts GoogleSpannerInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSpannerInstanceTimeouts"], result)
@@ -2088,9 +2088,9 @@ class GoogleSpannerInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#create GoogleSpannerInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#delete GoogleSpannerInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#update GoogleSpannerInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#create GoogleSpannerInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#delete GoogleSpannerInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#update GoogleSpannerInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__516783cec88329c783f1b895d8e0591b996b40a3769e08bbe3b26a1c1c06a648)
@@ -2107,19 +2107,19 @@ class GoogleSpannerInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#create GoogleSpannerInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#create GoogleSpannerInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#delete GoogleSpannerInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#delete GoogleSpannerInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_spanner_instance#update GoogleSpannerInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_instance#update GoogleSpannerInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

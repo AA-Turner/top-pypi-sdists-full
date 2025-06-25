@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: weread2notionpro
-Version: 0.6.4
+Version: 0.6.5
 Summary: 自动将微信读书笔记和阅读记录同步到Notion
 Home-page: https://github.com/malinkang/weread2notion-pro
 Author: malinkang
@@ -16,3 +16,10 @@ Requires-Dist: retrying
 Requires-Dist: notion-client
 Requires-Dist: github-heatmap
 Requires-Dist: github-heatmap
+
+## 更新日志
+
+### 0.6.5
+
+1. 划线和笔记数据库支持修改标题
+2. 划线和笔记数据库支持删除属性

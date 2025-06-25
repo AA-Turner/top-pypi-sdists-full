@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, SupportsFloat
+
+import numpy as np
 
 from bec_ipython_client.prettytable import PrettyTable
 from bec_ipython_client.progressbar import ScanProgressBar
@@ -66,6 +68,7 @@ class LiveUpdatesTable(LiveUpdatesBase):
             if print_table_data is not None
             else self.REPORT_TYPE == "scan_progress"
         )
+        self._devices_with_bad_precision = set()
 
     def wait_for_scan_to_start(self):
         """wait until the scan starts"""
@@ -224,6 +227,12 @@ class LiveUpdatesTable(LiveUpdatesBase):
                     )
                     break
 
+    def _warn_bad_precisions(self):
+        if self._devices_with_bad_precision != set():
+            for dev, prec in self._devices_with_bad_precision:
+                logger.warning(f"Device {dev} reported malformed precision of {prec}!")
+            self._devices_with_bad_precision = set()
+
     @property
     def _print_table_data(self) -> bool:
         """Checks if the table should be printed or not.
@@ -266,39 +275,36 @@ class LiveUpdatesTable(LiveUpdatesBase):
 
         if self.point_id % 100 == 0:
             print(self.table.get_header_lines())
-        ind = 0
+
+        signals_precisions = []
         for dev in self.devices:
             if dev in self.bec.device_manager.devices:
                 obj = self.bec.device_manager.devices[dev]
                 for hint in obj._hints:
                     signal = self.point_data.content["data"].get(obj.root.name, {}).get(hint)
-                    if signal is None or signal.get("value") is None:
-                        print_value = "N/A"
+                    if signal is None:
+                        signals_precisions.append((None, None))
                     else:
-                        try:
-                            precision = getattr(obj, "precision")
-                        except AttributeError:
-                            precision = 2
-                        value = signal.get("value")
-                        if isinstance(value, (int, float)):
-                            print_value = f"{value:.{precision}f}"
-                        else:
-                            print_value = str(value)
-                    self.dev_values[ind] = print_value
-                    ind += 1
+                        prec = getattr(obj, "precision", 2)
+                        if not isinstance(prec, int) or prec < 1:
+                            self._devices_with_bad_precision.add((dev, prec))
+                            prec = 2
+                        signals_precisions.append((signal, prec))
             else:
-                signal = self.point_data.content["data"].get(dev, {})
-                value = signal.get("value")
-                if value is not None:
-                    if isinstance(value, (int, float)):
-                        print_value = f"{value:.2f}"
-                    else:
-                        print_value = str(value)
-                else:
-                    print_value = "N/A"
-                self.dev_values[ind] = print_value
-                ind += 1
+                signals_precisions.append((self.point_data.content["data"].get(dev, {}), 2))
+
+        for i, (signal, precision) in enumerate(signals_precisions):
+            self.dev_values[i] = self._format_value(signal, precision)
+
         print(self.table.get_row(str(self.point_id), *self.dev_values))
+
+    def _format_value(self, signal: dict | None, precision: int = 2):
+        if signal is None:
+            return "N/A"
+        val = signal.get("value")
+        if isinstance(val, SupportsFloat) and not isinstance(val, np.ndarray):
+            return f"{float(val):.{precision}f}"
+        return str(val)
 
     def close_table(self):
         """close the table and print the footer"""
@@ -310,6 +316,7 @@ class LiveUpdatesTable(LiveUpdatesBase):
                 f"Scan {self.scan_item.scan_number} finished. Scan ID {self.scan_item.scan_id}. Elapsed time: {elapsed_time:.2f} s"
             )
         )
+        self._warn_bad_precisions()
 
     def process_request(self):
         """process the request and start the core loop for live updates"""

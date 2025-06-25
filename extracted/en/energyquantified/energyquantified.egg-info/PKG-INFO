@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: energyquantified
-Version: 0.14.5
+Version: 0.14.6
 Summary: Energy Quantified Time series API client.
 Home-page: https://github.com/energyquantified/eq-python-client
 Author: Energy Quantified AS

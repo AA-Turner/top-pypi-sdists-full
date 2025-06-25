@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_keystores_aliases_self_signed_cert`
 
-Refer to the Terraform Registry for docs: [`google_apigee_keystores_aliases_self_signed_cert`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert).
+Refer to the Terraform Registry for docs: [`google_apigee_keystores_aliases_self_signed_cert`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCert(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApigeeKeystoresAliasesSelfSignedCert.GoogleApigeeKeystoresAliasesSelfSignedCert",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert google_apigee_keystores_aliases_self_signed_cert}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert google_apigee_keystores_aliases_self_signed_cert}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleApigeeKeystoresAliasesSelfSignedCert(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert google_apigee_keystores_aliases_self_signed_cert} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert google_apigee_keystores_aliases_self_signed_cert} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param alias: Alias for the key/certificate pair. Values must match the regular expression [\\w\\s-.]{1,255}. This must be provided for all formats except selfsignedcert; self-signed certs may specify the alias in either this parameter or the JSON body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#alias GoogleApigeeKeystoresAliasesSelfSignedCert#alias}
-        :param environment: The Apigee environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#environment GoogleApigeeKeystoresAliasesSelfSignedCert#environment}
-        :param keystore: The Apigee keystore name associated in an Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#keystore GoogleApigeeKeystoresAliasesSelfSignedCert#keystore}
-        :param org_id: The Apigee Organization name associated with the Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_id GoogleApigeeKeystoresAliasesSelfSignedCert#org_id}
-        :param sig_alg: Signature algorithm to generate private key. Valid values are SHA512withRSA, SHA384withRSA, and SHA256withRSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#sig_alg GoogleApigeeKeystoresAliasesSelfSignedCert#sig_alg}
-        :param subject: subject block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject GoogleApigeeKeystoresAliasesSelfSignedCert#subject}
-        :param cert_validity_in_days: Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#cert_validity_in_days GoogleApigeeKeystoresAliasesSelfSignedCert#cert_validity_in_days}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#id GoogleApigeeKeystoresAliasesSelfSignedCert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_size: Key size. Default and maximum value is 2048 bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#key_size GoogleApigeeKeystoresAliasesSelfSignedCert#key_size}
-        :param subject_alternative_dns_names: subject_alternative_dns_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_dns_names GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_dns_names}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#timeouts GoogleApigeeKeystoresAliasesSelfSignedCert#timeouts}
+        :param alias: Alias for the key/certificate pair. Values must match the regular expression [\\w\\s-.]{1,255}. This must be provided for all formats except selfsignedcert; self-signed certs may specify the alias in either this parameter or the JSON body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#alias GoogleApigeeKeystoresAliasesSelfSignedCert#alias}
+        :param environment: The Apigee environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#environment GoogleApigeeKeystoresAliasesSelfSignedCert#environment}
+        :param keystore: The Apigee keystore name associated in an Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#keystore GoogleApigeeKeystoresAliasesSelfSignedCert#keystore}
+        :param org_id: The Apigee Organization name associated with the Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_id GoogleApigeeKeystoresAliasesSelfSignedCert#org_id}
+        :param sig_alg: Signature algorithm to generate private key. Valid values are SHA512withRSA, SHA384withRSA, and SHA256withRSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#sig_alg GoogleApigeeKeystoresAliasesSelfSignedCert#sig_alg}
+        :param subject: subject block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject GoogleApigeeKeystoresAliasesSelfSignedCert#subject}
+        :param cert_validity_in_days: Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#cert_validity_in_days GoogleApigeeKeystoresAliasesSelfSignedCert#cert_validity_in_days}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#id GoogleApigeeKeystoresAliasesSelfSignedCert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_size: Key size. Default and maximum value is 2048 bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#key_size GoogleApigeeKeystoresAliasesSelfSignedCert#key_size}
+        :param subject_alternative_dns_names: subject_alternative_dns_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_dns_names GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_dns_names}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#timeouts GoogleApigeeKeystoresAliasesSelfSignedCert#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCert(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApigeeKeystoresAliasesSelfSignedCert to import.
-        :param import_from_id: The id of the existing GoogleApigeeKeystoresAliasesSelfSignedCert that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApigeeKeystoresAliasesSelfSignedCert that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApigeeKeystoresAliasesSelfSignedCert to import is found.
         '''
         if __debug__:
@@ -157,13 +157,13 @@ class GoogleApigeeKeystoresAliasesSelfSignedCert(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param common_name: Common name of the organization. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#common_name GoogleApigeeKeystoresAliasesSelfSignedCert#common_name}
-        :param country_code: Two-letter country code. Example, IN for India, US for United States of America. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#country_code GoogleApigeeKeystoresAliasesSelfSignedCert#country_code}
-        :param email: Email address. Max 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#email GoogleApigeeKeystoresAliasesSelfSignedCert#email}
-        :param locality: City or town name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#locality GoogleApigeeKeystoresAliasesSelfSignedCert#locality}
-        :param org: Organization name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org GoogleApigeeKeystoresAliasesSelfSignedCert#org}
-        :param org_unit: Organization team name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_unit GoogleApigeeKeystoresAliasesSelfSignedCert#org_unit}
-        :param state: State or district name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#state GoogleApigeeKeystoresAliasesSelfSignedCert#state}
+        :param common_name: Common name of the organization. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#common_name GoogleApigeeKeystoresAliasesSelfSignedCert#common_name}
+        :param country_code: Two-letter country code. Example, IN for India, US for United States of America. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#country_code GoogleApigeeKeystoresAliasesSelfSignedCert#country_code}
+        :param email: Email address. Max 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#email GoogleApigeeKeystoresAliasesSelfSignedCert#email}
+        :param locality: City or town name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#locality GoogleApigeeKeystoresAliasesSelfSignedCert#locality}
+        :param org: Organization name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org GoogleApigeeKeystoresAliasesSelfSignedCert#org}
+        :param org_unit: Organization team name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_unit GoogleApigeeKeystoresAliasesSelfSignedCert#org_unit}
+        :param state: State or district name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#state GoogleApigeeKeystoresAliasesSelfSignedCert#state}
         '''
         value = GoogleApigeeKeystoresAliasesSelfSignedCertSubject(
             common_name=common_name,
@@ -184,7 +184,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCert(
         subject_alternative_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subject_alternative_name: Subject Alternative Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_name GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_name}
+        :param subject_alternative_name: Subject Alternative Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_name GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_name}
         '''
         value = GoogleApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames(
             subject_alternative_name=subject_alternative_name
@@ -200,8 +200,8 @@ class GoogleApigeeKeystoresAliasesSelfSignedCert(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#create GoogleApigeeKeystoresAliasesSelfSignedCert#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#delete GoogleApigeeKeystoresAliasesSelfSignedCert#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#create GoogleApigeeKeystoresAliasesSelfSignedCert#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#delete GoogleApigeeKeystoresAliasesSelfSignedCert#delete}.
         '''
         value = GoogleApigeeKeystoresAliasesSelfSignedCertTimeouts(
             create=create, delete=delete
@@ -832,17 +832,17 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param alias: Alias for the key/certificate pair. Values must match the regular expression [\\w\\s-.]{1,255}. This must be provided for all formats except selfsignedcert; self-signed certs may specify the alias in either this parameter or the JSON body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#alias GoogleApigeeKeystoresAliasesSelfSignedCert#alias}
-        :param environment: The Apigee environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#environment GoogleApigeeKeystoresAliasesSelfSignedCert#environment}
-        :param keystore: The Apigee keystore name associated in an Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#keystore GoogleApigeeKeystoresAliasesSelfSignedCert#keystore}
-        :param org_id: The Apigee Organization name associated with the Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_id GoogleApigeeKeystoresAliasesSelfSignedCert#org_id}
-        :param sig_alg: Signature algorithm to generate private key. Valid values are SHA512withRSA, SHA384withRSA, and SHA256withRSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#sig_alg GoogleApigeeKeystoresAliasesSelfSignedCert#sig_alg}
-        :param subject: subject block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject GoogleApigeeKeystoresAliasesSelfSignedCert#subject}
-        :param cert_validity_in_days: Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#cert_validity_in_days GoogleApigeeKeystoresAliasesSelfSignedCert#cert_validity_in_days}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#id GoogleApigeeKeystoresAliasesSelfSignedCert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_size: Key size. Default and maximum value is 2048 bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#key_size GoogleApigeeKeystoresAliasesSelfSignedCert#key_size}
-        :param subject_alternative_dns_names: subject_alternative_dns_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_dns_names GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_dns_names}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#timeouts GoogleApigeeKeystoresAliasesSelfSignedCert#timeouts}
+        :param alias: Alias for the key/certificate pair. Values must match the regular expression [\\w\\s-.]{1,255}. This must be provided for all formats except selfsignedcert; self-signed certs may specify the alias in either this parameter or the JSON body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#alias GoogleApigeeKeystoresAliasesSelfSignedCert#alias}
+        :param environment: The Apigee environment name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#environment GoogleApigeeKeystoresAliasesSelfSignedCert#environment}
+        :param keystore: The Apigee keystore name associated in an Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#keystore GoogleApigeeKeystoresAliasesSelfSignedCert#keystore}
+        :param org_id: The Apigee Organization name associated with the Apigee environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_id GoogleApigeeKeystoresAliasesSelfSignedCert#org_id}
+        :param sig_alg: Signature algorithm to generate private key. Valid values are SHA512withRSA, SHA384withRSA, and SHA256withRSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#sig_alg GoogleApigeeKeystoresAliasesSelfSignedCert#sig_alg}
+        :param subject: subject block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject GoogleApigeeKeystoresAliasesSelfSignedCert#subject}
+        :param cert_validity_in_days: Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#cert_validity_in_days GoogleApigeeKeystoresAliasesSelfSignedCert#cert_validity_in_days}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#id GoogleApigeeKeystoresAliasesSelfSignedCert#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_size: Key size. Default and maximum value is 2048 bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#key_size GoogleApigeeKeystoresAliasesSelfSignedCert#key_size}
+        :param subject_alternative_dns_names: subject_alternative_dns_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_dns_names GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_dns_names}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#timeouts GoogleApigeeKeystoresAliasesSelfSignedCert#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -977,7 +977,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
         This must be provided for all formats except selfsignedcert; self-signed certs may specify the alias in either
         this parameter or the JSON body.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#alias GoogleApigeeKeystoresAliasesSelfSignedCert#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#alias GoogleApigeeKeystoresAliasesSelfSignedCert#alias}
         '''
         result = self._values.get("alias")
         assert result is not None, "Required property 'alias' is missing"
@@ -987,7 +987,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def environment(self) -> builtins.str:
         '''The Apigee environment name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#environment GoogleApigeeKeystoresAliasesSelfSignedCert#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#environment GoogleApigeeKeystoresAliasesSelfSignedCert#environment}
         '''
         result = self._values.get("environment")
         assert result is not None, "Required property 'environment' is missing"
@@ -997,7 +997,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def keystore(self) -> builtins.str:
         '''The Apigee keystore name associated in an Apigee environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#keystore GoogleApigeeKeystoresAliasesSelfSignedCert#keystore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#keystore GoogleApigeeKeystoresAliasesSelfSignedCert#keystore}
         '''
         result = self._values.get("keystore")
         assert result is not None, "Required property 'keystore' is missing"
@@ -1007,7 +1007,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def org_id(self) -> builtins.str:
         '''The Apigee Organization name associated with the Apigee environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_id GoogleApigeeKeystoresAliasesSelfSignedCert#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_id GoogleApigeeKeystoresAliasesSelfSignedCert#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -1017,7 +1017,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def sig_alg(self) -> builtins.str:
         '''Signature algorithm to generate private key. Valid values are SHA512withRSA, SHA384withRSA, and SHA256withRSA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#sig_alg GoogleApigeeKeystoresAliasesSelfSignedCert#sig_alg}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#sig_alg GoogleApigeeKeystoresAliasesSelfSignedCert#sig_alg}
         '''
         result = self._values.get("sig_alg")
         assert result is not None, "Required property 'sig_alg' is missing"
@@ -1027,7 +1027,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def subject(self) -> "GoogleApigeeKeystoresAliasesSelfSignedCertSubject":
         '''subject block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject GoogleApigeeKeystoresAliasesSelfSignedCert#subject}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject GoogleApigeeKeystoresAliasesSelfSignedCert#subject}
         '''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
@@ -1037,14 +1037,14 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def cert_validity_in_days(self) -> typing.Optional[jsii.Number]:
         '''Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#cert_validity_in_days GoogleApigeeKeystoresAliasesSelfSignedCert#cert_validity_in_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#cert_validity_in_days GoogleApigeeKeystoresAliasesSelfSignedCert#cert_validity_in_days}
         '''
         result = self._values.get("cert_validity_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#id GoogleApigeeKeystoresAliasesSelfSignedCert#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#id GoogleApigeeKeystoresAliasesSelfSignedCert#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1056,7 +1056,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     def key_size(self) -> typing.Optional[builtins.str]:
         '''Key size. Default and maximum value is 2048 bits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#key_size GoogleApigeeKeystoresAliasesSelfSignedCert#key_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#key_size GoogleApigeeKeystoresAliasesSelfSignedCert#key_size}
         '''
         result = self._values.get("key_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1067,7 +1067,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     ) -> typing.Optional["GoogleApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames"]:
         '''subject_alternative_dns_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_dns_names GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_dns_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_dns_names GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_dns_names}
         '''
         result = self._values.get("subject_alternative_dns_names")
         return typing.cast(typing.Optional["GoogleApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames"], result)
@@ -1078,7 +1078,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertConfig(
     ) -> typing.Optional["GoogleApigeeKeystoresAliasesSelfSignedCertTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#timeouts GoogleApigeeKeystoresAliasesSelfSignedCert#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#timeouts GoogleApigeeKeystoresAliasesSelfSignedCert#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApigeeKeystoresAliasesSelfSignedCertTimeouts"], result)
@@ -1121,13 +1121,13 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param common_name: Common name of the organization. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#common_name GoogleApigeeKeystoresAliasesSelfSignedCert#common_name}
-        :param country_code: Two-letter country code. Example, IN for India, US for United States of America. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#country_code GoogleApigeeKeystoresAliasesSelfSignedCert#country_code}
-        :param email: Email address. Max 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#email GoogleApigeeKeystoresAliasesSelfSignedCert#email}
-        :param locality: City or town name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#locality GoogleApigeeKeystoresAliasesSelfSignedCert#locality}
-        :param org: Organization name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org GoogleApigeeKeystoresAliasesSelfSignedCert#org}
-        :param org_unit: Organization team name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_unit GoogleApigeeKeystoresAliasesSelfSignedCert#org_unit}
-        :param state: State or district name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#state GoogleApigeeKeystoresAliasesSelfSignedCert#state}
+        :param common_name: Common name of the organization. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#common_name GoogleApigeeKeystoresAliasesSelfSignedCert#common_name}
+        :param country_code: Two-letter country code. Example, IN for India, US for United States of America. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#country_code GoogleApigeeKeystoresAliasesSelfSignedCert#country_code}
+        :param email: Email address. Max 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#email GoogleApigeeKeystoresAliasesSelfSignedCert#email}
+        :param locality: City or town name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#locality GoogleApigeeKeystoresAliasesSelfSignedCert#locality}
+        :param org: Organization name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org GoogleApigeeKeystoresAliasesSelfSignedCert#org}
+        :param org_unit: Organization team name. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_unit GoogleApigeeKeystoresAliasesSelfSignedCert#org_unit}
+        :param state: State or district name. Maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#state GoogleApigeeKeystoresAliasesSelfSignedCert#state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21fab836dd2baaed5082bc1785a12134e5002d02b7e0d379969e75162ecc8e08)
@@ -1158,7 +1158,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def common_name(self) -> typing.Optional[builtins.str]:
         '''Common name of the organization. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#common_name GoogleApigeeKeystoresAliasesSelfSignedCert#common_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#common_name GoogleApigeeKeystoresAliasesSelfSignedCert#common_name}
         '''
         result = self._values.get("common_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1167,7 +1167,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def country_code(self) -> typing.Optional[builtins.str]:
         '''Two-letter country code. Example, IN for India, US for United States of America.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#country_code GoogleApigeeKeystoresAliasesSelfSignedCert#country_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#country_code GoogleApigeeKeystoresAliasesSelfSignedCert#country_code}
         '''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1176,7 +1176,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def email(self) -> typing.Optional[builtins.str]:
         '''Email address. Max 255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#email GoogleApigeeKeystoresAliasesSelfSignedCert#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#email GoogleApigeeKeystoresAliasesSelfSignedCert#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1185,7 +1185,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def locality(self) -> typing.Optional[builtins.str]:
         '''City or town name. Maximum length is 128 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#locality GoogleApigeeKeystoresAliasesSelfSignedCert#locality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#locality GoogleApigeeKeystoresAliasesSelfSignedCert#locality}
         '''
         result = self._values.get("locality")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1194,7 +1194,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def org(self) -> typing.Optional[builtins.str]:
         '''Organization name. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org GoogleApigeeKeystoresAliasesSelfSignedCert#org}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org GoogleApigeeKeystoresAliasesSelfSignedCert#org}
         '''
         result = self._values.get("org")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1203,7 +1203,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def org_unit(self) -> typing.Optional[builtins.str]:
         '''Organization team name. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_unit GoogleApigeeKeystoresAliasesSelfSignedCert#org_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#org_unit GoogleApigeeKeystoresAliasesSelfSignedCert#org_unit}
         '''
         result = self._values.get("org_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1212,7 +1212,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubject:
     def state(self) -> typing.Optional[builtins.str]:
         '''State or district name. Maximum length is 128 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#state GoogleApigeeKeystoresAliasesSelfSignedCert#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#state GoogleApigeeKeystoresAliasesSelfSignedCert#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1241,7 +1241,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames:
         subject_alternative_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subject_alternative_name: Subject Alternative Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_name GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_name}
+        :param subject_alternative_name: Subject Alternative Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_name GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__492652ec26327d9db4cb300e53c2cef358a98f31402b76eafe7fd85277525093)
@@ -1254,7 +1254,7 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames:
     def subject_alternative_name(self) -> typing.Optional[builtins.str]:
         '''Subject Alternative Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_name GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#subject_alternative_name GoogleApigeeKeystoresAliasesSelfSignedCert#subject_alternative_name}
         '''
         result = self._values.get("subject_alternative_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1528,8 +1528,8 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#create GoogleApigeeKeystoresAliasesSelfSignedCert#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#delete GoogleApigeeKeystoresAliasesSelfSignedCert#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#create GoogleApigeeKeystoresAliasesSelfSignedCert#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#delete GoogleApigeeKeystoresAliasesSelfSignedCert#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51d47bad486347ca57adeae5029cb4f0dca33bf0127f4a678224cc613c40bca2)
@@ -1543,13 +1543,13 @@ class GoogleApigeeKeystoresAliasesSelfSignedCertTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#create GoogleApigeeKeystoresAliasesSelfSignedCert#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#create GoogleApigeeKeystoresAliasesSelfSignedCert#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#delete GoogleApigeeKeystoresAliasesSelfSignedCert#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_keystores_aliases_self_signed_cert#delete GoogleApigeeKeystoresAliasesSelfSignedCert#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

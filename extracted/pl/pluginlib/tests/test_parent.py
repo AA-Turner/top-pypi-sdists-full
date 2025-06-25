@@ -1,4 +1,4 @@
-# Copyright 2014 - 2023 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -11,13 +11,12 @@
 import sys
 import textwrap
 import warnings
+from unittest import TestCase
 
-from pluginlib import (abstractmethod, abstractproperty, abstractstaticmethod,
-                       abstractclassmethod, abstractattribute)
+from pluginlib import abstractmethod, abstractattribute
 import pluginlib._parent as parent
-from pluginlib._util import PY2
 
-from tests import OUTPUT, TestCase, unittest
+from tests import OUTPUT
 
 
 # pylint: disable=protected-access, no-member
@@ -25,7 +24,7 @@ from tests import OUTPUT, TestCase, unittest
 
 # This should be imported from types, but it's broken in pypy
 # https://bitbucket.org/pypy/pypy/issues/2865
-class Placeholder(object):
+class Placeholder:
     """Placeholder to get type"""
     __slots__ = ('member',)
 
@@ -45,7 +44,7 @@ class TestParent(TestCase):
         """Basic use of Parent decorator"""
 
         @parent.Parent('basic')
-        class Basic(object):
+        class Basic:
             """Basic document string"""
 
         self.assertTrue(issubclass(Basic, parent.Plugin))
@@ -60,7 +59,7 @@ class TestParent(TestCase):
         """Parent type defaults to parent class name"""
 
         @parent.Parent()
-        class Basic(object):
+        class Basic:
             """Basic document string"""
 
         self.assertEqual(Basic._type_, 'Basic')
@@ -70,7 +69,7 @@ class TestParent(TestCase):
         """Parent type defaults to parent class name"""
 
         @parent.Parent
-        class Basic(object):
+        class Basic:
             """Basic document string"""
 
         self.assertEqual(Basic._type_, 'Basic')
@@ -79,7 +78,7 @@ class TestParent(TestCase):
     def test_multiple_inheritance(self):
         """Base class is inherited from another class"""
 
-        class Sample(object):
+        class Sample:
             """Sample Class"""
 
         @parent.Parent('multiple_inheritence')
@@ -99,7 +98,7 @@ class TestParent(TestCase):
         """
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent"""
 
             def hello(self):
@@ -153,7 +152,7 @@ class TestParent(TestCase):
         """slots in a parent work as expected"""
 
         @parent.Parent
-        class WithSlots(object):
+        class WithSlots:
             """This class has slots"""
             __slots__ = ('ivar',)
 
@@ -176,7 +175,7 @@ class TestPlugin(TestCase):
     def setUp(self):
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent"""
 
             def hello(self):
@@ -213,7 +212,7 @@ class TestPlugin(TestCase):
         """plugin_group property is passed from parent"""
 
         @parent.Parent('test_parent', group='A-Team')
-        class Parent(object):
+        class Parent:
             """Parent"""
 
         self.assertEqual(Parent.plugin_group, 'A-Team')
@@ -311,7 +310,7 @@ class TestPluginType(TestCase):
         skip = False
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with callable _skipload_"""
 
         plugins = Parent._get_plugins()
@@ -344,7 +343,7 @@ class TestPluginType(TestCase):
         """Use _skipload_ class method to determine if plugin should be used"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with callable _skipload_"""
 
         plugins = Parent._get_plugins()
@@ -379,7 +378,7 @@ class TestPluginType(TestCase):
         """Method required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract class method"""
 
             @abstractmethod
@@ -400,7 +399,7 @@ class TestPluginType(TestCase):
         """Method required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract class method"""
 
             @abstractmethod
@@ -418,7 +417,7 @@ class TestPluginType(TestCase):
         """Method argument spec must match"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract class method"""
 
             @abstractmethod
@@ -431,10 +430,11 @@ class TestPluginType(TestCase):
         """Static method required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract static method"""
 
-            @abstractstaticmethod
+            @staticmethod
+            @abstractmethod
             def abstract():
                 """Abstract static method"""
 
@@ -449,10 +449,11 @@ class TestPluginType(TestCase):
         """Static method argument spec must match"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract static method"""
 
-            @abstractstaticmethod
+            @staticmethod
+            @abstractmethod
             def abstract(some_arg):
                 """Abstract static method with another argument"""
 
@@ -462,10 +463,11 @@ class TestPluginType(TestCase):
         """Class method required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract class method"""
 
-            @abstractclassmethod
+            @classmethod
+            @abstractmethod
             def abstract(cls):  # noqa: N805
                 """Abstract class method"""
 
@@ -480,10 +482,11 @@ class TestPluginType(TestCase):
         """Class method argument spec must match"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract class method"""
 
-            @abstractclassmethod
+            @classmethod
+            @abstractmethod
             def abstract(cls, some_arg):  # noqa: N805
                 """Abstract class method with another argument"""
 
@@ -493,10 +496,11 @@ class TestPluginType(TestCase):
         """Property required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract property"""
 
-            @abstractproperty  # Python 2  # pylint: disable=deprecated-decorator
+            @property
+            @abstractmethod
             def abstract(self):
                 """Abstract property"""
 
@@ -511,7 +515,7 @@ class TestPluginType(TestCase):
         """Attribute required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract attribute"""
 
             abstract = abstractattribute
@@ -523,12 +527,11 @@ class TestPluginType(TestCase):
         self.prop(Parent)
         self.attr(Parent)
 
-    @unittest.skipIf(PY2, 'Requires Python 3.5+')
     def test_abstract_coroutine(self):
         """Attribute required in subclass"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with abstract coroutine"""
 
             class_definition = textwrap.dedent('''\
@@ -549,12 +552,11 @@ class TestPluginType(TestCase):
         self.attr(Parent, 'Does not contain required method')
         self.coroutine(Parent)
 
-    @unittest.skipIf(PY2, 'Requires Python 3+')
     def test_type_annotations(self):
         """If parent and child have annotations they must match"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent with typed method"""
 
             class_definition = textwrap.dedent('''\
@@ -689,9 +691,6 @@ class TestPluginType(TestCase):
     def coroutine(self, parent_class, error=None):
         """Test abstract coroutine method"""
 
-        if PY2:
-            return
-
         with warnings.catch_warnings(record=True) as e:
 
             class_definition = textwrap.dedent('''\
@@ -709,9 +708,6 @@ class TestPluginType(TestCase):
 
     def type_hints_1(self, parent_class, error=None):
         """Test abstract method has type annotations"""
-
-        if PY2:
-            return
 
         with warnings.catch_warnings(record=True) as e:
 
@@ -731,9 +727,6 @@ class TestPluginType(TestCase):
 
     def type_hints_2(self, parent_class, error=None):
         """Test abstract method has type annotations"""
-
-        if PY2:
-            return
 
         with warnings.catch_warnings(record=True) as e:
 
@@ -755,20 +748,20 @@ class TestPluginType(TestCase):
         """Parents with the same plugin type should raise an error"""
 
         @parent.Parent('test_parent')
-        class Parent1(object):  # pylint: disable=unused-variable
+        class Parent1:  # pylint: disable=unused-variable
             """First Parent"""
 
         with self.assertRaisesRegex(ValueError, "parent must be unique"):
 
             @parent.Parent('test_parent')
-            class Parent2(object):  # pylint: disable=unused-variable
+            class Parent2:  # pylint: disable=unused-variable
                 """Second Parent"""
 
     def test_duplicate_versions(self):
         """Duplicate versions throw warning and are ignored"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent"""
 
         plugins = Parent._get_plugins()
@@ -810,7 +803,7 @@ class TestPluginType(TestCase):
         """Raise an exception if parent is an unknown type"""
 
         @parent.Parent('test_parent')
-        class Parent(object):
+        class Parent:
             """Parent"""
 
         # Clear registry

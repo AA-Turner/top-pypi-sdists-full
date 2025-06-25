@@ -1,7 +1,7 @@
 r'''
 # `google_kms_crypto_key`
 
-Refer to the Terraform Registry for docs: [`google_kms_crypto_key`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key).
+Refer to the Terraform Registry for docs: [`google_kms_crypto_key`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleKmsCryptoKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleKmsCryptoKey.GoogleKmsCryptoKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key google_kms_crypto_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key google_kms_crypto_key}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleKmsCryptoKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key google_kms_crypto_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key google_kms_crypto_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key_ring: The KeyRing that this key belongs to. Format: ''projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#key_ring GoogleKmsCryptoKey#key_ring}
-        :param name: The resource name for the CryptoKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#name GoogleKmsCryptoKey#name}
-        :param crypto_key_backend: The resource name of the backend environment associated with all CryptoKeyVersions within this CryptoKey. The resource name is in the format "projects/* /locations/* /ekmConnections/*" and only applies to "EXTERNAL_VPC" keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#crypto_key_backend GoogleKmsCryptoKey#crypto_key_backend} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param destroy_scheduled_duration: The period of time that versions of this key spend in the DESTROY_SCHEDULED state before transitioning to DESTROYED. If not specified at creation time, the default duration is 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#destroy_scheduled_duration GoogleKmsCryptoKey#destroy_scheduled_duration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#id GoogleKmsCryptoKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_only: Whether this key may contain imported versions only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#import_only GoogleKmsCryptoKey#import_only}
-        :param key_access_justifications_policy: key_access_justifications_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#key_access_justifications_policy GoogleKmsCryptoKey#key_access_justifications_policy}
-        :param labels: Labels with user-defined metadata to apply to this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#labels GoogleKmsCryptoKey#labels}
-        :param purpose: The immutable purpose of this CryptoKey. See the `purpose reference <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys#CryptoKeyPurpose>`_ for possible inputs. Default value is "ENCRYPT_DECRYPT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#purpose GoogleKmsCryptoKey#purpose}
-        :param rotation_period: Every time this period passes, generate a new CryptoKeyVersion and set it as the primary. The first rotation will take place after the specified period. The rotation period has the format of a decimal number with up to 9 fractional digits, followed by the letter 's' (seconds). It must be greater than a day (ie, 86400). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#rotation_period GoogleKmsCryptoKey#rotation_period}
-        :param skip_initial_version_creation: If set to true, the request will create a CryptoKey without any CryptoKeyVersions. You must use the 'google_kms_crypto_key_version' resource to create a new CryptoKeyVersion or 'google_kms_key_ring_import_job' resource to import the CryptoKeyVersion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#skip_initial_version_creation GoogleKmsCryptoKey#skip_initial_version_creation}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#timeouts GoogleKmsCryptoKey#timeouts}
-        :param version_template: version_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#version_template GoogleKmsCryptoKey#version_template}
+        :param key_ring: The KeyRing that this key belongs to. Format: ''projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#key_ring GoogleKmsCryptoKey#key_ring}
+        :param name: The resource name for the CryptoKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#name GoogleKmsCryptoKey#name}
+        :param crypto_key_backend: The resource name of the backend environment associated with all CryptoKeyVersions within this CryptoKey. The resource name is in the format "projects/* /locations/* /ekmConnections/*" and only applies to "EXTERNAL_VPC" keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#crypto_key_backend GoogleKmsCryptoKey#crypto_key_backend} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param destroy_scheduled_duration: The period of time that versions of this key spend in the DESTROY_SCHEDULED state before transitioning to DESTROYED. If not specified at creation time, the default duration is 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#destroy_scheduled_duration GoogleKmsCryptoKey#destroy_scheduled_duration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#id GoogleKmsCryptoKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_only: Whether this key may contain imported versions only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#import_only GoogleKmsCryptoKey#import_only}
+        :param key_access_justifications_policy: key_access_justifications_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#key_access_justifications_policy GoogleKmsCryptoKey#key_access_justifications_policy}
+        :param labels: Labels with user-defined metadata to apply to this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#labels GoogleKmsCryptoKey#labels}
+        :param purpose: The immutable purpose of this CryptoKey. See the `purpose reference <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys#CryptoKeyPurpose>`_ for possible inputs. Default value is "ENCRYPT_DECRYPT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#purpose GoogleKmsCryptoKey#purpose}
+        :param rotation_period: Every time this period passes, generate a new CryptoKeyVersion and set it as the primary. The first rotation will take place after the specified period. The rotation period has the format of a decimal number with up to 9 fractional digits, followed by the letter 's' (seconds). It must be greater than a day (ie, 86400). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#rotation_period GoogleKmsCryptoKey#rotation_period}
+        :param skip_initial_version_creation: If set to true, the request will create a CryptoKey without any CryptoKeyVersions. You must use the 'google_kms_crypto_key_version' resource to create a new CryptoKeyVersion or 'google_kms_key_ring_import_job' resource to import the CryptoKeyVersion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#skip_initial_version_creation GoogleKmsCryptoKey#skip_initial_version_creation}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#timeouts GoogleKmsCryptoKey#timeouts}
+        :param version_template: version_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#version_template GoogleKmsCryptoKey#version_template}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleKmsCryptoKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleKmsCryptoKey to import.
-        :param import_from_id: The id of the existing GoogleKmsCryptoKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleKmsCryptoKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleKmsCryptoKey to import is found.
         '''
         if __debug__:
@@ -157,7 +157,7 @@ class GoogleKmsCryptoKey(
         allowed_access_reasons: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_access_reasons: The list of allowed reasons for access to this CryptoKey. Zero allowed access reasons means all encrypt, decrypt, and sign operations for this CryptoKey will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#allowed_access_reasons GoogleKmsCryptoKey#allowed_access_reasons}
+        :param allowed_access_reasons: The list of allowed reasons for access to this CryptoKey. Zero allowed access reasons means all encrypt, decrypt, and sign operations for this CryptoKey will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#allowed_access_reasons GoogleKmsCryptoKey#allowed_access_reasons}
         '''
         value = GoogleKmsCryptoKeyKeyAccessJustificationsPolicy(
             allowed_access_reasons=allowed_access_reasons
@@ -174,9 +174,9 @@ class GoogleKmsCryptoKey(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#create GoogleKmsCryptoKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#delete GoogleKmsCryptoKey#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#update GoogleKmsCryptoKey#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#create GoogleKmsCryptoKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#delete GoogleKmsCryptoKey#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#update GoogleKmsCryptoKey#update}.
         '''
         value = GoogleKmsCryptoKeyTimeouts(create=create, delete=delete, update=update)
 
@@ -190,8 +190,8 @@ class GoogleKmsCryptoKey(
         protection_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param algorithm: The algorithm to use when creating a version based on this template. See the `algorithm reference <https://cloud.google.com/kms/docs/reference/rest/v1/CryptoKeyVersionAlgorithm>`_ for possible inputs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#algorithm GoogleKmsCryptoKey#algorithm}
-        :param protection_level: The protection level to use when creating a version based on this template. Possible values include "SOFTWARE", "HSM", "EXTERNAL", "EXTERNAL_VPC". Defaults to "SOFTWARE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#protection_level GoogleKmsCryptoKey#protection_level}
+        :param algorithm: The algorithm to use when creating a version based on this template. See the `algorithm reference <https://cloud.google.com/kms/docs/reference/rest/v1/CryptoKeyVersionAlgorithm>`_ for possible inputs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#algorithm GoogleKmsCryptoKey#algorithm}
+        :param protection_level: The protection level to use when creating a version based on this template. Possible values include "SOFTWARE", "HSM", "EXTERNAL", "EXTERNAL_VPC". Defaults to "SOFTWARE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#protection_level GoogleKmsCryptoKey#protection_level}
         '''
         value = GoogleKmsCryptoKeyVersionTemplate(
             algorithm=algorithm, protection_level=protection_level
@@ -553,19 +553,19 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key_ring: The KeyRing that this key belongs to. Format: ''projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#key_ring GoogleKmsCryptoKey#key_ring}
-        :param name: The resource name for the CryptoKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#name GoogleKmsCryptoKey#name}
-        :param crypto_key_backend: The resource name of the backend environment associated with all CryptoKeyVersions within this CryptoKey. The resource name is in the format "projects/* /locations/* /ekmConnections/*" and only applies to "EXTERNAL_VPC" keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#crypto_key_backend GoogleKmsCryptoKey#crypto_key_backend} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param destroy_scheduled_duration: The period of time that versions of this key spend in the DESTROY_SCHEDULED state before transitioning to DESTROYED. If not specified at creation time, the default duration is 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#destroy_scheduled_duration GoogleKmsCryptoKey#destroy_scheduled_duration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#id GoogleKmsCryptoKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_only: Whether this key may contain imported versions only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#import_only GoogleKmsCryptoKey#import_only}
-        :param key_access_justifications_policy: key_access_justifications_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#key_access_justifications_policy GoogleKmsCryptoKey#key_access_justifications_policy}
-        :param labels: Labels with user-defined metadata to apply to this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#labels GoogleKmsCryptoKey#labels}
-        :param purpose: The immutable purpose of this CryptoKey. See the `purpose reference <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys#CryptoKeyPurpose>`_ for possible inputs. Default value is "ENCRYPT_DECRYPT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#purpose GoogleKmsCryptoKey#purpose}
-        :param rotation_period: Every time this period passes, generate a new CryptoKeyVersion and set it as the primary. The first rotation will take place after the specified period. The rotation period has the format of a decimal number with up to 9 fractional digits, followed by the letter 's' (seconds). It must be greater than a day (ie, 86400). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#rotation_period GoogleKmsCryptoKey#rotation_period}
-        :param skip_initial_version_creation: If set to true, the request will create a CryptoKey without any CryptoKeyVersions. You must use the 'google_kms_crypto_key_version' resource to create a new CryptoKeyVersion or 'google_kms_key_ring_import_job' resource to import the CryptoKeyVersion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#skip_initial_version_creation GoogleKmsCryptoKey#skip_initial_version_creation}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#timeouts GoogleKmsCryptoKey#timeouts}
-        :param version_template: version_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#version_template GoogleKmsCryptoKey#version_template}
+        :param key_ring: The KeyRing that this key belongs to. Format: ''projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#key_ring GoogleKmsCryptoKey#key_ring}
+        :param name: The resource name for the CryptoKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#name GoogleKmsCryptoKey#name}
+        :param crypto_key_backend: The resource name of the backend environment associated with all CryptoKeyVersions within this CryptoKey. The resource name is in the format "projects/* /locations/* /ekmConnections/*" and only applies to "EXTERNAL_VPC" keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#crypto_key_backend GoogleKmsCryptoKey#crypto_key_backend} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param destroy_scheduled_duration: The period of time that versions of this key spend in the DESTROY_SCHEDULED state before transitioning to DESTROYED. If not specified at creation time, the default duration is 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#destroy_scheduled_duration GoogleKmsCryptoKey#destroy_scheduled_duration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#id GoogleKmsCryptoKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_only: Whether this key may contain imported versions only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#import_only GoogleKmsCryptoKey#import_only}
+        :param key_access_justifications_policy: key_access_justifications_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#key_access_justifications_policy GoogleKmsCryptoKey#key_access_justifications_policy}
+        :param labels: Labels with user-defined metadata to apply to this resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#labels GoogleKmsCryptoKey#labels}
+        :param purpose: The immutable purpose of this CryptoKey. See the `purpose reference <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys#CryptoKeyPurpose>`_ for possible inputs. Default value is "ENCRYPT_DECRYPT". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#purpose GoogleKmsCryptoKey#purpose}
+        :param rotation_period: Every time this period passes, generate a new CryptoKeyVersion and set it as the primary. The first rotation will take place after the specified period. The rotation period has the format of a decimal number with up to 9 fractional digits, followed by the letter 's' (seconds). It must be greater than a day (ie, 86400). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#rotation_period GoogleKmsCryptoKey#rotation_period}
+        :param skip_initial_version_creation: If set to true, the request will create a CryptoKey without any CryptoKeyVersions. You must use the 'google_kms_crypto_key_version' resource to create a new CryptoKeyVersion or 'google_kms_key_ring_import_job' resource to import the CryptoKeyVersion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#skip_initial_version_creation GoogleKmsCryptoKey#skip_initial_version_creation}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#timeouts GoogleKmsCryptoKey#timeouts}
+        :param version_template: version_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#version_template GoogleKmsCryptoKey#version_template}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -706,7 +706,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_ring(self) -> builtins.str:
         '''The KeyRing that this key belongs to. Format: ''projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#key_ring GoogleKmsCryptoKey#key_ring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#key_ring GoogleKmsCryptoKey#key_ring}
         '''
         result = self._values.get("key_ring")
         assert result is not None, "Required property 'key_ring' is missing"
@@ -716,7 +716,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name for the CryptoKey.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#name GoogleKmsCryptoKey#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#name GoogleKmsCryptoKey#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -728,7 +728,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The resource name is in the format "projects/* /locations/* /ekmConnections/*" and only applies to "EXTERNAL_VPC" keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#crypto_key_backend GoogleKmsCryptoKey#crypto_key_backend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#crypto_key_backend GoogleKmsCryptoKey#crypto_key_backend}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -741,14 +741,14 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If not specified at creation time, the default duration is 30 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#destroy_scheduled_duration GoogleKmsCryptoKey#destroy_scheduled_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#destroy_scheduled_duration GoogleKmsCryptoKey#destroy_scheduled_duration}
         '''
         result = self._values.get("destroy_scheduled_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#id GoogleKmsCryptoKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#id GoogleKmsCryptoKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -762,7 +762,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this key may contain imported versions only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#import_only GoogleKmsCryptoKey#import_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#import_only GoogleKmsCryptoKey#import_only}
         '''
         result = self._values.get("import_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -773,7 +773,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleKmsCryptoKeyKeyAccessJustificationsPolicy"]:
         '''key_access_justifications_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#key_access_justifications_policy GoogleKmsCryptoKey#key_access_justifications_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#key_access_justifications_policy GoogleKmsCryptoKey#key_access_justifications_policy}
         '''
         result = self._values.get("key_access_justifications_policy")
         return typing.cast(typing.Optional["GoogleKmsCryptoKeyKeyAccessJustificationsPolicy"], result)
@@ -785,7 +785,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#labels GoogleKmsCryptoKey#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#labels GoogleKmsCryptoKey#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -794,7 +794,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def purpose(self) -> typing.Optional[builtins.str]:
         '''The immutable purpose of this CryptoKey. See the `purpose reference <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyRings.cryptoKeys#CryptoKeyPurpose>`_ for possible inputs. Default value is "ENCRYPT_DECRYPT".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#purpose GoogleKmsCryptoKey#purpose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#purpose GoogleKmsCryptoKey#purpose}
         '''
         result = self._values.get("purpose")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -807,7 +807,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         the format of a decimal number with up to 9 fractional digits, followed by the
         letter 's' (seconds). It must be greater than a day (ie, 86400).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#rotation_period GoogleKmsCryptoKey#rotation_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#rotation_period GoogleKmsCryptoKey#rotation_period}
         '''
         result = self._values.get("rotation_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -821,7 +821,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         You must use the 'google_kms_crypto_key_version' resource to create a new CryptoKeyVersion
         or 'google_kms_key_ring_import_job' resource to import the CryptoKeyVersion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#skip_initial_version_creation GoogleKmsCryptoKey#skip_initial_version_creation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#skip_initial_version_creation GoogleKmsCryptoKey#skip_initial_version_creation}
         '''
         result = self._values.get("skip_initial_version_creation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -830,7 +830,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleKmsCryptoKeyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#timeouts GoogleKmsCryptoKey#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#timeouts GoogleKmsCryptoKey#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleKmsCryptoKeyTimeouts"], result)
@@ -839,7 +839,7 @@ class GoogleKmsCryptoKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version_template(self) -> typing.Optional["GoogleKmsCryptoKeyVersionTemplate"]:
         '''version_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#version_template GoogleKmsCryptoKey#version_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#version_template GoogleKmsCryptoKey#version_template}
         '''
         result = self._values.get("version_template")
         return typing.cast(typing.Optional["GoogleKmsCryptoKeyVersionTemplate"], result)
@@ -868,7 +868,7 @@ class GoogleKmsCryptoKeyKeyAccessJustificationsPolicy:
         allowed_access_reasons: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_access_reasons: The list of allowed reasons for access to this CryptoKey. Zero allowed access reasons means all encrypt, decrypt, and sign operations for this CryptoKey will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#allowed_access_reasons GoogleKmsCryptoKey#allowed_access_reasons}
+        :param allowed_access_reasons: The list of allowed reasons for access to this CryptoKey. Zero allowed access reasons means all encrypt, decrypt, and sign operations for this CryptoKey will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#allowed_access_reasons GoogleKmsCryptoKey#allowed_access_reasons}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f2eb4dcc15d06713041548ea4f3c75e23a6b546d0538f51f2420d373e9abe86)
@@ -885,7 +885,7 @@ class GoogleKmsCryptoKeyKeyAccessJustificationsPolicy:
         access reasons means all encrypt, decrypt, and sign operations for
         this CryptoKey will fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#allowed_access_reasons GoogleKmsCryptoKey#allowed_access_reasons}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#allowed_access_reasons GoogleKmsCryptoKey#allowed_access_reasons}
         '''
         result = self._values.get("allowed_access_reasons")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1120,9 +1120,9 @@ class GoogleKmsCryptoKeyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#create GoogleKmsCryptoKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#delete GoogleKmsCryptoKey#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#update GoogleKmsCryptoKey#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#create GoogleKmsCryptoKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#delete GoogleKmsCryptoKey#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#update GoogleKmsCryptoKey#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3db9319d6fbc46477b78b4a43ef0bbb789c1fed7b0515d6cce48941fd048bae)
@@ -1139,19 +1139,19 @@ class GoogleKmsCryptoKeyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#create GoogleKmsCryptoKey#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#create GoogleKmsCryptoKey#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#delete GoogleKmsCryptoKey#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#delete GoogleKmsCryptoKey#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#update GoogleKmsCryptoKey#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#update GoogleKmsCryptoKey#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1281,8 +1281,8 @@ class GoogleKmsCryptoKeyVersionTemplate:
         protection_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param algorithm: The algorithm to use when creating a version based on this template. See the `algorithm reference <https://cloud.google.com/kms/docs/reference/rest/v1/CryptoKeyVersionAlgorithm>`_ for possible inputs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#algorithm GoogleKmsCryptoKey#algorithm}
-        :param protection_level: The protection level to use when creating a version based on this template. Possible values include "SOFTWARE", "HSM", "EXTERNAL", "EXTERNAL_VPC". Defaults to "SOFTWARE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#protection_level GoogleKmsCryptoKey#protection_level}
+        :param algorithm: The algorithm to use when creating a version based on this template. See the `algorithm reference <https://cloud.google.com/kms/docs/reference/rest/v1/CryptoKeyVersionAlgorithm>`_ for possible inputs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#algorithm GoogleKmsCryptoKey#algorithm}
+        :param protection_level: The protection level to use when creating a version based on this template. Possible values include "SOFTWARE", "HSM", "EXTERNAL", "EXTERNAL_VPC". Defaults to "SOFTWARE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#protection_level GoogleKmsCryptoKey#protection_level}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ce114baf752c074a994aba4d77016c38cbb20959c35bbb52198b39d1630e74b)
@@ -1298,7 +1298,7 @@ class GoogleKmsCryptoKeyVersionTemplate:
     def algorithm(self) -> builtins.str:
         '''The algorithm to use when creating a version based on this template. See the `algorithm reference <https://cloud.google.com/kms/docs/reference/rest/v1/CryptoKeyVersionAlgorithm>`_ for possible inputs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#algorithm GoogleKmsCryptoKey#algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#algorithm GoogleKmsCryptoKey#algorithm}
         '''
         result = self._values.get("algorithm")
         assert result is not None, "Required property 'algorithm' is missing"
@@ -1310,7 +1310,7 @@ class GoogleKmsCryptoKeyVersionTemplate:
 
         Possible values include "SOFTWARE", "HSM", "EXTERNAL", "EXTERNAL_VPC". Defaults to "SOFTWARE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_kms_crypto_key#protection_level GoogleKmsCryptoKey#protection_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_kms_crypto_key#protection_level GoogleKmsCryptoKey#protection_level}
         '''
         result = self._values.get("protection_level")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 10.15.0
+Version: 11.0.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -33,7 +33,7 @@ Requires-Dist: httpx
 Requires-Dist: jinja2
 Requires-Dist: numpy!=2.0.0
 Requires-Dist: openinference-instrumentation>=0.1.32
-Requires-Dist: openinference-semantic-conventions>=0.1.17
+Requires-Dist: openinference-semantic-conventions>=0.1.20
 Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-proto>=1.12.0
 Requires-Dist: opentelemetry-sdk

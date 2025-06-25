@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ir_datasets
-Version: 0.5.10
+Version: 0.5.11
 Summary: provides a common interface to many IR ad-hoc ranking benchmarks, training datasets, etc.
 Author-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Maintainer-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
@@ -32,6 +32,7 @@ Requires-Dist: zlib-state>=0.1.3
 Requires-Dist: ijson>=3.1.3
 Requires-Dist: unlzw3>=0.2.1
 Requires-Dist: pyarrow>=16.1.0
+Dynamic: license-file
 
 # ir_datasets
 
@@ -70,13 +71,12 @@ If you want the main branch, you install as such:
 pip install git+https://github.com/allenai/ir_datasets.git
 ```
 
-If you want to build from source, use:
+If you want to run an editable version locally:
 
 ```
 $ git clone https://github.com/allenai/ir_datasets
 $ cd ir_datasets
-$ python setup.py bdist_wheel
-$ pip install dist/ir_datasets-*.whl
+$ pip install -e .    
 ```
 
 Tested with python versions 3.7, 3.8, 3.9, and 3.10. (Mininum python version is 3.7.)

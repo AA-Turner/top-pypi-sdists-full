@@ -1,7 +1,7 @@
 r'''
 # `google_edgecontainer_cluster`
 
-Refer to the Terraform Registry for docs: [`google_edgecontainer_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster).
+Refer to the Terraform Registry for docs: [`google_edgecontainer_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleEdgecontainerCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleEdgecontainerCluster.GoogleEdgecontainerCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster google_edgecontainer_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster google_edgecontainer_cluster}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class GoogleEdgecontainerCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster google_edgecontainer_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster google_edgecontainer_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#authorization GoogleEdgecontainerCluster#authorization}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#fleet GoogleEdgecontainerCluster#fleet}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#location GoogleEdgecontainerCluster#location}
-        :param name: The GDCE cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#name GoogleEdgecontainerCluster#name}
-        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#networking GoogleEdgecontainerCluster#networking}
-        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#control_plane GoogleEdgecontainerCluster#control_plane}
-        :param control_plane_encryption: control_plane_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#control_plane_encryption GoogleEdgecontainerCluster#control_plane_encryption}
-        :param default_max_pods_per_node: The default maximum number of pods per node used if a maximum value is not specified explicitly for a node pool in this cluster. If unspecified, the Kubernetes default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#default_max_pods_per_node GoogleEdgecontainerCluster#default_max_pods_per_node}
-        :param external_load_balancer_ipv4_address_pools: Address pools for cluster data plane external load balancing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#external_load_balancer_ipv4_address_pools GoogleEdgecontainerCluster#external_load_balancer_ipv4_address_pools}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the edgecloud cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#labels GoogleEdgecontainerCluster#labels}
-        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#maintenance_policy GoogleEdgecontainerCluster#maintenance_policy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}.
-        :param release_channel: The release channel a cluster is subscribed to. Possible values: ["RELEASE_CHANNEL_UNSPECIFIED", "NONE", "REGULAR"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#release_channel GoogleEdgecontainerCluster#release_channel}
-        :param system_addons_config: system_addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#system_addons_config GoogleEdgecontainerCluster#system_addons_config}
-        :param target_version: The target cluster version. For example: "1.5.0". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#target_version GoogleEdgecontainerCluster#target_version}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#timeouts GoogleEdgecontainerCluster#timeouts}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#authorization GoogleEdgecontainerCluster#authorization}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#fleet GoogleEdgecontainerCluster#fleet}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#location GoogleEdgecontainerCluster#location}
+        :param name: The GDCE cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#name GoogleEdgecontainerCluster#name}
+        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#networking GoogleEdgecontainerCluster#networking}
+        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#control_plane GoogleEdgecontainerCluster#control_plane}
+        :param control_plane_encryption: control_plane_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#control_plane_encryption GoogleEdgecontainerCluster#control_plane_encryption}
+        :param default_max_pods_per_node: The default maximum number of pods per node used if a maximum value is not specified explicitly for a node pool in this cluster. If unspecified, the Kubernetes default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#default_max_pods_per_node GoogleEdgecontainerCluster#default_max_pods_per_node}
+        :param external_load_balancer_ipv4_address_pools: Address pools for cluster data plane external load balancing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#external_load_balancer_ipv4_address_pools GoogleEdgecontainerCluster#external_load_balancer_ipv4_address_pools}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the edgecloud cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#labels GoogleEdgecontainerCluster#labels}
+        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#maintenance_policy GoogleEdgecontainerCluster#maintenance_policy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}.
+        :param release_channel: The release channel a cluster is subscribed to. Possible values: ["RELEASE_CHANNEL_UNSPECIFIED", "NONE", "REGULAR"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#release_channel GoogleEdgecontainerCluster#release_channel}
+        :param system_addons_config: system_addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#system_addons_config GoogleEdgecontainerCluster#system_addons_config}
+        :param target_version: The target cluster version. For example: "1.5.0". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#target_version GoogleEdgecontainerCluster#target_version}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#timeouts GoogleEdgecontainerCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class GoogleEdgecontainerCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleEdgecontainerCluster to import.
-        :param import_from_id: The id of the existing GoogleEdgecontainerCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleEdgecontainerCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleEdgecontainerCluster to import is found.
         '''
         if __debug__:
@@ -169,7 +169,7 @@ class GoogleEdgecontainerCluster(
         admin_users: typing.Union["GoogleEdgecontainerClusterAuthorizationAdminUsers", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#admin_users GoogleEdgecontainerCluster#admin_users}
+        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#admin_users GoogleEdgecontainerCluster#admin_users}
         '''
         value = GoogleEdgecontainerClusterAuthorization(admin_users=admin_users)
 
@@ -183,8 +183,8 @@ class GoogleEdgecontainerCluster(
         remote: typing.Optional[typing.Union["GoogleEdgecontainerClusterControlPlaneRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param local: local block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#local GoogleEdgecontainerCluster#local}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#remote GoogleEdgecontainerCluster#remote}
+        :param local: local block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#local GoogleEdgecontainerCluster#local}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#remote GoogleEdgecontainerCluster#remote}
         '''
         value = GoogleEdgecontainerClusterControlPlane(local=local, remote=remote)
 
@@ -197,7 +197,7 @@ class GoogleEdgecontainerCluster(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key: The Cloud KMS CryptoKey e.g. projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey} to use for protecting control plane disks. If not specified, a Google-managed key will be used instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#kms_key GoogleEdgecontainerCluster#kms_key}
+        :param kms_key: The Cloud KMS CryptoKey e.g. projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey} to use for protecting control plane disks. If not specified, a Google-managed key will be used instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#kms_key GoogleEdgecontainerCluster#kms_key}
         '''
         value = GoogleEdgecontainerClusterControlPlaneEncryption(kms_key=kms_key)
 
@@ -206,7 +206,7 @@ class GoogleEdgecontainerCluster(
     @jsii.member(jsii_name="putFleet")
     def put_fleet(self, *, project: builtins.str) -> None:
         '''
-        :param project: The name of the Fleet host project where this cluster will be registered. Project names are formatted as 'projects/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}
+        :param project: The name of the Fleet host project where this cluster will be registered. Project names are formatted as 'projects/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}
         '''
         value = GoogleEdgecontainerClusterFleet(project=project)
 
@@ -220,8 +220,8 @@ class GoogleEdgecontainerCluster(
         maintenance_exclusions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
-        :param maintenance_exclusions: maintenance_exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#maintenance_exclusions GoogleEdgecontainerCluster#maintenance_exclusions}
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        :param maintenance_exclusions: maintenance_exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#maintenance_exclusions GoogleEdgecontainerCluster#maintenance_exclusions}
         '''
         value = GoogleEdgecontainerClusterMaintenancePolicy(
             window=window, maintenance_exclusions=maintenance_exclusions
@@ -239,10 +239,10 @@ class GoogleEdgecontainerCluster(
         services_ipv6_cidr_blocks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cluster_ipv4_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#cluster_ipv4_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv4_cidr_blocks}
-        :param services_ipv4_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#services_ipv4_cidr_blocks GoogleEdgecontainerCluster#services_ipv4_cidr_blocks}
-        :param cluster_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all pods in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#cluster_ipv6_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv6_cidr_blocks}
-        :param services_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all services in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#services_ipv6_cidr_blocks GoogleEdgecontainerCluster#services_ipv6_cidr_blocks}
+        :param cluster_ipv4_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#cluster_ipv4_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv4_cidr_blocks}
+        :param services_ipv4_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#services_ipv4_cidr_blocks GoogleEdgecontainerCluster#services_ipv4_cidr_blocks}
+        :param cluster_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all pods in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#cluster_ipv6_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv6_cidr_blocks}
+        :param services_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all services in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#services_ipv6_cidr_blocks GoogleEdgecontainerCluster#services_ipv6_cidr_blocks}
         '''
         value = GoogleEdgecontainerClusterNetworking(
             cluster_ipv4_cidr_blocks=cluster_ipv4_cidr_blocks,
@@ -260,7 +260,7 @@ class GoogleEdgecontainerCluster(
         ingress: typing.Optional[typing.Union["GoogleEdgecontainerClusterSystemAddonsConfigIngress", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#ingress GoogleEdgecontainerCluster#ingress}
+        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#ingress GoogleEdgecontainerCluster#ingress}
         '''
         value = GoogleEdgecontainerClusterSystemAddonsConfig(ingress=ingress)
 
@@ -275,9 +275,9 @@ class GoogleEdgecontainerCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#create GoogleEdgecontainerCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#delete GoogleEdgecontainerCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#update GoogleEdgecontainerCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#create GoogleEdgecontainerCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#delete GoogleEdgecontainerCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#update GoogleEdgecontainerCluster#update}.
         '''
         value = GoogleEdgecontainerClusterTimeouts(
             create=create, delete=delete, update=update
@@ -674,7 +674,7 @@ class GoogleEdgecontainerClusterAuthorization:
         admin_users: typing.Union["GoogleEdgecontainerClusterAuthorizationAdminUsers", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#admin_users GoogleEdgecontainerCluster#admin_users}
+        :param admin_users: admin_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#admin_users GoogleEdgecontainerCluster#admin_users}
         '''
         if isinstance(admin_users, dict):
             admin_users = GoogleEdgecontainerClusterAuthorizationAdminUsers(**admin_users)
@@ -689,7 +689,7 @@ class GoogleEdgecontainerClusterAuthorization:
     def admin_users(self) -> "GoogleEdgecontainerClusterAuthorizationAdminUsers":
         '''admin_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#admin_users GoogleEdgecontainerCluster#admin_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#admin_users GoogleEdgecontainerCluster#admin_users}
         '''
         result = self._values.get("admin_users")
         assert result is not None, "Required property 'admin_users' is missing"
@@ -715,7 +715,7 @@ class GoogleEdgecontainerClusterAuthorization:
 class GoogleEdgecontainerClusterAuthorizationAdminUsers:
     def __init__(self, *, username: builtins.str) -> None:
         '''
-        :param username: An active Google username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#username GoogleEdgecontainerCluster#username}
+        :param username: An active Google username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#username GoogleEdgecontainerCluster#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00e1eb3f0d365c762584ed1b173228599494f6bac22e7095f5aa74e957339a05)
@@ -728,7 +728,7 @@ class GoogleEdgecontainerClusterAuthorizationAdminUsers:
     def username(self) -> builtins.str:
         '''An active Google username.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#username GoogleEdgecontainerCluster#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#username GoogleEdgecontainerCluster#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -824,7 +824,7 @@ class GoogleEdgecontainerClusterAuthorizationOutputReference(
     @jsii.member(jsii_name="putAdminUsers")
     def put_admin_users(self, *, username: builtins.str) -> None:
         '''
-        :param username: An active Google username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#username GoogleEdgecontainerCluster#username}
+        :param username: An active Google username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#username GoogleEdgecontainerCluster#username}
         '''
         value = GoogleEdgecontainerClusterAuthorizationAdminUsers(username=username)
 
@@ -929,23 +929,23 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#authorization GoogleEdgecontainerCluster#authorization}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#fleet GoogleEdgecontainerCluster#fleet}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#location GoogleEdgecontainerCluster#location}
-        :param name: The GDCE cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#name GoogleEdgecontainerCluster#name}
-        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#networking GoogleEdgecontainerCluster#networking}
-        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#control_plane GoogleEdgecontainerCluster#control_plane}
-        :param control_plane_encryption: control_plane_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#control_plane_encryption GoogleEdgecontainerCluster#control_plane_encryption}
-        :param default_max_pods_per_node: The default maximum number of pods per node used if a maximum value is not specified explicitly for a node pool in this cluster. If unspecified, the Kubernetes default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#default_max_pods_per_node GoogleEdgecontainerCluster#default_max_pods_per_node}
-        :param external_load_balancer_ipv4_address_pools: Address pools for cluster data plane external load balancing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#external_load_balancer_ipv4_address_pools GoogleEdgecontainerCluster#external_load_balancer_ipv4_address_pools}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the edgecloud cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#labels GoogleEdgecontainerCluster#labels}
-        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#maintenance_policy GoogleEdgecontainerCluster#maintenance_policy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}.
-        :param release_channel: The release channel a cluster is subscribed to. Possible values: ["RELEASE_CHANNEL_UNSPECIFIED", "NONE", "REGULAR"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#release_channel GoogleEdgecontainerCluster#release_channel}
-        :param system_addons_config: system_addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#system_addons_config GoogleEdgecontainerCluster#system_addons_config}
-        :param target_version: The target cluster version. For example: "1.5.0". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#target_version GoogleEdgecontainerCluster#target_version}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#timeouts GoogleEdgecontainerCluster#timeouts}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#authorization GoogleEdgecontainerCluster#authorization}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#fleet GoogleEdgecontainerCluster#fleet}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#location GoogleEdgecontainerCluster#location}
+        :param name: The GDCE cluster name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#name GoogleEdgecontainerCluster#name}
+        :param networking: networking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#networking GoogleEdgecontainerCluster#networking}
+        :param control_plane: control_plane block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#control_plane GoogleEdgecontainerCluster#control_plane}
+        :param control_plane_encryption: control_plane_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#control_plane_encryption GoogleEdgecontainerCluster#control_plane_encryption}
+        :param default_max_pods_per_node: The default maximum number of pods per node used if a maximum value is not specified explicitly for a node pool in this cluster. If unspecified, the Kubernetes default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#default_max_pods_per_node GoogleEdgecontainerCluster#default_max_pods_per_node}
+        :param external_load_balancer_ipv4_address_pools: Address pools for cluster data plane external load balancing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#external_load_balancer_ipv4_address_pools GoogleEdgecontainerCluster#external_load_balancer_ipv4_address_pools}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the edgecloud cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#labels GoogleEdgecontainerCluster#labels}
+        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#maintenance_policy GoogleEdgecontainerCluster#maintenance_policy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}.
+        :param release_channel: The release channel a cluster is subscribed to. Possible values: ["RELEASE_CHANNEL_UNSPECIFIED", "NONE", "REGULAR"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#release_channel GoogleEdgecontainerCluster#release_channel}
+        :param system_addons_config: system_addons_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#system_addons_config GoogleEdgecontainerCluster#system_addons_config}
+        :param target_version: The target cluster version. For example: "1.5.0". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#target_version GoogleEdgecontainerCluster#target_version}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#timeouts GoogleEdgecontainerCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1105,7 +1105,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authorization(self) -> GoogleEdgecontainerClusterAuthorization:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#authorization GoogleEdgecontainerCluster#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#authorization GoogleEdgecontainerCluster#authorization}
         '''
         result = self._values.get("authorization")
         assert result is not None, "Required property 'authorization' is missing"
@@ -1115,7 +1115,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fleet(self) -> "GoogleEdgecontainerClusterFleet":
         '''fleet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#fleet GoogleEdgecontainerCluster#fleet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#fleet GoogleEdgecontainerCluster#fleet}
         '''
         result = self._values.get("fleet")
         assert result is not None, "Required property 'fleet' is missing"
@@ -1125,7 +1125,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#location GoogleEdgecontainerCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#location GoogleEdgecontainerCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1135,7 +1135,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The GDCE cluster name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#name GoogleEdgecontainerCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#name GoogleEdgecontainerCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1145,7 +1145,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def networking(self) -> "GoogleEdgecontainerClusterNetworking":
         '''networking block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#networking GoogleEdgecontainerCluster#networking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#networking GoogleEdgecontainerCluster#networking}
         '''
         result = self._values.get("networking")
         assert result is not None, "Required property 'networking' is missing"
@@ -1157,7 +1157,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleEdgecontainerClusterControlPlane"]:
         '''control_plane block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#control_plane GoogleEdgecontainerCluster#control_plane}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#control_plane GoogleEdgecontainerCluster#control_plane}
         '''
         result = self._values.get("control_plane")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterControlPlane"], result)
@@ -1168,7 +1168,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleEdgecontainerClusterControlPlaneEncryption"]:
         '''control_plane_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#control_plane_encryption GoogleEdgecontainerCluster#control_plane_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#control_plane_encryption GoogleEdgecontainerCluster#control_plane_encryption}
         '''
         result = self._values.get("control_plane_encryption")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterControlPlaneEncryption"], result)
@@ -1180,7 +1180,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If unspecified, the
         Kubernetes default value will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#default_max_pods_per_node GoogleEdgecontainerCluster#default_max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#default_max_pods_per_node GoogleEdgecontainerCluster#default_max_pods_per_node}
         '''
         result = self._values.get("default_max_pods_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1191,14 +1191,14 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''Address pools for cluster data plane external load balancing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#external_load_balancer_ipv4_address_pools GoogleEdgecontainerCluster#external_load_balancer_ipv4_address_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#external_load_balancer_ipv4_address_pools GoogleEdgecontainerCluster#external_load_balancer_ipv4_address_pools}
         '''
         result = self._values.get("external_load_balancer_ipv4_address_pools")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1213,7 +1213,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#labels GoogleEdgecontainerCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#labels GoogleEdgecontainerCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1224,14 +1224,14 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleEdgecontainerClusterMaintenancePolicy"]:
         '''maintenance_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#maintenance_policy GoogleEdgecontainerCluster#maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#maintenance_policy GoogleEdgecontainerCluster#maintenance_policy}
         '''
         result = self._values.get("maintenance_policy")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterMaintenancePolicy"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1239,7 +1239,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def release_channel(self) -> typing.Optional[builtins.str]:
         '''The release channel a cluster is subscribed to. Possible values: ["RELEASE_CHANNEL_UNSPECIFIED", "NONE", "REGULAR"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#release_channel GoogleEdgecontainerCluster#release_channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#release_channel GoogleEdgecontainerCluster#release_channel}
         '''
         result = self._values.get("release_channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1250,7 +1250,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleEdgecontainerClusterSystemAddonsConfig"]:
         '''system_addons_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#system_addons_config GoogleEdgecontainerCluster#system_addons_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#system_addons_config GoogleEdgecontainerCluster#system_addons_config}
         '''
         result = self._values.get("system_addons_config")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterSystemAddonsConfig"], result)
@@ -1259,7 +1259,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_version(self) -> typing.Optional[builtins.str]:
         '''The target cluster version. For example: "1.5.0".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#target_version GoogleEdgecontainerCluster#target_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#target_version GoogleEdgecontainerCluster#target_version}
         '''
         result = self._values.get("target_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1268,7 +1268,7 @@ class GoogleEdgecontainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleEdgecontainerClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#timeouts GoogleEdgecontainerCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#timeouts GoogleEdgecontainerCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterTimeouts"], result)
@@ -1298,8 +1298,8 @@ class GoogleEdgecontainerClusterControlPlane:
         remote: typing.Optional[typing.Union["GoogleEdgecontainerClusterControlPlaneRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param local: local block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#local GoogleEdgecontainerCluster#local}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#remote GoogleEdgecontainerCluster#remote}
+        :param local: local block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#local GoogleEdgecontainerCluster#local}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#remote GoogleEdgecontainerCluster#remote}
         '''
         if isinstance(local, dict):
             local = GoogleEdgecontainerClusterControlPlaneLocal(**local)
@@ -1319,7 +1319,7 @@ class GoogleEdgecontainerClusterControlPlane:
     def local(self) -> typing.Optional["GoogleEdgecontainerClusterControlPlaneLocal"]:
         '''local block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#local GoogleEdgecontainerCluster#local}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#local GoogleEdgecontainerCluster#local}
         '''
         result = self._values.get("local")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterControlPlaneLocal"], result)
@@ -1328,7 +1328,7 @@ class GoogleEdgecontainerClusterControlPlane:
     def remote(self) -> typing.Optional["GoogleEdgecontainerClusterControlPlaneRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#remote GoogleEdgecontainerCluster#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#remote GoogleEdgecontainerCluster#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterControlPlaneRemote"], result)
@@ -1353,7 +1353,7 @@ class GoogleEdgecontainerClusterControlPlane:
 class GoogleEdgecontainerClusterControlPlaneEncryption:
     def __init__(self, *, kms_key: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key: The Cloud KMS CryptoKey e.g. projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey} to use for protecting control plane disks. If not specified, a Google-managed key will be used instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#kms_key GoogleEdgecontainerCluster#kms_key}
+        :param kms_key: The Cloud KMS CryptoKey e.g. projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey} to use for protecting control plane disks. If not specified, a Google-managed key will be used instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#kms_key GoogleEdgecontainerCluster#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e74351579b6def8329495bed21ee1c9a79a9c189c68c1e148a3dc8c2bcfc40cc)
@@ -1366,7 +1366,7 @@ class GoogleEdgecontainerClusterControlPlaneEncryption:
     def kms_key(self) -> typing.Optional[builtins.str]:
         '''The Cloud KMS CryptoKey e.g. projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey} to use for protecting control plane disks. If not specified, a Google-managed key will be used instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#kms_key GoogleEdgecontainerCluster#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#kms_key GoogleEdgecontainerCluster#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1630,10 +1630,10 @@ class GoogleEdgecontainerClusterControlPlaneLocal:
         shared_deployment_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param machine_filter: Only machines matching this filter will be allowed to host control plane nodes. The filtering language accepts strings like "name=", and is documented here: `AIP-160 <https://google.aip.dev/160>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#machine_filter GoogleEdgecontainerCluster#machine_filter}
-        :param node_count: The number of nodes to serve as replicas of the Control Plane. Only 1 and 3 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_count GoogleEdgecontainerCluster#node_count}
-        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
-        :param shared_deployment_policy: Policy configuration about how user applications are deployed. Possible values: ["SHARED_DEPLOYMENT_POLICY_UNSPECIFIED", "ALLOWED", "DISALLOWED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#shared_deployment_policy GoogleEdgecontainerCluster#shared_deployment_policy}
+        :param machine_filter: Only machines matching this filter will be allowed to host control plane nodes. The filtering language accepts strings like "name=", and is documented here: `AIP-160 <https://google.aip.dev/160>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#machine_filter GoogleEdgecontainerCluster#machine_filter}
+        :param node_count: The number of nodes to serve as replicas of the Control Plane. Only 1 and 3 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_count GoogleEdgecontainerCluster#node_count}
+        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
+        :param shared_deployment_policy: Policy configuration about how user applications are deployed. Possible values: ["SHARED_DEPLOYMENT_POLICY_UNSPECIFIED", "ALLOWED", "DISALLOWED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#shared_deployment_policy GoogleEdgecontainerCluster#shared_deployment_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5ffa8a1335c833dd8c046e20886f266429633f025abc2d6a16498858199d840)
@@ -1658,7 +1658,7 @@ class GoogleEdgecontainerClusterControlPlaneLocal:
         The filtering language accepts strings like "name=",
         and is documented here: `AIP-160 <https://google.aip.dev/160>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#machine_filter GoogleEdgecontainerCluster#machine_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#machine_filter GoogleEdgecontainerCluster#machine_filter}
         '''
         result = self._values.get("machine_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1667,7 +1667,7 @@ class GoogleEdgecontainerClusterControlPlaneLocal:
     def node_count(self) -> typing.Optional[jsii.Number]:
         '''The number of nodes to serve as replicas of the Control Plane. Only 1 and 3 are supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_count GoogleEdgecontainerCluster#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_count GoogleEdgecontainerCluster#node_count}
         '''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1676,7 +1676,7 @@ class GoogleEdgecontainerClusterControlPlaneLocal:
     def node_location(self) -> typing.Optional[builtins.str]:
         '''Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
         '''
         result = self._values.get("node_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1685,7 +1685,7 @@ class GoogleEdgecontainerClusterControlPlaneLocal:
     def shared_deployment_policy(self) -> typing.Optional[builtins.str]:
         '''Policy configuration about how user applications are deployed. Possible values: ["SHARED_DEPLOYMENT_POLICY_UNSPECIFIED", "ALLOWED", "DISALLOWED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#shared_deployment_policy GoogleEdgecontainerCluster#shared_deployment_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#shared_deployment_policy GoogleEdgecontainerCluster#shared_deployment_policy}
         '''
         result = self._values.get("shared_deployment_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1854,10 +1854,10 @@ class GoogleEdgecontainerClusterControlPlaneOutputReference(
         shared_deployment_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param machine_filter: Only machines matching this filter will be allowed to host control plane nodes. The filtering language accepts strings like "name=", and is documented here: `AIP-160 <https://google.aip.dev/160>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#machine_filter GoogleEdgecontainerCluster#machine_filter}
-        :param node_count: The number of nodes to serve as replicas of the Control Plane. Only 1 and 3 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_count GoogleEdgecontainerCluster#node_count}
-        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
-        :param shared_deployment_policy: Policy configuration about how user applications are deployed. Possible values: ["SHARED_DEPLOYMENT_POLICY_UNSPECIFIED", "ALLOWED", "DISALLOWED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#shared_deployment_policy GoogleEdgecontainerCluster#shared_deployment_policy}
+        :param machine_filter: Only machines matching this filter will be allowed to host control plane nodes. The filtering language accepts strings like "name=", and is documented here: `AIP-160 <https://google.aip.dev/160>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#machine_filter GoogleEdgecontainerCluster#machine_filter}
+        :param node_count: The number of nodes to serve as replicas of the Control Plane. Only 1 and 3 are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_count GoogleEdgecontainerCluster#node_count}
+        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
+        :param shared_deployment_policy: Policy configuration about how user applications are deployed. Possible values: ["SHARED_DEPLOYMENT_POLICY_UNSPECIFIED", "ALLOWED", "DISALLOWED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#shared_deployment_policy GoogleEdgecontainerCluster#shared_deployment_policy}
         '''
         value = GoogleEdgecontainerClusterControlPlaneLocal(
             machine_filter=machine_filter,
@@ -1875,7 +1875,7 @@ class GoogleEdgecontainerClusterControlPlaneOutputReference(
         node_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
+        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
         '''
         value = GoogleEdgecontainerClusterControlPlaneRemote(
             node_location=node_location
@@ -1939,7 +1939,7 @@ class GoogleEdgecontainerClusterControlPlaneOutputReference(
 class GoogleEdgecontainerClusterControlPlaneRemote:
     def __init__(self, *, node_location: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
+        :param node_location: Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f79b2444adf5bfb6c9e0e4e4ee754579d5a995822c8ec9d2a05dd7d59a785882)
@@ -1952,7 +1952,7 @@ class GoogleEdgecontainerClusterControlPlaneRemote:
     def node_location(self) -> typing.Optional[builtins.str]:
         '''Name of the Google Distributed Cloud Edge zones where this node pool will be created. For example: 'us-central1-edge-customer-a'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#node_location GoogleEdgecontainerCluster#node_location}
         '''
         result = self._values.get("node_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2036,7 +2036,7 @@ class GoogleEdgecontainerClusterControlPlaneRemoteOutputReference(
 class GoogleEdgecontainerClusterFleet:
     def __init__(self, *, project: builtins.str) -> None:
         '''
-        :param project: The name of the Fleet host project where this cluster will be registered. Project names are formatted as 'projects/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}
+        :param project: The name of the Fleet host project where this cluster will be registered. Project names are formatted as 'projects/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fbedfca4e5572c2aa1df94877cbd277ab3108e74a4cbba9b7dcc41edbe166a2)
@@ -2049,7 +2049,7 @@ class GoogleEdgecontainerClusterFleet:
     def project(self) -> builtins.str:
         '''The name of the Fleet host project where this cluster will be registered. Project names are formatted as 'projects/'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#project GoogleEdgecontainerCluster#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -2332,8 +2332,8 @@ class GoogleEdgecontainerClusterMaintenancePolicy:
         maintenance_exclusions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
-        :param maintenance_exclusions: maintenance_exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#maintenance_exclusions GoogleEdgecontainerCluster#maintenance_exclusions}
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        :param maintenance_exclusions: maintenance_exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#maintenance_exclusions GoogleEdgecontainerCluster#maintenance_exclusions}
         '''
         if isinstance(window, dict):
             window = GoogleEdgecontainerClusterMaintenancePolicyWindow(**window)
@@ -2351,7 +2351,7 @@ class GoogleEdgecontainerClusterMaintenancePolicy:
     def window(self) -> "GoogleEdgecontainerClusterMaintenancePolicyWindow":
         '''window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
         '''
         result = self._values.get("window")
         assert result is not None, "Required property 'window' is missing"
@@ -2363,7 +2363,7 @@ class GoogleEdgecontainerClusterMaintenancePolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions"]]]:
         '''maintenance_exclusions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#maintenance_exclusions GoogleEdgecontainerCluster#maintenance_exclusions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#maintenance_exclusions GoogleEdgecontainerCluster#maintenance_exclusions}
         '''
         result = self._values.get("maintenance_exclusions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions"]]], result)
@@ -2393,8 +2393,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions:
         window: typing.Optional[typing.Union["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: A unique (per cluster) id for the window. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        :param id: A unique (per cluster) id for the window. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
         '''
         if isinstance(window, dict):
             window = GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow(**window)
@@ -2412,7 +2412,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions:
     def id(self) -> typing.Optional[builtins.str]:
         '''A unique (per cluster) id for the window.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#id GoogleEdgecontainerCluster#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2426,7 +2426,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusions:
     ) -> typing.Optional["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow"]:
         '''window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
         '''
         result = self._values.get("window")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow"], result)
@@ -2570,8 +2570,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsOutputRefe
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
-        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
+        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
+        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
         '''
         value = GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow(
             end_time=end_time, start_time=start_time
@@ -2649,8 +2649,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
-        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
+        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
+        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9aaea1fc6f5e0a61076ef17a123e691c50ca963d86f7ebf734d40f04d7324d2b)
@@ -2666,7 +2666,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow:
     def end_time(self) -> typing.Optional[builtins.str]:
         '''The time that the window ends. The end time must take place after the start time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2675,7 +2675,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyMaintenanceExclusionsWindow:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''The time that the window first starts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2812,7 +2812,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyOutputReference(
         recurring_window: typing.Union["GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param recurring_window: recurring_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#recurring_window GoogleEdgecontainerCluster#recurring_window}
+        :param recurring_window: recurring_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#recurring_window GoogleEdgecontainerCluster#recurring_window}
         '''
         value = GoogleEdgecontainerClusterMaintenancePolicyWindow(
             recurring_window=recurring_window
@@ -2882,7 +2882,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindow:
         recurring_window: typing.Union["GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param recurring_window: recurring_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#recurring_window GoogleEdgecontainerCluster#recurring_window}
+        :param recurring_window: recurring_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#recurring_window GoogleEdgecontainerCluster#recurring_window}
         '''
         if isinstance(recurring_window, dict):
             recurring_window = GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow(**recurring_window)
@@ -2899,7 +2899,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindow:
     ) -> "GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow":
         '''recurring_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#recurring_window GoogleEdgecontainerCluster#recurring_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#recurring_window GoogleEdgecontainerCluster#recurring_window}
         '''
         result = self._values.get("recurring_window")
         assert result is not None, "Required property 'recurring_window' is missing"
@@ -2945,8 +2945,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowOutputReference(
         window: typing.Optional[typing.Union["GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param recurrence: An RRULE (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how this window recurs. They go on for the span of time between the start and end time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#recurrence GoogleEdgecontainerCluster#recurrence}
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        :param recurrence: An RRULE (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how this window recurs. They go on for the span of time between the start and end time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#recurrence GoogleEdgecontainerCluster#recurrence}
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
         '''
         value = GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow(
             recurrence=recurrence, window=window
@@ -2999,8 +2999,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow:
         window: typing.Optional[typing.Union["GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param recurrence: An RRULE (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how this window recurs. They go on for the span of time between the start and end time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#recurrence GoogleEdgecontainerCluster#recurrence}
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        :param recurrence: An RRULE (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how this window recurs. They go on for the span of time between the start and end time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#recurrence GoogleEdgecontainerCluster#recurrence}
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
         '''
         if isinstance(window, dict):
             window = GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow(**window)
@@ -3018,7 +3018,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow:
     def recurrence(self) -> typing.Optional[builtins.str]:
         '''An RRULE (https://tools.ietf.org/html/rfc5545#section-3.8.5.3) for how this window recurs. They go on for the span of time between the start and end time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#recurrence GoogleEdgecontainerCluster#recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#recurrence GoogleEdgecontainerCluster#recurrence}
         '''
         result = self._values.get("recurrence")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3029,7 +3029,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindow:
     ) -> typing.Optional["GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow"]:
         '''window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#window GoogleEdgecontainerCluster#window}
         '''
         result = self._values.get("window")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow"], result)
@@ -3074,8 +3074,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowOutputRefe
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
-        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
+        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
+        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
         '''
         value = GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow(
             end_time=end_time, start_time=start_time
@@ -3153,8 +3153,8 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
-        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
+        :param end_time: The time that the window ends. The end time must take place after the start time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
+        :param start_time: The time that the window first starts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ba80854534eefb374a6e0f4fadb9b8a349448a8b1b98797c2fffa1961675bfb)
@@ -3170,7 +3170,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow:
     def end_time(self) -> typing.Optional[builtins.str]:
         '''The time that the window ends. The end time must take place after the start time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#end_time GoogleEdgecontainerCluster#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3179,7 +3179,7 @@ class GoogleEdgecontainerClusterMaintenancePolicyWindowRecurringWindowWindow:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''The time that the window first starts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#start_time GoogleEdgecontainerCluster#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3296,10 +3296,10 @@ class GoogleEdgecontainerClusterNetworking:
         services_ipv6_cidr_blocks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cluster_ipv4_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#cluster_ipv4_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv4_cidr_blocks}
-        :param services_ipv4_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#services_ipv4_cidr_blocks GoogleEdgecontainerCluster#services_ipv4_cidr_blocks}
-        :param cluster_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all pods in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#cluster_ipv6_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv6_cidr_blocks}
-        :param services_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all services in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#services_ipv6_cidr_blocks GoogleEdgecontainerCluster#services_ipv6_cidr_blocks}
+        :param cluster_ipv4_cidr_blocks: All pods in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#cluster_ipv4_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv4_cidr_blocks}
+        :param services_ipv4_cidr_blocks: All services in the cluster are assigned an RFC1918 IPv4 address from these blocks. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#services_ipv4_cidr_blocks GoogleEdgecontainerCluster#services_ipv4_cidr_blocks}
+        :param cluster_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all pods in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#cluster_ipv6_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv6_cidr_blocks}
+        :param services_ipv6_cidr_blocks: If specified, dual stack mode is enabled and all services in the cluster are assigned an IPv6 address from these blocks alongside from an IPv4 address. Only a single block is supported. This field cannot be changed after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#services_ipv6_cidr_blocks GoogleEdgecontainerCluster#services_ipv6_cidr_blocks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__097d3b738c01e336800715e24cd3e0116e0ec625d4f691216d917e8a59bd053a)
@@ -3323,7 +3323,7 @@ class GoogleEdgecontainerClusterNetworking:
         Only a single block is supported. This field cannot be changed
         after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#cluster_ipv4_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv4_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#cluster_ipv4_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv4_cidr_blocks}
         '''
         result = self._values.get("cluster_ipv4_cidr_blocks")
         assert result is not None, "Required property 'cluster_ipv4_cidr_blocks' is missing"
@@ -3336,7 +3336,7 @@ class GoogleEdgecontainerClusterNetworking:
         Only a single block is supported. This field cannot be changed
         after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#services_ipv4_cidr_blocks GoogleEdgecontainerCluster#services_ipv4_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#services_ipv4_cidr_blocks GoogleEdgecontainerCluster#services_ipv4_cidr_blocks}
         '''
         result = self._values.get("services_ipv4_cidr_blocks")
         assert result is not None, "Required property 'services_ipv4_cidr_blocks' is missing"
@@ -3349,7 +3349,7 @@ class GoogleEdgecontainerClusterNetworking:
         Only a single block is supported. This field cannot be changed
         after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#cluster_ipv6_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv6_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#cluster_ipv6_cidr_blocks GoogleEdgecontainerCluster#cluster_ipv6_cidr_blocks}
         '''
         result = self._values.get("cluster_ipv6_cidr_blocks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3361,7 +3361,7 @@ class GoogleEdgecontainerClusterNetworking:
         Only a single block is supported. This field cannot be changed
         after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#services_ipv6_cidr_blocks GoogleEdgecontainerCluster#services_ipv6_cidr_blocks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#services_ipv6_cidr_blocks GoogleEdgecontainerCluster#services_ipv6_cidr_blocks}
         '''
         result = self._values.get("services_ipv6_cidr_blocks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3515,7 +3515,7 @@ class GoogleEdgecontainerClusterSystemAddonsConfig:
         ingress: typing.Optional[typing.Union["GoogleEdgecontainerClusterSystemAddonsConfigIngress", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#ingress GoogleEdgecontainerCluster#ingress}
+        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#ingress GoogleEdgecontainerCluster#ingress}
         '''
         if isinstance(ingress, dict):
             ingress = GoogleEdgecontainerClusterSystemAddonsConfigIngress(**ingress)
@@ -3532,7 +3532,7 @@ class GoogleEdgecontainerClusterSystemAddonsConfig:
     ) -> typing.Optional["GoogleEdgecontainerClusterSystemAddonsConfigIngress"]:
         '''ingress block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#ingress GoogleEdgecontainerCluster#ingress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#ingress GoogleEdgecontainerCluster#ingress}
         '''
         result = self._values.get("ingress")
         return typing.cast(typing.Optional["GoogleEdgecontainerClusterSystemAddonsConfigIngress"], result)
@@ -3562,8 +3562,8 @@ class GoogleEdgecontainerClusterSystemAddonsConfigIngress:
         ipv4_vip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disabled: Whether Ingress is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#disabled GoogleEdgecontainerCluster#disabled}
-        :param ipv4_vip: Ingress VIP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#ipv4_vip GoogleEdgecontainerCluster#ipv4_vip}
+        :param disabled: Whether Ingress is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#disabled GoogleEdgecontainerCluster#disabled}
+        :param ipv4_vip: Ingress VIP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#ipv4_vip GoogleEdgecontainerCluster#ipv4_vip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7c9204e4ffbc9951df916a6e76e029462f0cb306f8cae689d281a5a53eadfbd)
@@ -3581,7 +3581,7 @@ class GoogleEdgecontainerClusterSystemAddonsConfigIngress:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether Ingress is disabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#disabled GoogleEdgecontainerCluster#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#disabled GoogleEdgecontainerCluster#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3590,7 +3590,7 @@ class GoogleEdgecontainerClusterSystemAddonsConfigIngress:
     def ipv4_vip(self) -> typing.Optional[builtins.str]:
         '''Ingress VIP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#ipv4_vip GoogleEdgecontainerCluster#ipv4_vip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#ipv4_vip GoogleEdgecontainerCluster#ipv4_vip}
         '''
         result = self._values.get("ipv4_vip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3720,8 +3720,8 @@ class GoogleEdgecontainerClusterSystemAddonsConfigOutputReference(
         ipv4_vip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disabled: Whether Ingress is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#disabled GoogleEdgecontainerCluster#disabled}
-        :param ipv4_vip: Ingress VIP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#ipv4_vip GoogleEdgecontainerCluster#ipv4_vip}
+        :param disabled: Whether Ingress is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#disabled GoogleEdgecontainerCluster#disabled}
+        :param ipv4_vip: Ingress VIP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#ipv4_vip GoogleEdgecontainerCluster#ipv4_vip}
         '''
         value = GoogleEdgecontainerClusterSystemAddonsConfigIngress(
             disabled=disabled, ipv4_vip=ipv4_vip
@@ -3779,9 +3779,9 @@ class GoogleEdgecontainerClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#create GoogleEdgecontainerCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#delete GoogleEdgecontainerCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#update GoogleEdgecontainerCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#create GoogleEdgecontainerCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#delete GoogleEdgecontainerCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#update GoogleEdgecontainerCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7d2da0907ff41d7819c3e92f3c87ff9f8af0210afb9ccb494cf78cfd73616b0)
@@ -3798,19 +3798,19 @@ class GoogleEdgecontainerClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#create GoogleEdgecontainerCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#create GoogleEdgecontainerCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#delete GoogleEdgecontainerCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#delete GoogleEdgecontainerCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_edgecontainer_cluster#update GoogleEdgecontainerCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_edgecontainer_cluster#update GoogleEdgecontainerCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

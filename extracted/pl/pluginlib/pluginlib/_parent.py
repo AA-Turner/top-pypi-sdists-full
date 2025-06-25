@@ -1,4 +1,4 @@
-# Copyright 2014 - 2024 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,9 +10,9 @@
 Provides plugin bases class and Parent decorator
 """
 
-import inspect
 import sys
 import warnings
+from inspect import getfullargspec, iscoroutinefunction, isfunction
 
 from pluginlib.exceptions import PluginWarning
 from pluginlib._objects import GroupDict, TypeDict, PluginDict
@@ -23,22 +23,8 @@ from pluginlib._util import (allow_bare_decorator, ClassProperty, DictWithDotNot
 DEFAULT = '_default'
 UNDEFINED = Undefined()
 
-isfunction = inspect.isfunction  # pylint: disable=invalid-name
 
-# Asyncio is not available in 2.7
-iscoroutinefunction = getattr(inspect, 'iscoroutinefunction', lambda func: False)
-
-# Support for deprecated method in 2.7
-getfullargspec = getattr(inspect, 'getfullargspec', getattr(inspect, 'getargspec', None))
-
-try:
-    STR = unicode
-
-except NameError:
-    STR = str
-
-
-class ClassInspector(object):
+class ClassInspector:
     """
     Args:
         cls(:py:class:`Plugin`): Parent class
@@ -90,9 +76,6 @@ class ClassInspector(object):
 
     def __bool__(self):
         return self.errorcode == 0
-
-    # Python 2 equivalent
-    __nonzero__ = __bool__
 
     def _check_skipload(self):
         """
@@ -149,7 +132,7 @@ class ClassInspector(object):
             # If it's not a type we're specifically checking, just check for existence
             elif submethod is UNDEFINED:
                 self.errorcode = 214
-                self.message = 'Does not contain required attribute (%s)' % name
+                self.message = f'Does not contain required attribute ({name})'
 
             if not self.errorcode:
                 self._check_coroutine_method(name, method, submethod)
@@ -169,7 +152,7 @@ class ClassInspector(object):
 
         if submethod is UNDEFINED or not isinstance(submethod, property):
             self.errorcode = 210
-            self.message = 'Does not contain required property (%s)' % name
+            self.message = f'Does not contain required property ({name})'
 
     def _check_static_method(self, name, method, submethod):
         """
@@ -183,7 +166,7 @@ class ClassInspector(object):
 
         if submethod is UNDEFINED or not isinstance(submethod, staticmethod):
             self.errorcode = 211
-            self.message = 'Does not contain required static method (%s)' % name
+            self.message = f'Does not contain required static method ({name})'
         else:
             self._compare_argspec(name, getfullargspec(method.__func__),
                                   getfullargspec(submethod.__func__))
@@ -200,7 +183,7 @@ class ClassInspector(object):
 
         if submethod is UNDEFINED or not isinstance(submethod, classmethod):
             self.errorcode = 212
-            self.message = 'Does not contain required class method (%s)' % name
+            self.message = f'Does not contain required class method ({name})'
         else:
             self._compare_argspec(name, getfullargspec(method.__func__),
                                   getfullargspec(submethod.__func__))
@@ -217,7 +200,7 @@ class ClassInspector(object):
 
         if submethod is UNDEFINED or not isfunction(submethod):
             self.errorcode = 213
-            self.message = 'Does not contain required method (%s)' % name
+            self.message = f'Does not contain required method ({name})'
         else:
             self._compare_argspec(name, getfullargspec(method), getfullargspec(submethod))
 
@@ -233,7 +216,7 @@ class ClassInspector(object):
 
         if iscoroutinefunction(method) and not iscoroutinefunction(submethod):
             self.errorcode = 215
-            self.message = 'Does not contain required coroutine method (%s)' % name
+            self.message = f'Does not contain required coroutine method ({name})'
 
     def _check_annotations(self, name, method, submethod):
         """
@@ -250,7 +233,7 @@ class ClassInspector(object):
             submeth_annotations = getattr(submethod, '__annotations__', {})
             if submeth_annotations and meth_annotations != submeth_annotations:
                 self.errorcode = 216
-                self.message = 'Type annotations differ for (%s)' % name
+                self.message = f'Type annotations differ for ({name})'
 
     def _compare_argspec(self, name, spec_1, spec_2):
         """
@@ -277,7 +260,7 @@ class ClassInspector(object):
 
         if not matches:
             self.errorcode = 220
-            self.message = 'Argument spec does not match parent for method %s' % name
+            self.message = f'Argument spec does not match parent for method {name}'
 
 
 class PluginType(type):
@@ -302,19 +285,21 @@ class PluginType(type):
 
         if new._type_ in group:
             if new._parent_:
-                raise ValueError('parent must be unique: %s' % new._type_)
+                raise ValueError(f'parent must be unique: {new._type_}')
 
             plugindict = group[new._type_].get(new.name, UNDEFINED)
-            version = STR(new.version or 0)
+            version = str(new.version or 0)
 
             # Check for duplicates. Warn and ignore
             if plugindict and version in plugindict:
 
                 existing = plugindict[version]
-                warnings.warn("Duplicate plugins found for %s: %s.%s and %s.%s" %
-                              (new, new.__module__, new.__name__,
-                               existing.__module__, existing.__name__),
-                              PluginWarning, stacklevel=2)
+                warnings.warn(
+                    f'Duplicate plugins found for {new}: {new.__module__}.{new.__name__} and '
+                    f'{existing.__module__}.{existing.__name__}',
+                    PluginWarning,
+                    stacklevel=2
+                )
 
             else:
                 result = ClassInspector(group[new._type_]._parent, new)
@@ -323,7 +308,7 @@ class PluginType(type):
                     group[new._type_].setdefault(new.name, PluginDict())[version] = new
 
                 else:
-                    skipmsg = u'Skipping %s class %s.%s: Reason: %s'
+                    skipmsg = 'Skipping %s class %s.%s: Reason: %s'
                     args = (new, new.__module__, new.__name__, result.message)
 
                     if result.errorcode < 100:
@@ -345,7 +330,7 @@ class PluginType(type):
                         new.__abstractmethods__[method_name] = method
 
         else:
-            raise ValueError('Unknown parent type: %s' % new._type_)
+            raise ValueError(f'Unknown parent type: {new._type_}')
 
         return new
 
@@ -357,7 +342,7 @@ class PluginType(type):
         return cls.__plugins[cls._group_ or DEFAULT][cls._type_]
 
 
-class Plugin(object):
+class Plugin:
     """
     **Mixin class for plugins.
     All parents and child plugins will inherit from this class automatically.**
@@ -438,7 +423,7 @@ class Plugin(object):
 
 
 @allow_bare_decorator
-class Parent(object):
+class Parent:
     """
     Args:
         plugin_type(str): Plugin type

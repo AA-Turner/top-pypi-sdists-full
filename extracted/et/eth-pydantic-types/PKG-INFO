@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eth-pydantic-types
-Version: 0.2.0
+Version: 0.2.1
 Summary: eth-pydantic-types: Pydantic Types for Ethereum
 Home-page: https://github.com/ApeWorX/eth-pydantic-types
 Author: ApeWorX Ltd.
@@ -38,15 +38,9 @@ Requires-Dist: hypothesis<7.0,>=6.2.0; extra == "test"
 Requires-Dist: hypothesis-jsonschema==0.19.0; extra == "test"
 Requires-Dist: eth-hash[pycryptodome]; extra == "test"
 Provides-Extra: lint
-Requires-Dist: black<26,>=25.1.0; extra == "lint"
-Requires-Dist: mypy<2,>=1.15.0; extra == "lint"
+Requires-Dist: ruff>=0.12.0; extra == "lint"
+Requires-Dist: mypy<2,>=1.16.1; extra == "lint"
 Requires-Dist: types-setuptools; extra == "lint"
-Requires-Dist: flake8<8,>=7.2.0; extra == "lint"
-Requires-Dist: flake8-breakpoint<2,>=1.1.0; extra == "lint"
-Requires-Dist: flake8-print<6,>=5.0.0; extra == "lint"
-Requires-Dist: flake8-pydantic; extra == "lint"
-Requires-Dist: flake8-type-checking; extra == "lint"
-Requires-Dist: isort<7,>=6.0.1; extra == "lint"
 Requires-Dist: mdformat>=0.7.22; extra == "lint"
 Requires-Dist: mdformat-gfm>=0.3.5; extra == "lint"
 Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "lint"
@@ -66,15 +60,9 @@ Requires-Dist: pytest-mock; extra == "dev"
 Requires-Dist: hypothesis<7.0,>=6.2.0; extra == "dev"
 Requires-Dist: hypothesis-jsonschema==0.19.0; extra == "dev"
 Requires-Dist: eth-hash[pycryptodome]; extra == "dev"
-Requires-Dist: black<26,>=25.1.0; extra == "dev"
-Requires-Dist: mypy<2,>=1.15.0; extra == "dev"
+Requires-Dist: ruff>=0.12.0; extra == "dev"
+Requires-Dist: mypy<2,>=1.16.1; extra == "dev"
 Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: flake8<8,>=7.2.0; extra == "dev"
-Requires-Dist: flake8-breakpoint<2,>=1.1.0; extra == "dev"
-Requires-Dist: flake8-print<6,>=5.0.0; extra == "dev"
-Requires-Dist: flake8-pydantic; extra == "dev"
-Requires-Dist: flake8-type-checking; extra == "dev"
-Requires-Dist: isort<7,>=6.0.1; extra == "dev"
 Requires-Dist: mdformat>=0.7.22; extra == "dev"
 Requires-Dist: mdformat-gfm>=0.3.5; extra == "dev"
 Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "dev"
@@ -218,3 +206,28 @@ message = Message(
     )
 )
 ```
+
+## Padding
+
+For types like `HexStr` or `HexBytes`, you can control the padding by using `@field_validator()`.
+
+```python
+from pydantic import BaseModel, field_validator
+from eth_pydantic_types import HexStr20, HexBytes20
+from eth_pydantic_types.utils import Pad
+
+class MyModel(BaseModel):
+    my_str: HexStr20
+    my_bytes: HexBytes20
+
+    @field_validator("my_str", "my_bytes", mode="before")
+    @classmethod
+    def validate_value(cls, value, info):
+        field_type = cls.model_fields[info.field_name].annotation
+        return field_type.__eth_pydantic_validate__(value, pad=Pad.RIGHT)
+```
+
+Else, by default, if you validate integer values, it will pad left.
+Other inputs pad right.
+This mirrors Solidity types, like `bytes32`, that automatically pad-right when given smaller values.
+Integer and address types automatically pad-left.

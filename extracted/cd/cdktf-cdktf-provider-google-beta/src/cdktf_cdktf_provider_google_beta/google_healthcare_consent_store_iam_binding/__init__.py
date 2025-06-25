@@ -1,7 +1,7 @@
 r'''
 # `google_healthcare_consent_store_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_healthcare_consent_store_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding).
+Refer to the Terraform Registry for docs: [`google_healthcare_consent_store_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleHealthcareConsentStoreIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleHealthcareConsentStoreIamBinding.GoogleHealthcareConsentStoreIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding google_healthcare_consent_store_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding google_healthcare_consent_store_iam_binding}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleHealthcareConsentStoreIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding google_healthcare_consent_store_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding google_healthcare_consent_store_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param consent_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#consent_store_id GoogleHealthcareConsentStoreIamBinding#consent_store_id}.
-        :param dataset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#dataset GoogleHealthcareConsentStoreIamBinding#dataset}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#members GoogleHealthcareConsentStoreIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#role GoogleHealthcareConsentStoreIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#condition GoogleHealthcareConsentStoreIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#id GoogleHealthcareConsentStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param consent_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#consent_store_id GoogleHealthcareConsentStoreIamBinding#consent_store_id}.
+        :param dataset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#dataset GoogleHealthcareConsentStoreIamBinding#dataset}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#members GoogleHealthcareConsentStoreIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#role GoogleHealthcareConsentStoreIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#condition GoogleHealthcareConsentStoreIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#id GoogleHealthcareConsentStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleHealthcareConsentStoreIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleHealthcareConsentStoreIamBinding to import.
-        :param import_from_id: The id of the existing GoogleHealthcareConsentStoreIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleHealthcareConsentStoreIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleHealthcareConsentStoreIamBinding to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GoogleHealthcareConsentStoreIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#expression GoogleHealthcareConsentStoreIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#title GoogleHealthcareConsentStoreIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#description GoogleHealthcareConsentStoreIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#expression GoogleHealthcareConsentStoreIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#title GoogleHealthcareConsentStoreIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#description GoogleHealthcareConsentStoreIamBinding#description}.
         '''
         value = GoogleHealthcareConsentStoreIamBindingCondition(
             expression=expression, title=title, description=description
@@ -292,9 +292,9 @@ class GoogleHealthcareConsentStoreIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#expression GoogleHealthcareConsentStoreIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#title GoogleHealthcareConsentStoreIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#description GoogleHealthcareConsentStoreIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#expression GoogleHealthcareConsentStoreIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#title GoogleHealthcareConsentStoreIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#description GoogleHealthcareConsentStoreIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bff7a98f82d90639f6304f29c7fe5ea4968cef9629fad9cb79ee9bd8d1fc9b06)
@@ -310,21 +310,21 @@ class GoogleHealthcareConsentStoreIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#expression GoogleHealthcareConsentStoreIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#expression GoogleHealthcareConsentStoreIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#title GoogleHealthcareConsentStoreIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#title GoogleHealthcareConsentStoreIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#description GoogleHealthcareConsentStoreIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#description GoogleHealthcareConsentStoreIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -480,12 +480,12 @@ class GoogleHealthcareConsentStoreIamBindingConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param consent_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#consent_store_id GoogleHealthcareConsentStoreIamBinding#consent_store_id}.
-        :param dataset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#dataset GoogleHealthcareConsentStoreIamBinding#dataset}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#members GoogleHealthcareConsentStoreIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#role GoogleHealthcareConsentStoreIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#condition GoogleHealthcareConsentStoreIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#id GoogleHealthcareConsentStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param consent_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#consent_store_id GoogleHealthcareConsentStoreIamBinding#consent_store_id}.
+        :param dataset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#dataset GoogleHealthcareConsentStoreIamBinding#dataset}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#members GoogleHealthcareConsentStoreIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#role GoogleHealthcareConsentStoreIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#condition GoogleHealthcareConsentStoreIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#id GoogleHealthcareConsentStoreIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -597,28 +597,28 @@ class GoogleHealthcareConsentStoreIamBindingConfig(
 
     @builtins.property
     def consent_store_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#consent_store_id GoogleHealthcareConsentStoreIamBinding#consent_store_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#consent_store_id GoogleHealthcareConsentStoreIamBinding#consent_store_id}.'''
         result = self._values.get("consent_store_id")
         assert result is not None, "Required property 'consent_store_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dataset(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#dataset GoogleHealthcareConsentStoreIamBinding#dataset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#dataset GoogleHealthcareConsentStoreIamBinding#dataset}.'''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#members GoogleHealthcareConsentStoreIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#members GoogleHealthcareConsentStoreIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#role GoogleHealthcareConsentStoreIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#role GoogleHealthcareConsentStoreIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -629,14 +629,14 @@ class GoogleHealthcareConsentStoreIamBindingConfig(
     ) -> typing.Optional[GoogleHealthcareConsentStoreIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#condition GoogleHealthcareConsentStoreIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#condition GoogleHealthcareConsentStoreIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleHealthcareConsentStoreIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_healthcare_consent_store_iam_binding#id GoogleHealthcareConsentStoreIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_healthcare_consent_store_iam_binding#id GoogleHealthcareConsentStoreIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

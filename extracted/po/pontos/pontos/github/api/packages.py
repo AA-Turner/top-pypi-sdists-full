@@ -11,7 +11,7 @@ from pontos.github.models.packages import Package, PackageType, PackageVersion
 
 
 class GitHubAsyncRESTPackages(GitHubAsyncREST):
-    async def exists(
+    async def exists(  # type: ignore[return]
         self, organization: str, package_type: PackageType, package_name: str
     ) -> bool:
         """
@@ -33,7 +33,14 @@ class GitHubAsyncRESTPackages(GitHubAsyncREST):
         """
         api = f"/orgs/{organization}/packages/{package_type}/{package_name}"
         response = await self._client.get(api)
-        return response.is_success
+
+        if response.is_success:
+            return True
+
+        if response.status_code == 404:
+            return False
+
+        response.raise_for_status()
 
     async def package(
         self, organization: str, package_type: PackageType, package_name: str

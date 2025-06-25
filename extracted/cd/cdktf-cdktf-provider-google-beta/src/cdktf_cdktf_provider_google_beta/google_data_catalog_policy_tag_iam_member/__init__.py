@@ -1,7 +1,7 @@
 r'''
 # `google_data_catalog_policy_tag_iam_member`
 
-Refer to the Terraform Registry for docs: [`google_data_catalog_policy_tag_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member).
+Refer to the Terraform Registry for docs: [`google_data_catalog_policy_tag_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataCatalogPolicyTagIamMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataCatalogPolicyTagIamMember.GoogleDataCatalogPolicyTagIamMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member google_data_catalog_policy_tag_iam_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member google_data_catalog_policy_tag_iam_member}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleDataCatalogPolicyTagIamMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member google_data_catalog_policy_tag_iam_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member google_data_catalog_policy_tag_iam_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#member GoogleDataCatalogPolicyTagIamMember#member}.
-        :param policy_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#policy_tag GoogleDataCatalogPolicyTagIamMember#policy_tag}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#role GoogleDataCatalogPolicyTagIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#condition GoogleDataCatalogPolicyTagIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#id GoogleDataCatalogPolicyTagIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#member GoogleDataCatalogPolicyTagIamMember#member}.
+        :param policy_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#policy_tag GoogleDataCatalogPolicyTagIamMember#policy_tag}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#role GoogleDataCatalogPolicyTagIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#condition GoogleDataCatalogPolicyTagIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#id GoogleDataCatalogPolicyTagIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleDataCatalogPolicyTagIamMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataCatalogPolicyTagIamMember to import.
-        :param import_from_id: The id of the existing GoogleDataCatalogPolicyTagIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataCatalogPolicyTagIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataCatalogPolicyTagIamMember to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class GoogleDataCatalogPolicyTagIamMember(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#expression GoogleDataCatalogPolicyTagIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#title GoogleDataCatalogPolicyTagIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#description GoogleDataCatalogPolicyTagIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#expression GoogleDataCatalogPolicyTagIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#title GoogleDataCatalogPolicyTagIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#description GoogleDataCatalogPolicyTagIamMember#description}.
         '''
         value = GoogleDataCatalogPolicyTagIamMemberCondition(
             expression=expression, title=title, description=description
@@ -272,9 +272,9 @@ class GoogleDataCatalogPolicyTagIamMemberCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#expression GoogleDataCatalogPolicyTagIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#title GoogleDataCatalogPolicyTagIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#description GoogleDataCatalogPolicyTagIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#expression GoogleDataCatalogPolicyTagIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#title GoogleDataCatalogPolicyTagIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#description GoogleDataCatalogPolicyTagIamMember#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c0e7a38fa139a76dba3b9d8f2bc8838de29e48ba2b159ce458a6508d238d155)
@@ -290,21 +290,21 @@ class GoogleDataCatalogPolicyTagIamMemberCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#expression GoogleDataCatalogPolicyTagIamMember#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#expression GoogleDataCatalogPolicyTagIamMember#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#title GoogleDataCatalogPolicyTagIamMember#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#title GoogleDataCatalogPolicyTagIamMember#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#description GoogleDataCatalogPolicyTagIamMember#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#description GoogleDataCatalogPolicyTagIamMember#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -456,11 +456,11 @@ class GoogleDataCatalogPolicyTagIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#member GoogleDataCatalogPolicyTagIamMember#member}.
-        :param policy_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#policy_tag GoogleDataCatalogPolicyTagIamMember#policy_tag}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#role GoogleDataCatalogPolicyTagIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#condition GoogleDataCatalogPolicyTagIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#id GoogleDataCatalogPolicyTagIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#member GoogleDataCatalogPolicyTagIamMember#member}.
+        :param policy_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#policy_tag GoogleDataCatalogPolicyTagIamMember#policy_tag}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#role GoogleDataCatalogPolicyTagIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#condition GoogleDataCatalogPolicyTagIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#id GoogleDataCatalogPolicyTagIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -570,21 +570,21 @@ class GoogleDataCatalogPolicyTagIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArg
 
     @builtins.property
     def member(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#member GoogleDataCatalogPolicyTagIamMember#member}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#member GoogleDataCatalogPolicyTagIamMember#member}.'''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_tag(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#policy_tag GoogleDataCatalogPolicyTagIamMember#policy_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#policy_tag GoogleDataCatalogPolicyTagIamMember#policy_tag}.'''
         result = self._values.get("policy_tag")
         assert result is not None, "Required property 'policy_tag' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#role GoogleDataCatalogPolicyTagIamMember#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#role GoogleDataCatalogPolicyTagIamMember#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -595,14 +595,14 @@ class GoogleDataCatalogPolicyTagIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional[GoogleDataCatalogPolicyTagIamMemberCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#condition GoogleDataCatalogPolicyTagIamMember#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#condition GoogleDataCatalogPolicyTagIamMember#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleDataCatalogPolicyTagIamMemberCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_policy_tag_iam_member#id GoogleDataCatalogPolicyTagIamMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_policy_tag_iam_member#id GoogleDataCatalogPolicyTagIamMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

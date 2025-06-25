@@ -11,6 +11,11 @@ from _sherpa_onnx import (
     OfflinePunctuation,
     OfflinePunctuationConfig,
     OfflinePunctuationModelConfig,
+    OfflineSourceSeparation,
+    OfflineSourceSeparationConfig,
+    OfflineSourceSeparationModelConfig,
+    OfflineSourceSeparationSpleeterModelConfig,
+    OfflineSourceSeparationUvrModelConfig,
     OfflineSpeakerDiarization,
     OfflineSpeakerDiarizationConfig,
     OfflineSpeakerDiarizationResult,
@@ -44,6 +49,9 @@ from _sherpa_onnx import (
     VadModel,
     VadModelConfig,
     VoiceActivityDetector,
+    git_date,
+    git_sha1,
+    version,
     write_wave,
 )
 
@@ -52,4 +60,4 @@ from .keyword_spotter import KeywordSpotter
 from .offline_recognizer import OfflineRecognizer
 from .online_recognizer import OnlineRecognizer
 from .utils import text2token
-__version__ = '1.12.1'
+__version__ = '1.12.2'

@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_glossary_term`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_glossary_term`](https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term).
+Refer to the Terraform Registry for docs: [`google_dataplex_glossary_term`](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataplexGlossaryTerm(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataplexGlossaryTerm.DataplexGlossaryTerm",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term google_dataplex_glossary_term}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term google_dataplex_glossary_term}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class DataplexGlossaryTerm(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term google_dataplex_glossary_term} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term google_dataplex_glossary_term} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location where the glossary term should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#location DataplexGlossaryTerm#location}
-        :param parent: The immediate parent of the GlossaryTerm in the resource-hierarchy. It can either be a Glossary or a Term. Format: projects/{projectId}/locations/{locationId}/glossaries/{glossaryId} OR projects/{projectId}/locations/{locationId}/glossaries/{glossaryId}/terms/{termId} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#parent DataplexGlossaryTerm#parent}
-        :param description: The user-mutable description of the GlossaryTerm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#description DataplexGlossaryTerm#description}
-        :param display_name: User friendly display name of the GlossaryTerm. This is user-mutable. This will be same as the termId, if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#display_name DataplexGlossaryTerm#display_name}
-        :param glossary_id: The glossary id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#glossary_id DataplexGlossaryTerm#glossary_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#id DataplexGlossaryTerm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the GlossaryTerm. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#labels DataplexGlossaryTerm#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#project DataplexGlossaryTerm#project}.
-        :param term_id: The term id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#term_id DataplexGlossaryTerm#term_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#timeouts DataplexGlossaryTerm#timeouts}
+        :param location: The location where the glossary term should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#location DataplexGlossaryTerm#location}
+        :param parent: The immediate parent of the GlossaryTerm in the resource-hierarchy. It can either be a Glossary or a Term. Format: projects/{projectId}/locations/{locationId}/glossaries/{glossaryId} OR projects/{projectId}/locations/{locationId}/glossaries/{glossaryId}/terms/{termId} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#parent DataplexGlossaryTerm#parent}
+        :param description: The user-mutable description of the GlossaryTerm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#description DataplexGlossaryTerm#description}
+        :param display_name: User friendly display name of the GlossaryTerm. This is user-mutable. This will be same as the termId, if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#display_name DataplexGlossaryTerm#display_name}
+        :param glossary_id: The glossary id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#glossary_id DataplexGlossaryTerm#glossary_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#id DataplexGlossaryTerm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the GlossaryTerm. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#labels DataplexGlossaryTerm#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#project DataplexGlossaryTerm#project}.
+        :param term_id: The term id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#term_id DataplexGlossaryTerm#term_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#timeouts DataplexGlossaryTerm#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class DataplexGlossaryTerm(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataplexGlossaryTerm to import.
-        :param import_from_id: The id of the existing DataplexGlossaryTerm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataplexGlossaryTerm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataplexGlossaryTerm to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class DataplexGlossaryTerm(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#create DataplexGlossaryTerm#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#delete DataplexGlossaryTerm#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#update DataplexGlossaryTerm#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#create DataplexGlossaryTerm#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#delete DataplexGlossaryTerm#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#update DataplexGlossaryTerm#update}.
         '''
         value = DataplexGlossaryTermTimeouts(
             create=create, delete=delete, update=update
@@ -456,16 +456,16 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location where the glossary term should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#location DataplexGlossaryTerm#location}
-        :param parent: The immediate parent of the GlossaryTerm in the resource-hierarchy. It can either be a Glossary or a Term. Format: projects/{projectId}/locations/{locationId}/glossaries/{glossaryId} OR projects/{projectId}/locations/{locationId}/glossaries/{glossaryId}/terms/{termId} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#parent DataplexGlossaryTerm#parent}
-        :param description: The user-mutable description of the GlossaryTerm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#description DataplexGlossaryTerm#description}
-        :param display_name: User friendly display name of the GlossaryTerm. This is user-mutable. This will be same as the termId, if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#display_name DataplexGlossaryTerm#display_name}
-        :param glossary_id: The glossary id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#glossary_id DataplexGlossaryTerm#glossary_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#id DataplexGlossaryTerm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the GlossaryTerm. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#labels DataplexGlossaryTerm#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#project DataplexGlossaryTerm#project}.
-        :param term_id: The term id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#term_id DataplexGlossaryTerm#term_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#timeouts DataplexGlossaryTerm#timeouts}
+        :param location: The location where the glossary term should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#location DataplexGlossaryTerm#location}
+        :param parent: The immediate parent of the GlossaryTerm in the resource-hierarchy. It can either be a Glossary or a Term. Format: projects/{projectId}/locations/{locationId}/glossaries/{glossaryId} OR projects/{projectId}/locations/{locationId}/glossaries/{glossaryId}/terms/{termId} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#parent DataplexGlossaryTerm#parent}
+        :param description: The user-mutable description of the GlossaryTerm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#description DataplexGlossaryTerm#description}
+        :param display_name: User friendly display name of the GlossaryTerm. This is user-mutable. This will be same as the termId, if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#display_name DataplexGlossaryTerm#display_name}
+        :param glossary_id: The glossary id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#glossary_id DataplexGlossaryTerm#glossary_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#id DataplexGlossaryTerm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the GlossaryTerm. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#labels DataplexGlossaryTerm#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#project DataplexGlossaryTerm#project}.
+        :param term_id: The term id for creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#term_id DataplexGlossaryTerm#term_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#timeouts DataplexGlossaryTerm#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -593,7 +593,7 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location where the glossary term should reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#location DataplexGlossaryTerm#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#location DataplexGlossaryTerm#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -605,7 +605,7 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It can either be a Glossary or a Term. Format: projects/{projectId}/locations/{locationId}/glossaries/{glossaryId} OR projects/{projectId}/locations/{locationId}/glossaries/{glossaryId}/terms/{termId}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#parent DataplexGlossaryTerm#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#parent DataplexGlossaryTerm#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -615,7 +615,7 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The user-mutable description of the GlossaryTerm.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#description DataplexGlossaryTerm#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#description DataplexGlossaryTerm#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -626,7 +626,7 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is user-mutable. This will be same as the termId, if not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#display_name DataplexGlossaryTerm#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#display_name DataplexGlossaryTerm#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -635,14 +635,14 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def glossary_id(self) -> typing.Optional[builtins.str]:
         '''The glossary id for creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#glossary_id DataplexGlossaryTerm#glossary_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#glossary_id DataplexGlossaryTerm#glossary_id}
         '''
         result = self._values.get("glossary_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#id DataplexGlossaryTerm#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#id DataplexGlossaryTerm#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -657,14 +657,14 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#labels DataplexGlossaryTerm#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#labels DataplexGlossaryTerm#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#project DataplexGlossaryTerm#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#project DataplexGlossaryTerm#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -672,7 +672,7 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def term_id(self) -> typing.Optional[builtins.str]:
         '''The term id for creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#term_id DataplexGlossaryTerm#term_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#term_id DataplexGlossaryTerm#term_id}
         '''
         result = self._values.get("term_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -681,7 +681,7 @@ class DataplexGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataplexGlossaryTermTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#timeouts DataplexGlossaryTerm#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#timeouts DataplexGlossaryTerm#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataplexGlossaryTermTimeouts"], result)
@@ -712,9 +712,9 @@ class DataplexGlossaryTermTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#create DataplexGlossaryTerm#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#delete DataplexGlossaryTerm#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#update DataplexGlossaryTerm#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#create DataplexGlossaryTerm#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#delete DataplexGlossaryTerm#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#update DataplexGlossaryTerm#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b496f954129e64f2d071ade801895e3e3ba31dc9bc7f6347a3fc7b0fa701772)
@@ -731,19 +731,19 @@ class DataplexGlossaryTermTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#create DataplexGlossaryTerm#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#create DataplexGlossaryTerm#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#delete DataplexGlossaryTerm#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#delete DataplexGlossaryTerm#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/dataplex_glossary_term#update DataplexGlossaryTerm#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/dataplex_glossary_term#update DataplexGlossaryTerm#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

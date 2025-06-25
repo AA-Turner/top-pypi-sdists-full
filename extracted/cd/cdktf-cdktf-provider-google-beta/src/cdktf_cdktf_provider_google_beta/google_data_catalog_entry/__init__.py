@@ -1,7 +1,7 @@
 r'''
 # `google_data_catalog_entry`
 
-Refer to the Terraform Registry for docs: [`google_data_catalog_entry`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry).
+Refer to the Terraform Registry for docs: [`google_data_catalog_entry`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataCatalogEntry(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataCatalogEntry.GoogleDataCatalogEntry",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry google_data_catalog_entry}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry google_data_catalog_entry}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleDataCatalogEntry(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry google_data_catalog_entry} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry google_data_catalog_entry} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entry_group: The name of the entry group this entry is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#entry_group GoogleDataCatalogEntry#entry_group}
-        :param entry_id: The id of the entry to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#entry_id GoogleDataCatalogEntry#entry_id}
-        :param description: Entry description, which can consist of several sentences or paragraphs that describe entry contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#description GoogleDataCatalogEntry#description}
-        :param display_name: Display information such as title and description. A short name to identify the entry, for example, "Analytics Data - Jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#display_name GoogleDataCatalogEntry#display_name}
-        :param gcs_fileset_spec: gcs_fileset_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#gcs_fileset_spec GoogleDataCatalogEntry#gcs_fileset_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#id GoogleDataCatalogEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param linked_resource: The resource this metadata entry refers to. For Google Cloud Platform resources, linkedResource is the full name of the resource. For example, the linkedResource for a table resource from BigQuery is: //bigquery.googleapis.com/projects/projectId/datasets/datasetId/tables/tableId Output only when Entry is of type in the EntryType enum. For entries with userSpecifiedType, this field is optional and defaults to an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#linked_resource GoogleDataCatalogEntry#linked_resource}
-        :param schema: Schema of the entry (e.g. BigQuery, GoogleSQL, Avro schema), as a json string. An entry might not have any schema attached to it. See https://cloud.google.com/data-catalog/docs/reference/rest/v1/projects.locations.entryGroups.entries#schema for what fields this schema can contain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#schema GoogleDataCatalogEntry#schema}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#timeouts GoogleDataCatalogEntry#timeouts}
-        :param type: The type of the entry. Only used for Entries with types in the EntryType enum. Currently, only FILESET enum value is allowed. All other entries created through Data Catalog must use userSpecifiedType. Possible values: ["FILESET"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#type GoogleDataCatalogEntry#type}
-        :param user_specified_system: This field indicates the entry's source system that Data Catalog does not integrate with. userSpecifiedSystem strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#user_specified_system GoogleDataCatalogEntry#user_specified_system}
-        :param user_specified_type: Entry type if it does not fit any of the input-allowed values listed in EntryType enum above. When creating an entry, users should check the enum values first, if nothing matches the entry to be created, then provide a custom value, for example "my_special_type". userSpecifiedType strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#user_specified_type GoogleDataCatalogEntry#user_specified_type}
+        :param entry_group: The name of the entry group this entry is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#entry_group GoogleDataCatalogEntry#entry_group}
+        :param entry_id: The id of the entry to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#entry_id GoogleDataCatalogEntry#entry_id}
+        :param description: Entry description, which can consist of several sentences or paragraphs that describe entry contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#description GoogleDataCatalogEntry#description}
+        :param display_name: Display information such as title and description. A short name to identify the entry, for example, "Analytics Data - Jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#display_name GoogleDataCatalogEntry#display_name}
+        :param gcs_fileset_spec: gcs_fileset_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#gcs_fileset_spec GoogleDataCatalogEntry#gcs_fileset_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#id GoogleDataCatalogEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param linked_resource: The resource this metadata entry refers to. For Google Cloud Platform resources, linkedResource is the full name of the resource. For example, the linkedResource for a table resource from BigQuery is: //bigquery.googleapis.com/projects/projectId/datasets/datasetId/tables/tableId Output only when Entry is of type in the EntryType enum. For entries with userSpecifiedType, this field is optional and defaults to an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#linked_resource GoogleDataCatalogEntry#linked_resource}
+        :param schema: Schema of the entry (e.g. BigQuery, GoogleSQL, Avro schema), as a json string. An entry might not have any schema attached to it. See https://cloud.google.com/data-catalog/docs/reference/rest/v1/projects.locations.entryGroups.entries#schema for what fields this schema can contain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#schema GoogleDataCatalogEntry#schema}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#timeouts GoogleDataCatalogEntry#timeouts}
+        :param type: The type of the entry. Only used for Entries with types in the EntryType enum. Currently, only FILESET enum value is allowed. All other entries created through Data Catalog must use userSpecifiedType. Possible values: ["FILESET"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#type GoogleDataCatalogEntry#type}
+        :param user_specified_system: This field indicates the entry's source system that Data Catalog does not integrate with. userSpecifiedSystem strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#user_specified_system GoogleDataCatalogEntry#user_specified_system}
+        :param user_specified_type: Entry type if it does not fit any of the input-allowed values listed in EntryType enum above. When creating an entry, users should check the enum values first, if nothing matches the entry to be created, then provide a custom value, for example "my_special_type". userSpecifiedType strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#user_specified_type GoogleDataCatalogEntry#user_specified_type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleDataCatalogEntry(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataCatalogEntry to import.
-        :param import_from_id: The id of the existing GoogleDataCatalogEntry that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataCatalogEntry that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataCatalogEntry to import is found.
         '''
         if __debug__:
@@ -154,7 +154,7 @@ class GoogleDataCatalogEntry(
         file_patterns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param file_patterns: Patterns to identify a set of files in Google Cloud Storage. See `Cloud Storage documentation <https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames>`_ for more information. Note that bucket wildcards are currently not supported. Examples of valid filePatterns: - gs://bucket_name/dir/*: matches all files within bucket_name/dir directory. - gs://bucket_name/dir/**: matches all files in bucket_name/dir spanning all subdirectories. - gs://bucket_name/file*: matches files prefixed by file in bucket_name - gs://bucket_name/??.txt: matches files with two characters followed by .txt in bucket_name - gs://bucket_name/[aeiou].txt: matches files that contain a single vowel character followed by .txt in bucket_name - gs://bucket_name/[a-m].txt: matches files that contain a, b, ... or m followed by .txt in bucket_name - gs://bucket_name/a/* /b: matches all files in bucket_name that match a/* /b pattern, such as a/c/b, a/d/b - gs://another_bucket/a.txt: matches gs://another_bucket/a.txt Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#file_patterns GoogleDataCatalogEntry#file_patterns} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param file_patterns: Patterns to identify a set of files in Google Cloud Storage. See `Cloud Storage documentation <https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames>`_ for more information. Note that bucket wildcards are currently not supported. Examples of valid filePatterns: - gs://bucket_name/dir/*: matches all files within bucket_name/dir directory. - gs://bucket_name/dir/**: matches all files in bucket_name/dir spanning all subdirectories. - gs://bucket_name/file*: matches files prefixed by file in bucket_name - gs://bucket_name/??.txt: matches files with two characters followed by .txt in bucket_name - gs://bucket_name/[aeiou].txt: matches files that contain a single vowel character followed by .txt in bucket_name - gs://bucket_name/[a-m].txt: matches files that contain a, b, ... or m followed by .txt in bucket_name - gs://bucket_name/a/* /b: matches all files in bucket_name that match a/* /b pattern, such as a/c/b, a/d/b - gs://another_bucket/a.txt: matches gs://another_bucket/a.txt Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#file_patterns GoogleDataCatalogEntry#file_patterns} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = GoogleDataCatalogEntryGcsFilesetSpec(file_patterns=file_patterns)
 
@@ -169,9 +169,9 @@ class GoogleDataCatalogEntry(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#create GoogleDataCatalogEntry#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#delete GoogleDataCatalogEntry#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#update GoogleDataCatalogEntry#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#create GoogleDataCatalogEntry#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#delete GoogleDataCatalogEntry#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#update GoogleDataCatalogEntry#update}.
         '''
         value = GoogleDataCatalogEntryTimeouts(
             create=create, delete=delete, update=update
@@ -1110,18 +1110,18 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entry_group: The name of the entry group this entry is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#entry_group GoogleDataCatalogEntry#entry_group}
-        :param entry_id: The id of the entry to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#entry_id GoogleDataCatalogEntry#entry_id}
-        :param description: Entry description, which can consist of several sentences or paragraphs that describe entry contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#description GoogleDataCatalogEntry#description}
-        :param display_name: Display information such as title and description. A short name to identify the entry, for example, "Analytics Data - Jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#display_name GoogleDataCatalogEntry#display_name}
-        :param gcs_fileset_spec: gcs_fileset_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#gcs_fileset_spec GoogleDataCatalogEntry#gcs_fileset_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#id GoogleDataCatalogEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param linked_resource: The resource this metadata entry refers to. For Google Cloud Platform resources, linkedResource is the full name of the resource. For example, the linkedResource for a table resource from BigQuery is: //bigquery.googleapis.com/projects/projectId/datasets/datasetId/tables/tableId Output only when Entry is of type in the EntryType enum. For entries with userSpecifiedType, this field is optional and defaults to an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#linked_resource GoogleDataCatalogEntry#linked_resource}
-        :param schema: Schema of the entry (e.g. BigQuery, GoogleSQL, Avro schema), as a json string. An entry might not have any schema attached to it. See https://cloud.google.com/data-catalog/docs/reference/rest/v1/projects.locations.entryGroups.entries#schema for what fields this schema can contain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#schema GoogleDataCatalogEntry#schema}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#timeouts GoogleDataCatalogEntry#timeouts}
-        :param type: The type of the entry. Only used for Entries with types in the EntryType enum. Currently, only FILESET enum value is allowed. All other entries created through Data Catalog must use userSpecifiedType. Possible values: ["FILESET"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#type GoogleDataCatalogEntry#type}
-        :param user_specified_system: This field indicates the entry's source system that Data Catalog does not integrate with. userSpecifiedSystem strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#user_specified_system GoogleDataCatalogEntry#user_specified_system}
-        :param user_specified_type: Entry type if it does not fit any of the input-allowed values listed in EntryType enum above. When creating an entry, users should check the enum values first, if nothing matches the entry to be created, then provide a custom value, for example "my_special_type". userSpecifiedType strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#user_specified_type GoogleDataCatalogEntry#user_specified_type}
+        :param entry_group: The name of the entry group this entry is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#entry_group GoogleDataCatalogEntry#entry_group}
+        :param entry_id: The id of the entry to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#entry_id GoogleDataCatalogEntry#entry_id}
+        :param description: Entry description, which can consist of several sentences or paragraphs that describe entry contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#description GoogleDataCatalogEntry#description}
+        :param display_name: Display information such as title and description. A short name to identify the entry, for example, "Analytics Data - Jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#display_name GoogleDataCatalogEntry#display_name}
+        :param gcs_fileset_spec: gcs_fileset_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#gcs_fileset_spec GoogleDataCatalogEntry#gcs_fileset_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#id GoogleDataCatalogEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param linked_resource: The resource this metadata entry refers to. For Google Cloud Platform resources, linkedResource is the full name of the resource. For example, the linkedResource for a table resource from BigQuery is: //bigquery.googleapis.com/projects/projectId/datasets/datasetId/tables/tableId Output only when Entry is of type in the EntryType enum. For entries with userSpecifiedType, this field is optional and defaults to an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#linked_resource GoogleDataCatalogEntry#linked_resource}
+        :param schema: Schema of the entry (e.g. BigQuery, GoogleSQL, Avro schema), as a json string. An entry might not have any schema attached to it. See https://cloud.google.com/data-catalog/docs/reference/rest/v1/projects.locations.entryGroups.entries#schema for what fields this schema can contain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#schema GoogleDataCatalogEntry#schema}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#timeouts GoogleDataCatalogEntry#timeouts}
+        :param type: The type of the entry. Only used for Entries with types in the EntryType enum. Currently, only FILESET enum value is allowed. All other entries created through Data Catalog must use userSpecifiedType. Possible values: ["FILESET"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#type GoogleDataCatalogEntry#type}
+        :param user_specified_system: This field indicates the entry's source system that Data Catalog does not integrate with. userSpecifiedSystem strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#user_specified_system GoogleDataCatalogEntry#user_specified_system}
+        :param user_specified_type: Entry type if it does not fit any of the input-allowed values listed in EntryType enum above. When creating an entry, users should check the enum values first, if nothing matches the entry to be created, then provide a custom value, for example "my_special_type". userSpecifiedType strings must begin with a letter or underscore and can only contain letters, numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#user_specified_type GoogleDataCatalogEntry#user_specified_type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1257,7 +1257,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_group(self) -> builtins.str:
         '''The name of the entry group this entry is in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#entry_group GoogleDataCatalogEntry#entry_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#entry_group GoogleDataCatalogEntry#entry_group}
         '''
         result = self._values.get("entry_group")
         assert result is not None, "Required property 'entry_group' is missing"
@@ -1267,7 +1267,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_id(self) -> builtins.str:
         '''The id of the entry to create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#entry_id GoogleDataCatalogEntry#entry_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#entry_id GoogleDataCatalogEntry#entry_id}
         '''
         result = self._values.get("entry_id")
         assert result is not None, "Required property 'entry_id' is missing"
@@ -1277,7 +1277,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Entry description, which can consist of several sentences or paragraphs that describe entry contents.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#description GoogleDataCatalogEntry#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#description GoogleDataCatalogEntry#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1289,7 +1289,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         A short name to identify the entry,
         for example, "Analytics Data - Jan 2011".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#display_name GoogleDataCatalogEntry#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#display_name GoogleDataCatalogEntry#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1300,14 +1300,14 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleDataCatalogEntryGcsFilesetSpec"]:
         '''gcs_fileset_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#gcs_fileset_spec GoogleDataCatalogEntry#gcs_fileset_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#gcs_fileset_spec GoogleDataCatalogEntry#gcs_fileset_spec}
         '''
         result = self._values.get("gcs_fileset_spec")
         return typing.cast(typing.Optional["GoogleDataCatalogEntryGcsFilesetSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#id GoogleDataCatalogEntry#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#id GoogleDataCatalogEntry#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1325,7 +1325,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Output only when Entry is of type in the EntryType enum. For entries with userSpecifiedType,
         this field is optional and defaults to an empty string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#linked_resource GoogleDataCatalogEntry#linked_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#linked_resource GoogleDataCatalogEntry#linked_resource}
         '''
         result = self._values.get("linked_resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1334,7 +1334,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> typing.Optional[builtins.str]:
         '''Schema of the entry (e.g. BigQuery, GoogleSQL, Avro schema), as a json string. An entry might not have any schema attached to it. See https://cloud.google.com/data-catalog/docs/reference/rest/v1/projects.locations.entryGroups.entries#schema for what fields this schema can contain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#schema GoogleDataCatalogEntry#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#schema GoogleDataCatalogEntry#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1343,7 +1343,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDataCatalogEntryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#timeouts GoogleDataCatalogEntry#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#timeouts GoogleDataCatalogEntry#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDataCatalogEntryTimeouts"], result)
@@ -1355,7 +1355,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Only used for Entries with types in the EntryType enum.
         Currently, only FILESET enum value is allowed. All other entries created through Data Catalog must use userSpecifiedType. Possible values: ["FILESET"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#type GoogleDataCatalogEntry#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#type GoogleDataCatalogEntry#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1367,7 +1367,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         userSpecifiedSystem strings must begin with a letter or underscore and can only contain letters, numbers,
         and underscores; are case insensitive; must be at least 1 character and at most 64 characters long.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#user_specified_system GoogleDataCatalogEntry#user_specified_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#user_specified_system GoogleDataCatalogEntry#user_specified_system}
         '''
         result = self._values.get("user_specified_system")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1381,7 +1381,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         userSpecifiedType strings must begin with a letter or underscore and can only contain letters,
         numbers, and underscores; are case insensitive; must be at least 1 character and at most 64 characters long.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#user_specified_type GoogleDataCatalogEntry#user_specified_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#user_specified_type GoogleDataCatalogEntry#user_specified_type}
         '''
         result = self._values.get("user_specified_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1406,7 +1406,7 @@ class GoogleDataCatalogEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleDataCatalogEntryGcsFilesetSpec:
     def __init__(self, *, file_patterns: typing.Sequence[builtins.str]) -> None:
         '''
-        :param file_patterns: Patterns to identify a set of files in Google Cloud Storage. See `Cloud Storage documentation <https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames>`_ for more information. Note that bucket wildcards are currently not supported. Examples of valid filePatterns: - gs://bucket_name/dir/*: matches all files within bucket_name/dir directory. - gs://bucket_name/dir/**: matches all files in bucket_name/dir spanning all subdirectories. - gs://bucket_name/file*: matches files prefixed by file in bucket_name - gs://bucket_name/??.txt: matches files with two characters followed by .txt in bucket_name - gs://bucket_name/[aeiou].txt: matches files that contain a single vowel character followed by .txt in bucket_name - gs://bucket_name/[a-m].txt: matches files that contain a, b, ... or m followed by .txt in bucket_name - gs://bucket_name/a/* /b: matches all files in bucket_name that match a/* /b pattern, such as a/c/b, a/d/b - gs://another_bucket/a.txt: matches gs://another_bucket/a.txt Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#file_patterns GoogleDataCatalogEntry#file_patterns} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param file_patterns: Patterns to identify a set of files in Google Cloud Storage. See `Cloud Storage documentation <https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames>`_ for more information. Note that bucket wildcards are currently not supported. Examples of valid filePatterns: - gs://bucket_name/dir/*: matches all files within bucket_name/dir directory. - gs://bucket_name/dir/**: matches all files in bucket_name/dir spanning all subdirectories. - gs://bucket_name/file*: matches files prefixed by file in bucket_name - gs://bucket_name/??.txt: matches files with two characters followed by .txt in bucket_name - gs://bucket_name/[aeiou].txt: matches files that contain a single vowel character followed by .txt in bucket_name - gs://bucket_name/[a-m].txt: matches files that contain a, b, ... or m followed by .txt in bucket_name - gs://bucket_name/a/* /b: matches all files in bucket_name that match a/* /b pattern, such as a/c/b, a/d/b - gs://another_bucket/a.txt: matches gs://another_bucket/a.txt Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#file_patterns GoogleDataCatalogEntry#file_patterns} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7d06b0c7925dbc5eca056b48eb3726d036ef5327fb6d3d7d2609dd3521de10f)
@@ -1431,7 +1431,7 @@ class GoogleDataCatalogEntryGcsFilesetSpec:
         - gs://bucket_name/a/* /b: matches all files in bucket_name that match a/* /b pattern, such as a/c/b, a/d/b
         - gs://another_bucket/a.txt: matches gs://another_bucket/a.txt
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#file_patterns GoogleDataCatalogEntry#file_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#file_patterns GoogleDataCatalogEntry#file_patterns}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -1676,9 +1676,9 @@ class GoogleDataCatalogEntryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#create GoogleDataCatalogEntry#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#delete GoogleDataCatalogEntry#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#update GoogleDataCatalogEntry#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#create GoogleDataCatalogEntry#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#delete GoogleDataCatalogEntry#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#update GoogleDataCatalogEntry#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aae4ffd97f6912ce43fda939d5ec9eeab1303f646687bf10c00442b36ab2fafa)
@@ -1695,19 +1695,19 @@ class GoogleDataCatalogEntryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#create GoogleDataCatalogEntry#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#create GoogleDataCatalogEntry#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#delete GoogleDataCatalogEntry#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#delete GoogleDataCatalogEntry#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_entry#update GoogleDataCatalogEntry#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_data_catalog_entry#update GoogleDataCatalogEntry#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

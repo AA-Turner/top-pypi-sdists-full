@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_dynamic_tables`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_dynamic_tables`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables).
+Refer to the Terraform Registry for docs: [`data_snowflake_dynamic_tables`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeDynamicTables(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeDynamicTables.DataSnowflakeDynamicTables",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables snowflake_dynamic_tables}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables snowflake_dynamic_tables}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataSnowflakeDynamicTables(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables snowflake_dynamic_tables} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables snowflake_dynamic_tables} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#id DataSnowflakeDynamicTables#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#in DataSnowflakeDynamicTables#in}
-        :param like: like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#like DataSnowflakeDynamicTables#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#limit DataSnowflakeDynamicTables#limit}
-        :param starts_with: Optionally filters the command output based on the characters that appear at the beginning of the object name. The string is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#starts_with DataSnowflakeDynamicTables#starts_with}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#id DataSnowflakeDynamicTables#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#in DataSnowflakeDynamicTables#in}
+        :param like: like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#like DataSnowflakeDynamicTables#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#limit DataSnowflakeDynamicTables#limit}
+        :param starts_with: Optionally filters the command output based on the characters that appear at the beginning of the object name. The string is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#starts_with DataSnowflakeDynamicTables#starts_with}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataSnowflakeDynamicTables(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeDynamicTables to import.
-        :param import_from_id: The id of the existing DataSnowflakeDynamicTables that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeDynamicTables that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeDynamicTables to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class DataSnowflakeDynamicTables(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#account DataSnowflakeDynamicTables#account}
-        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#database DataSnowflakeDynamicTables#database}
-        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#schema DataSnowflakeDynamicTables#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#account DataSnowflakeDynamicTables#account}
+        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#database DataSnowflakeDynamicTables#database}
+        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#schema DataSnowflakeDynamicTables#schema}
         '''
         value = DataSnowflakeDynamicTablesIn(
             account=account, database=database, schema=schema
@@ -148,7 +148,7 @@ class DataSnowflakeDynamicTables(
     @jsii.member(jsii_name="putLike")
     def put_like(self, *, pattern: builtins.str) -> None:
         '''
-        :param pattern: Filters the command output by object name. The filter uses case-insensitive pattern matching with support for SQL wildcard characters (% and _). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#pattern DataSnowflakeDynamicTables#pattern}
+        :param pattern: Filters the command output by object name. The filter uses case-insensitive pattern matching with support for SQL wildcard characters (% and _). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#pattern DataSnowflakeDynamicTables#pattern}
         '''
         value = DataSnowflakeDynamicTablesLike(pattern=pattern)
 
@@ -162,8 +162,8 @@ class DataSnowflakeDynamicTables(
         rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_: The optional FROM 'name_string' subclause effectively serves as a “cursor” for the results. This enables fetching the specified number of rows following the first row whose object name matches the specified string Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#from DataSnowflakeDynamicTables#from}
-        :param rows: Specifies the maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#rows DataSnowflakeDynamicTables#rows}
+        :param from_: The optional FROM 'name_string' subclause effectively serves as a “cursor” for the results. This enables fetching the specified number of rows following the first row whose object name matches the specified string Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#from DataSnowflakeDynamicTables#from}
+        :param rows: Specifies the maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#rows DataSnowflakeDynamicTables#rows}
         '''
         value = DataSnowflakeDynamicTablesLimit(from_=from_, rows=rows)
 
@@ -315,11 +315,11 @@ class DataSnowflakeDynamicTablesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#id DataSnowflakeDynamicTables#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#in DataSnowflakeDynamicTables#in}
-        :param like: like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#like DataSnowflakeDynamicTables#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#limit DataSnowflakeDynamicTables#limit}
-        :param starts_with: Optionally filters the command output based on the characters that appear at the beginning of the object name. The string is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#starts_with DataSnowflakeDynamicTables#starts_with}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#id DataSnowflakeDynamicTables#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#in DataSnowflakeDynamicTables#in}
+        :param like: like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#like DataSnowflakeDynamicTables#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#limit DataSnowflakeDynamicTables#limit}
+        :param starts_with: Optionally filters the command output based on the characters that appear at the beginning of the object name. The string is case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#starts_with DataSnowflakeDynamicTables#starts_with}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -435,7 +435,7 @@ class DataSnowflakeDynamicTablesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#id DataSnowflakeDynamicTables#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#id DataSnowflakeDynamicTables#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -447,7 +447,7 @@ class DataSnowflakeDynamicTablesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def in_(self) -> typing.Optional["DataSnowflakeDynamicTablesIn"]:
         '''in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#in DataSnowflakeDynamicTables#in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#in DataSnowflakeDynamicTables#in}
         '''
         result = self._values.get("in_")
         return typing.cast(typing.Optional["DataSnowflakeDynamicTablesIn"], result)
@@ -456,7 +456,7 @@ class DataSnowflakeDynamicTablesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def like(self) -> typing.Optional["DataSnowflakeDynamicTablesLike"]:
         '''like block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#like DataSnowflakeDynamicTables#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#like DataSnowflakeDynamicTables#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional["DataSnowflakeDynamicTablesLike"], result)
@@ -465,7 +465,7 @@ class DataSnowflakeDynamicTablesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def limit(self) -> typing.Optional["DataSnowflakeDynamicTablesLimit"]:
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#limit DataSnowflakeDynamicTables#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#limit DataSnowflakeDynamicTables#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional["DataSnowflakeDynamicTablesLimit"], result)
@@ -476,7 +476,7 @@ class DataSnowflakeDynamicTablesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The string is case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#starts_with DataSnowflakeDynamicTables#starts_with}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#starts_with DataSnowflakeDynamicTables#starts_with}
         '''
         result = self._values.get("starts_with")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -507,9 +507,9 @@ class DataSnowflakeDynamicTablesIn:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#account DataSnowflakeDynamicTables#account}
-        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#database DataSnowflakeDynamicTables#database}
-        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#schema DataSnowflakeDynamicTables#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#account DataSnowflakeDynamicTables#account}
+        :param database: Returns records for the current database in use or for a specified database (db_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#database DataSnowflakeDynamicTables#database}
+        :param schema: Returns records for the current schema in use or a specified schema (schema_name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#schema DataSnowflakeDynamicTables#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d19a9e0404c82508d8a25a1ea3b60a6473c32ab584e0beb05d5e5fdfc220099)
@@ -530,7 +530,7 @@ class DataSnowflakeDynamicTablesIn:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Returns records for the entire account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#account DataSnowflakeDynamicTables#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#account DataSnowflakeDynamicTables#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -539,7 +539,7 @@ class DataSnowflakeDynamicTablesIn:
     def database(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current database in use or for a specified database (db_name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#database DataSnowflakeDynamicTables#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#database DataSnowflakeDynamicTables#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -548,7 +548,7 @@ class DataSnowflakeDynamicTablesIn:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current schema in use or a specified schema (schema_name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#schema DataSnowflakeDynamicTables#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#schema DataSnowflakeDynamicTables#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -677,7 +677,7 @@ class DataSnowflakeDynamicTablesInOutputReference(
 class DataSnowflakeDynamicTablesLike:
     def __init__(self, *, pattern: builtins.str) -> None:
         '''
-        :param pattern: Filters the command output by object name. The filter uses case-insensitive pattern matching with support for SQL wildcard characters (% and _). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#pattern DataSnowflakeDynamicTables#pattern}
+        :param pattern: Filters the command output by object name. The filter uses case-insensitive pattern matching with support for SQL wildcard characters (% and _). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#pattern DataSnowflakeDynamicTables#pattern}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07e944de936825d3218846995284f4d056a69d46347c8f269cf542a09dfb1e36)
@@ -692,7 +692,7 @@ class DataSnowflakeDynamicTablesLike:
 
         The filter uses case-insensitive pattern matching with support for SQL wildcard characters (% and _).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#pattern DataSnowflakeDynamicTables#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#pattern DataSnowflakeDynamicTables#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -776,8 +776,8 @@ class DataSnowflakeDynamicTablesLimit:
         rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_: The optional FROM 'name_string' subclause effectively serves as a “cursor” for the results. This enables fetching the specified number of rows following the first row whose object name matches the specified string Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#from DataSnowflakeDynamicTables#from}
-        :param rows: Specifies the maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#rows DataSnowflakeDynamicTables#rows}
+        :param from_: The optional FROM 'name_string' subclause effectively serves as a “cursor” for the results. This enables fetching the specified number of rows following the first row whose object name matches the specified string Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#from DataSnowflakeDynamicTables#from}
+        :param rows: Specifies the maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#rows DataSnowflakeDynamicTables#rows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63f5cf660d24e28c0ee893a07e1b16d8716c15d29fcaea783c2b25461623ebbb)
@@ -795,7 +795,7 @@ class DataSnowflakeDynamicTablesLimit:
 
         This enables fetching the specified number of rows following the first row whose object name matches the specified string
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#from DataSnowflakeDynamicTables#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#from DataSnowflakeDynamicTables#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -804,7 +804,7 @@ class DataSnowflakeDynamicTablesLimit:
     def rows(self) -> typing.Optional[jsii.Number]:
         '''Specifies the maximum number of rows to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/data-sources/dynamic_tables#rows DataSnowflakeDynamicTables#rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/dynamic_tables#rows DataSnowflakeDynamicTables#rows}
         '''
         result = self._values.get("rows")
         return typing.cast(typing.Optional[jsii.Number], result)

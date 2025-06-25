@@ -9,7 +9,7 @@ description = "Rhoban JsonCPP fork"
 license = "MIT"
 name = "rhoban-cmeel-jsoncpp"
 requires-python = ">= 3.8"
-version = "1.9.4.8"
+version = "1.9.4.9"
 
 [project.urls]
 changelog = "https://github.com/rhobandeps/jsoncpp/blob/main/CHANGELOG.md"

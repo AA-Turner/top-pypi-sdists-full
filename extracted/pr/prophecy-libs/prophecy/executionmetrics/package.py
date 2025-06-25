@@ -654,7 +654,7 @@ class GemProgressResponseCamelCase(ResponseCamelCase):
             "stderr": (
                 [output.to_dict() for output in self.stderr] if self.stderr else None
             ),
-            "exception": self.exception.__dict__ if self.exception else None,
+            "exception": self.exception.to_dict() if self.exception else None,
             "submissionTime": datetime_to_posix_ts_millis(self.submission_time),
         }
 

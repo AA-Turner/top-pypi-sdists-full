@@ -1,7 +1,7 @@
 """
 The MIT License (MIT)
 
-Copyright (c) [2015-2022] [Andrew Annex]
+Copyright (c) [2015-2025] [Andrew Annex]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1226,7 +1226,7 @@ def test_cylrec():
 
 def test_cylsph():
     a = np.array(spice.cylsph(1.0, np.deg2rad(180.0), 1.0))
-    b = np.array([1.4142, np.deg2rad(180.0), np.deg2rad(45.0)])
+    b = np.array([1.4142, np.deg2rad(45.0), np.deg2rad(180.0)])
     np.testing.assert_almost_equal(b, a, decimal=4)
 
 
@@ -1624,7 +1624,7 @@ def test_dafrda():
         # - A count of [segmentN] Chebyshev polynomial records @ RSIZE words per Cheby. poly. record
         # - A four-word directory at the end of the segment
         # So ((RSIZE * N) + 4) == (1 + END - BEGIN)
-        # - cf. https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/spk.html#Type%202:%20Chebyshev%20%28position%20only%29
+        # - cf. https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/req/spk.html#Type%202:%20Chebyshev%20%28position%20only%29
         assert (3 + (segmentRsize * segmentN)) == (ic[5] - ic[4])
         # Setup for next segment:  advance BEGIN word of next single summary
         firstWord += ss
@@ -5422,7 +5422,7 @@ def test_ktotal():
 
 
 def test_kxtrct():
-    # Tests from examples at this URL:  https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/kxtrct_c.html#Examples
+    # Tests from examples at this URL:  https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/kxtrct_c.html#Examples
     i = 0
     while i < 500:
         i += 1
@@ -6751,10 +6751,9 @@ def test_raxisa():
 
 
 def test_rdtext():
-    import datetime
-
+    from datetime import datetime, timezone
     # Create ISO UTC datetime string using current time
-    utcnow = datetime.datetime.utcnow().isoformat()
+    utcnow = datetime.now(timezone.utc).isoformat()
     spice.reset()
     # Create temporary filenames
     RDTEXT = os.path.join(cwd, "ex_rdtext.txt")

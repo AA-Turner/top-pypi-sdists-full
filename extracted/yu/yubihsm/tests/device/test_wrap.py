@@ -83,6 +83,7 @@ def test_generate_wrap(session):
     pub.verify(resp, data, ec.ECDSA(hashes.SHA256()))
 
     wrapkey.delete()
+    asymkey.delete()
 
 
 def test_export_wrap(session):
@@ -154,6 +155,9 @@ def test_export_wrap(session):
     asymkey = wrapkey.import_wrapped(wrapped)
     assert isinstance(asymkey, AsymmetricKey)
 
+    wrapkey.delete()
+    asymkey.delete()
+
 
 def test_wrap_data(session):
     w_id = random.randint(1, 0xFFFE)
@@ -174,6 +178,8 @@ def test_wrap_data(session):
 
         data2 = key.unwrap_data(wrapped)
         assert data == data2
+
+    key.delete()
 
 
 def test_more_wrap_data(session):
@@ -240,6 +246,9 @@ def test_wrap_data_many(session):
             w_key.unwrap_data(wrap)
         assert context.value.code == ERROR.INVALID_DATA
         assert data == plain
+
+    u_key.delete()
+    w_key.delete()
 
 
 def test_import_wrap_permissions(session):
@@ -344,6 +353,9 @@ def test_import_wrap_permissions(session):
 
     assert opaque.get() == b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa"
 
+    opaque.delete()
+    w_key.delete()
+
 
 def test_import_wrap_overwrite(session):
     key_label = "wrap key"
@@ -378,8 +390,11 @@ def test_import_wrap_overwrite(session):
 
     assert opaque.get() == b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa"
     with pytest.raises(YubiHsmDeviceError) as context:
-        opaque = w_key.import_wrapped(opaque_wrapped)
+        w_key.import_wrapped(opaque_wrapped)
     assert context.value.code == ERROR.OBJECT_EXISTS
+
+    opaque.delete()
+    w_key.delete()
 
 
 def test_import_invalid_key_size(session):
@@ -564,6 +579,7 @@ class TestAsymmetricWrap:
 
         assert pt == symkey.decrypt_ecb(ct)
 
+        symkey.delete()
         import_wrapkey.delete()
         export_wrapkey.delete()
 
@@ -616,6 +632,7 @@ class TestAsymmetricWrap:
 
         pub.verify(resp, data, ec.ECDSA(hashes.SHA256()))
 
+        asymkey.delete()
         import_wrapkey.delete()
         export_wrapkey.delete()
 
@@ -643,30 +660,55 @@ class TestAsymmetricWrap:
             private_wrapkey.export_wrapped(asymkey)
         assert context.value.code == ERROR.INVALID_DATA
 
+        asymkey.delete()
+        private_wrapkey.delete()
+
     def test_get_public_key(self, session):
-        key = rsa.generate_private_key(
+        import_key = rsa.generate_private_key(
+            public_exponent=0x10001, key_size=2048, backend=default_backend()
+        )
+        export_key = rsa.generate_private_key(
             public_exponent=0x10001, key_size=2048, backend=default_backend()
         )
 
-        wrapkey = WrapKey.put(
+        export_wrapkey = PublicWrapKey.put(
             session,
             0,
-            "Test Get Public Key",
+            "Test Get Public Key (PublicWrapKey)",
+            1,
+            CAPABILITY.EXPORT_WRAPPED,
+            CAPABILITY.EXPORTABLE_UNDER_WRAP,
+            export_key.public_key(),
+        )
+        import_wrapkey = WrapKey.put(
+            session,
+            0,
+            "Test Get Public Key (WrapKey)",
             1,
             CAPABILITY.EXPORT_WRAPPED,
             ALGORITHM.RSA_2048,
             CAPABILITY.NONE,
-            key,
+            import_key,
         )
 
-        pub = wrapkey.get_public_key()
-        assert pub.public_bytes(
+        import_pub = import_wrapkey.get_public_key()
+        export_pub = export_wrapkey.get_public_key()
+        assert import_pub.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ) == key.public_key().public_bytes(
+        ) == import_key.public_key().public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+        assert export_pub.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ) == export_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        import_wrapkey.delete()
+        export_wrapkey.delete()
 
     def test_export_ed25519(self, session):
         wrapkey = WrapKey.put(
@@ -715,3 +757,5 @@ class TestAsymmetricWrap:
             assert origin == ORIGIN.IMPORTED_WRAPPED | ORIGIN.IMPORTED
 
             asymkey.delete()
+
+        wrapkey.delete()

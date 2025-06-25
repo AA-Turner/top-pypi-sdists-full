@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rhoban-cmeel-jsoncpp
-Version: 1.9.4.8
+Version: 1.9.4.9
 Summary: Rhoban JsonCPP fork
 Requires-Python: >= 3.8
 License-Expression: MIT

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hume
-Version: 0.9.0
+Version: 0.9.1
 Summary: A Python SDK for Hume AI
 License: MIT
 Keywords: hume,ai,evi,empathic,multimodal,expression,analysis,sentiment,voice,recognition,detection,emotion,interface,speech,audio,vision,expressive,embeddings,communication,learning
@@ -30,8 +30,6 @@ Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: jupyter (>=1.0.0,<2.0.0) ; extra == "examples"
 Requires-Dist: pydantic (>=1.9.2)
 Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
-Requires-Dist: pydub (>=0.25.1,<0.26.0)
-Requires-Dist: simpleaudio (>=1.0.4,<2.0.0)
 Requires-Dist: sounddevice (>=0.4.6,<0.5.0) ; extra == "microphone"
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: websockets (>=13.1,<14.0)

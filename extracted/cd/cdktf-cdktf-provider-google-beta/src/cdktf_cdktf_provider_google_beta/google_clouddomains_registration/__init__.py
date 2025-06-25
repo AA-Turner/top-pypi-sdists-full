@@ -1,7 +1,7 @@
 r'''
 # `google_clouddomains_registration`
 
-Refer to the Terraform Registry for docs: [`google_clouddomains_registration`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration).
+Refer to the Terraform Registry for docs: [`google_clouddomains_registration`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleClouddomainsRegistration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleClouddomainsRegistration.GoogleClouddomainsRegistration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration google_clouddomains_registration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration google_clouddomains_registration}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleClouddomainsRegistration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration google_clouddomains_registration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration google_clouddomains_registration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param contact_settings: contact_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#contact_settings GoogleClouddomainsRegistration#contact_settings}
-        :param domain_name: Required. The domain name. Unicode domain names must be expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#domain_name GoogleClouddomainsRegistration#domain_name}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#location GoogleClouddomainsRegistration#location}
-        :param yearly_price: yearly_price block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#yearly_price GoogleClouddomainsRegistration#yearly_price}
-        :param contact_notices: The list of contact notices that the caller acknowledges. Possible value is PUBLIC_CONTACT_DATA_ACKNOWLEDGEMENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#contact_notices GoogleClouddomainsRegistration#contact_notices}
-        :param dns_settings: dns_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#dns_settings GoogleClouddomainsRegistration#dns_settings}
-        :param domain_notices: The list of domain notices that you acknowledge. Possible value is HSTS_PRELOADED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#domain_notices GoogleClouddomainsRegistration#domain_notices}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#id GoogleClouddomainsRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with the Registration. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#labels GoogleClouddomainsRegistration#labels}
-        :param management_settings: management_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#management_settings GoogleClouddomainsRegistration#management_settings}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#project GoogleClouddomainsRegistration#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#timeouts GoogleClouddomainsRegistration#timeouts}
+        :param contact_settings: contact_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#contact_settings GoogleClouddomainsRegistration#contact_settings}
+        :param domain_name: Required. The domain name. Unicode domain names must be expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#domain_name GoogleClouddomainsRegistration#domain_name}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#location GoogleClouddomainsRegistration#location}
+        :param yearly_price: yearly_price block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#yearly_price GoogleClouddomainsRegistration#yearly_price}
+        :param contact_notices: The list of contact notices that the caller acknowledges. Possible value is PUBLIC_CONTACT_DATA_ACKNOWLEDGEMENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#contact_notices GoogleClouddomainsRegistration#contact_notices}
+        :param dns_settings: dns_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#dns_settings GoogleClouddomainsRegistration#dns_settings}
+        :param domain_notices: The list of domain notices that you acknowledge. Possible value is HSTS_PRELOADED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#domain_notices GoogleClouddomainsRegistration#domain_notices}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#id GoogleClouddomainsRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with the Registration. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#labels GoogleClouddomainsRegistration#labels}
+        :param management_settings: management_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#management_settings GoogleClouddomainsRegistration#management_settings}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#project GoogleClouddomainsRegistration#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#timeouts GoogleClouddomainsRegistration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleClouddomainsRegistration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleClouddomainsRegistration to import.
-        :param import_from_id: The id of the existing GoogleClouddomainsRegistration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleClouddomainsRegistration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleClouddomainsRegistration to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class GoogleClouddomainsRegistration(
         technical_contact: typing.Union["GoogleClouddomainsRegistrationContactSettingsTechnicalContact", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#admin_contact GoogleClouddomainsRegistration#admin_contact}
-        :param privacy: Required. Privacy setting for the contacts associated with the Registration. Values are PUBLIC_CONTACT_DATA, PRIVATE_CONTACT_DATA, and REDACTED_CONTACT_DATA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#privacy GoogleClouddomainsRegistration#privacy}
-        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#registrant_contact GoogleClouddomainsRegistration#registrant_contact}
-        :param technical_contact: technical_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#technical_contact GoogleClouddomainsRegistration#technical_contact}
+        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#admin_contact GoogleClouddomainsRegistration#admin_contact}
+        :param privacy: Required. Privacy setting for the contacts associated with the Registration. Values are PUBLIC_CONTACT_DATA, PRIVATE_CONTACT_DATA, and REDACTED_CONTACT_DATA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#privacy GoogleClouddomainsRegistration#privacy}
+        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#registrant_contact GoogleClouddomainsRegistration#registrant_contact}
+        :param technical_contact: technical_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#technical_contact GoogleClouddomainsRegistration#technical_contact}
         '''
         value = GoogleClouddomainsRegistrationContactSettings(
             admin_contact=admin_contact,
@@ -179,8 +179,8 @@ class GoogleClouddomainsRegistration(
         glue_records: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleClouddomainsRegistrationDnsSettingsGlueRecords", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_dns: custom_dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#custom_dns GoogleClouddomainsRegistration#custom_dns}
-        :param glue_records: glue_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#glue_records GoogleClouddomainsRegistration#glue_records}
+        :param custom_dns: custom_dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#custom_dns GoogleClouddomainsRegistration#custom_dns}
+        :param glue_records: glue_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#glue_records GoogleClouddomainsRegistration#glue_records}
         '''
         value = GoogleClouddomainsRegistrationDnsSettings(
             custom_dns=custom_dns, glue_records=glue_records
@@ -196,8 +196,8 @@ class GoogleClouddomainsRegistration(
         transfer_lock_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param preferred_renewal_method: The desired renewal method for this Registration. The actual renewalMethod is automatically updated to reflect this choice. If unset or equal to RENEWAL_METHOD_UNSPECIFIED, the actual renewalMethod is treated as if it were set to AUTOMATIC_RENEWAL. You cannot use RENEWAL_DISABLED during resource creation, and you can update the renewal status only when the Registration resource has state ACTIVE or SUSPENDED. When preferredRenewalMethod is set to AUTOMATIC_RENEWAL, the actual renewalMethod can be set to RENEWAL_DISABLED in case of problems with the billing account or reported domain abuse. In such cases, check the issues field on the Registration. After the problem is resolved, the renewalMethod is automatically updated to preferredRenewalMethod in a few hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#preferred_renewal_method GoogleClouddomainsRegistration#preferred_renewal_method}
-        :param transfer_lock_state: Controls whether the domain can be transferred to another registrar. Values are UNLOCKED or LOCKED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#transfer_lock_state GoogleClouddomainsRegistration#transfer_lock_state}
+        :param preferred_renewal_method: The desired renewal method for this Registration. The actual renewalMethod is automatically updated to reflect this choice. If unset or equal to RENEWAL_METHOD_UNSPECIFIED, the actual renewalMethod is treated as if it were set to AUTOMATIC_RENEWAL. You cannot use RENEWAL_DISABLED during resource creation, and you can update the renewal status only when the Registration resource has state ACTIVE or SUSPENDED. When preferredRenewalMethod is set to AUTOMATIC_RENEWAL, the actual renewalMethod can be set to RENEWAL_DISABLED in case of problems with the billing account or reported domain abuse. In such cases, check the issues field on the Registration. After the problem is resolved, the renewalMethod is automatically updated to preferredRenewalMethod in a few hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#preferred_renewal_method GoogleClouddomainsRegistration#preferred_renewal_method}
+        :param transfer_lock_state: Controls whether the domain can be transferred to another registrar. Values are UNLOCKED or LOCKED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#transfer_lock_state GoogleClouddomainsRegistration#transfer_lock_state}
         '''
         value = GoogleClouddomainsRegistrationManagementSettings(
             preferred_renewal_method=preferred_renewal_method,
@@ -215,9 +215,9 @@ class GoogleClouddomainsRegistration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#create GoogleClouddomainsRegistration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#delete GoogleClouddomainsRegistration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#update GoogleClouddomainsRegistration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#create GoogleClouddomainsRegistration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#delete GoogleClouddomainsRegistration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#update GoogleClouddomainsRegistration#update}.
         '''
         value = GoogleClouddomainsRegistrationTimeouts(
             create=create, delete=delete, update=update
@@ -233,8 +233,8 @@ class GoogleClouddomainsRegistration(
         units: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param currency_code: The three-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#currency_code GoogleClouddomainsRegistration#currency_code}
-        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#units GoogleClouddomainsRegistration#units}
+        :param currency_code: The three-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#currency_code GoogleClouddomainsRegistration#currency_code}
+        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#units GoogleClouddomainsRegistration#units}
         '''
         value = GoogleClouddomainsRegistrationYearlyPrice(
             currency_code=currency_code, units=units
@@ -579,18 +579,18 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param contact_settings: contact_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#contact_settings GoogleClouddomainsRegistration#contact_settings}
-        :param domain_name: Required. The domain name. Unicode domain names must be expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#domain_name GoogleClouddomainsRegistration#domain_name}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#location GoogleClouddomainsRegistration#location}
-        :param yearly_price: yearly_price block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#yearly_price GoogleClouddomainsRegistration#yearly_price}
-        :param contact_notices: The list of contact notices that the caller acknowledges. Possible value is PUBLIC_CONTACT_DATA_ACKNOWLEDGEMENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#contact_notices GoogleClouddomainsRegistration#contact_notices}
-        :param dns_settings: dns_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#dns_settings GoogleClouddomainsRegistration#dns_settings}
-        :param domain_notices: The list of domain notices that you acknowledge. Possible value is HSTS_PRELOADED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#domain_notices GoogleClouddomainsRegistration#domain_notices}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#id GoogleClouddomainsRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with the Registration. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#labels GoogleClouddomainsRegistration#labels}
-        :param management_settings: management_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#management_settings GoogleClouddomainsRegistration#management_settings}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#project GoogleClouddomainsRegistration#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#timeouts GoogleClouddomainsRegistration#timeouts}
+        :param contact_settings: contact_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#contact_settings GoogleClouddomainsRegistration#contact_settings}
+        :param domain_name: Required. The domain name. Unicode domain names must be expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#domain_name GoogleClouddomainsRegistration#domain_name}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#location GoogleClouddomainsRegistration#location}
+        :param yearly_price: yearly_price block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#yearly_price GoogleClouddomainsRegistration#yearly_price}
+        :param contact_notices: The list of contact notices that the caller acknowledges. Possible value is PUBLIC_CONTACT_DATA_ACKNOWLEDGEMENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#contact_notices GoogleClouddomainsRegistration#contact_notices}
+        :param dns_settings: dns_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#dns_settings GoogleClouddomainsRegistration#dns_settings}
+        :param domain_notices: The list of domain notices that you acknowledge. Possible value is HSTS_PRELOADED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#domain_notices GoogleClouddomainsRegistration#domain_notices}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#id GoogleClouddomainsRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with the Registration. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#labels GoogleClouddomainsRegistration#labels}
+        :param management_settings: management_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#management_settings GoogleClouddomainsRegistration#management_settings}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#project GoogleClouddomainsRegistration#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#timeouts GoogleClouddomainsRegistration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -730,7 +730,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def contact_settings(self) -> "GoogleClouddomainsRegistrationContactSettings":
         '''contact_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#contact_settings GoogleClouddomainsRegistration#contact_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#contact_settings GoogleClouddomainsRegistration#contact_settings}
         '''
         result = self._values.get("contact_settings")
         assert result is not None, "Required property 'contact_settings' is missing"
@@ -740,7 +740,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def domain_name(self) -> builtins.str:
         '''Required. The domain name. Unicode domain names must be expressed in Punycode format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#domain_name GoogleClouddomainsRegistration#domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#domain_name GoogleClouddomainsRegistration#domain_name}
         '''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
@@ -750,7 +750,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#location GoogleClouddomainsRegistration#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#location GoogleClouddomainsRegistration#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -760,7 +760,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def yearly_price(self) -> "GoogleClouddomainsRegistrationYearlyPrice":
         '''yearly_price block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#yearly_price GoogleClouddomainsRegistration#yearly_price}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#yearly_price GoogleClouddomainsRegistration#yearly_price}
         '''
         result = self._values.get("yearly_price")
         assert result is not None, "Required property 'yearly_price' is missing"
@@ -770,7 +770,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def contact_notices(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of contact notices that the caller acknowledges. Possible value is PUBLIC_CONTACT_DATA_ACKNOWLEDGEMENT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#contact_notices GoogleClouddomainsRegistration#contact_notices}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#contact_notices GoogleClouddomainsRegistration#contact_notices}
         '''
         result = self._values.get("contact_notices")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -781,7 +781,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["GoogleClouddomainsRegistrationDnsSettings"]:
         '''dns_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#dns_settings GoogleClouddomainsRegistration#dns_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#dns_settings GoogleClouddomainsRegistration#dns_settings}
         '''
         result = self._values.get("dns_settings")
         return typing.cast(typing.Optional["GoogleClouddomainsRegistrationDnsSettings"], result)
@@ -790,14 +790,14 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def domain_notices(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of domain notices that you acknowledge. Possible value is HSTS_PRELOADED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#domain_notices GoogleClouddomainsRegistration#domain_notices}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#domain_notices GoogleClouddomainsRegistration#domain_notices}
         '''
         result = self._values.get("domain_notices")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#id GoogleClouddomainsRegistration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#id GoogleClouddomainsRegistration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -812,7 +812,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#labels GoogleClouddomainsRegistration#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#labels GoogleClouddomainsRegistration#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -823,14 +823,14 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["GoogleClouddomainsRegistrationManagementSettings"]:
         '''management_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#management_settings GoogleClouddomainsRegistration#management_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#management_settings GoogleClouddomainsRegistration#management_settings}
         '''
         result = self._values.get("management_settings")
         return typing.cast(typing.Optional["GoogleClouddomainsRegistrationManagementSettings"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#project GoogleClouddomainsRegistration#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#project GoogleClouddomainsRegistration#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -838,7 +838,7 @@ class GoogleClouddomainsRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleClouddomainsRegistrationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#timeouts GoogleClouddomainsRegistration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#timeouts GoogleClouddomainsRegistration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleClouddomainsRegistrationTimeouts"], result)
@@ -875,10 +875,10 @@ class GoogleClouddomainsRegistrationContactSettings:
         technical_contact: typing.Union["GoogleClouddomainsRegistrationContactSettingsTechnicalContact", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#admin_contact GoogleClouddomainsRegistration#admin_contact}
-        :param privacy: Required. Privacy setting for the contacts associated with the Registration. Values are PUBLIC_CONTACT_DATA, PRIVATE_CONTACT_DATA, and REDACTED_CONTACT_DATA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#privacy GoogleClouddomainsRegistration#privacy}
-        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#registrant_contact GoogleClouddomainsRegistration#registrant_contact}
-        :param technical_contact: technical_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#technical_contact GoogleClouddomainsRegistration#technical_contact}
+        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#admin_contact GoogleClouddomainsRegistration#admin_contact}
+        :param privacy: Required. Privacy setting for the contacts associated with the Registration. Values are PUBLIC_CONTACT_DATA, PRIVATE_CONTACT_DATA, and REDACTED_CONTACT_DATA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#privacy GoogleClouddomainsRegistration#privacy}
+        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#registrant_contact GoogleClouddomainsRegistration#registrant_contact}
+        :param technical_contact: technical_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#technical_contact GoogleClouddomainsRegistration#technical_contact}
         '''
         if isinstance(admin_contact, dict):
             admin_contact = GoogleClouddomainsRegistrationContactSettingsAdminContact(**admin_contact)
@@ -905,7 +905,7 @@ class GoogleClouddomainsRegistrationContactSettings:
     ) -> "GoogleClouddomainsRegistrationContactSettingsAdminContact":
         '''admin_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#admin_contact GoogleClouddomainsRegistration#admin_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#admin_contact GoogleClouddomainsRegistration#admin_contact}
         '''
         result = self._values.get("admin_contact")
         assert result is not None, "Required property 'admin_contact' is missing"
@@ -915,7 +915,7 @@ class GoogleClouddomainsRegistrationContactSettings:
     def privacy(self) -> builtins.str:
         '''Required. Privacy setting for the contacts associated with the Registration. Values are PUBLIC_CONTACT_DATA, PRIVATE_CONTACT_DATA, and REDACTED_CONTACT_DATA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#privacy GoogleClouddomainsRegistration#privacy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#privacy GoogleClouddomainsRegistration#privacy}
         '''
         result = self._values.get("privacy")
         assert result is not None, "Required property 'privacy' is missing"
@@ -927,7 +927,7 @@ class GoogleClouddomainsRegistrationContactSettings:
     ) -> "GoogleClouddomainsRegistrationContactSettingsRegistrantContact":
         '''registrant_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#registrant_contact GoogleClouddomainsRegistration#registrant_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#registrant_contact GoogleClouddomainsRegistration#registrant_contact}
         '''
         result = self._values.get("registrant_contact")
         assert result is not None, "Required property 'registrant_contact' is missing"
@@ -939,7 +939,7 @@ class GoogleClouddomainsRegistrationContactSettings:
     ) -> "GoogleClouddomainsRegistrationContactSettingsTechnicalContact":
         '''technical_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#technical_contact GoogleClouddomainsRegistration#technical_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#technical_contact GoogleClouddomainsRegistration#technical_contact}
         '''
         result = self._values.get("technical_contact")
         assert result is not None, "Required property 'technical_contact' is missing"
@@ -977,10 +977,10 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContact:
         fax_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
-        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
-        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
-        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         if isinstance(postal_address, dict):
             postal_address = GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress(**postal_address)
@@ -1002,7 +1002,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContact:
     def email(self) -> builtins.str:
         '''Required. Email address of the contact.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -1012,7 +1012,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContact:
     def phone_number(self) -> builtins.str:
         '''Required. Phone number of the contact in international format. For example, "+1-800-555-0123".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
         '''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
@@ -1024,7 +1024,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContact:
     ) -> "GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress":
         '''postal_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
         '''
         result = self._values.get("postal_address")
         assert result is not None, "Required property 'postal_address' is missing"
@@ -1034,7 +1034,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContact:
     def fax_number(self) -> typing.Optional[builtins.str]:
         '''Fax number of the contact in international format. For example, "+1-800-555-0123".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         result = self._values.get("fax_number")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1084,13 +1084,13 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactOutputReference(
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
-        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
-        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
-        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
-        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
-        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
-        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         value = GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress(
             region_code=region_code,
@@ -1217,13 +1217,13 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
-        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
-        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
-        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
-        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
-        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
-        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dc11b889b846ca5538fcb8c2f6fd9438d7b8688da95e1cc3854d096f3bd28c1)
@@ -1258,7 +1258,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         ensure the value is correct. See https://cldr.unicode.org/ and
         https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
         '''
         result = self._values.get("region_code")
         assert result is not None, "Required property 'region_code' is missing"
@@ -1274,7 +1274,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way,
         the most specific line of an address can be selected based on the language.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
         '''
         result = self._values.get("address_lines")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1288,7 +1288,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland
         this should be left unpopulated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
         '''
         result = self._values.get("administrative_area")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1300,7 +1300,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         Examples: US city, IT comune, UK post town. In regions of the world
         where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
         '''
         result = self._values.get("locality")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1309,7 +1309,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
     def organization(self) -> typing.Optional[builtins.str]:
         '''The name of the organization at the address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
         '''
         result = self._values.get("organization")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1321,7 +1321,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         Not all countries use or require postal codes to be present, but where they are used,
         they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
         '''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1333,7 +1333,7 @@ class GoogleClouddomainsRegistrationContactSettingsAdminContactPostalAddress:
         This field may, under certain circumstances, contain multiline information. For example,
         it might contain "care of" information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         result = self._values.get("recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1561,10 +1561,10 @@ class GoogleClouddomainsRegistrationContactSettingsOutputReference(
         fax_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
-        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
-        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
-        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         value = GoogleClouddomainsRegistrationContactSettingsAdminContact(
             email=email,
@@ -1585,10 +1585,10 @@ class GoogleClouddomainsRegistrationContactSettingsOutputReference(
         fax_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
-        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
-        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
-        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         value = GoogleClouddomainsRegistrationContactSettingsRegistrantContact(
             email=email,
@@ -1609,10 +1609,10 @@ class GoogleClouddomainsRegistrationContactSettingsOutputReference(
         fax_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
-        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
-        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
-        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         value = GoogleClouddomainsRegistrationContactSettingsTechnicalContact(
             email=email,
@@ -1720,10 +1720,10 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContact:
         fax_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
-        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
-        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
-        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         if isinstance(postal_address, dict):
             postal_address = GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddress(**postal_address)
@@ -1745,7 +1745,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContact:
     def email(self) -> builtins.str:
         '''Required. Email address of the contact.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -1755,7 +1755,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContact:
     def phone_number(self) -> builtins.str:
         '''Required. Phone number of the contact in international format. For example, "+1-800-555-0123".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
         '''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
@@ -1767,7 +1767,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContact:
     ) -> "GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddress":
         '''postal_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
         '''
         result = self._values.get("postal_address")
         assert result is not None, "Required property 'postal_address' is missing"
@@ -1777,7 +1777,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContact:
     def fax_number(self) -> typing.Optional[builtins.str]:
         '''Fax number of the contact in international format. For example, "+1-800-555-0123".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         result = self._values.get("fax_number")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1827,13 +1827,13 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactOutputRefere
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
-        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
-        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
-        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
-        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
-        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
-        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         value = GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddress(
             region_code=region_code,
@@ -1960,13 +1960,13 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
-        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
-        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
-        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
-        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
-        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
-        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff8c9132fefd2b9023ab95ab9587173b269968ff31b3f715f1628c1916328726)
@@ -2001,7 +2001,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         ensure the value is correct. See https://cldr.unicode.org/ and
         https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
         '''
         result = self._values.get("region_code")
         assert result is not None, "Required property 'region_code' is missing"
@@ -2017,7 +2017,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way,
         the most specific line of an address can be selected based on the language.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
         '''
         result = self._values.get("address_lines")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2031,7 +2031,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland
         this should be left unpopulated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
         '''
         result = self._values.get("administrative_area")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2043,7 +2043,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         Examples: US city, IT comune, UK post town. In regions of the world
         where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
         '''
         result = self._values.get("locality")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2052,7 +2052,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
     def organization(self) -> typing.Optional[builtins.str]:
         '''The name of the organization at the address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
         '''
         result = self._values.get("organization")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2064,7 +2064,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         Not all countries use or require postal codes to be present, but where they are used,
         they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
         '''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2076,7 +2076,7 @@ class GoogleClouddomainsRegistrationContactSettingsRegistrantContactPostalAddres
         This field may, under certain circumstances, contain multiline information. For example,
         it might contain "care of" information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         result = self._values.get("recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2294,10 +2294,10 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContact:
         fax_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
-        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
-        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
-        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        :param email: Required. Email address of the contact. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        :param phone_number: Required. Phone number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        :param postal_address: postal_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        :param fax_number: Fax number of the contact in international format. For example, "+1-800-555-0123". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         if isinstance(postal_address, dict):
             postal_address = GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress(**postal_address)
@@ -2319,7 +2319,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContact:
     def email(self) -> builtins.str:
         '''Required. Email address of the contact.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#email GoogleClouddomainsRegistration#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -2329,7 +2329,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContact:
     def phone_number(self) -> builtins.str:
         '''Required. Phone number of the contact in international format. For example, "+1-800-555-0123".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#phone_number GoogleClouddomainsRegistration#phone_number}
         '''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
@@ -2341,7 +2341,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContact:
     ) -> "GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress":
         '''postal_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_address GoogleClouddomainsRegistration#postal_address}
         '''
         result = self._values.get("postal_address")
         assert result is not None, "Required property 'postal_address' is missing"
@@ -2351,7 +2351,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContact:
     def fax_number(self) -> typing.Optional[builtins.str]:
         '''Fax number of the contact in international format. For example, "+1-800-555-0123".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#fax_number GoogleClouddomainsRegistration#fax_number}
         '''
         result = self._values.get("fax_number")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2401,13 +2401,13 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactOutputReferen
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
-        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
-        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
-        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
-        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
-        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
-        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         value = GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress(
             region_code=region_code,
@@ -2534,13 +2534,13 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
-        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
-        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
-        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
-        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
-        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
-        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        :param region_code: Required. CLDR region code of the country/region of the address. This is never inferred and it is up to the user to ensure the value is correct. See https://cldr.unicode.org/ and https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        :param address_lines: Unstructured address lines describing the lower levels of an address. Because values in addressLines do not have type information and may sometimes contain multiple values in a single field (e.g. "Austin, TX"), it is important that the line order is clear. The order of address lines should be "envelope order" for the country/region of the address. In places where this can vary (e.g. Japan), address_language is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way, the most specific line of an address can be selected based on the language. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        :param administrative_area: Highest administrative subdivision which is used for postal addresses of a country or region. For example, this can be a state, a province, an oblast, or a prefecture. Specifically, for Spain this is the province and not the autonomous community (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland this should be left unpopulated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        :param locality: Generally refers to the city/town portion of the address. Examples: US city, IT comune, UK post town. In regions of the world where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        :param organization: The name of the organization at the address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        :param postal_code: Postal code of the address. Not all countries use or require postal codes to be present, but where they are used, they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        :param recipients: The recipient at the address. This field may, under certain circumstances, contain multiline information. For example, it might contain "care of" information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__325023bf4589db33d94283999e628b345ef214691f5fb0fade3ad6956bb2bf4c)
@@ -2575,7 +2575,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         ensure the value is correct. See https://cldr.unicode.org/ and
         https://www.unicode.org/cldr/charts/30/supplemental/territory_information.html for details. Example: "CH" for Switzerland.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#region_code GoogleClouddomainsRegistration#region_code}
         '''
         result = self._values.get("region_code")
         assert result is not None, "Required property 'region_code' is missing"
@@ -2591,7 +2591,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         is used to make it explicit (e.g. "ja" for large-to-small ordering and "ja-Latn" or "en" for small-to-large). This way,
         the most specific line of an address can be selected based on the language.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#address_lines GoogleClouddomainsRegistration#address_lines}
         '''
         result = self._values.get("address_lines")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2605,7 +2605,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         (e.g. "Barcelona" and not "Catalonia"). Many countries don't use an administrative area in postal addresses. E.g. in Switzerland
         this should be left unpopulated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#administrative_area GoogleClouddomainsRegistration#administrative_area}
         '''
         result = self._values.get("administrative_area")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2617,7 +2617,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         Examples: US city, IT comune, UK post town. In regions of the world
         where localities are not well defined or do not fit into this structure well, leave locality empty and use addressLines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#locality GoogleClouddomainsRegistration#locality}
         '''
         result = self._values.get("locality")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2626,7 +2626,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
     def organization(self) -> typing.Optional[builtins.str]:
         '''The name of the organization at the address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#organization GoogleClouddomainsRegistration#organization}
         '''
         result = self._values.get("organization")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2638,7 +2638,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         Not all countries use or require postal codes to be present, but where they are used,
         they may trigger additional validation with other parts of the address (e.g. state/zip validation in the U.S.A.).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#postal_code GoogleClouddomainsRegistration#postal_code}
         '''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2650,7 +2650,7 @@ class GoogleClouddomainsRegistrationContactSettingsTechnicalContactPostalAddress
         This field may, under certain circumstances, contain multiline information. For example,
         it might contain "care of" information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#recipients GoogleClouddomainsRegistration#recipients}
         '''
         result = self._values.get("recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2861,8 +2861,8 @@ class GoogleClouddomainsRegistrationDnsSettings:
         glue_records: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleClouddomainsRegistrationDnsSettingsGlueRecords", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_dns: custom_dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#custom_dns GoogleClouddomainsRegistration#custom_dns}
-        :param glue_records: glue_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#glue_records GoogleClouddomainsRegistration#glue_records}
+        :param custom_dns: custom_dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#custom_dns GoogleClouddomainsRegistration#custom_dns}
+        :param glue_records: glue_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#glue_records GoogleClouddomainsRegistration#glue_records}
         '''
         if isinstance(custom_dns, dict):
             custom_dns = GoogleClouddomainsRegistrationDnsSettingsCustomDns(**custom_dns)
@@ -2882,7 +2882,7 @@ class GoogleClouddomainsRegistrationDnsSettings:
     ) -> typing.Optional["GoogleClouddomainsRegistrationDnsSettingsCustomDns"]:
         '''custom_dns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#custom_dns GoogleClouddomainsRegistration#custom_dns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#custom_dns GoogleClouddomainsRegistration#custom_dns}
         '''
         result = self._values.get("custom_dns")
         return typing.cast(typing.Optional["GoogleClouddomainsRegistrationDnsSettingsCustomDns"], result)
@@ -2893,7 +2893,7 @@ class GoogleClouddomainsRegistrationDnsSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleClouddomainsRegistrationDnsSettingsGlueRecords"]]]:
         '''glue_records block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#glue_records GoogleClouddomainsRegistration#glue_records}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#glue_records GoogleClouddomainsRegistration#glue_records}
         '''
         result = self._values.get("glue_records")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleClouddomainsRegistrationDnsSettingsGlueRecords"]]], result)
@@ -2923,8 +2923,8 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDns:
         ds_records: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name_servers: Required. A list of name servers that store the DNS zone for this domain. Each name server is a domain name, with Unicode domain names expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#name_servers GoogleClouddomainsRegistration#name_servers}
-        :param ds_records: ds_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ds_records GoogleClouddomainsRegistration#ds_records}
+        :param name_servers: Required. A list of name servers that store the DNS zone for this domain. Each name server is a domain name, with Unicode domain names expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#name_servers GoogleClouddomainsRegistration#name_servers}
+        :param ds_records: ds_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ds_records GoogleClouddomainsRegistration#ds_records}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95e52ba66d03eb1bc38f3fe0d2bbc9736b0173ee3a318cb88a317a0161f37a23)
@@ -2943,7 +2943,7 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDns:
         A list of name servers that store the DNS zone for this domain. Each name server is a domain
         name, with Unicode domain names expressed in Punycode format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#name_servers GoogleClouddomainsRegistration#name_servers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#name_servers GoogleClouddomainsRegistration#name_servers}
         '''
         result = self._values.get("name_servers")
         assert result is not None, "Required property 'name_servers' is missing"
@@ -2955,7 +2955,7 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDns:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords"]]]:
         '''ds_records block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ds_records GoogleClouddomainsRegistration#ds_records}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ds_records GoogleClouddomainsRegistration#ds_records}
         '''
         result = self._values.get("ds_records")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords"]]], result)
@@ -2992,10 +2992,10 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords:
         key_tag: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param algorithm: The algorithm used to generate the referenced DNSKEY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#algorithm GoogleClouddomainsRegistration#algorithm}
-        :param digest: The digest generated from the referenced DNSKEY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#digest GoogleClouddomainsRegistration#digest}
-        :param digest_type: The hash function used to generate the digest of the referenced DNSKEY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#digest_type GoogleClouddomainsRegistration#digest_type}
-        :param key_tag: The key tag of the record. Must be set in range 0 -- 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#key_tag GoogleClouddomainsRegistration#key_tag}
+        :param algorithm: The algorithm used to generate the referenced DNSKEY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#algorithm GoogleClouddomainsRegistration#algorithm}
+        :param digest: The digest generated from the referenced DNSKEY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#digest GoogleClouddomainsRegistration#digest}
+        :param digest_type: The hash function used to generate the digest of the referenced DNSKEY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#digest_type GoogleClouddomainsRegistration#digest_type}
+        :param key_tag: The key tag of the record. Must be set in range 0 -- 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#key_tag GoogleClouddomainsRegistration#key_tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e006b3a3cc1341e780b441b6dd8b43251553a485eb262da388fcc84c284b4aa9)
@@ -3017,7 +3017,7 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords:
     def algorithm(self) -> typing.Optional[builtins.str]:
         '''The algorithm used to generate the referenced DNSKEY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#algorithm GoogleClouddomainsRegistration#algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#algorithm GoogleClouddomainsRegistration#algorithm}
         '''
         result = self._values.get("algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3026,7 +3026,7 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords:
     def digest(self) -> typing.Optional[builtins.str]:
         '''The digest generated from the referenced DNSKEY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#digest GoogleClouddomainsRegistration#digest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#digest GoogleClouddomainsRegistration#digest}
         '''
         result = self._values.get("digest")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3035,7 +3035,7 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords:
     def digest_type(self) -> typing.Optional[builtins.str]:
         '''The hash function used to generate the digest of the referenced DNSKEY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#digest_type GoogleClouddomainsRegistration#digest_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#digest_type GoogleClouddomainsRegistration#digest_type}
         '''
         result = self._values.get("digest_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3044,7 +3044,7 @@ class GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords:
     def key_tag(self) -> typing.Optional[jsii.Number]:
         '''The key tag of the record. Must be set in range 0 -- 65535.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#key_tag GoogleClouddomainsRegistration#key_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#key_tag GoogleClouddomainsRegistration#key_tag}
         '''
         result = self._values.get("key_tag")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3386,9 +3386,9 @@ class GoogleClouddomainsRegistrationDnsSettingsGlueRecords:
         ipv6_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param host_name: Required. Domain name of the host in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#host_name GoogleClouddomainsRegistration#host_name}
-        :param ipv4_addresses: List of IPv4 addresses corresponding to this host in the standard decimal format (e.g. 198.51.100.1). At least one of ipv4_address and ipv6_address must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ipv4_addresses GoogleClouddomainsRegistration#ipv4_addresses}
-        :param ipv6_addresses: List of IPv4 addresses corresponding to this host in the standard decimal format (e.g. 198.51.100.1). At least one of ipv4_address and ipv6_address must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ipv6_addresses GoogleClouddomainsRegistration#ipv6_addresses}
+        :param host_name: Required. Domain name of the host in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#host_name GoogleClouddomainsRegistration#host_name}
+        :param ipv4_addresses: List of IPv4 addresses corresponding to this host in the standard decimal format (e.g. 198.51.100.1). At least one of ipv4_address and ipv6_address must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ipv4_addresses GoogleClouddomainsRegistration#ipv4_addresses}
+        :param ipv6_addresses: List of IPv4 addresses corresponding to this host in the standard decimal format (e.g. 198.51.100.1). At least one of ipv4_address and ipv6_address must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ipv6_addresses GoogleClouddomainsRegistration#ipv6_addresses}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f94cf27fd5e3e4d34b4afbdff3d0ae70ef712df7ccafb1d277ccf0bf16c986a)
@@ -3407,7 +3407,7 @@ class GoogleClouddomainsRegistrationDnsSettingsGlueRecords:
     def host_name(self) -> builtins.str:
         '''Required. Domain name of the host in Punycode format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#host_name GoogleClouddomainsRegistration#host_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#host_name GoogleClouddomainsRegistration#host_name}
         '''
         result = self._values.get("host_name")
         assert result is not None, "Required property 'host_name' is missing"
@@ -3417,7 +3417,7 @@ class GoogleClouddomainsRegistrationDnsSettingsGlueRecords:
     def ipv4_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of IPv4 addresses corresponding to this host in the standard decimal format (e.g. 198.51.100.1). At least one of ipv4_address and ipv6_address must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ipv4_addresses GoogleClouddomainsRegistration#ipv4_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ipv4_addresses GoogleClouddomainsRegistration#ipv4_addresses}
         '''
         result = self._values.get("ipv4_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3426,7 +3426,7 @@ class GoogleClouddomainsRegistrationDnsSettingsGlueRecords:
     def ipv6_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of IPv4 addresses corresponding to this host in the standard decimal format (e.g. 198.51.100.1). At least one of ipv4_address and ipv6_address must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ipv6_addresses GoogleClouddomainsRegistration#ipv6_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ipv6_addresses GoogleClouddomainsRegistration#ipv6_addresses}
         '''
         result = self._values.get("ipv6_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3667,8 +3667,8 @@ class GoogleClouddomainsRegistrationDnsSettingsOutputReference(
         ds_records: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleClouddomainsRegistrationDnsSettingsCustomDnsDsRecords, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name_servers: Required. A list of name servers that store the DNS zone for this domain. Each name server is a domain name, with Unicode domain names expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#name_servers GoogleClouddomainsRegistration#name_servers}
-        :param ds_records: ds_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#ds_records GoogleClouddomainsRegistration#ds_records}
+        :param name_servers: Required. A list of name servers that store the DNS zone for this domain. Each name server is a domain name, with Unicode domain names expressed in Punycode format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#name_servers GoogleClouddomainsRegistration#name_servers}
+        :param ds_records: ds_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#ds_records GoogleClouddomainsRegistration#ds_records}
         '''
         value = GoogleClouddomainsRegistrationDnsSettingsCustomDns(
             name_servers=name_servers, ds_records=ds_records
@@ -3757,8 +3757,8 @@ class GoogleClouddomainsRegistrationManagementSettings:
         transfer_lock_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param preferred_renewal_method: The desired renewal method for this Registration. The actual renewalMethod is automatically updated to reflect this choice. If unset or equal to RENEWAL_METHOD_UNSPECIFIED, the actual renewalMethod is treated as if it were set to AUTOMATIC_RENEWAL. You cannot use RENEWAL_DISABLED during resource creation, and you can update the renewal status only when the Registration resource has state ACTIVE or SUSPENDED. When preferredRenewalMethod is set to AUTOMATIC_RENEWAL, the actual renewalMethod can be set to RENEWAL_DISABLED in case of problems with the billing account or reported domain abuse. In such cases, check the issues field on the Registration. After the problem is resolved, the renewalMethod is automatically updated to preferredRenewalMethod in a few hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#preferred_renewal_method GoogleClouddomainsRegistration#preferred_renewal_method}
-        :param transfer_lock_state: Controls whether the domain can be transferred to another registrar. Values are UNLOCKED or LOCKED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#transfer_lock_state GoogleClouddomainsRegistration#transfer_lock_state}
+        :param preferred_renewal_method: The desired renewal method for this Registration. The actual renewalMethod is automatically updated to reflect this choice. If unset or equal to RENEWAL_METHOD_UNSPECIFIED, the actual renewalMethod is treated as if it were set to AUTOMATIC_RENEWAL. You cannot use RENEWAL_DISABLED during resource creation, and you can update the renewal status only when the Registration resource has state ACTIVE or SUSPENDED. When preferredRenewalMethod is set to AUTOMATIC_RENEWAL, the actual renewalMethod can be set to RENEWAL_DISABLED in case of problems with the billing account or reported domain abuse. In such cases, check the issues field on the Registration. After the problem is resolved, the renewalMethod is automatically updated to preferredRenewalMethod in a few hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#preferred_renewal_method GoogleClouddomainsRegistration#preferred_renewal_method}
+        :param transfer_lock_state: Controls whether the domain can be transferred to another registrar. Values are UNLOCKED or LOCKED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#transfer_lock_state GoogleClouddomainsRegistration#transfer_lock_state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3706ab355436176639c47f9be8bbcd3600789249a06129bff44c601110b1b9b3)
@@ -3783,7 +3783,7 @@ class GoogleClouddomainsRegistrationManagementSettings:
         problems with the billing account or reported domain abuse. In such cases, check the issues field on the Registration. After
         the problem is resolved, the renewalMethod is automatically updated to preferredRenewalMethod in a few hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#preferred_renewal_method GoogleClouddomainsRegistration#preferred_renewal_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#preferred_renewal_method GoogleClouddomainsRegistration#preferred_renewal_method}
         '''
         result = self._values.get("preferred_renewal_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3792,7 +3792,7 @@ class GoogleClouddomainsRegistrationManagementSettings:
     def transfer_lock_state(self) -> typing.Optional[builtins.str]:
         '''Controls whether the domain can be transferred to another registrar. Values are UNLOCKED or LOCKED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#transfer_lock_state GoogleClouddomainsRegistration#transfer_lock_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#transfer_lock_state GoogleClouddomainsRegistration#transfer_lock_state}
         '''
         result = self._values.get("transfer_lock_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3908,9 +3908,9 @@ class GoogleClouddomainsRegistrationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#create GoogleClouddomainsRegistration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#delete GoogleClouddomainsRegistration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#update GoogleClouddomainsRegistration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#create GoogleClouddomainsRegistration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#delete GoogleClouddomainsRegistration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#update GoogleClouddomainsRegistration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75f26b4a065e946e62b61ffce5a28d50c6c55ac48fcf96d2ce3c47a22f4d83ad)
@@ -3927,19 +3927,19 @@ class GoogleClouddomainsRegistrationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#create GoogleClouddomainsRegistration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#create GoogleClouddomainsRegistration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#delete GoogleClouddomainsRegistration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#delete GoogleClouddomainsRegistration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#update GoogleClouddomainsRegistration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#update GoogleClouddomainsRegistration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4069,8 +4069,8 @@ class GoogleClouddomainsRegistrationYearlyPrice:
         units: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param currency_code: The three-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#currency_code GoogleClouddomainsRegistration#currency_code}
-        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#units GoogleClouddomainsRegistration#units}
+        :param currency_code: The three-letter currency code defined in ISO 4217. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#currency_code GoogleClouddomainsRegistration#currency_code}
+        :param units: The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#units GoogleClouddomainsRegistration#units}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f1eeede8a4ad51957c622dd685219ad7e8cba832043429e7a45e7112db6656a)
@@ -4086,7 +4086,7 @@ class GoogleClouddomainsRegistrationYearlyPrice:
     def currency_code(self) -> typing.Optional[builtins.str]:
         '''The three-letter currency code defined in ISO 4217.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#currency_code GoogleClouddomainsRegistration#currency_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#currency_code GoogleClouddomainsRegistration#currency_code}
         '''
         result = self._values.get("currency_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4095,7 +4095,7 @@ class GoogleClouddomainsRegistrationYearlyPrice:
     def units(self) -> typing.Optional[builtins.str]:
         '''The whole units of the amount. For example if currencyCode is "USD", then 1 unit is one US dollar.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_clouddomains_registration#units GoogleClouddomainsRegistration#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_clouddomains_registration#units GoogleClouddomainsRegistration#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[builtins.str], result)

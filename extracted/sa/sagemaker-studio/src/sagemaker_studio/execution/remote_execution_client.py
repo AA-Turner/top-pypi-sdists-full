@@ -460,15 +460,22 @@ class RemoteExecutionClient(ExecutionClient):
         local_input_file_path = request.input_config.get("notebook_config", {}).get(
             "input_path", ""
         )
+        is_git_project = RemoteExecutionUtils.is_git_project(
+            self.default_tooling_environment.get("provisionedResources")
+        )
         input_s3_location = RemoteExecutionUtils.pack_s3_path_for_input_file(
-            project_s3_path, local_input_file_path
+            project_s3_path,
+            local_input_file_path,
+            is_git_project,
         )
         local_full_input_file_path = RemoteExecutionUtils.pack_full_path_for_input_file(
             local_input_file_path
         )
 
         output_s3_location = RemoteExecutionUtils.pack_s3_path_for_output_file(
-            project_s3_path, local_input_file_path
+            project_s3_path,
+            local_input_file_path,
+            is_git_project,
         )
 
         input = ExecutionUtils.unpack_path_file(input_s3_location)

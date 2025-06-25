@@ -1,7 +1,7 @@
 r'''
 # `newrelic_monitor_downtime`
 
-Refer to the Terraform Registry for docs: [`newrelic_monitor_downtime`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime).
+Refer to the Terraform Registry for docs: [`newrelic_monitor_downtime`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitorDowntime(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.monitorDowntime.MonitorDowntime",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime newrelic_monitor_downtime}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime newrelic_monitor_downtime}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class MonitorDowntime(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime newrelic_monitor_downtime} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime newrelic_monitor_downtime} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param end_time: A datetime stamp signifying the end of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#end_time MonitorDowntime#end_time}
-        :param mode: An identifier of the type of Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#mode MonitorDowntime#mode}
-        :param name: A name to identify the Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#name MonitorDowntime#name}
-        :param start_time: A datetime stamp signifying the start of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#start_time MonitorDowntime#start_time}
-        :param time_zone: The timezone that applies to the Monitor Downtime schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#time_zone MonitorDowntime#time_zone}
-        :param account_id: The ID of the New Relic account in which the Monitor Downtime shall be created. Defaults to the ``account_id`` in the provider{} configuration if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#account_id MonitorDowntime#account_id}
-        :param end_repeat: end_repeat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#end_repeat MonitorDowntime#end_repeat}
-        :param frequency: frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#frequency MonitorDowntime#frequency}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#id MonitorDowntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintenance_days: A list of maintenance days to be included with the created weekly Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#maintenance_days MonitorDowntime#maintenance_days}
-        :param monitor_guids: A list of GUIDs of monitors, to which the created Monitor Downtime shall be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#monitor_guids MonitorDowntime#monitor_guids}
+        :param end_time: A datetime stamp signifying the end of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#end_time MonitorDowntime#end_time}
+        :param mode: An identifier of the type of Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#mode MonitorDowntime#mode}
+        :param name: A name to identify the Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#name MonitorDowntime#name}
+        :param start_time: A datetime stamp signifying the start of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#start_time MonitorDowntime#start_time}
+        :param time_zone: The timezone that applies to the Monitor Downtime schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#time_zone MonitorDowntime#time_zone}
+        :param account_id: The ID of the New Relic account in which the Monitor Downtime shall be created. Defaults to the ``account_id`` in the provider{} configuration if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#account_id MonitorDowntime#account_id}
+        :param end_repeat: end_repeat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#end_repeat MonitorDowntime#end_repeat}
+        :param frequency: frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#frequency MonitorDowntime#frequency}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#id MonitorDowntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintenance_days: A list of maintenance days to be included with the created weekly Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#maintenance_days MonitorDowntime#maintenance_days}
+        :param monitor_guids: A list of GUIDs of monitors, to which the created Monitor Downtime shall be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#monitor_guids MonitorDowntime#monitor_guids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class MonitorDowntime(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitorDowntime to import.
-        :param import_from_id: The id of the existing MonitorDowntime that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitorDowntime that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitorDowntime to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class MonitorDowntime(
         on_repeat: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param on_date: A date, on which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#on_date MonitorDowntime#on_date}
-        :param on_repeat: Number of repetitions after which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#on_repeat MonitorDowntime#on_repeat}
+        :param on_date: A date, on which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#on_date MonitorDowntime#on_date}
+        :param on_repeat: Number of repetitions after which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#on_repeat MonitorDowntime#on_repeat}
         '''
         value = MonitorDowntimeEndRepeat(on_date=on_date, on_repeat=on_repeat)
 
@@ -167,8 +167,8 @@ class MonitorDowntime(
         days_of_week: typing.Optional[typing.Union["MonitorDowntimeFrequencyDaysOfWeek", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param days_of_month: A numerical list of days of a month on which the Monitor Downtime is scheduled to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#days_of_month MonitorDowntime#days_of_month}
-        :param days_of_week: days_of_week block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#days_of_week MonitorDowntime#days_of_week}
+        :param days_of_month: A numerical list of days of a month on which the Monitor Downtime is scheduled to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#days_of_month MonitorDowntime#days_of_month}
+        :param days_of_week: days_of_week block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#days_of_week MonitorDowntime#days_of_week}
         '''
         value = MonitorDowntimeFrequency(
             days_of_month=days_of_month, days_of_week=days_of_week
@@ -442,17 +442,17 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param end_time: A datetime stamp signifying the end of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#end_time MonitorDowntime#end_time}
-        :param mode: An identifier of the type of Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#mode MonitorDowntime#mode}
-        :param name: A name to identify the Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#name MonitorDowntime#name}
-        :param start_time: A datetime stamp signifying the start of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#start_time MonitorDowntime#start_time}
-        :param time_zone: The timezone that applies to the Monitor Downtime schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#time_zone MonitorDowntime#time_zone}
-        :param account_id: The ID of the New Relic account in which the Monitor Downtime shall be created. Defaults to the ``account_id`` in the provider{} configuration if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#account_id MonitorDowntime#account_id}
-        :param end_repeat: end_repeat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#end_repeat MonitorDowntime#end_repeat}
-        :param frequency: frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#frequency MonitorDowntime#frequency}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#id MonitorDowntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintenance_days: A list of maintenance days to be included with the created weekly Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#maintenance_days MonitorDowntime#maintenance_days}
-        :param monitor_guids: A list of GUIDs of monitors, to which the created Monitor Downtime shall be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#monitor_guids MonitorDowntime#monitor_guids}
+        :param end_time: A datetime stamp signifying the end of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#end_time MonitorDowntime#end_time}
+        :param mode: An identifier of the type of Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#mode MonitorDowntime#mode}
+        :param name: A name to identify the Monitor Downtime to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#name MonitorDowntime#name}
+        :param start_time: A datetime stamp signifying the start of the Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#start_time MonitorDowntime#start_time}
+        :param time_zone: The timezone that applies to the Monitor Downtime schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#time_zone MonitorDowntime#time_zone}
+        :param account_id: The ID of the New Relic account in which the Monitor Downtime shall be created. Defaults to the ``account_id`` in the provider{} configuration if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#account_id MonitorDowntime#account_id}
+        :param end_repeat: end_repeat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#end_repeat MonitorDowntime#end_repeat}
+        :param frequency: frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#frequency MonitorDowntime#frequency}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#id MonitorDowntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintenance_days: A list of maintenance days to be included with the created weekly Monitor Downtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#maintenance_days MonitorDowntime#maintenance_days}
+        :param monitor_guids: A list of GUIDs of monitors, to which the created Monitor Downtime shall be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#monitor_guids MonitorDowntime#monitor_guids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -582,7 +582,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_time(self) -> builtins.str:
         '''A datetime stamp signifying the end of the Monitor Downtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#end_time MonitorDowntime#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#end_time MonitorDowntime#end_time}
         '''
         result = self._values.get("end_time")
         assert result is not None, "Required property 'end_time' is missing"
@@ -592,7 +592,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mode(self) -> builtins.str:
         '''An identifier of the type of Monitor Downtime to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#mode MonitorDowntime#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#mode MonitorDowntime#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -602,7 +602,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''A name to identify the Monitor Downtime to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#name MonitorDowntime#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#name MonitorDowntime#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -612,7 +612,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_time(self) -> builtins.str:
         '''A datetime stamp signifying the start of the Monitor Downtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#start_time MonitorDowntime#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#start_time MonitorDowntime#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -622,7 +622,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def time_zone(self) -> builtins.str:
         '''The timezone that applies to the Monitor Downtime schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#time_zone MonitorDowntime#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#time_zone MonitorDowntime#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -634,7 +634,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to the ``account_id`` in the provider{} configuration if not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#account_id MonitorDowntime#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#account_id MonitorDowntime#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -643,7 +643,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_repeat(self) -> typing.Optional["MonitorDowntimeEndRepeat"]:
         '''end_repeat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#end_repeat MonitorDowntime#end_repeat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#end_repeat MonitorDowntime#end_repeat}
         '''
         result = self._values.get("end_repeat")
         return typing.cast(typing.Optional["MonitorDowntimeEndRepeat"], result)
@@ -652,14 +652,14 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def frequency(self) -> typing.Optional["MonitorDowntimeFrequency"]:
         '''frequency block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#frequency MonitorDowntime#frequency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#frequency MonitorDowntime#frequency}
         '''
         result = self._values.get("frequency")
         return typing.cast(typing.Optional["MonitorDowntimeFrequency"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#id MonitorDowntime#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#id MonitorDowntime#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -671,7 +671,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maintenance_days(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of maintenance days to be included with the created weekly Monitor Downtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#maintenance_days MonitorDowntime#maintenance_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#maintenance_days MonitorDowntime#maintenance_days}
         '''
         result = self._values.get("maintenance_days")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -680,7 +680,7 @@ class MonitorDowntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitor_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of GUIDs of monitors, to which the created Monitor Downtime shall be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#monitor_guids MonitorDowntime#monitor_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#monitor_guids MonitorDowntime#monitor_guids}
         '''
         result = self._values.get("monitor_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -710,8 +710,8 @@ class MonitorDowntimeEndRepeat:
         on_repeat: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param on_date: A date, on which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#on_date MonitorDowntime#on_date}
-        :param on_repeat: Number of repetitions after which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#on_repeat MonitorDowntime#on_repeat}
+        :param on_date: A date, on which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#on_date MonitorDowntime#on_date}
+        :param on_repeat: Number of repetitions after which the Monitor Downtime's repeat cycle is expected to end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#on_repeat MonitorDowntime#on_repeat}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74bd9c03b5fe81f9bf4e6fe656a65c61fbf8f676809b9547f32b91e376dd1d41)
@@ -727,7 +727,7 @@ class MonitorDowntimeEndRepeat:
     def on_date(self) -> typing.Optional[builtins.str]:
         '''A date, on which the Monitor Downtime's repeat cycle is expected to end.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#on_date MonitorDowntime#on_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#on_date MonitorDowntime#on_date}
         '''
         result = self._values.get("on_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -736,7 +736,7 @@ class MonitorDowntimeEndRepeat:
     def on_repeat(self) -> typing.Optional[jsii.Number]:
         '''Number of repetitions after which the Monitor Downtime's repeat cycle is expected to end.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#on_repeat MonitorDowntime#on_repeat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#on_repeat MonitorDowntime#on_repeat}
         '''
         result = self._values.get("on_repeat")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -841,8 +841,8 @@ class MonitorDowntimeFrequency:
         days_of_week: typing.Optional[typing.Union["MonitorDowntimeFrequencyDaysOfWeek", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param days_of_month: A numerical list of days of a month on which the Monitor Downtime is scheduled to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#days_of_month MonitorDowntime#days_of_month}
-        :param days_of_week: days_of_week block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#days_of_week MonitorDowntime#days_of_week}
+        :param days_of_month: A numerical list of days of a month on which the Monitor Downtime is scheduled to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#days_of_month MonitorDowntime#days_of_month}
+        :param days_of_week: days_of_week block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#days_of_week MonitorDowntime#days_of_week}
         '''
         if isinstance(days_of_week, dict):
             days_of_week = MonitorDowntimeFrequencyDaysOfWeek(**days_of_week)
@@ -860,7 +860,7 @@ class MonitorDowntimeFrequency:
     def days_of_month(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''A numerical list of days of a month on which the Monitor Downtime is scheduled to run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#days_of_month MonitorDowntime#days_of_month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#days_of_month MonitorDowntime#days_of_month}
         '''
         result = self._values.get("days_of_month")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -869,7 +869,7 @@ class MonitorDowntimeFrequency:
     def days_of_week(self) -> typing.Optional["MonitorDowntimeFrequencyDaysOfWeek"]:
         '''days_of_week block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#days_of_week MonitorDowntime#days_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#days_of_week MonitorDowntime#days_of_week}
         '''
         result = self._values.get("days_of_week")
         return typing.cast(typing.Optional["MonitorDowntimeFrequencyDaysOfWeek"], result)
@@ -899,8 +899,8 @@ class MonitorDowntimeFrequencyDaysOfWeek:
         week_day: builtins.str,
     ) -> None:
         '''
-        :param ordinal_day_of_month: An occurrence of the day selected within the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#ordinal_day_of_month MonitorDowntime#ordinal_day_of_month}
-        :param week_day: The day of the week on which the Monitor Downtime would run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#week_day MonitorDowntime#week_day}
+        :param ordinal_day_of_month: An occurrence of the day selected within the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#ordinal_day_of_month MonitorDowntime#ordinal_day_of_month}
+        :param week_day: The day of the week on which the Monitor Downtime would run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#week_day MonitorDowntime#week_day}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf7592de7ad276a459285f0b26de794971c22a6f5ca5575a08782186338e2963)
@@ -915,7 +915,7 @@ class MonitorDowntimeFrequencyDaysOfWeek:
     def ordinal_day_of_month(self) -> builtins.str:
         '''An occurrence of the day selected within the month.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#ordinal_day_of_month MonitorDowntime#ordinal_day_of_month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#ordinal_day_of_month MonitorDowntime#ordinal_day_of_month}
         '''
         result = self._values.get("ordinal_day_of_month")
         assert result is not None, "Required property 'ordinal_day_of_month' is missing"
@@ -925,7 +925,7 @@ class MonitorDowntimeFrequencyDaysOfWeek:
     def week_day(self) -> builtins.str:
         '''The day of the week on which the Monitor Downtime would run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#week_day MonitorDowntime#week_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#week_day MonitorDowntime#week_day}
         '''
         result = self._values.get("week_day")
         assert result is not None, "Required property 'week_day' is missing"
@@ -1041,8 +1041,8 @@ class MonitorDowntimeFrequencyOutputReference(
         week_day: builtins.str,
     ) -> None:
         '''
-        :param ordinal_day_of_month: An occurrence of the day selected within the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#ordinal_day_of_month MonitorDowntime#ordinal_day_of_month}
-        :param week_day: The day of the week on which the Monitor Downtime would run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/monitor_downtime#week_day MonitorDowntime#week_day}
+        :param ordinal_day_of_month: An occurrence of the day selected within the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#ordinal_day_of_month MonitorDowntime#ordinal_day_of_month}
+        :param week_day: The day of the week on which the Monitor Downtime would run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/monitor_downtime#week_day MonitorDowntime#week_day}
         '''
         value = MonitorDowntimeFrequencyDaysOfWeek(
             ordinal_day_of_month=ordinal_day_of_month, week_day=week_day

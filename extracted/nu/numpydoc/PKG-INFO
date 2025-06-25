@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: numpydoc
-Version: 1.8.0
+Version: 1.9.0
 Summary: Sphinx extension to support docstrings in Numpy format
 Author-email: Pauli Virtanen and others <pav@iki.fi>
 License: Copyright (C) 2008-2023 Stefan van der Walt <stefan@mentat.za.net>, Pauli Virtanen <pav@iki.fi>
@@ -42,26 +42,14 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Documentation
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: sphinx>=6
-Requires-Dist: tabulate>=0.8.10
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
-Provides-Extra: developer
-Requires-Dist: pre-commit>=3.3; extra == "developer"
-Requires-Dist: tomli; python_version < "3.11" and extra == "developer"
-Provides-Extra: doc
-Requires-Dist: numpy>=1.22; extra == "doc"
-Requires-Dist: matplotlib>=3.5; extra == "doc"
-Requires-Dist: pydata-sphinx-theme>=0.13.3; extra == "doc"
-Requires-Dist: sphinx>=7; extra == "doc"
-Requires-Dist: intersphinx_registry; extra == "doc"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: matplotlib; extra == "test"
+Dynamic: license-file
 
 =====================================
 numpydoc -- Numpy's Sphinx extensions

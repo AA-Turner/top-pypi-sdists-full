@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mdtraj
-Version: 1.10.3
+Version: 1.11.0
 Summary: MDTraj: A modern, open library for the analysis of molecular dynamics trajectories
 Home-page: http://mdtraj.org
 Download-URL: https://github.com/rmcgibbo/mdtraj/releases/latest
@@ -24,13 +24,29 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 License-File: LICENSE
 Requires-Dist: numpy<3,>=1.25.0
 Requires-Dist: scipy
 Requires-Dist: pyparsing
 Requires-Dist: packaging
-Requires-Dist: netCDF4
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-rerunfailures; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Provides-Extra: optional
+Requires-Dist: tables; extra == "optional"
+Requires-Dist: networkx; extra == "optional"
+Requires-Dist: netCDF4; extra == "optional"
+Requires-Dist: pandas; extra == "optional"
+Provides-Extra: all
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-rerunfailures; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: tables; extra == "all"
+Requires-Dist: networkx; extra == "all"
+Requires-Dist: netCDF4; extra == "all"
+Requires-Dist: pandas; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -38,7 +54,9 @@ Dynamic: description
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

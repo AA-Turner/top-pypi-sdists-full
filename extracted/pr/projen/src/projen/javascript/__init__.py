@@ -83,7 +83,7 @@ from ..release import (
     ReleaseProjectOptions as _ReleaseProjectOptions_929803c8,
     ReleaseTrigger as _ReleaseTrigger_e4dc221f,
 )
-from .biome_config import IConfiguration as _IConfiguration_70e9f813
+from .biome_config import BiomeConfiguration as _BiomeConfiguration_dd1a6c83
 
 
 @jsii.enum(jsii_type="projen.javascript.ArrowParens")
@@ -132,7 +132,8 @@ class Biome(
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.javascript.Biome",
 ):
-    '''
+    '''(experimental) Biome component.
+
     :stability: experimental
     '''
 
@@ -140,21 +141,21 @@ class Biome(
         self,
         project: "NodeProject",
         *,
-        biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+        assist: typing.Optional[builtins.bool] = None,
+        biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[builtins.bool] = None,
         linter: typing.Optional[builtins.bool] = None,
         merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
-        organize_imports: typing.Optional[builtins.bool] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param project: -
-        :param biome_config: (experimental) Full Biome configuration. Note that this configuration dictates the final outcome if value is set.
-        :param formatter: (experimental) Enable code formatter. Replaces mainly Prettier Default: false
-        :param linter: (experimental) Enable linting. Replaces Eslint. Default: true
+        :param assist: (experimental) Enable code assist with recommended actions. Default: true
+        :param biome_config: (experimental) Full Biome configuration. This configuration dictates the final outcome if value is set. For example, if the linter is disabled at the top-level, it can be enabled with ``biomeConfig.linter.enabled``.
+        :param formatter: (experimental) Enable code formatter with recommended settings. Default: true
+        :param linter: (experimental) Enable linting with recommended rules. Default: true
         :param merge_arrays_in_configuration: (experimental) Should arrays be merged or overwritten when creating Biome configuration. By default arrays are merged and duplicate values are removed Default: true
-        :param organize_imports: (experimental) Enable import sorting/organizing. Replaces mainly Prettier Default: false
-        :param version: (experimental) Version of Biome to use. Default: "^1"
+        :param version: (experimental) Version of Biome to use. Default: "^2"
 
         :stability: experimental
         '''
@@ -162,11 +163,11 @@ class Biome(
             type_hints = typing.get_type_hints(_typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = BiomeOptions(
+            assist=assist,
             biome_config=biome_config,
             formatter=formatter,
             linter=linter,
             merge_arrays_in_configuration=merge_arrays_in_configuration,
-            organize_imports=organize_imports,
             version=version,
         )
 
@@ -185,17 +186,17 @@ class Biome(
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Biome"], jsii.sinvoke(cls, "of", [project]))
 
-    @jsii.member(jsii_name="addLintPattern")
-    def add_lint_pattern(self, pattern: builtins.str) -> None:
+    @jsii.member(jsii_name="addFilePattern")
+    def add_file_pattern(self, pattern: builtins.str) -> None:
         '''
         :param pattern: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b6d2bb84dd9b7c5eb08b33b88046ee37fd213655ef24dbb058f24785fe54fe8)
+            type_hints = typing.get_type_hints(_typecheckingstub__5609a4432d207b19ee177e477fdf5e275031b8ec1346b00ac4bbfdf93f688757)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
-        return typing.cast(None, jsii.invoke(self, "addLintPattern", [pattern]))
+        return typing.cast(None, jsii.invoke(self, "addFilePattern", [pattern]))
 
     @builtins.property
     @jsii.member(jsii_name="file")
@@ -220,11 +221,11 @@ class Biome(
     jsii_type="projen.javascript.BiomeOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "assist": "assist",
         "biome_config": "biomeConfig",
         "formatter": "formatter",
         "linter": "linter",
         "merge_arrays_in_configuration": "mergeArraysInConfiguration",
-        "organize_imports": "organizeImports",
         "version": "version",
     },
 )
@@ -232,32 +233,36 @@ class BiomeOptions:
     def __init__(
         self,
         *,
-        biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+        assist: typing.Optional[builtins.bool] = None,
+        biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[builtins.bool] = None,
         linter: typing.Optional[builtins.bool] = None,
         merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
-        organize_imports: typing.Optional[builtins.bool] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param biome_config: (experimental) Full Biome configuration. Note that this configuration dictates the final outcome if value is set.
-        :param formatter: (experimental) Enable code formatter. Replaces mainly Prettier Default: false
-        :param linter: (experimental) Enable linting. Replaces Eslint. Default: true
+        :param assist: (experimental) Enable code assist with recommended actions. Default: true
+        :param biome_config: (experimental) Full Biome configuration. This configuration dictates the final outcome if value is set. For example, if the linter is disabled at the top-level, it can be enabled with ``biomeConfig.linter.enabled``.
+        :param formatter: (experimental) Enable code formatter with recommended settings. Default: true
+        :param linter: (experimental) Enable linting with recommended rules. Default: true
         :param merge_arrays_in_configuration: (experimental) Should arrays be merged or overwritten when creating Biome configuration. By default arrays are merged and duplicate values are removed Default: true
-        :param organize_imports: (experimental) Enable import sorting/organizing. Replaces mainly Prettier Default: false
-        :param version: (experimental) Version of Biome to use. Default: "^1"
+        :param version: (experimental) Version of Biome to use. Default: "^2"
 
         :stability: experimental
         '''
+        if isinstance(biome_config, dict):
+            biome_config = _BiomeConfiguration_dd1a6c83(**biome_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1)
+            check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument biome_config", value=biome_config, expected_type=type_hints["biome_config"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
             check_type(argname="argument merge_arrays_in_configuration", value=merge_arrays_in_configuration, expected_type=type_hints["merge_arrays_in_configuration"])
-            check_type(argname="argument organize_imports", value=organize_imports, expected_type=type_hints["organize_imports"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if assist is not None:
+            self._values["assist"] = assist
         if biome_config is not None:
             self._values["biome_config"] = biome_config
         if formatter is not None:
@@ -266,33 +271,37 @@ class BiomeOptions:
             self._values["linter"] = linter
         if merge_arrays_in_configuration is not None:
             self._values["merge_arrays_in_configuration"] = merge_arrays_in_configuration
-        if organize_imports is not None:
-            self._values["organize_imports"] = organize_imports
         if version is not None:
             self._values["version"] = version
 
     @builtins.property
-    def biome_config(self) -> typing.Optional[_IConfiguration_70e9f813]:
-        '''(experimental) Full Biome configuration.
+    def assist(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable code assist with recommended actions.
 
-        Note that this configuration dictates the final outcome if value is set.
+        :default: true
 
         :stability: experimental
+        '''
+        result = self._values.get("assist")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
-        Example::
+    @builtins.property
+    def biome_config(self) -> typing.Optional[_BiomeConfiguration_dd1a6c83]:
+        '''(experimental) Full Biome configuration.
 
-            if linter is disabled on main level, it can be enabled on fullConfiguration.formatter.enabled.
+        This configuration dictates the final outcome if value is set.
+        For example, if the linter is disabled at the top-level, it can be enabled with ``biomeConfig.linter.enabled``.
+
+        :stability: experimental
         '''
         result = self._values.get("biome_config")
-        return typing.cast(typing.Optional[_IConfiguration_70e9f813], result)
+        return typing.cast(typing.Optional[_BiomeConfiguration_dd1a6c83], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable code formatter.
+        '''(experimental) Enable code formatter with recommended settings.
 
-        Replaces mainly Prettier
-
-        :default: false
+        :default: true
 
         :stability: experimental
         '''
@@ -301,9 +310,7 @@ class BiomeOptions:
 
     @builtins.property
     def linter(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable linting.
-
-        Replaces Eslint.
+        '''(experimental) Enable linting with recommended rules.
 
         :default: true
 
@@ -326,23 +333,10 @@ class BiomeOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def organize_imports(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable import sorting/organizing.
-
-        Replaces mainly Prettier
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("organize_imports")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
         '''(experimental) Version of Biome to use.
 
-        :default: "^1"
+        :default: "^2"
 
         :stability: experimental
         '''
@@ -16139,11 +16133,11 @@ from . import biome_config
 def _typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc(
     project: NodeProject,
     *,
-    biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+    assist: typing.Optional[builtins.bool] = None,
+    biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
     formatter: typing.Optional[builtins.bool] = None,
     linter: typing.Optional[builtins.bool] = None,
     merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
-    organize_imports: typing.Optional[builtins.bool] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16155,7 +16149,7 @@ def _typecheckingstub__02197aa3a69f17c43ff359679227be724559aba6ef0881da4e04e9a0b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2b6d2bb84dd9b7c5eb08b33b88046ee37fd213655ef24dbb058f24785fe54fe8(
+def _typecheckingstub__5609a4432d207b19ee177e477fdf5e275031b8ec1346b00ac4bbfdf93f688757(
     pattern: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -16163,11 +16157,11 @@ def _typecheckingstub__2b6d2bb84dd9b7c5eb08b33b88046ee37fd213655ef24dbb058f24785
 
 def _typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1(
     *,
-    biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+    assist: typing.Optional[builtins.bool] = None,
+    biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
     formatter: typing.Optional[builtins.bool] = None,
     linter: typing.Optional[builtins.bool] = None,
     merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
-    organize_imports: typing.Optional[builtins.bool] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

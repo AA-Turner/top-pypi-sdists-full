@@ -1,4 +1,4 @@
-# Copyright 2014 - 2024 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,6 +10,8 @@
 Provides functions and classes for loading plugins
 """
 
+
+import contextlib
 import importlib
 from inspect import ismodule
 import os
@@ -17,43 +19,24 @@ import pkgutil
 import sys
 import traceback
 import warnings
-
-from pkg_resources import iter_entry_points, EntryPoint
+from collections.abc import Iterable
 
 from pluginlib.exceptions import PluginImportError, EntryPointWarning
 from pluginlib._objects import BlacklistEntry
 from pluginlib._parent import get_plugins
-from pluginlib._util import BASESTRING, LOGGER, NoneType, PY2, raise_with_traceback
-
-try:
-    from collections.abc import Iterable
-except ImportError:   # pragma: no cover
-    # For Python < 3.3
-    from collections import Iterable  # pylint: disable=deprecated-class
+from pluginlib._util import LOGGER, NoneType, PY_LT_3_10
 
 
-def format_exception(etype, value, tback, limit=None):
-    """
-    Python 2 compatible version of traceback.format_exception
-    Accepts negative limits like the Python 3 version
-    """
-
-    rtn = ['Traceback (most recent call last):\n']
-
-    if limit is None or limit >= 0:
-        rtn.extend(traceback.format_tb(tback, limit))
-    else:
-        rtn.extend(traceback.format_list(traceback.extract_tb(tback)[limit:]))
-
-    rtn.extend(traceback.format_exception_only(etype, value))
-
-    return rtn
+if PY_LT_3_10:  # pragma: no cover
+    from importlib_metadata import entry_points, EntryPoint  # pylint: disable=import-error
+else:
+    from importlib.metadata import entry_points, EntryPoint
 
 
 def _raise_friendly_exception(exc, name, path):
     """
     Attempt to create a friendly traceback that only shows the errors
-    encountered from the plugin import and no the framework
+    encountered from the plugin import and not the framework
     """
 
     etype = exc.__class__
@@ -80,15 +63,13 @@ def _raise_friendly_exception(exc, name, path):
     else:
         limit = 0 - len(tb_list) + max(start, here)
 
-    # pylint: disable=wrong-spelling-in-comment
-    # friendly = ''.join(traceback.format_exception(etype, exc, tback, limit))
-    friendly = ''.join(format_exception(etype, exc, tback, limit))
+    friendly = ''.join(traceback.format_exception(etype, exc, tback, limit))
 
     # Format exception
-    msg = 'Error while importing candidate plugin module %s from %s' % (name, path)
-    exception = PluginImportError('%s: %s' % (msg, repr(exc)), friendly=friendly)
+    msg = f'Error while importing candidate plugin module {name} from {path}'
+    exception = PluginImportError(f'{msg}: {repr(exc)}', friendly=friendly)
 
-    raise_with_traceback(exception, tback)
+    raise exception.with_traceback(tback) from None
 
 
 def _import_module(name, path=None):
@@ -110,21 +91,17 @@ def _import_module(name, path=None):
     epoint = None
     if isinstance(name, EntryPoint):
         epoint = name
-        name = epoint.module_name
+        name = epoint.module
 
     if path is None:
-        try:
-            if PY2:
-                # pylint: disable-next=deprecated-method
-                loader = pkgutil.get_loader(name)  # pragma: no cover
-            else:
-                loader = getattr(importlib.util.find_spec(name), 'loader', None)
-        except ImportError:
-            pass
-        else:
-            if loader:
-                path = os.path.dirname(loader.get_filename(name))
-
+        with contextlib.suppress(ImportError):
+            spec = importlib.util.find_spec(name)
+            if spec:
+                path = (
+                    os.path.dirname(spec.origin)
+                    if getattr(spec, 'origin', None)
+                    else next(iter(spec.submodule_search_locations))
+                )
     LOGGER.debug('Attempting to load module %s from %s', name, path)
     try:
         mod = epoint.load() if epoint else importlib.import_module(name)
@@ -143,13 +120,10 @@ def _recursive_import(package):
     Import all modules from a package recursively
     """
 
-    prefix = '%s.' % (package.__name__)
-
     path = getattr(package, '__path__', None)
-
     if path:
         # pylint: disable=unused-variable
-        for finder, name, is_pkg in pkgutil.walk_packages(path, prefix=prefix):
+        for finder, name, is_pkg in pkgutil.walk_packages(path, prefix=f'{package.__name__}.'):
             _import_module(name, finder.path)
 
 
@@ -169,14 +143,13 @@ def _recursive_path_import(path, prefix_package):
 
     # Include basename of path in module prefix
     basename = os.path.basename(path.strip('/'))
-    root_prefix = '%s.%s.' % (prefix_package, basename)
-    prefix_template = '%s%%s.' % root_prefix
+    root_prefix = f'{prefix_package}.{basename}.'
 
     # Walk path
     for root, dirs, files in os.walk(path):
         # If root is a Python module, we won't walk any farther down it
         # find_module() seems to be recursive in Python 3
-        if '__init__.py' in files and not PY2:  # pragma: no cover
+        if '__init__.py' in files:
             dirs.clear()
             if root != path:
                 continue
@@ -185,29 +158,24 @@ def _recursive_path_import(path, prefix_package):
         if root == path:
             prefix = root_prefix
         else:
-            relpath = os.path.relpath(root, path)
-            prefix = prefix_template % relpath.replace(os.sep, '.')
+            prefix = f'{root_prefix}{os.path.relpath(root, path).replace(os.sep, ".")}.'
 
         # Walk root and import modules
         # pylint: disable=unused-variable
         for finder, name, is_pkg in pkgutil.walk_packages([root], prefix=prefix):
             LOGGER.debug('Attempting to load module %s from %s', name, finder.path)
             try:
-                # find_module() was deprecated in 3.4
-                if PY2:  # pragma: no cover
-                    finder.find_module(name).load_module(name)
-                else:
-                    spec = finder.find_spec(name)
-                    module = importlib.util.module_from_spec(spec)
-                    sys.modules[name] = module
-                    spec.loader.exec_module(module)
+                spec = finder.find_spec(name)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[name] = module
+                spec.loader.exec_module(module)
 
             except Exception as e:  # pylint: disable=broad-except
                 _raise_friendly_exception(e, name, root)
 
 
 # pylint: disable=too-many-instance-attributes,too-many-arguments
-class PluginLoader(object):
+class PluginLoader:
     """
     Args:
         group(str): Group to retrieve plugins from
@@ -263,14 +231,14 @@ class PluginLoader(object):
         # Make sure we got iterables
         for argname, arg in (('modules', modules), ('paths', paths), ('blacklist', blacklist),
                              ('type_filter', type_filter)):
-            if not isinstance(arg, (NoneType, Iterable)) or isinstance(arg, BASESTRING):
-                raise TypeError("Expecting iterable for '%s', received %s" % (argname, type(arg)))
+            if not isinstance(arg, (NoneType, Iterable)) or isinstance(arg, str):
+                raise TypeError(f"Expecting iterable for '{argname}', received {type(arg)}")
 
         # Make sure we got strings
         for argname, arg in (('library', library), ('entry_point', entry_point),
                              ('prefix_package', prefix_package)):
-            if not isinstance(arg, (NoneType, BASESTRING)):
-                raise TypeError("Expecting string for '%s', received %s" % (argname, type(arg)))
+            if not isinstance(arg, (NoneType, str)):
+                raise TypeError(f"Expecting string for '{argname}', received {type(arg)}")
 
         self.group = group or '_default'
         self.library = library
@@ -292,9 +260,11 @@ class PluginLoader(object):
                         entry = BlacklistEntry(*entry)
                     except (AttributeError, TypeError) as e:
                         # pylint: disable=raise-missing-from
-                        raise AttributeError("Invalid blacklist entry '%s': %s " % (entry, e))
+                        raise AttributeError(
+                            "Invalid blacklist entry f'{entry}': {e} "
+                        ) from e
                 else:
-                    raise AttributeError("Invalid blacklist entry '%s': Not an iterable" % entry)
+                    raise AttributeError(f"Invalid blacklist entry '{entry}': Not an iterable")
 
                 self.blacklist.append(entry)
 
@@ -315,9 +285,9 @@ class PluginLoader(object):
                 continue
 
             if val:
-                args.append('%s=%r' % (attr, val))
+                args.append(f'{attr}={val!r}')
 
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
+        return f'{self.__class__.__name__}({", ".join(args)})'
 
     def load_modules(self):
         """
@@ -345,19 +315,22 @@ class PluginLoader(object):
         # Get entry points
         if self.entry_point:
             LOGGER.info('Loading plugins from entry points group %s', self.entry_point)
-            for epoint in iter_entry_points(group=self.entry_point):
+            for epoint in entry_points(group=self.entry_point):
                 try:
                     mod = _import_module(epoint)
                 except PluginImportError as e:
-                    warnings.warn("Module %s can not be loaded for entry point %s: %s" %
-                                  (epoint.module_name, epoint.name, e), EntryPointWarning)
+                    warnings.warn(
+                        f'Module {epoint.module} can not be loaded for entry point {epoint.name}: '
+                        f'{e}',
+                        EntryPointWarning
+                    )
                     continue
 
                 # If we have a package, walk it
                 if ismodule(mod):
                     _recursive_import(mod)
                 else:
-                    warnings.warn("Entry point '%s' is not a module or package" % epoint.name,
+                    warnings.warn(f"Entry point '{epoint.name}' is not a module or package",
                                   EntryPointWarning)
 
         # Load auxiliary modules

@@ -1,7 +1,7 @@
 r'''
 # `snowflake_storage_integration`
 
-Refer to the Terraform Registry for docs: [`snowflake_storage_integration`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration).
+Refer to the Terraform Registry for docs: [`snowflake_storage_integration`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageIntegration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.storageIntegration.StorageIntegration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration snowflake_storage_integration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration snowflake_storage_integration}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class StorageIntegration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration snowflake_storage_integration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration snowflake_storage_integration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#name StorageIntegration#name}.
-        :param storage_allowed_locations: Explicitly limits external stages that use the integration to reference one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_allowed_locations StorageIntegration#storage_allowed_locations}
-        :param storage_provider: Specifies the storage provider for the integration. Valid options are: ``S3`` | ``S3GOV`` | ``S3CHINA`` | ``GCS`` | ``AZURE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_provider StorageIntegration#storage_provider}
-        :param azure_tenant_id: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#azure_tenant_id StorageIntegration#azure_tenant_id}
-        :param comment: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#comment StorageIntegration#comment}
-        :param enabled: (Default: ``true``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#enabled StorageIntegration#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#id StorageIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param storage_aws_object_acl: "bucket-owner-full-control" Enables support for AWS access control lists (ACLs) to grant the bucket owner full control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_aws_object_acl StorageIntegration#storage_aws_object_acl}
-        :param storage_aws_role_arn: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_aws_role_arn StorageIntegration#storage_aws_role_arn}
-        :param storage_blocked_locations: Explicitly prohibits external stages that use the integration from referencing one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_blocked_locations StorageIntegration#storage_blocked_locations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#timeouts StorageIntegration#timeouts}
-        :param type: (Default: ``EXTERNAL_STAGE``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#type StorageIntegration#type}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#name StorageIntegration#name}.
+        :param storage_allowed_locations: Explicitly limits external stages that use the integration to reference one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_allowed_locations StorageIntegration#storage_allowed_locations}
+        :param storage_provider: Specifies the storage provider for the integration. Valid options are: ``S3`` | ``S3GOV`` | ``S3CHINA`` | ``GCS`` | ``AZURE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_provider StorageIntegration#storage_provider}
+        :param azure_tenant_id: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#azure_tenant_id StorageIntegration#azure_tenant_id}
+        :param comment: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#comment StorageIntegration#comment}
+        :param enabled: (Default: ``true``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#enabled StorageIntegration#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#id StorageIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param storage_aws_object_acl: "bucket-owner-full-control" Enables support for AWS access control lists (ACLs) to grant the bucket owner full control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_aws_object_acl StorageIntegration#storage_aws_object_acl}
+        :param storage_aws_role_arn: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_aws_role_arn StorageIntegration#storage_aws_role_arn}
+        :param storage_blocked_locations: Explicitly prohibits external stages that use the integration from referencing one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_blocked_locations StorageIntegration#storage_blocked_locations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#timeouts StorageIntegration#timeouts}
+        :param type: (Default: ``EXTERNAL_STAGE``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#type StorageIntegration#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class StorageIntegration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageIntegration to import.
-        :param import_from_id: The id of the existing StorageIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageIntegration to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class StorageIntegration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#create StorageIntegration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#delete StorageIntegration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#read StorageIntegration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#update StorageIntegration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#create StorageIntegration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#delete StorageIntegration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#read StorageIntegration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#update StorageIntegration#update}.
         '''
         value = StorageIntegrationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -518,18 +518,18 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#name StorageIntegration#name}.
-        :param storage_allowed_locations: Explicitly limits external stages that use the integration to reference one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_allowed_locations StorageIntegration#storage_allowed_locations}
-        :param storage_provider: Specifies the storage provider for the integration. Valid options are: ``S3`` | ``S3GOV`` | ``S3CHINA`` | ``GCS`` | ``AZURE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_provider StorageIntegration#storage_provider}
-        :param azure_tenant_id: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#azure_tenant_id StorageIntegration#azure_tenant_id}
-        :param comment: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#comment StorageIntegration#comment}
-        :param enabled: (Default: ``true``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#enabled StorageIntegration#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#id StorageIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param storage_aws_object_acl: "bucket-owner-full-control" Enables support for AWS access control lists (ACLs) to grant the bucket owner full control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_aws_object_acl StorageIntegration#storage_aws_object_acl}
-        :param storage_aws_role_arn: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_aws_role_arn StorageIntegration#storage_aws_role_arn}
-        :param storage_blocked_locations: Explicitly prohibits external stages that use the integration from referencing one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_blocked_locations StorageIntegration#storage_blocked_locations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#timeouts StorageIntegration#timeouts}
-        :param type: (Default: ``EXTERNAL_STAGE``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#type StorageIntegration#type}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#name StorageIntegration#name}.
+        :param storage_allowed_locations: Explicitly limits external stages that use the integration to reference one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_allowed_locations StorageIntegration#storage_allowed_locations}
+        :param storage_provider: Specifies the storage provider for the integration. Valid options are: ``S3`` | ``S3GOV`` | ``S3CHINA`` | ``GCS`` | ``AZURE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_provider StorageIntegration#storage_provider}
+        :param azure_tenant_id: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#azure_tenant_id StorageIntegration#azure_tenant_id}
+        :param comment: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#comment StorageIntegration#comment}
+        :param enabled: (Default: ``true``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#enabled StorageIntegration#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#id StorageIntegration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param storage_aws_object_acl: "bucket-owner-full-control" Enables support for AWS access control lists (ACLs) to grant the bucket owner full control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_aws_object_acl StorageIntegration#storage_aws_object_acl}
+        :param storage_aws_role_arn: (Default: ``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_aws_role_arn StorageIntegration#storage_aws_role_arn}
+        :param storage_blocked_locations: Explicitly prohibits external stages that use the integration from referencing one or more storage locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_blocked_locations StorageIntegration#storage_blocked_locations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#timeouts StorageIntegration#timeouts}
+        :param type: (Default: ``EXTERNAL_STAGE``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#type StorageIntegration#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -660,7 +660,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#name StorageIntegration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#name StorageIntegration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -669,7 +669,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_allowed_locations(self) -> typing.List[builtins.str]:
         '''Explicitly limits external stages that use the integration to reference one or more storage locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_allowed_locations StorageIntegration#storage_allowed_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_allowed_locations StorageIntegration#storage_allowed_locations}
         '''
         result = self._values.get("storage_allowed_locations")
         assert result is not None, "Required property 'storage_allowed_locations' is missing"
@@ -679,7 +679,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_provider(self) -> builtins.str:
         '''Specifies the storage provider for the integration. Valid options are: ``S3`` | ``S3GOV`` | ``S3CHINA`` | ``GCS`` | ``AZURE``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_provider StorageIntegration#storage_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_provider StorageIntegration#storage_provider}
         '''
         result = self._values.get("storage_provider")
         assert result is not None, "Required property 'storage_provider' is missing"
@@ -689,7 +689,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def azure_tenant_id(self) -> typing.Optional[builtins.str]:
         '''(Default: ``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#azure_tenant_id StorageIntegration#azure_tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#azure_tenant_id StorageIntegration#azure_tenant_id}
         '''
         result = self._values.get("azure_tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -698,7 +698,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''(Default: ``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#comment StorageIntegration#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#comment StorageIntegration#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -709,14 +709,14 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#enabled StorageIntegration#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#enabled StorageIntegration#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#id StorageIntegration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#id StorageIntegration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -728,7 +728,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_aws_object_acl(self) -> typing.Optional[builtins.str]:
         '''"bucket-owner-full-control" Enables support for AWS access control lists (ACLs) to grant the bucket owner full control.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_aws_object_acl StorageIntegration#storage_aws_object_acl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_aws_object_acl StorageIntegration#storage_aws_object_acl}
         '''
         result = self._values.get("storage_aws_object_acl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -737,7 +737,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_aws_role_arn(self) -> typing.Optional[builtins.str]:
         '''(Default: ``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_aws_role_arn StorageIntegration#storage_aws_role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_aws_role_arn StorageIntegration#storage_aws_role_arn}
         '''
         result = self._values.get("storage_aws_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -746,7 +746,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_blocked_locations(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Explicitly prohibits external stages that use the integration from referencing one or more storage locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#storage_blocked_locations StorageIntegration#storage_blocked_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#storage_blocked_locations StorageIntegration#storage_blocked_locations}
         '''
         result = self._values.get("storage_blocked_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -755,7 +755,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageIntegrationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#timeouts StorageIntegration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#timeouts StorageIntegration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageIntegrationTimeouts"], result)
@@ -764,7 +764,7 @@ class StorageIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''(Default: ``EXTERNAL_STAGE``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#type StorageIntegration#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#type StorageIntegration#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -801,10 +801,10 @@ class StorageIntegrationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#create StorageIntegration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#delete StorageIntegration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#read StorageIntegration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#update StorageIntegration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#create StorageIntegration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#delete StorageIntegration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#read StorageIntegration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#update StorageIntegration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e69b00115e0f10d47700439b1b4894dd9c9bc04340925657ae66189608d9cfb)
@@ -824,25 +824,25 @@ class StorageIntegrationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#create StorageIntegration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#create StorageIntegration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#delete StorageIntegration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#delete StorageIntegration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#read StorageIntegration#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#read StorageIntegration#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/storage_integration#update StorageIntegration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/storage_integration#update StorageIntegration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

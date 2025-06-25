@@ -1,7 +1,7 @@
 r'''
 # `google_compute_service_attachment`
 
-Refer to the Terraform Registry for docs: [`google_compute_service_attachment`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment).
+Refer to the Terraform Registry for docs: [`google_compute_service_attachment`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeServiceAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeServiceAttachment.GoogleComputeServiceAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment google_compute_service_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment google_compute_service_attachment}.'''
 
     def __init__(
         self,
@@ -65,6 +65,7 @@ class GoogleComputeServiceAttachment(
         propagated_connection_limit: typing.Optional[jsii.Number] = None,
         reconcile_connections: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         region: typing.Optional[builtins.str] = None,
+        send_propagated_connection_limit_if_zero: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["GoogleComputeServiceAttachmentTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -74,25 +75,26 @@ class GoogleComputeServiceAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment google_compute_service_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment google_compute_service_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#connection_preference GoogleComputeServiceAttachment#connection_preference}
-        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#enable_proxy_protocol GoogleComputeServiceAttachment#enable_proxy_protocol}
-        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#name GoogleComputeServiceAttachment#name}
-        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#nat_subnets GoogleComputeServiceAttachment#nat_subnets}
-        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#target_service GoogleComputeServiceAttachment#target_service}
-        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#consumer_accept_lists GoogleComputeServiceAttachment#consumer_accept_lists}
-        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#consumer_reject_lists GoogleComputeServiceAttachment#consumer_reject_lists}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#description GoogleComputeServiceAttachment#description}
-        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#domain_names GoogleComputeServiceAttachment#domain_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#id GoogleComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#project GoogleComputeServiceAttachment#project}.
-        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#propagated_connection_limit GoogleComputeServiceAttachment#propagated_connection_limit}
-        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#reconcile_connections GoogleComputeServiceAttachment#reconcile_connections}
-        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#region GoogleComputeServiceAttachment#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#timeouts GoogleComputeServiceAttachment#timeouts}
+        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#connection_preference GoogleComputeServiceAttachment#connection_preference}
+        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#enable_proxy_protocol GoogleComputeServiceAttachment#enable_proxy_protocol}
+        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#name GoogleComputeServiceAttachment#name}
+        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#nat_subnets GoogleComputeServiceAttachment#nat_subnets}
+        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#target_service GoogleComputeServiceAttachment#target_service}
+        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#consumer_accept_lists GoogleComputeServiceAttachment#consumer_accept_lists}
+        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#consumer_reject_lists GoogleComputeServiceAttachment#consumer_reject_lists}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#description GoogleComputeServiceAttachment#description}
+        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#domain_names GoogleComputeServiceAttachment#domain_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#id GoogleComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#project GoogleComputeServiceAttachment#project}.
+        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. To explicitly send a zero value, set 'send_propagated_connection_limit_if_zero = true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#propagated_connection_limit GoogleComputeServiceAttachment#propagated_connection_limit}
+        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#reconcile_connections GoogleComputeServiceAttachment#reconcile_connections}
+        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#region GoogleComputeServiceAttachment#region}
+        :param send_propagated_connection_limit_if_zero: Controls the behavior of propagated_connection_limit. When false, setting propagated_connection_limit to zero causes the provider to use to the API's default value. When true, the provider will set propagated_connection_limit to zero. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#send_propagated_connection_limit_if_zero GoogleComputeServiceAttachment#send_propagated_connection_limit_if_zero}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#timeouts GoogleComputeServiceAttachment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -120,6 +122,7 @@ class GoogleComputeServiceAttachment(
             propagated_connection_limit=propagated_connection_limit,
             reconcile_connections=reconcile_connections,
             region=region,
+            send_propagated_connection_limit_if_zero=send_propagated_connection_limit_if_zero,
             timeouts=timeouts,
             connection=connection,
             count=count,
@@ -145,7 +148,7 @@ class GoogleComputeServiceAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeServiceAttachment to import.
-        :param import_from_id: The id of the existing GoogleComputeServiceAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeServiceAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeServiceAttachment to import is found.
         '''
         if __debug__:
@@ -178,9 +181,9 @@ class GoogleComputeServiceAttachment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#create GoogleComputeServiceAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#delete GoogleComputeServiceAttachment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#update GoogleComputeServiceAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#create GoogleComputeServiceAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#delete GoogleComputeServiceAttachment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#update GoogleComputeServiceAttachment#update}.
         '''
         value = GoogleComputeServiceAttachmentTimeouts(
             create=create, delete=delete, update=update
@@ -223,6 +226,10 @@ class GoogleComputeServiceAttachment(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetSendPropagatedConnectionLimitIfZero")
+    def reset_send_propagated_connection_limit_if_zero(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSendPropagatedConnectionLimitIfZero", []))
 
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
@@ -340,6 +347,13 @@ class GoogleComputeServiceAttachment(
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sendPropagatedConnectionLimitIfZeroInput")
+    def send_propagated_connection_limit_if_zero_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "sendPropagatedConnectionLimitIfZeroInput"))
 
     @builtins.property
     @jsii.member(jsii_name="targetServiceInput")
@@ -508,6 +522,23 @@ class GoogleComputeServiceAttachment(
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="sendPropagatedConnectionLimitIfZero")
+    def send_propagated_connection_limit_if_zero(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "sendPropagatedConnectionLimitIfZero"))
+
+    @send_propagated_connection_limit_if_zero.setter
+    def send_propagated_connection_limit_if_zero(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05bb2faf6ef6242de36c3dd0501ad845a445ebfeec5a3ca949aa166964625f3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sendPropagatedConnectionLimitIfZero", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="targetService")
     def target_service(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "targetService"))
@@ -545,6 +576,7 @@ class GoogleComputeServiceAttachment(
         "propagated_connection_limit": "propagatedConnectionLimit",
         "reconcile_connections": "reconcileConnections",
         "region": "region",
+        "send_propagated_connection_limit_if_zero": "sendPropagatedConnectionLimitIfZero",
         "timeouts": "timeouts",
     },
 )
@@ -573,6 +605,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
         propagated_connection_limit: typing.Optional[jsii.Number] = None,
         reconcile_connections: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         region: typing.Optional[builtins.str] = None,
+        send_propagated_connection_limit_if_zero: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["GoogleComputeServiceAttachmentTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -583,21 +616,22 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#connection_preference GoogleComputeServiceAttachment#connection_preference}
-        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#enable_proxy_protocol GoogleComputeServiceAttachment#enable_proxy_protocol}
-        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#name GoogleComputeServiceAttachment#name}
-        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#nat_subnets GoogleComputeServiceAttachment#nat_subnets}
-        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#target_service GoogleComputeServiceAttachment#target_service}
-        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#consumer_accept_lists GoogleComputeServiceAttachment#consumer_accept_lists}
-        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#consumer_reject_lists GoogleComputeServiceAttachment#consumer_reject_lists}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#description GoogleComputeServiceAttachment#description}
-        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#domain_names GoogleComputeServiceAttachment#domain_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#id GoogleComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#project GoogleComputeServiceAttachment#project}.
-        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#propagated_connection_limit GoogleComputeServiceAttachment#propagated_connection_limit}
-        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#reconcile_connections GoogleComputeServiceAttachment#reconcile_connections}
-        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#region GoogleComputeServiceAttachment#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#timeouts GoogleComputeServiceAttachment#timeouts}
+        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#connection_preference GoogleComputeServiceAttachment#connection_preference}
+        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#enable_proxy_protocol GoogleComputeServiceAttachment#enable_proxy_protocol}
+        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#name GoogleComputeServiceAttachment#name}
+        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#nat_subnets GoogleComputeServiceAttachment#nat_subnets}
+        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#target_service GoogleComputeServiceAttachment#target_service}
+        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#consumer_accept_lists GoogleComputeServiceAttachment#consumer_accept_lists}
+        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#consumer_reject_lists GoogleComputeServiceAttachment#consumer_reject_lists}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#description GoogleComputeServiceAttachment#description}
+        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#domain_names GoogleComputeServiceAttachment#domain_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#id GoogleComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#project GoogleComputeServiceAttachment#project}.
+        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. To explicitly send a zero value, set 'send_propagated_connection_limit_if_zero = true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#propagated_connection_limit GoogleComputeServiceAttachment#propagated_connection_limit}
+        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#reconcile_connections GoogleComputeServiceAttachment#reconcile_connections}
+        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#region GoogleComputeServiceAttachment#region}
+        :param send_propagated_connection_limit_if_zero: Controls the behavior of propagated_connection_limit. When false, setting propagated_connection_limit to zero causes the provider to use to the API's default value. When true, the provider will set propagated_connection_limit to zero. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#send_propagated_connection_limit_if_zero GoogleComputeServiceAttachment#send_propagated_connection_limit_if_zero}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#timeouts GoogleComputeServiceAttachment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -626,6 +660,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
             check_type(argname="argument propagated_connection_limit", value=propagated_connection_limit, expected_type=type_hints["propagated_connection_limit"])
             check_type(argname="argument reconcile_connections", value=reconcile_connections, expected_type=type_hints["reconcile_connections"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument send_propagated_connection_limit_if_zero", value=send_propagated_connection_limit_if_zero, expected_type=type_hints["send_propagated_connection_limit_if_zero"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "connection_preference": connection_preference,
@@ -666,6 +701,8 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
             self._values["reconcile_connections"] = reconcile_connections
         if region is not None:
             self._values["region"] = region
+        if send_propagated_connection_limit_if_zero is not None:
+            self._values["send_propagated_connection_limit_if_zero"] = send_propagated_connection_limit_if_zero
         if timeouts is not None:
             self._values["timeouts"] = timeouts
 
@@ -737,7 +774,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def connection_preference(self) -> builtins.str:
         '''The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#connection_preference GoogleComputeServiceAttachment#connection_preference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#connection_preference GoogleComputeServiceAttachment#connection_preference}
         '''
         result = self._values.get("connection_preference")
         assert result is not None, "Required property 'connection_preference' is missing"
@@ -749,7 +786,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#enable_proxy_protocol GoogleComputeServiceAttachment#enable_proxy_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#enable_proxy_protocol GoogleComputeServiceAttachment#enable_proxy_protocol}
         '''
         result = self._values.get("enable_proxy_protocol")
         assert result is not None, "Required property 'enable_proxy_protocol' is missing"
@@ -766,7 +803,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
         following characters must be a dash, lowercase letter, or digit,
         except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#name GoogleComputeServiceAttachment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#name GoogleComputeServiceAttachment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -776,7 +813,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def nat_subnets(self) -> typing.List[builtins.str]:
         '''An array of subnets that is provided for NAT in this service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#nat_subnets GoogleComputeServiceAttachment#nat_subnets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#nat_subnets GoogleComputeServiceAttachment#nat_subnets}
         '''
         result = self._values.get("nat_subnets")
         assert result is not None, "Required property 'nat_subnets' is missing"
@@ -786,7 +823,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def target_service(self) -> builtins.str:
         '''The URL of a service serving the endpoint identified by this service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#target_service GoogleComputeServiceAttachment#target_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#target_service GoogleComputeServiceAttachment#target_service}
         '''
         result = self._values.get("target_service")
         assert result is not None, "Required property 'target_service' is missing"
@@ -798,7 +835,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeServiceAttachmentConsumerAcceptLists"]]]:
         '''consumer_accept_lists block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#consumer_accept_lists GoogleComputeServiceAttachment#consumer_accept_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#consumer_accept_lists GoogleComputeServiceAttachment#consumer_accept_lists}
         '''
         result = self._values.get("consumer_accept_lists")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeServiceAttachmentConsumerAcceptLists"]]], result)
@@ -807,7 +844,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def consumer_reject_lists(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An array of projects that are not allowed to connect to this service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#consumer_reject_lists GoogleComputeServiceAttachment#consumer_reject_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#consumer_reject_lists GoogleComputeServiceAttachment#consumer_reject_lists}
         '''
         result = self._values.get("consumer_reject_lists")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -816,7 +853,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#description GoogleComputeServiceAttachment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#description GoogleComputeServiceAttachment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -829,14 +866,14 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
         valid domain name: "p.mycompany.com.". Current max number of domain names
         supported is 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#domain_names GoogleComputeServiceAttachment#domain_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#domain_names GoogleComputeServiceAttachment#domain_names}
         '''
         result = self._values.get("domain_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#id GoogleComputeServiceAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#id GoogleComputeServiceAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -846,7 +883,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#project GoogleComputeServiceAttachment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#project GoogleComputeServiceAttachment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -859,9 +896,9 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
         If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list.
         If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint.
 
-        If unspecified, the default propagated connection limit is 250.
+        If unspecified, the default propagated connection limit is 250. To explicitly send a zero value, set 'send_propagated_connection_limit_if_zero = true'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#propagated_connection_limit GoogleComputeServiceAttachment#propagated_connection_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#propagated_connection_limit GoogleComputeServiceAttachment#propagated_connection_limit}
         '''
         result = self._values.get("propagated_connection_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -875,7 +912,7 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
         If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified .
         If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#reconcile_connections GoogleComputeServiceAttachment#reconcile_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#reconcile_connections GoogleComputeServiceAttachment#reconcile_connections}
         '''
         result = self._values.get("reconcile_connections")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -884,16 +921,31 @@ class GoogleComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def region(self) -> typing.Optional[builtins.str]:
         '''URL of the region where the resource resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#region GoogleComputeServiceAttachment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#region GoogleComputeServiceAttachment#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def send_propagated_connection_limit_if_zero(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Controls the behavior of propagated_connection_limit.
+
+        When false, setting propagated_connection_limit to zero causes the provider to use to the API's default value.
+        When true, the provider will set propagated_connection_limit to zero.
+        Defaults to false.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#send_propagated_connection_limit_if_zero GoogleComputeServiceAttachment#send_propagated_connection_limit_if_zero}
+        '''
+        result = self._values.get("send_propagated_connection_limit_if_zero")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
     def timeouts(self) -> typing.Optional["GoogleComputeServiceAttachmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#timeouts GoogleComputeServiceAttachment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#timeouts GoogleComputeServiceAttachment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeServiceAttachmentTimeouts"], result)
@@ -1094,9 +1146,9 @@ class GoogleComputeServiceAttachmentConsumerAcceptLists:
         project_id_or_num: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection_limit: The number of consumer forwarding rules the consumer project can create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#connection_limit GoogleComputeServiceAttachment#connection_limit}
-        :param network_url: The network that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#network_url GoogleComputeServiceAttachment#network_url}
-        :param project_id_or_num: A project that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#project_id_or_num GoogleComputeServiceAttachment#project_id_or_num}
+        :param connection_limit: The number of consumer forwarding rules the consumer project can create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#connection_limit GoogleComputeServiceAttachment#connection_limit}
+        :param network_url: The network that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#network_url GoogleComputeServiceAttachment#network_url}
+        :param project_id_or_num: A project that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#project_id_or_num GoogleComputeServiceAttachment#project_id_or_num}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f4bf88e2f58b5f11f934a879e4dce4d75ce87df1fbba5577b80fd6aa401c468)
@@ -1115,7 +1167,7 @@ class GoogleComputeServiceAttachmentConsumerAcceptLists:
     def connection_limit(self) -> jsii.Number:
         '''The number of consumer forwarding rules the consumer project can create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#connection_limit GoogleComputeServiceAttachment#connection_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#connection_limit GoogleComputeServiceAttachment#connection_limit}
         '''
         result = self._values.get("connection_limit")
         assert result is not None, "Required property 'connection_limit' is missing"
@@ -1125,7 +1177,7 @@ class GoogleComputeServiceAttachmentConsumerAcceptLists:
     def network_url(self) -> typing.Optional[builtins.str]:
         '''The network that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#network_url GoogleComputeServiceAttachment#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#network_url GoogleComputeServiceAttachment#network_url}
         '''
         result = self._values.get("network_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1134,7 +1186,7 @@ class GoogleComputeServiceAttachmentConsumerAcceptLists:
     def project_id_or_num(self) -> typing.Optional[builtins.str]:
         '''A project that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#project_id_or_num GoogleComputeServiceAttachment#project_id_or_num}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#project_id_or_num GoogleComputeServiceAttachment#project_id_or_num}
         '''
         result = self._values.get("project_id_or_num")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1361,9 +1413,9 @@ class GoogleComputeServiceAttachmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#create GoogleComputeServiceAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#delete GoogleComputeServiceAttachment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#update GoogleComputeServiceAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#create GoogleComputeServiceAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#delete GoogleComputeServiceAttachment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#update GoogleComputeServiceAttachment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66d2c3b43112964d2d72dd2aa3ece2ef961d5238a5f1ce5e78d583257c05e1fb)
@@ -1380,19 +1432,19 @@ class GoogleComputeServiceAttachmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#create GoogleComputeServiceAttachment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#create GoogleComputeServiceAttachment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#delete GoogleComputeServiceAttachment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#delete GoogleComputeServiceAttachment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_service_attachment#update GoogleComputeServiceAttachment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_service_attachment#update GoogleComputeServiceAttachment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1542,6 +1594,7 @@ def _typecheckingstub__b66e263a50f5764de066f846aaf9e0e250ca5df835bfa55799b4b0130
     propagated_connection_limit: typing.Optional[jsii.Number] = None,
     reconcile_connections: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     region: typing.Optional[builtins.str] = None,
+    send_propagated_connection_limit_if_zero: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[GoogleComputeServiceAttachmentTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -1641,6 +1694,12 @@ def _typecheckingstub__f2ca687c3088749cf4d072261afc3794ed1e3404d0f2ab68c42f4fb9a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__05bb2faf6ef6242de36c3dd0501ad845a445ebfeec5a3ca949aa166964625f3b(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a4df32b7ba50dae1537b66a0b282b627ccb725a2c5444a08c2158f64c293af60(
     value: builtins.str,
 ) -> None:
@@ -1670,6 +1729,7 @@ def _typecheckingstub__5f42d7042c446fe8da189a28771ccb97c28314fd7badf2b205bf2dd40
     propagated_connection_limit: typing.Optional[jsii.Number] = None,
     reconcile_connections: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     region: typing.Optional[builtins.str] = None,
+    send_propagated_connection_limit_if_zero: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[GoogleComputeServiceAttachmentTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""

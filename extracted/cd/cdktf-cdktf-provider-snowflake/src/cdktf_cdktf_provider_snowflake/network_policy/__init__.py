@@ -1,7 +1,7 @@
 r'''
 # `snowflake_network_policy`
 
-Refer to the Terraform Registry for docs: [`snowflake_network_policy`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy).
+Refer to the Terraform Registry for docs: [`snowflake_network_policy`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.networkPolicy.NetworkPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy snowflake_network_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy snowflake_network_policy}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class NetworkPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy snowflake_network_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy snowflake_network_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#name NetworkPolicy#name}
-        :param allowed_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are allowed access to your Snowflake account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#allowed_ip_list NetworkPolicy#allowed_ip_list}
-        :param allowed_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are allowed access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#allowed_network_rule_list NetworkPolicy#allowed_network_rule_list}
-        :param blocked_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are denied access to your Snowflake account. **Do not** add ``0.0.0.0/0`` to ``blocked_ip_list``, in order to block all IP addresses except a select list, you only need to add IP addresses to ``allowed_ip_list``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#blocked_ip_list NetworkPolicy#blocked_ip_list}
-        :param blocked_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are denied access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#blocked_network_rule_list NetworkPolicy#blocked_network_rule_list}
-        :param comment: Specifies a comment for the network policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#comment NetworkPolicy#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#id NetworkPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#timeouts NetworkPolicy#timeouts}
+        :param name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#name NetworkPolicy#name}
+        :param allowed_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are allowed access to your Snowflake account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#allowed_ip_list NetworkPolicy#allowed_ip_list}
+        :param allowed_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are allowed access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#allowed_network_rule_list NetworkPolicy#allowed_network_rule_list}
+        :param blocked_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are denied access to your Snowflake account. **Do not** add ``0.0.0.0/0`` to ``blocked_ip_list``, in order to block all IP addresses except a select list, you only need to add IP addresses to ``allowed_ip_list``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#blocked_ip_list NetworkPolicy#blocked_ip_list}
+        :param blocked_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are denied access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#blocked_network_rule_list NetworkPolicy#blocked_network_rule_list}
+        :param comment: Specifies a comment for the network policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#comment NetworkPolicy#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#id NetworkPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#timeouts NetworkPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class NetworkPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkPolicy to import.
-        :param import_from_id: The id of the existing NetworkPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkPolicy to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class NetworkPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#create NetworkPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#delete NetworkPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#read NetworkPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#update NetworkPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#create NetworkPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#delete NetworkPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#read NetworkPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#update NetworkPolicy#update}.
         '''
         value = NetworkPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -397,14 +397,14 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#name NetworkPolicy#name}
-        :param allowed_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are allowed access to your Snowflake account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#allowed_ip_list NetworkPolicy#allowed_ip_list}
-        :param allowed_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are allowed access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#allowed_network_rule_list NetworkPolicy#allowed_network_rule_list}
-        :param blocked_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are denied access to your Snowflake account. **Do not** add ``0.0.0.0/0`` to ``blocked_ip_list``, in order to block all IP addresses except a select list, you only need to add IP addresses to ``allowed_ip_list``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#blocked_ip_list NetworkPolicy#blocked_ip_list}
-        :param blocked_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are denied access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#blocked_network_rule_list NetworkPolicy#blocked_network_rule_list}
-        :param comment: Specifies a comment for the network policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#comment NetworkPolicy#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#id NetworkPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#timeouts NetworkPolicy#timeouts}
+        :param name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#name NetworkPolicy#name}
+        :param allowed_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are allowed access to your Snowflake account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#allowed_ip_list NetworkPolicy#allowed_ip_list}
+        :param allowed_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are allowed access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#allowed_network_rule_list NetworkPolicy#allowed_network_rule_list}
+        :param blocked_ip_list: Specifies one or more IPv4 addresses (CIDR notation) that are denied access to your Snowflake account. **Do not** add ``0.0.0.0/0`` to ``blocked_ip_list``, in order to block all IP addresses except a select list, you only need to add IP addresses to ``allowed_ip_list``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#blocked_ip_list NetworkPolicy#blocked_ip_list}
+        :param blocked_network_rule_list: Specifies a list of fully qualified network rules that contain the network identifiers that are denied access to Snowflake. For more information about this resource, see `docs <./network_rule>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#blocked_network_rule_list NetworkPolicy#blocked_network_rule_list}
+        :param comment: Specifies a comment for the network policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#comment NetworkPolicy#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#id NetworkPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#timeouts NetworkPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -529,7 +529,7 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the account in which the network policy is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#name NetworkPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#name NetworkPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -539,7 +539,7 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allowed_ip_list(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies one or more IPv4 addresses (CIDR notation) that are allowed access to your Snowflake account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#allowed_ip_list NetworkPolicy#allowed_ip_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#allowed_ip_list NetworkPolicy#allowed_ip_list}
         '''
         result = self._values.get("allowed_ip_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -550,7 +550,7 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./network_rule>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#allowed_network_rule_list NetworkPolicy#allowed_network_rule_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#allowed_network_rule_list NetworkPolicy#allowed_network_rule_list}
         '''
         result = self._values.get("allowed_network_rule_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -561,7 +561,7 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         **Do not** add ``0.0.0.0/0`` to ``blocked_ip_list``, in order to block all IP addresses except a select list, you only need to add IP addresses to ``allowed_ip_list``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#blocked_ip_list NetworkPolicy#blocked_ip_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#blocked_ip_list NetworkPolicy#blocked_ip_list}
         '''
         result = self._values.get("blocked_ip_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -572,7 +572,7 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./network_rule>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#blocked_network_rule_list NetworkPolicy#blocked_network_rule_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#blocked_network_rule_list NetworkPolicy#blocked_network_rule_list}
         '''
         result = self._values.get("blocked_network_rule_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -581,14 +581,14 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the network policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#comment NetworkPolicy#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#comment NetworkPolicy#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#id NetworkPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#id NetworkPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -600,7 +600,7 @@ class NetworkPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetworkPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#timeouts NetworkPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#timeouts NetworkPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkPolicyTimeouts"], result)
@@ -961,10 +961,10 @@ class NetworkPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#create NetworkPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#delete NetworkPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#read NetworkPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#update NetworkPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#create NetworkPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#delete NetworkPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#read NetworkPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#update NetworkPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46633c415838c2cfd415ad475c391f80fbb093459552d7a1087410924f07114e)
@@ -984,25 +984,25 @@ class NetworkPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#create NetworkPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#create NetworkPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#delete NetworkPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#delete NetworkPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#read NetworkPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#read NetworkPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/network_policy#update NetworkPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/network_policy#update NetworkPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

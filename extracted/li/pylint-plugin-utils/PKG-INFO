@@ -1,24 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pylint-plugin-utils
-Version: 0.8.2
+Version: 0.9.0
 Summary: Utilities and helpers for writing Pylint plugins
-Home-page: https://github.com/PyCQA/pylint-plugin-utils
 License: GPL-2.0-or-later
 Keywords: pylint,plugin,helpers
 Author: Carl Crowder
 Author-email: git@carlcrowder.com
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Dist: pylint (>=1.7)
 Project-URL: Repository, https://github.com/PyCQA/pylint-plugin-utils
@@ -29,7 +28,6 @@ Description-Content-Type: text/markdown
 ## Status
 
 [![Build Status](https://github.com/PyCQA/pylint-plugin-utils/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/PyCQA/pylint-plugin-utils/actions)
-[![Coverage Status](https://coveralls.io/repos/github/PyCQA/pylint-plugin-utils/badge.svg?branch=master)](https://coveralls.io/github/PyCQA/pylint-plugin-utils?branch=master)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 [![Pypi Package version](https://img.shields.io/pypi/v/pylint-plugin-utils.svg)](https://pypi.python.org/pypi/pylint-plugin-utils)
 
@@ -52,12 +50,12 @@ pip install tox pytest
 
 To run the test suite for a particular Python version, you can do:
 ```bash
-tox -e py38
+tox -e py39
 ```
 
 To run individual tests with ``tox``, you can do:
 ```bash
-tox -e py38 -- -k test_linter_should_be_pickleable
+tox -e py39 -- -k test_linter_should_be_pickleable
 ```
 
 We use ``pytest`` for testing ``pylint``, which you can use without using ``tox`` for a faster development cycle.

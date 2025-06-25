@@ -1,7 +1,7 @@
 r'''
 # `google_biglake_table`
 
-Refer to the Terraform Registry for docs: [`google_biglake_table`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table).
+Refer to the Terraform Registry for docs: [`google_biglake_table`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleBiglakeTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBiglakeTable.GoogleBiglakeTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table google_biglake_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table google_biglake_table}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleBiglakeTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table google_biglake_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table google_biglake_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Output only. The name of the Table. Format: projects/{project_id_or_number}/locations/{locationId}/catalogs/{catalogId}/databases/{databaseId}/tables/{tableId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#name GoogleBiglakeTable#name}
-        :param database: The id of the parent database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#database GoogleBiglakeTable#database}
-        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#hive_options GoogleBiglakeTable#hive_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#id GoogleBiglakeTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#timeouts GoogleBiglakeTable#timeouts}
-        :param type: The database type. Possible values: ["HIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#type GoogleBiglakeTable#type}
+        :param name: Output only. The name of the Table. Format: projects/{project_id_or_number}/locations/{locationId}/catalogs/{catalogId}/databases/{databaseId}/tables/{tableId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#name GoogleBiglakeTable#name}
+        :param database: The id of the parent database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#database GoogleBiglakeTable#database}
+        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#hive_options GoogleBiglakeTable#hive_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#id GoogleBiglakeTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#timeouts GoogleBiglakeTable#timeouts}
+        :param type: The database type. Possible values: ["HIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#type GoogleBiglakeTable#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleBiglakeTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBiglakeTable to import.
-        :param import_from_id: The id of the existing GoogleBiglakeTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBiglakeTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBiglakeTable to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GoogleBiglakeTable(
         table_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param parameters: Stores user supplied Hive table parameters. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#parameters GoogleBiglakeTable#parameters}
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#storage_descriptor GoogleBiglakeTable#storage_descriptor}
-        :param table_type: Hive table type. For example, MANAGED_TABLE, EXTERNAL_TABLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#table_type GoogleBiglakeTable#table_type}
+        :param parameters: Stores user supplied Hive table parameters. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#parameters GoogleBiglakeTable#parameters}
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#storage_descriptor GoogleBiglakeTable#storage_descriptor}
+        :param table_type: Hive table type. For example, MANAGED_TABLE, EXTERNAL_TABLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#table_type GoogleBiglakeTable#table_type}
         '''
         value = GoogleBiglakeTableHiveOptions(
             parameters=parameters,
@@ -159,9 +159,9 @@ class GoogleBiglakeTable(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#create GoogleBiglakeTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#delete GoogleBiglakeTable#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#update GoogleBiglakeTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#create GoogleBiglakeTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#delete GoogleBiglakeTable#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#update GoogleBiglakeTable#update}.
         '''
         value = GoogleBiglakeTableTimeouts(create=create, delete=delete, update=update)
 
@@ -361,12 +361,12 @@ class GoogleBiglakeTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Output only. The name of the Table. Format: projects/{project_id_or_number}/locations/{locationId}/catalogs/{catalogId}/databases/{databaseId}/tables/{tableId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#name GoogleBiglakeTable#name}
-        :param database: The id of the parent database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#database GoogleBiglakeTable#database}
-        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#hive_options GoogleBiglakeTable#hive_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#id GoogleBiglakeTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#timeouts GoogleBiglakeTable#timeouts}
-        :param type: The database type. Possible values: ["HIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#type GoogleBiglakeTable#type}
+        :param name: Output only. The name of the Table. Format: projects/{project_id_or_number}/locations/{locationId}/catalogs/{catalogId}/databases/{databaseId}/tables/{tableId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#name GoogleBiglakeTable#name}
+        :param database: The id of the parent database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#database GoogleBiglakeTable#database}
+        :param hive_options: hive_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#hive_options GoogleBiglakeTable#hive_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#id GoogleBiglakeTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#timeouts GoogleBiglakeTable#timeouts}
+        :param type: The database type. Possible values: ["HIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#type GoogleBiglakeTable#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -485,7 +485,7 @@ class GoogleBiglakeTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Output only. The name of the Table. Format: projects/{project_id_or_number}/locations/{locationId}/catalogs/{catalogId}/databases/{databaseId}/tables/{tableId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#name GoogleBiglakeTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#name GoogleBiglakeTable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -495,7 +495,7 @@ class GoogleBiglakeTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> typing.Optional[builtins.str]:
         '''The id of the parent database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#database GoogleBiglakeTable#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#database GoogleBiglakeTable#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -504,14 +504,14 @@ class GoogleBiglakeTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hive_options(self) -> typing.Optional["GoogleBiglakeTableHiveOptions"]:
         '''hive_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#hive_options GoogleBiglakeTable#hive_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#hive_options GoogleBiglakeTable#hive_options}
         '''
         result = self._values.get("hive_options")
         return typing.cast(typing.Optional["GoogleBiglakeTableHiveOptions"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#id GoogleBiglakeTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#id GoogleBiglakeTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -523,7 +523,7 @@ class GoogleBiglakeTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleBiglakeTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#timeouts GoogleBiglakeTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#timeouts GoogleBiglakeTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleBiglakeTableTimeouts"], result)
@@ -532,7 +532,7 @@ class GoogleBiglakeTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The database type. Possible values: ["HIVE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#type GoogleBiglakeTable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#type GoogleBiglakeTable#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -567,9 +567,9 @@ class GoogleBiglakeTableHiveOptions:
         table_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param parameters: Stores user supplied Hive table parameters. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#parameters GoogleBiglakeTable#parameters}
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#storage_descriptor GoogleBiglakeTable#storage_descriptor}
-        :param table_type: Hive table type. For example, MANAGED_TABLE, EXTERNAL_TABLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#table_type GoogleBiglakeTable#table_type}
+        :param parameters: Stores user supplied Hive table parameters. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#parameters GoogleBiglakeTable#parameters}
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#storage_descriptor GoogleBiglakeTable#storage_descriptor}
+        :param table_type: Hive table type. For example, MANAGED_TABLE, EXTERNAL_TABLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#table_type GoogleBiglakeTable#table_type}
         '''
         if isinstance(storage_descriptor, dict):
             storage_descriptor = GoogleBiglakeTableHiveOptionsStorageDescriptor(**storage_descriptor)
@@ -594,7 +594,7 @@ class GoogleBiglakeTableHiveOptions:
         list of "key": value pairs.
         Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#parameters GoogleBiglakeTable#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#parameters GoogleBiglakeTable#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -605,7 +605,7 @@ class GoogleBiglakeTableHiveOptions:
     ) -> typing.Optional["GoogleBiglakeTableHiveOptionsStorageDescriptor"]:
         '''storage_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#storage_descriptor GoogleBiglakeTable#storage_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#storage_descriptor GoogleBiglakeTable#storage_descriptor}
         '''
         result = self._values.get("storage_descriptor")
         return typing.cast(typing.Optional["GoogleBiglakeTableHiveOptionsStorageDescriptor"], result)
@@ -614,7 +614,7 @@ class GoogleBiglakeTableHiveOptions:
     def table_type(self) -> typing.Optional[builtins.str]:
         '''Hive table type. For example, MANAGED_TABLE, EXTERNAL_TABLE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#table_type GoogleBiglakeTable#table_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#table_type GoogleBiglakeTable#table_type}
         '''
         result = self._values.get("table_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -660,9 +660,9 @@ class GoogleBiglakeTableHiveOptionsOutputReference(
         output_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_format: The fully qualified Java class name of the input format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#input_format GoogleBiglakeTable#input_format}
-        :param location_uri: Cloud Storage folder URI where the table data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#location_uri GoogleBiglakeTable#location_uri}
-        :param output_format: The fully qualified Java class name of the output format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#output_format GoogleBiglakeTable#output_format}
+        :param input_format: The fully qualified Java class name of the input format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#input_format GoogleBiglakeTable#input_format}
+        :param location_uri: Cloud Storage folder URI where the table data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#location_uri GoogleBiglakeTable#location_uri}
+        :param output_format: The fully qualified Java class name of the output format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#output_format GoogleBiglakeTable#output_format}
         '''
         value = GoogleBiglakeTableHiveOptionsStorageDescriptor(
             input_format=input_format,
@@ -768,9 +768,9 @@ class GoogleBiglakeTableHiveOptionsStorageDescriptor:
         output_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_format: The fully qualified Java class name of the input format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#input_format GoogleBiglakeTable#input_format}
-        :param location_uri: Cloud Storage folder URI where the table data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#location_uri GoogleBiglakeTable#location_uri}
-        :param output_format: The fully qualified Java class name of the output format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#output_format GoogleBiglakeTable#output_format}
+        :param input_format: The fully qualified Java class name of the input format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#input_format GoogleBiglakeTable#input_format}
+        :param location_uri: Cloud Storage folder URI where the table data is stored, starting with "gs://". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#location_uri GoogleBiglakeTable#location_uri}
+        :param output_format: The fully qualified Java class name of the output format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#output_format GoogleBiglakeTable#output_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5705476de99bc13b655072cb09914d4174277ce5b5f0be8704b7dcd8e647601)
@@ -789,7 +789,7 @@ class GoogleBiglakeTableHiveOptionsStorageDescriptor:
     def input_format(self) -> typing.Optional[builtins.str]:
         '''The fully qualified Java class name of the input format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#input_format GoogleBiglakeTable#input_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#input_format GoogleBiglakeTable#input_format}
         '''
         result = self._values.get("input_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -798,7 +798,7 @@ class GoogleBiglakeTableHiveOptionsStorageDescriptor:
     def location_uri(self) -> typing.Optional[builtins.str]:
         '''Cloud Storage folder URI where the table data is stored, starting with "gs://".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#location_uri GoogleBiglakeTable#location_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#location_uri GoogleBiglakeTable#location_uri}
         '''
         result = self._values.get("location_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -807,7 +807,7 @@ class GoogleBiglakeTableHiveOptionsStorageDescriptor:
     def output_format(self) -> typing.Optional[builtins.str]:
         '''The fully qualified Java class name of the output format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#output_format GoogleBiglakeTable#output_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#output_format GoogleBiglakeTable#output_format}
         '''
         result = self._values.get("output_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -939,9 +939,9 @@ class GoogleBiglakeTableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#create GoogleBiglakeTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#delete GoogleBiglakeTable#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#update GoogleBiglakeTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#create GoogleBiglakeTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#delete GoogleBiglakeTable#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#update GoogleBiglakeTable#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5df1f014c2237b4878d2b69432b7778f768b3c27ab2f0bc4f4191b1f6a93b984)
@@ -958,19 +958,19 @@ class GoogleBiglakeTableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#create GoogleBiglakeTable#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#create GoogleBiglakeTable#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#delete GoogleBiglakeTable#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#delete GoogleBiglakeTable#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_biglake_table#update GoogleBiglakeTable#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_biglake_table#update GoogleBiglakeTable#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

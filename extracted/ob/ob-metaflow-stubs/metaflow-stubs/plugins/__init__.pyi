@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-19T23:04:39.542306                                                            #
+# Generated on 2025-06-25T00:26:31.491678                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,24 +9,24 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import secrets as secrets
+from . import environment_decorator as environment_decorator
+from . import parallel_decorator as parallel_decorator
+from . import kubernetes as kubernetes
+from . import resources_decorator as resources_decorator
+from . import timeout_decorator as timeout_decorator
+from . import aws as aws
 from . import cards as cards
+from . import argo as argo
 from . import datatools as datatools
 from . import gcp as gcp
 from . import storage_executor as storage_executor
-from . import parallel_decorator as parallel_decorator
-from . import timeout_decorator as timeout_decorator
-from . import kubernetes as kubernetes
-from . import resources_decorator as resources_decorator
-from . import aws as aws
-from . import environment_decorator as environment_decorator
 from . import catch_decorator as catch_decorator
-from . import argo as argo
 from . import pypi as pypi
-from . import retry_decorator as retry_decorator
 from . import frameworks as frameworks
-from . import airflow as airflow
+from . import retry_decorator as retry_decorator
+from . import secrets as secrets
 from . import events_decorator as events_decorator
+from . import airflow as airflow
 from . import project_decorator as project_decorator
 from . import uv as uv
 from . import azure as azure

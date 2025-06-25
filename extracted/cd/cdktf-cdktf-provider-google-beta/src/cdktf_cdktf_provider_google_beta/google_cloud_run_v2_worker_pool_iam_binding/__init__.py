@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_run_v2_worker_pool_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_cloud_run_v2_worker_pool_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding).
+Refer to the Terraform Registry for docs: [`google_cloud_run_v2_worker_pool_iam_binding`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleCloudRunV2WorkerPoolIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleCloudRunV2WorkerPoolIamBinding.GoogleCloudRunV2WorkerPoolIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding google_cloud_run_v2_worker_pool_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding google_cloud_run_v2_worker_pool_iam_binding}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleCloudRunV2WorkerPoolIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding google_cloud_run_v2_worker_pool_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding google_cloud_run_v2_worker_pool_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#members GoogleCloudRunV2WorkerPoolIamBinding#members}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#name GoogleCloudRunV2WorkerPoolIamBinding#name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#role GoogleCloudRunV2WorkerPoolIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#condition GoogleCloudRunV2WorkerPoolIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#id GoogleCloudRunV2WorkerPoolIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#location GoogleCloudRunV2WorkerPoolIamBinding#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#project GoogleCloudRunV2WorkerPoolIamBinding#project}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#members GoogleCloudRunV2WorkerPoolIamBinding#members}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#name GoogleCloudRunV2WorkerPoolIamBinding#name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#role GoogleCloudRunV2WorkerPoolIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#condition GoogleCloudRunV2WorkerPoolIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#id GoogleCloudRunV2WorkerPoolIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#location GoogleCloudRunV2WorkerPoolIamBinding#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#project GoogleCloudRunV2WorkerPoolIamBinding#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleCloudRunV2WorkerPoolIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleCloudRunV2WorkerPoolIamBinding to import.
-        :param import_from_id: The id of the existing GoogleCloudRunV2WorkerPoolIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleCloudRunV2WorkerPoolIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleCloudRunV2WorkerPoolIamBinding to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GoogleCloudRunV2WorkerPoolIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#expression GoogleCloudRunV2WorkerPoolIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#title GoogleCloudRunV2WorkerPoolIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#description GoogleCloudRunV2WorkerPoolIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#expression GoogleCloudRunV2WorkerPoolIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#title GoogleCloudRunV2WorkerPoolIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#description GoogleCloudRunV2WorkerPoolIamBinding#description}.
         '''
         value = GoogleCloudRunV2WorkerPoolIamBindingCondition(
             expression=expression, title=title, description=description
@@ -320,9 +320,9 @@ class GoogleCloudRunV2WorkerPoolIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#expression GoogleCloudRunV2WorkerPoolIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#title GoogleCloudRunV2WorkerPoolIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#description GoogleCloudRunV2WorkerPoolIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#expression GoogleCloudRunV2WorkerPoolIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#title GoogleCloudRunV2WorkerPoolIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#description GoogleCloudRunV2WorkerPoolIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98c941623e046c9b8f0beb00be4a0a3f306b5d1dc8e478bc23cb89e3653316c5)
@@ -338,21 +338,21 @@ class GoogleCloudRunV2WorkerPoolIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#expression GoogleCloudRunV2WorkerPoolIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#expression GoogleCloudRunV2WorkerPoolIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#title GoogleCloudRunV2WorkerPoolIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#title GoogleCloudRunV2WorkerPoolIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#description GoogleCloudRunV2WorkerPoolIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#description GoogleCloudRunV2WorkerPoolIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,13 +510,13 @@ class GoogleCloudRunV2WorkerPoolIamBindingConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#members GoogleCloudRunV2WorkerPoolIamBinding#members}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#name GoogleCloudRunV2WorkerPoolIamBinding#name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#role GoogleCloudRunV2WorkerPoolIamBinding#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#condition GoogleCloudRunV2WorkerPoolIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#id GoogleCloudRunV2WorkerPoolIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#location GoogleCloudRunV2WorkerPoolIamBinding#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#project GoogleCloudRunV2WorkerPoolIamBinding#project}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#members GoogleCloudRunV2WorkerPoolIamBinding#members}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#name GoogleCloudRunV2WorkerPoolIamBinding#name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#role GoogleCloudRunV2WorkerPoolIamBinding#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#condition GoogleCloudRunV2WorkerPoolIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#id GoogleCloudRunV2WorkerPoolIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#location GoogleCloudRunV2WorkerPoolIamBinding#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#project GoogleCloudRunV2WorkerPoolIamBinding#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -632,21 +632,21 @@ class GoogleCloudRunV2WorkerPoolIamBindingConfig(
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#members GoogleCloudRunV2WorkerPoolIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#members GoogleCloudRunV2WorkerPoolIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#name GoogleCloudRunV2WorkerPoolIamBinding#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#name GoogleCloudRunV2WorkerPoolIamBinding#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#role GoogleCloudRunV2WorkerPoolIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#role GoogleCloudRunV2WorkerPoolIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -657,14 +657,14 @@ class GoogleCloudRunV2WorkerPoolIamBindingConfig(
     ) -> typing.Optional[GoogleCloudRunV2WorkerPoolIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#condition GoogleCloudRunV2WorkerPoolIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#condition GoogleCloudRunV2WorkerPoolIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GoogleCloudRunV2WorkerPoolIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#id GoogleCloudRunV2WorkerPoolIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#id GoogleCloudRunV2WorkerPoolIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -674,13 +674,13 @@ class GoogleCloudRunV2WorkerPoolIamBindingConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#location GoogleCloudRunV2WorkerPoolIamBinding#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#location GoogleCloudRunV2WorkerPoolIamBinding#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#project GoogleCloudRunV2WorkerPoolIamBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_cloud_run_v2_worker_pool_iam_binding#project GoogleCloudRunV2WorkerPoolIamBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

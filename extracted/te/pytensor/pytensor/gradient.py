@@ -2069,13 +2069,13 @@ def jacobian(expression, wrt, consider_constant=None, disconnected_inputs="raise
     else:
         wrt = [wrt]
 
-    if expression.ndim == 0:
+    if all(expression.type.broadcastable):
         # expression is just a scalar, use grad
         return as_list_or_tuple(
             using_list,
             using_tuple,
             grad(
-                expression,
+                expression.squeeze(),
                 wrt,
                 consider_constant=consider_constant,
                 disconnected_inputs=disconnected_inputs,
@@ -2302,7 +2302,7 @@ def _is_zero(x):
 
 class ZeroGrad(ViewOp):
     def grad(self, args, g_outs):
-        return [g_out.zeros_like(g_out) for g_out in g_outs]
+        return [g_out.zeros_like() for g_out in g_outs]
 
     def R_op(self, inputs, eval_points):
         if eval_points[0] is None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nuclio_sdk
-Version: 0.5.16
+Version: 0.6.0
 Summary: Client for the Nuclio serverless platform
 Home-page: https://github.com/nuclio/nuclio-sdk-py
 Author: Eran Duchan

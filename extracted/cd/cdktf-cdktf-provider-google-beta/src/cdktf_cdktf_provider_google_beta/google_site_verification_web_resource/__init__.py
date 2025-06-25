@@ -1,7 +1,7 @@
 r'''
 # `google_site_verification_web_resource`
 
-Refer to the Terraform Registry for docs: [`google_site_verification_web_resource`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource).
+Refer to the Terraform Registry for docs: [`google_site_verification_web_resource`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSiteVerificationWebResource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSiteVerificationWebResource.GoogleSiteVerificationWebResource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource google_site_verification_web_resource}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource google_site_verification_web_resource}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GoogleSiteVerificationWebResource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource google_site_verification_web_resource} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource google_site_verification_web_resource} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param site: site block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#site GoogleSiteVerificationWebResource#site}
-        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#verification_method GoogleSiteVerificationWebResource#verification_method}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#id GoogleSiteVerificationWebResource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#timeouts GoogleSiteVerificationWebResource#timeouts}
+        :param site: site block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#site GoogleSiteVerificationWebResource#site}
+        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#verification_method GoogleSiteVerificationWebResource#verification_method}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#id GoogleSiteVerificationWebResource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#timeouts GoogleSiteVerificationWebResource#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GoogleSiteVerificationWebResource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSiteVerificationWebResource to import.
-        :param import_from_id: The id of the existing GoogleSiteVerificationWebResource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSiteVerificationWebResource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSiteVerificationWebResource to import is found.
         '''
         if __debug__:
@@ -126,8 +126,8 @@ class GoogleSiteVerificationWebResource(
     @jsii.member(jsii_name="putSite")
     def put_site(self, *, identifier: builtins.str, type: builtins.str) -> None:
         '''
-        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#identifier GoogleSiteVerificationWebResource#identifier}
-        :param type: The type of resource to be verified. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#type GoogleSiteVerificationWebResource#type}
+        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#identifier GoogleSiteVerificationWebResource#identifier}
+        :param type: The type of resource to be verified. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#type GoogleSiteVerificationWebResource#type}
         '''
         value = GoogleSiteVerificationWebResourceSite(identifier=identifier, type=type)
 
@@ -141,8 +141,8 @@ class GoogleSiteVerificationWebResource(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#create GoogleSiteVerificationWebResource#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#delete GoogleSiteVerificationWebResource#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#create GoogleSiteVerificationWebResource#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#delete GoogleSiteVerificationWebResource#delete}.
         '''
         value = GoogleSiteVerificationWebResourceTimeouts(create=create, delete=delete)
 
@@ -277,10 +277,10 @@ class GoogleSiteVerificationWebResourceConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param site: site block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#site GoogleSiteVerificationWebResource#site}
-        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#verification_method GoogleSiteVerificationWebResource#verification_method}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#id GoogleSiteVerificationWebResource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#timeouts GoogleSiteVerificationWebResource#timeouts}
+        :param site: site block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#site GoogleSiteVerificationWebResource#site}
+        :param verification_method: The verification method for the Site Verification system to use to verify this site or domain. Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#verification_method GoogleSiteVerificationWebResource#verification_method}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#id GoogleSiteVerificationWebResource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#timeouts GoogleSiteVerificationWebResource#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -392,7 +392,7 @@ class GoogleSiteVerificationWebResourceConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def site(self) -> "GoogleSiteVerificationWebResourceSite":
         '''site block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#site GoogleSiteVerificationWebResource#site}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#site GoogleSiteVerificationWebResource#site}
         '''
         result = self._values.get("site")
         assert result is not None, "Required property 'site' is missing"
@@ -404,7 +404,7 @@ class GoogleSiteVerificationWebResourceConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
         Possible values: ["ANALYTICS", "DNS_CNAME", "DNS_TXT", "FILE", "META", "TAG_MANAGER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#verification_method GoogleSiteVerificationWebResource#verification_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#verification_method GoogleSiteVerificationWebResource#verification_method}
         '''
         result = self._values.get("verification_method")
         assert result is not None, "Required property 'verification_method' is missing"
@@ -412,7 +412,7 @@ class GoogleSiteVerificationWebResourceConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#id GoogleSiteVerificationWebResource#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#id GoogleSiteVerificationWebResource#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,7 +424,7 @@ class GoogleSiteVerificationWebResourceConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["GoogleSiteVerificationWebResourceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#timeouts GoogleSiteVerificationWebResource#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#timeouts GoogleSiteVerificationWebResource#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSiteVerificationWebResourceTimeouts"], result)
@@ -449,8 +449,8 @@ class GoogleSiteVerificationWebResourceConfig(_cdktf_9a9027ec.TerraformMetaArgum
 class GoogleSiteVerificationWebResourceSite:
     def __init__(self, *, identifier: builtins.str, type: builtins.str) -> None:
         '''
-        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#identifier GoogleSiteVerificationWebResource#identifier}
-        :param type: The type of resource to be verified. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#type GoogleSiteVerificationWebResource#type}
+        :param identifier: The site identifier. If the type is set to SITE, the identifier is a URL. If the type is set to INET_DOMAIN, the identifier is a domain name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#identifier GoogleSiteVerificationWebResource#identifier}
+        :param type: The type of resource to be verified. Possible values: ["INET_DOMAIN", "SITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#type GoogleSiteVerificationWebResource#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2c19e0d102d7e9a8605524f4cd6b4c2f3e43238c2f95ebbf7a64bc435505bd4)
@@ -468,7 +468,7 @@ class GoogleSiteVerificationWebResourceSite:
         If the type is set to SITE, the identifier is a URL. If the type is
         set to INET_DOMAIN, the identifier is a domain name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#identifier GoogleSiteVerificationWebResource#identifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#identifier GoogleSiteVerificationWebResource#identifier}
         '''
         result = self._values.get("identifier")
         assert result is not None, "Required property 'identifier' is missing"
@@ -478,7 +478,7 @@ class GoogleSiteVerificationWebResourceSite:
     def type(self) -> builtins.str:
         '''The type of resource to be verified. Possible values: ["INET_DOMAIN", "SITE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#type GoogleSiteVerificationWebResource#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#type GoogleSiteVerificationWebResource#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -579,8 +579,8 @@ class GoogleSiteVerificationWebResourceTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#create GoogleSiteVerificationWebResource#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#delete GoogleSiteVerificationWebResource#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#create GoogleSiteVerificationWebResource#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#delete GoogleSiteVerificationWebResource#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6920cd33b9ddffe3c3622323d398d9ebafe6f516cf9b85f895b067cd35de0301)
@@ -594,13 +594,13 @@ class GoogleSiteVerificationWebResourceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#create GoogleSiteVerificationWebResource#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#create GoogleSiteVerificationWebResource#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_site_verification_web_resource#delete GoogleSiteVerificationWebResource#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_site_verification_web_resource#delete GoogleSiteVerificationWebResource#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

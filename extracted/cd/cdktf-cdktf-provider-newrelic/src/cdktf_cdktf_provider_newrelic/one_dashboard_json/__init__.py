@@ -1,7 +1,7 @@
 r'''
 # `newrelic_one_dashboard_json`
 
-Refer to the Terraform Registry for docs: [`newrelic_one_dashboard_json`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json).
+Refer to the Terraform Registry for docs: [`newrelic_one_dashboard_json`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OneDashboardJson(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.oneDashboardJson.OneDashboardJson",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json newrelic_one_dashboard_json}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json newrelic_one_dashboard_json}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class OneDashboardJson(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json newrelic_one_dashboard_json} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json newrelic_one_dashboard_json} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param json: The dashboard's json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#json OneDashboardJson#json}
-        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#account_id OneDashboardJson#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#id OneDashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#timeouts OneDashboardJson#timeouts}
+        :param json: The dashboard's json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#json OneDashboardJson#json}
+        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#account_id OneDashboardJson#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#id OneDashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#timeouts OneDashboardJson#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class OneDashboardJson(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OneDashboardJson to import.
-        :param import_from_id: The id of the existing OneDashboardJson that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OneDashboardJson that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OneDashboardJson to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class OneDashboardJson(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#create OneDashboardJson#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#update OneDashboardJson#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#create OneDashboardJson#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#update OneDashboardJson#update}.
         '''
         value = OneDashboardJsonTimeouts(create=create, update=update)
 
@@ -283,10 +283,10 @@ class OneDashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param json: The dashboard's json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#json OneDashboardJson#json}
-        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#account_id OneDashboardJson#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#id OneDashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#timeouts OneDashboardJson#timeouts}
+        :param json: The dashboard's json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#json OneDashboardJson#json}
+        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#account_id OneDashboardJson#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#id OneDashboardJson#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#timeouts OneDashboardJson#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -397,7 +397,7 @@ class OneDashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def json(self) -> builtins.str:
         '''The dashboard's json.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#json OneDashboardJson#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#json OneDashboardJson#json}
         '''
         result = self._values.get("json")
         assert result is not None, "Required property 'json' is missing"
@@ -407,14 +407,14 @@ class OneDashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID where you want to create the dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#account_id OneDashboardJson#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#account_id OneDashboardJson#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#id OneDashboardJson#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#id OneDashboardJson#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -426,7 +426,7 @@ class OneDashboardJsonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OneDashboardJsonTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#timeouts OneDashboardJson#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#timeouts OneDashboardJson#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OneDashboardJsonTimeouts"], result)
@@ -456,8 +456,8 @@ class OneDashboardJsonTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#create OneDashboardJson#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#update OneDashboardJson#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#create OneDashboardJson#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#update OneDashboardJson#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7eec0b48ef09fbddc71870a4f7b18dd0f7c0ece34a8c07365549e71a87bfd503)
@@ -471,13 +471,13 @@ class OneDashboardJsonTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#create OneDashboardJson#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#create OneDashboardJson#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/resources/one_dashboard_json#update OneDashboardJson#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_json#update OneDashboardJson#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

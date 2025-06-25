@@ -1,4 +1,4 @@
-# Copyright 2014 - 2023 Avram Lubkin, All Rights Reserved
+# Copyright 2014 - 2025 Avram Lubkin, All Rights Reserved
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,16 +10,16 @@
 This module contains generic functions for use in other modules
 """
 
-from abc import abstractmethod
-from functools import update_wrapper, wraps
-from inspect import isclass
+import abc
 import logging
 import operator as _operator
 import sys
+import warnings
+from functools import update_wrapper, wraps
+from inspect import isclass
 
 
-PY2 = sys.version_info[0] == 2
-
+PY_LT_3_10 = sys.version_info[:2] < (3, 10)
 
 # Setup logger
 LOGGER = logging.getLogger('pluginlib')
@@ -33,46 +33,11 @@ OPERATORS = {'=': _operator.eq,
              '>': _operator.gt,
              '>=': _operator.ge}
 
-
+# types.NoneType isn't available until 3.10
 NoneType = type(None)
 
-if PY2:  # pragma: no branch
-    BASESTRING = basestring  # pragma: no cover  # noqa: F821 # pylint: disable=undefined-variable
-else:
-    BASESTRING = str
 
-
-def raise_with_traceback(exc, tback):  # pragma: no cover
-    """
-    Placeholder for version-specific implementation
-    """
-    raise NotImplementedError
-
-
-# Attempt to make a Python 2/3 compatible way to raise with a traceback
-# pylint: disable=exec-used
-if PY2:  # pragma: no branch
-    exec("""def raise_with_traceback(exc, tback):  # pragma: no cover
-    raise exc.__class__, exc, tback
-""")
-else:
-    exec("""def raise_with_traceback(exc, tback):
-    raise exc.with_traceback(tback) from None
-""")
-
-
-def raise_from_none(exc):  # pragma: no cover
-    """
-    Convenience function to raise from None in a Python 2/3 compatible manner
-    """
-    raise exc
-
-
-if not PY2:  # pragma: no branch
-    exec('def raise_from_none(exc):\n    raise exc from None')  # pylint: disable=exec-used
-
-
-class ClassProperty(object):
+class ClassProperty:
     """
     Property decorator for class methods
     """
@@ -86,7 +51,7 @@ class ClassProperty(object):
         return self.method(cls)
 
 
-class Undefined(object):
+class Undefined:
     """
     Class for creating unique undefined objects for value comparisons
     """
@@ -102,9 +67,6 @@ class Undefined(object):
 
     def __bool__(self):
         return False
-
-    # For Python 2
-    __nonzero__ = __bool__
 
 
 def allow_bare_decorator(cls):
@@ -136,24 +98,24 @@ class CachingDict(dict):
     """
 
     def __init__(self, *args, **kwargs):
-        super(CachingDict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._cache = {}
 
     def __setitem__(self, key, value):
         try:
-            super(CachingDict, self).__setitem__(key, value)
+            super().__setitem__(key, value)
         finally:
             self._cache.clear()
 
     def __delitem__(self, key):
         try:
-            super(CachingDict, self).__delitem__(key)
+            super().__delitem__(key)
         finally:
             self._cache.clear()
 
     def clear(self):
         try:
-            super(CachingDict, self).clear()
+            super().clear()
         finally:
             self._cache.clear()
 
@@ -167,7 +129,7 @@ class CachingDict(dict):
 
     def pop(self, *args):
         try:
-            value = super(CachingDict, self).pop(*args)
+            value = super().pop(*args)
         except KeyError as e:
             raise e
 
@@ -176,7 +138,7 @@ class CachingDict(dict):
 
     def popitem(self):
         try:
-            item = super(CachingDict, self).popitem()
+            item = super().popitem()
         except KeyError as e:
             raise e
 
@@ -189,12 +151,11 @@ class DictWithDotNotation(dict):
     Dictionary addressable by dot notation
     """
 
-    # pylint: disable=inconsistent-return-statements  # PY2 compatibility
     def __getattr__(self, name):
         try:
             return self[name]
         except KeyError:
-            raise_from_none(AttributeError("'dict' object has no attribute '%s'" % name))
+            raise AttributeError(f"'dict' object has no attribute '{name}'") from None
 
 
 class abstractstaticmethod(staticmethod):  # noqa: N801  # pylint: disable=invalid-name
@@ -218,7 +179,13 @@ class abstractstaticmethod(staticmethod):  # noqa: N801  # pylint: disable=inval
     __isabstractmethod__ = True
 
     def __init__(self, func):
-        super(abstractstaticmethod, self).__init__(abstractmethod(func))
+        warnings.warn(
+            "abstractstaticmethod is deprecated since Python 3.3 and will be removed in future versions. "
+            "Use @staticmethod combined with @abstractmethod instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(abc.abstractmethod(func))
 
 
 class abstractclassmethod(classmethod):  # noqa: N801  # pylint: disable=invalid-name
@@ -242,18 +209,38 @@ class abstractclassmethod(classmethod):  # noqa: N801  # pylint: disable=invalid
     __isabstractmethod__ = True
 
     def __init__(self, func):
-        super(abstractclassmethod, self).__init__(abstractmethod(func))
+        warnings.warn(
+            "abstractclassmethod is deprecated since Python 3.3 and will be removed in future versions. "
+            "Use @classmethod combined with @abstractmethod instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(abc.abstractmethod(func))
 
 
-class abstractattribute(object):  # noqa: N801  # pylint: disable=invalid-name
+class abstractattribute:  # noqa: N801  # pylint: disable=invalid-name
     """
     A class to be used to identify abstract attributes
 
     .. code-block:: python
 
         @pluginlib.Parent
-        class ParentClass(object):
+        class ParentClass:
             abstract_attribute = pluginlib.abstractattribute
 
     """
     __isabstractmethod__ = True
+
+
+def abstractproperty(*args, **kwargs):
+    """
+    Wrapper for abstractproperty to raise deprecation warning
+    """
+
+    warnings.warn(
+        "abstractproperty is deprecated since Python 3.3 and will be removed in future versions. "
+        "Use @property combined with @abstractmethod instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return abc.abstractproperty(*args, **kwargs)

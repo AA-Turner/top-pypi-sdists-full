@@ -292,10 +292,12 @@ class CustomThemeConfig(google.protobuf.message.Message):
     LINK_COLOR_FIELD_NUMBER: builtins.int
     LINK_UNDERLINE_FIELD_NUMBER: builtins.int
     BASE_FONT_SIZE_FIELD_NUMBER: builtins.int
+    BASE_FONT_WEIGHT_FIELD_NUMBER: builtins.int
     CODE_FONT_SIZE_FIELD_NUMBER: builtins.int
     SHOW_SIDEBAR_BORDER_FIELD_NUMBER: builtins.int
     SIDEBAR_FIELD_NUMBER: builtins.int
     CODE_BACKGROUND_COLOR_FIELD_NUMBER: builtins.int
+    DATAFRAME_HEADER_BACKGROUND_COLOR_FIELD_NUMBER: builtins.int
     primary_color: builtins.str
     secondary_background_color: builtins.str
     background_color: builtins.str
@@ -320,9 +322,11 @@ class CustomThemeConfig(google.protobuf.message.Message):
     link_color: builtins.str
     link_underline: builtins.bool
     base_font_size: builtins.int
+    base_font_weight: builtins.int
     code_font_size: builtins.str
     show_sidebar_border: builtins.bool
     code_background_color: builtins.str
+    dataframe_header_background_color: builtins.str
     @property
     def radii(self) -> global___Radii:
         """DEPRECATED: Please use the base_radius theme config instead:"""
@@ -361,15 +365,19 @@ class CustomThemeConfig(google.protobuf.message.Message):
         link_color: builtins.str | None = ...,
         link_underline: builtins.bool | None = ...,
         base_font_size: builtins.int | None = ...,
+        base_font_weight: builtins.int | None = ...,
         code_font_size: builtins.str | None = ...,
         show_sidebar_border: builtins.bool | None = ...,
         sidebar: global___CustomThemeConfig | None = ...,
         code_background_color: builtins.str | None = ...,
+        dataframe_header_background_color: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_dataframe_border_color", b"_dataframe_border_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "base_font_size", b"base_font_size", "base_radius", b"base_radius", "border_color", b"border_color", "button_radius", b"button_radius", "code_background_color", b"code_background_color", "code_font_size", b"code_font_size", "dataframe_border_color", b"dataframe_border_color", "font_sizes", b"font_sizes", "link_color", b"link_color", "link_underline", b"link_underline", "radii", b"radii", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_dataframe_border_color", b"_dataframe_border_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "background_color", b"background_color", "base", b"base", "base_font_size", b"base_font_size", "base_radius", b"base_radius", "body_font", b"body_font", "border_color", b"border_color", "button_radius", b"button_radius", "code_background_color", b"code_background_color", "code_font", b"code_font", "code_font_size", b"code_font_size", "dataframe_border_color", b"dataframe_border_color", "font", b"font", "font_faces", b"font_faces", "font_sizes", b"font_sizes", "heading_font", b"heading_font", "link_color", b"link_color", "link_underline", b"link_underline", "primary_color", b"primary_color", "radii", b"radii", "secondary_background_color", b"secondary_background_color", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar", "skeleton_background_color", b"skeleton_background_color", "text_color", b"text_color", "widget_background_color", b"widget_background_color", "widget_border_color", b"widget_border_color"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_font_weight", b"_base_font_weight", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_dataframe_border_color", b"_dataframe_border_color", "_dataframe_header_background_color", b"_dataframe_header_background_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "base_font_size", b"base_font_size", "base_font_weight", b"base_font_weight", "base_radius", b"base_radius", "border_color", b"border_color", "button_radius", b"button_radius", "code_background_color", b"code_background_color", "code_font_size", b"code_font_size", "dataframe_border_color", b"dataframe_border_color", "dataframe_header_background_color", b"dataframe_header_background_color", "font_sizes", b"font_sizes", "link_color", b"link_color", "link_underline", b"link_underline", "radii", b"radii", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_font_weight", b"_base_font_weight", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_dataframe_border_color", b"_dataframe_border_color", "_dataframe_header_background_color", b"_dataframe_header_background_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "background_color", b"background_color", "base", b"base", "base_font_size", b"base_font_size", "base_font_weight", b"base_font_weight", "base_radius", b"base_radius", "body_font", b"body_font", "border_color", b"border_color", "button_radius", b"button_radius", "code_background_color", b"code_background_color", "code_font", b"code_font", "code_font_size", b"code_font_size", "dataframe_border_color", b"dataframe_border_color", "dataframe_header_background_color", b"dataframe_header_background_color", "font", b"font", "font_faces", b"font_faces", "font_sizes", b"font_sizes", "heading_font", b"heading_font", "link_color", b"link_color", "link_underline", b"link_underline", "primary_color", b"primary_color", "radii", b"radii", "secondary_background_color", b"secondary_background_color", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar", "skeleton_background_color", b"skeleton_background_color", "text_color", b"text_color", "widget_background_color", b"widget_background_color", "widget_border_color", b"widget_border_color"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_base_font_size", b"_base_font_size"]) -> typing.Literal["base_font_size"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_base_font_weight", b"_base_font_weight"]) -> typing.Literal["base_font_weight"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_base_radius", b"_base_radius"]) -> typing.Literal["base_radius"] | None: ...
     @typing.overload
@@ -382,6 +390,8 @@ class CustomThemeConfig(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_code_font_size", b"_code_font_size"]) -> typing.Literal["code_font_size"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_dataframe_border_color", b"_dataframe_border_color"]) -> typing.Literal["dataframe_border_color"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_dataframe_header_background_color", b"_dataframe_header_background_color"]) -> typing.Literal["dataframe_header_background_color"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_link_color", b"_link_color"]) -> typing.Literal["link_color"] | None: ...
     @typing.overload

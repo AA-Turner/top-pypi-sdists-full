@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sherpa-onnx
-Version: 1.12.1
+Version: 1.12.2
 Summary: UNKNOWN
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
@@ -16,19 +16,19 @@ License-File: LICENSE
 
 ### Supported functions
 
-|Speech recognition| Speech synthesis | Source separation |
+|Speech recognition| [Speech synthesis][tts-url] | [Source separation][ss-url] |
 |------------------|------------------|-------------------|
 |   ✔️              |         ✔️        |       ✔️           |
 
-|Speaker identification| Speaker diarization | Speaker verification |
+|Speaker identification| [Speaker diarization][sd-url] | Speaker verification |
 |----------------------|-------------------- |------------------------|
 |   ✔️                  |         ✔️           |            ✔️           |
 
-| Spoken Language identification | Audio tagging | Voice activity detection |
+| [Spoken Language identification][slid-url] | [Audio tagging][at-url] | [Voice activity detection][vad-url] |
 |--------------------------------|---------------|--------------------------|
 |                 ✔️              |          ✔️    |                ✔️         |
 
-| Keyword spotting | Add punctuation | Speech enhancement |
+| [Keyword spotting][kws-url] | [Add punctuation][punct-url] | [Speech enhancement][se-url] |
 |------------------|-----------------|--------------------|
 |     ✔️            |       ✔️         |      ✔️             |
 
@@ -110,15 +110,16 @@ with the following APIs
 <summary>You can visit the following Huggingface spaces to try sherpa-onnx without
 installing anything. All you need is a browser.</summary>
 
-| Description                                           | URL                                     |
-|-------------------------------------------------------|-----------------------------------------|
-| Speaker diarization                                   | [Click me][hf-space-speaker-diarization]|
-| Speech recognition                                    | [Click me][hf-space-asr]                |
-| Speech recognition with [Whisper][Whisper]            | [Click me][hf-space-asr-whisper]        |
-| Speech synthesis                                      | [Click me][hf-space-tts]                |
-| Generate subtitles                                    | [Click me][hf-space-subtitle]           |
-| Audio tagging                                         | [Click me][hf-space-audio-tagging]      |
-| Spoken language identification with [Whisper][Whisper]| [Click me][hf-space-slid-whisper]       |
+| Description                                           | URL                                     | 中国镜像                               |
+|-------------------------------------------------------|-----------------------------------------|----------------------------------------|
+| Speaker diarization                                   | [Click me][hf-space-speaker-diarization]| [镜像][hf-space-speaker-diarization-cn]|
+| Speech recognition                                    | [Click me][hf-space-asr]                | [镜像][hf-space-asr-cn]                |
+| Speech recognition with [Whisper][Whisper]            | [Click me][hf-space-asr-whisper]        | [镜像][hf-space-asr-whisper-cn]        |
+| Speech synthesis                                      | [Click me][hf-space-tts]                | [镜像][hf-space-tts-cn]                |
+| Generate subtitles                                    | [Click me][hf-space-subtitle]           | [镜像][hf-space-subtitle-cn]           |
+| Audio tagging                                         | [Click me][hf-space-audio-tagging]      | [镜像][hf-space-audio-tagging-cn]      |
+| Source separation                                     | [Click me][hf-space-source-separation]  | [镜像][hf-space-source-separation-cn]  |
+| Spoken language identification with [Whisper][Whisper]| [Click me][hf-space-slid-whisper]       | [镜像][hf-space-slid-whisper-cn]       |
 
 We also have spaces built using WebAssembly. They are listed below:
 
@@ -292,6 +293,20 @@ for 新一代 Kaldi **微信交流群** and **QQ 交流群**.
 
 ## Projects using sherpa-onnx
 
+### [BreezeApp](https://github.com/mtkresearch/BreezeApp) from [MediaTek Research](https://github.com/mtkresearch)
+
+> BreezeAPP is a mobile AI application developed for both Android and iOS platforms.
+> Users can download it directly from the App Store and enjoy a variety of features
+> offline, including speech-to-text, text-to-speech, text-based chatbot interactions,
+> and image question-answering
+
+  - [Download APK for BreezeAPP](https://huggingface.co/MediaTek-Research/BreezeApp/resolve/main/BreezeApp.apk)
+  - [APK 中国镜像](https://hf-mirror.com/MediaTek-Research/BreezeApp/blob/main/BreezeApp.apk)
+
+| 1 | 2 | 3 |
+|---|---|---|
+|![](https://github.com/user-attachments/assets/1cdbc057-b893-4de6-9e9c-f1d7dfd1d992)|![](https://github.com/user-attachments/assets/d77cd98e-b057-442f-860d-d5befd5c769b)|![](https://github.com/user-attachments/assets/57e546bf-3d39-45b9-b392-b48ca4fb3c58)|
+
 ### [Open-LLM-VTuber](https://github.com/t41372/Open-LLM-VTuber)
 
 Talk to any LLM with hands-free voice interaction, voice interruption, and Live2D taking
@@ -373,7 +388,9 @@ It is a [YouTube video](https://www.youtube.com/watch?v=KxPKkwxGWZs),
 showing how the author tried to use AI so he can have a conversation with Paimon.
 
 It uses sherpa-onnx for speech-to-text and text-to-speech.
-![](https://private-user-images.githubusercontent.com/5284924/442579664-f6eea2d5-1807-42cb-9160-be8da2971e1f.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDcwMjI5NjIsIm5iZiI6MTc0NzAyMjY2MiwicGF0aCI6Ii81Mjg0OTI0LzQ0MjU3OTY2NC1mNmVlYTJkNS0xODA3LTQyY2ItOTE2MC1iZThkYTI5NzFlMWYucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MDUxMiUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTA1MTJUMDQwNDIyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9ODAyMDllYjNmMGU0ZjNlODI3N2RkZjdiYjU2MmY4YzQwNGJjZjM4MGZmNjk0OWRmNmYzMjJhYWIzMDRiMWNiYSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.WP-v8oKPqQ-s487-eUU2Z4quOfWbwDJQJok89NfkTf4)
+|1|
+|---|
+|![](https://github.com/user-attachments/assets/f6eea2d5-1807-42cb-9160-be8da2971e1f)|
 
 [sherpa-rs]: https://github.com/thewh1teagle/sherpa-rs
 [silero-vad]: https://github.com/snakers4/silero-vad
@@ -384,13 +401,22 @@ It uses sherpa-onnx for speech-to-text and text-to-speech.
 [旭日X3派]: https://developer.horizon.ai/api/v1/fileData/documents_pi/index.html
 [爱芯派]: https://wiki.sipeed.com/hardware/zh/maixIII/ax-pi/axpi.html
 [hf-space-speaker-diarization]: https://huggingface.co/spaces/k2-fsa/speaker-diarization
+[hf-space-speaker-diarization-cn]: https://hf.qhduan.com/spaces/k2-fsa/speaker-diarization
 [hf-space-asr]: https://huggingface.co/spaces/k2-fsa/automatic-speech-recognition
+[hf-space-asr-cn]: https://hf.qhduan.com/spaces/k2-fsa/automatic-speech-recognition
 [Whisper]: https://github.com/openai/whisper
 [hf-space-asr-whisper]: https://huggingface.co/spaces/k2-fsa/automatic-speech-recognition-with-whisper
+[hf-space-asr-whisper-cn]: https://hf.qhduan.com/spaces/k2-fsa/automatic-speech-recognition-with-whisper
 [hf-space-tts]: https://huggingface.co/spaces/k2-fsa/text-to-speech
+[hf-space-tts-cn]: https://hf.qhduan.com/spaces/k2-fsa/text-to-speech
 [hf-space-subtitle]: https://huggingface.co/spaces/k2-fsa/generate-subtitles-for-videos
+[hf-space-subtitle-cn]: https://hf.qhduan.com/spaces/k2-fsa/generate-subtitles-for-videos
 [hf-space-audio-tagging]: https://huggingface.co/spaces/k2-fsa/audio-tagging
+[hf-space-audio-tagging-cn]: https://hf.qhduan.com/spaces/k2-fsa/audio-tagging
+[hf-space-source-separation]: https://huggingface.co/spaces/k2-fsa/source-separation
+[hf-space-source-separation-cn]: https://hf.qhduan.com/spaces/k2-fsa/source-separation
 [hf-space-slid-whisper]: https://huggingface.co/spaces/k2-fsa/spoken-language-identification
+[hf-space-slid-whisper-cn]: https://hf.qhduan.com/spaces/k2-fsa/spoken-language-identification
 [wasm-hf-vad]: https://huggingface.co/spaces/k2-fsa/web-assembly-vad-sherpa-onnx
 [wasm-ms-vad]: https://modelscope.cn/studios/csukuangfj/web-assembly-vad-sherpa-onnx
 [wasm-hf-streaming-asr-zh-en-zipformer]: https://huggingface.co/spaces/k2-fsa/web-assembly-asr-sherpa-onnx-zh-en
@@ -507,5 +533,14 @@ It uses sherpa-onnx for speech-to-text and text-to-speech.
 [spleeter]: https://github.com/deezer/spleeter
 [UVR]: https://github.com/Anjok07/ultimatevocalremovergui
 [gtcrn]: https://github.com/Xiaobin-Rong/gtcrn
+[tts-url]: https://k2-fsa.github.io/sherpa/onnx/tts/all-in-one.html
+[ss-url]: https://k2-fsa.github.io/sherpa/onnx/source-separation/index.html
+[sd-url]: https://k2-fsa.github.io/sherpa/onnx/speaker-diarization/index.html
+[slid-url]: https://k2-fsa.github.io/sherpa/onnx/spoken-language-identification/index.html
+[at-url]: https://k2-fsa.github.io/sherpa/onnx/audio-tagging/index.html
+[vad-url]: https://k2-fsa.github.io/sherpa/onnx/vad/index.html
+[kws-url]: https://k2-fsa.github.io/sherpa/onnx/kws/index.html
+[punct-url]: https://k2-fsa.github.io/sherpa/onnx/punctuation/index.html
+[se-url]: https://k2-fsa.github.io/sherpa/onnx/speech-enhancment/index.html
 
 

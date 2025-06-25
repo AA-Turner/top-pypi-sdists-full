@@ -631,9 +631,9 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                     if i >= max_attempts:
                         return RpaRetornoProcessoDTO(
                             sucesso=False,
-                            retorno=f"Erro ao trabalhar nas alterações dos item de tanque, tela de Distribui item tanque não foi encontrada",
+                            retorno=f"Erro ao trabalhar nas alterações dos item de tanque, tela, de distribuir item tanque, não foi encontrada",
                             status=RpaHistoricoStatusEnum.Falha,
-                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
                         )
 
                     try:

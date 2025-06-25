@@ -2846,6 +2846,9 @@ class BrokerageName(Enum):
     TASTYTRADE = 32
     """Transaction and submit/execution rules will use Tastytrade models"""
 
+    INTERACTIVE_BROKERS_FIX = 33
+    """Transaction and submit/execution rules will use interactive brokers Fix models"""
+
 
 class TastytradeBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Represents a brokerage model specific to Tastytrade."""
@@ -3679,6 +3682,122 @@ class AxosClearingBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
 
+class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
+    """Provides properties specific to interactive brokers"""
+
+    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
+    """The default markets for the IB brokerage"""
+
+    @property
+    def supported_time_in_forces(self) -> typing.List[typing.Type]:
+        """This property is protected."""
+        ...
+
+    @property
+    def supported_order_types(self) -> System.Collections.Generic.HashSet[QuantConnect.Orders.OrderType]:
+        """This property is protected."""
+        ...
+
+    @property
+    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
+        """Gets a map of the default markets to be used for each security type"""
+        ...
+
+    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
+        """
+        Initializes a new instance of the InteractiveBrokersBrokerageModel class
+        
+        :param account_type: The type of account to be modelled, defaults to AccountType.Margin
+        """
+        ...
+
+    def can_execute_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> bool:
+        """
+        Returns true if the brokerage would be able to execute this order at this time assuming
+        market prices are sufficient for the fill to take place. This is used to emulate the
+        brokerage fills in backtesting and paper trading. For example some brokerages may not perform
+        executions during extended market hours. This is not intended to be checking whether or not
+        the exchange is open, that is handled in the Security.Exchange property.
+        
+        :param order: The order to test for execution
+        :returns: True if the brokerage would be able to perform the execution, false otherwise.
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order. This takes into account
+        order type, security type, and order size limits.
+        
+        :param security: The security being ordered
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: True if the brokerage could process the order, false otherwise.
+        """
+        ...
+
+    def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage would allow updating the order as specified by the request
+        
+        :param security: The security of the order
+        :param order: The order to be updated
+        :param request: The requested update to be made to the order
+        :param message: If this function returns false, a brokerage message detailing why the order may not be updated
+        :returns: True if the brokerage would allow updating the order, false otherwise.
+        """
+        ...
+
+    def get_benchmark(self, securities: QuantConnect.Securities.SecurityManager) -> QuantConnect.Benchmarks.IBenchmark:
+        """
+        Get the benchmark for this model
+        
+        :param securities: SecurityService to create the security with if needed
+        :returns: The benchmark for this brokerage.
+        """
+        ...
+
+    def get_fee_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Orders.Fees.IFeeModel:
+        """
+        Gets a new fee model that represents this brokerage's fee structure
+        
+        :param security: The security to get a fee model for
+        :returns: The new fee model for this brokerage.
+        """
+        ...
+
+    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the brokerage's leverage for the specified security
+        
+        :param security: The security's whose leverage we seek
+        :returns: The leverage for the specified security.
+        """
+        ...
+
+
+class InteractiveBrokersFixModel(QuantConnect.Brokerages.InteractiveBrokersBrokerageModel):
+    """Provides properties specific to interactive brokers"""
+
+    @property
+    def supported_time_in_forces(self) -> typing.List[typing.Type]:
+        """This property is protected."""
+        ...
+
+    @property
+    def supported_order_types(self) -> System.Collections.Generic.HashSet[QuantConnect.Orders.OrderType]:
+        """This property is protected."""
+        ...
+
+    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
+        """
+        Initializes a new instance of the InteractiveBrokersFixModel class
+        
+        :param account_type: The type of account to be modelled, defaults to AccountType.Margin
+        """
+        ...
+
+
 class DefaultBrokerageMessageHandler(System.Object, QuantConnect.Brokerages.IBrokerageMessageHandler):
     """
     Provides a default implementation o IBrokerageMessageHandler that will forward
@@ -3980,90 +4099,6 @@ class TDAmeritradeBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         
         :param security: Security
         :returns: TDAmeritrade fee model.
-        """
-        ...
-
-
-class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
-    """Provides properties specific to interactive brokers"""
-
-    DEFAULT_MARKET_MAP: System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str] = ...
-    """The default markets for the IB brokerage"""
-
-    @property
-    def default_markets(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.SecurityType, str]:
-        """Gets a map of the default markets to be used for each security type"""
-        ...
-
-    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
-        """
-        Initializes a new instance of the InteractiveBrokersBrokerageModel class
-        
-        :param account_type: The type of account to be modelled, defaults to AccountType.Margin
-        """
-        ...
-
-    def can_execute_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> bool:
-        """
-        Returns true if the brokerage would be able to execute this order at this time assuming
-        market prices are sufficient for the fill to take place. This is used to emulate the
-        brokerage fills in backtesting and paper trading. For example some brokerages may not perform
-        executions during extended market hours. This is not intended to be checking whether or not
-        the exchange is open, that is handled in the Security.Exchange property.
-        
-        :param order: The order to test for execution
-        :returns: True if the brokerage would be able to perform the execution, false otherwise.
-        """
-        ...
-
-    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
-        """
-        Returns true if the brokerage could accept this order. This takes into account
-        order type, security type, and order size limits.
-        
-        :param security: The security being ordered
-        :param order: The order to be processed
-        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
-        :returns: True if the brokerage could process the order, false otherwise.
-        """
-        ...
-
-    def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
-        """
-        Returns true if the brokerage would allow updating the order as specified by the request
-        
-        :param security: The security of the order
-        :param order: The order to be updated
-        :param request: The requested update to be made to the order
-        :param message: If this function returns false, a brokerage message detailing why the order may not be updated
-        :returns: True if the brokerage would allow updating the order, false otherwise.
-        """
-        ...
-
-    def get_benchmark(self, securities: QuantConnect.Securities.SecurityManager) -> QuantConnect.Benchmarks.IBenchmark:
-        """
-        Get the benchmark for this model
-        
-        :param securities: SecurityService to create the security with if needed
-        :returns: The benchmark for this brokerage.
-        """
-        ...
-
-    def get_fee_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Orders.Fees.IFeeModel:
-        """
-        Gets a new fee model that represents this brokerage's fee structure
-        
-        :param security: The security to get a fee model for
-        :returns: The new fee model for this brokerage.
-        """
-        ...
-
-    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the brokerage's leverage for the specified security
-        
-        :param security: The security's whose leverage we seek
-        :returns: The leverage for the specified security.
         """
         ...
 

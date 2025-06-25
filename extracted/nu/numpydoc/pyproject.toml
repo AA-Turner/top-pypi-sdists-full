@@ -24,11 +24,11 @@ classifiers = [
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Topic :: Documentation',
 ]
 dependencies = [
     'sphinx>=6',
-    'tabulate>=0.8.10',
     "tomli>=1.1.0;python_version<'3.11'",
 ]
 
@@ -43,10 +43,12 @@ file = 'LICENSE.txt'
 Homepage = 'https://numpydoc.readthedocs.io'
 Source = 'https://github.com/numpy/numpydoc/'
 
-[project.optional-dependencies]
-developer = [
+[dependency-groups]
+dev = [
     'pre-commit>=3.3',
     "tomli; python_version < '3.11'",
+    { include-group = "doc" },
+    { include-group = "test" }
 ]
 doc = [
     'numpy>=1.22',

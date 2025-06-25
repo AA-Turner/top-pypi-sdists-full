@@ -8,7 +8,7 @@ FILES = "files"
 STATUS = "status"
 TITLE = "title"
 SELECT = "select"
-
+MULTI_SELECT = "multi_select"
 book_properties_type_dict = {
     "书名":TITLE,
     "BookId":RICH_TEXT,

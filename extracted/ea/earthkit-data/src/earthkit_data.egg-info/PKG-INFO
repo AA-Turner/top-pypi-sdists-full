@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-data
-Version: 0.14.4
+Version: 0.15.0
 Summary: A format-agnostic Python interface for geospatial data
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
@@ -78,7 +78,7 @@ Requires-Dist: ecmwf-api-client>=1.6.1; extra == "mars"
 Provides-Extra: odb
 Requires-Dist: pyodc; extra == "odb"
 Provides-Extra: polytope
-Requires-Dist: polytope-client>=0.7.4; extra == "polytope"
+Requires-Dist: polytope-client>=0.7.6; extra == "polytope"
 Provides-Extra: projection
 Requires-Dist: cartopy; extra == "projection"
 Provides-Extra: s3
@@ -95,6 +95,8 @@ Requires-Dist: pytest-forked; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
 Provides-Extra: wekeo
 Requires-Dist: hda>=2.22; extra == "wekeo"
+Provides-Extra: zarr
+Requires-Dist: zarr>=3; extra == "zarr"
 Dynamic: license-file
 
 <p align="center">

@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_security_profile_v2`
 
-Refer to the Terraform Registry for docs: [`google_apigee_security_profile_v2`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2).
+Refer to the Terraform Registry for docs: [`google_apigee_security_profile_v2`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApigeeSecurityProfileV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApigeeSecurityProfileV2.GoogleApigeeSecurityProfileV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2 google_apigee_security_profile_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2 google_apigee_security_profile_v2}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleApigeeSecurityProfileV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2 google_apigee_security_profile_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2 google_apigee_security_profile_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param org_id: The Apigee Organization associated with the Apigee Security Profile V2, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#org_id GoogleApigeeSecurityProfileV2#org_id}
-        :param profile_assessment_configs: profile_assessment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#profile_assessment_configs GoogleApigeeSecurityProfileV2#profile_assessment_configs}
-        :param profile_id: Resource ID of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#profile_id GoogleApigeeSecurityProfileV2#profile_id}
-        :param description: Description of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#description GoogleApigeeSecurityProfileV2#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#id GoogleApigeeSecurityProfileV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#timeouts GoogleApigeeSecurityProfileV2#timeouts}
+        :param org_id: The Apigee Organization associated with the Apigee Security Profile V2, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#org_id GoogleApigeeSecurityProfileV2#org_id}
+        :param profile_assessment_configs: profile_assessment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#profile_assessment_configs GoogleApigeeSecurityProfileV2#profile_assessment_configs}
+        :param profile_id: Resource ID of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#profile_id GoogleApigeeSecurityProfileV2#profile_id}
+        :param description: Description of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#description GoogleApigeeSecurityProfileV2#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#id GoogleApigeeSecurityProfileV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#timeouts GoogleApigeeSecurityProfileV2#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleApigeeSecurityProfileV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApigeeSecurityProfileV2 to import.
-        :param import_from_id: The id of the existing GoogleApigeeSecurityProfileV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApigeeSecurityProfileV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApigeeSecurityProfileV2 to import is found.
         '''
         if __debug__:
@@ -151,9 +151,9 @@ class GoogleApigeeSecurityProfileV2(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#create GoogleApigeeSecurityProfileV2#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#delete GoogleApigeeSecurityProfileV2#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#update GoogleApigeeSecurityProfileV2#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#create GoogleApigeeSecurityProfileV2#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#delete GoogleApigeeSecurityProfileV2#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#update GoogleApigeeSecurityProfileV2#update}.
         '''
         value = GoogleApigeeSecurityProfileV2Timeouts(
             create=create, delete=delete, update=update
@@ -341,12 +341,12 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param org_id: The Apigee Organization associated with the Apigee Security Profile V2, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#org_id GoogleApigeeSecurityProfileV2#org_id}
-        :param profile_assessment_configs: profile_assessment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#profile_assessment_configs GoogleApigeeSecurityProfileV2#profile_assessment_configs}
-        :param profile_id: Resource ID of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#profile_id GoogleApigeeSecurityProfileV2#profile_id}
-        :param description: Description of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#description GoogleApigeeSecurityProfileV2#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#id GoogleApigeeSecurityProfileV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#timeouts GoogleApigeeSecurityProfileV2#timeouts}
+        :param org_id: The Apigee Organization associated with the Apigee Security Profile V2, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#org_id GoogleApigeeSecurityProfileV2#org_id}
+        :param profile_assessment_configs: profile_assessment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#profile_assessment_configs GoogleApigeeSecurityProfileV2#profile_assessment_configs}
+        :param profile_id: Resource ID of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#profile_id GoogleApigeeSecurityProfileV2#profile_id}
+        :param description: Description of the security profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#description GoogleApigeeSecurityProfileV2#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#id GoogleApigeeSecurityProfileV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#timeouts GoogleApigeeSecurityProfileV2#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
     def org_id(self) -> builtins.str:
         '''The Apigee Organization associated with the Apigee Security Profile V2, in the format 'organizations/{{org_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#org_id GoogleApigeeSecurityProfileV2#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#org_id GoogleApigeeSecurityProfileV2#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -473,7 +473,7 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApigeeSecurityProfileV2ProfileAssessmentConfigs"]]:
         '''profile_assessment_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#profile_assessment_configs GoogleApigeeSecurityProfileV2#profile_assessment_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#profile_assessment_configs GoogleApigeeSecurityProfileV2#profile_assessment_configs}
         '''
         result = self._values.get("profile_assessment_configs")
         assert result is not None, "Required property 'profile_assessment_configs' is missing"
@@ -483,7 +483,7 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
     def profile_id(self) -> builtins.str:
         '''Resource ID of the security profile.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#profile_id GoogleApigeeSecurityProfileV2#profile_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#profile_id GoogleApigeeSecurityProfileV2#profile_id}
         '''
         result = self._values.get("profile_id")
         assert result is not None, "Required property 'profile_id' is missing"
@@ -493,14 +493,14 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the security profile.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#description GoogleApigeeSecurityProfileV2#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#description GoogleApigeeSecurityProfileV2#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#id GoogleApigeeSecurityProfileV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#id GoogleApigeeSecurityProfileV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -512,7 +512,7 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["GoogleApigeeSecurityProfileV2Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#timeouts GoogleApigeeSecurityProfileV2#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#timeouts GoogleApigeeSecurityProfileV2#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApigeeSecurityProfileV2Timeouts"], result)
@@ -537,8 +537,8 @@ class GoogleApigeeSecurityProfileV2Config(_cdktf_9a9027ec.TerraformMetaArguments
 class GoogleApigeeSecurityProfileV2ProfileAssessmentConfigs:
     def __init__(self, *, assessment: builtins.str, weight: builtins.str) -> None:
         '''
-        :param assessment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#assessment GoogleApigeeSecurityProfileV2#assessment}.
-        :param weight: The weight of the assessment. Possible values: ["MINOR", "MODERATE", "MAJOR"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#weight GoogleApigeeSecurityProfileV2#weight}
+        :param assessment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#assessment GoogleApigeeSecurityProfileV2#assessment}.
+        :param weight: The weight of the assessment. Possible values: ["MINOR", "MODERATE", "MAJOR"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#weight GoogleApigeeSecurityProfileV2#weight}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4fe267e7a69764d7c55fe5f35ac63d6de59fd9a76477af76bdc7b6a374ff853)
@@ -551,7 +551,7 @@ class GoogleApigeeSecurityProfileV2ProfileAssessmentConfigs:
 
     @builtins.property
     def assessment(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#assessment GoogleApigeeSecurityProfileV2#assessment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#assessment GoogleApigeeSecurityProfileV2#assessment}.'''
         result = self._values.get("assessment")
         assert result is not None, "Required property 'assessment' is missing"
         return typing.cast(builtins.str, result)
@@ -560,7 +560,7 @@ class GoogleApigeeSecurityProfileV2ProfileAssessmentConfigs:
     def weight(self) -> builtins.str:
         '''The weight of the assessment. Possible values: ["MINOR", "MODERATE", "MAJOR"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#weight GoogleApigeeSecurityProfileV2#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#weight GoogleApigeeSecurityProfileV2#weight}
         '''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
@@ -763,9 +763,9 @@ class GoogleApigeeSecurityProfileV2Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#create GoogleApigeeSecurityProfileV2#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#delete GoogleApigeeSecurityProfileV2#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#update GoogleApigeeSecurityProfileV2#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#create GoogleApigeeSecurityProfileV2#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#delete GoogleApigeeSecurityProfileV2#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#update GoogleApigeeSecurityProfileV2#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46e1f7afb849b6dc37c8e9d0880a88b481c0a5f9a7c73bc9fe17b2dc6d4dace8)
@@ -782,19 +782,19 @@ class GoogleApigeeSecurityProfileV2Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#create GoogleApigeeSecurityProfileV2#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#create GoogleApigeeSecurityProfileV2#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#delete GoogleApigeeSecurityProfileV2#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#delete GoogleApigeeSecurityProfileV2#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_security_profile_v2#update GoogleApigeeSecurityProfileV2#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_apigee_security_profile_v2#update GoogleApigeeSecurityProfileV2#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

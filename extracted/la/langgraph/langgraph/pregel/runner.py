@@ -104,7 +104,8 @@ class FuturesDict(Generic[F, E], dict[F, Optional[PregelExecutableTask]]):
         fut: F,
     ) -> None:
         try:
-            self.callback()(task, _exception(fut))  # type: ignore[misc]
+            if cb := self.callback():
+                cb(task, _exception(fut))
         finally:
             with self.lock:
                 self.done.add(fut)
@@ -431,7 +432,7 @@ class PregelRunner:
                         writes.extend(resumes)
                     self.put_writes()(task.id, writes)  # type: ignore[misc]
             elif isinstance(exception, GraphBubbleUp):
-                raise exception
+                pass
             else:
                 # save error to checkpointer
                 task.writes.append((ERROR, exception))

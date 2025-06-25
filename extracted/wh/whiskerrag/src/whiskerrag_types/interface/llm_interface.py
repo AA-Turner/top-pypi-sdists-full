@@ -15,8 +15,6 @@ from typing import (
 
 from pydantic import BaseModel
 
-from whiskerrag_types.model.knowledge import Knowledge
-
 T = TypeVar("T", bound=BaseModel)
 
 ContentType = Union[
@@ -25,10 +23,7 @@ ContentType = Union[
 
 
 class BaseLLM(ABC, Generic[T]):
-    """基础大语言模型接口，参考LangChain和OpenAI的设计"""
-
-    def __init__(self, knowledge: Knowledge) -> None:
-        self.knowledge = knowledge
+    """base llm class,"""
 
     @abstractmethod
     async def chat(self, content: Union[str, List[ContentType]], **kwargs: Any) -> T:

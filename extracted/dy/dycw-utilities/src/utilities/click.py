@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, TypedDict, assert_never, override
 import click
 import whenever
 from click import Choice, Context, Parameter, ParamType
-from click.types import StringParamType
+from click.types import IntParamType, StringParamType
 
 import utilities.whenever
 from utilities.enum import EnsureEnumError, ensure_enum
@@ -16,7 +16,7 @@ from utilities.functions import EnsureStrError, ensure_str, get_class_name
 from utilities.iterables import is_iterable_not_str
 from utilities.parse import ParseObjectError, parse_object
 from utilities.text import split_str
-from utilities.whenever import FreqLike, _FreqParseError, _MonthParseCommonISOError
+from utilities.whenever import FreqLike, _FreqParseError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -29,12 +29,13 @@ if TYPE_CHECKING:
         IPv4AddressLike,
         IPv6AddressLike,
         MaybeStr,
+        MonthDayLike,
         PlainDateTimeLike,
         TimeDeltaLike,
         TimeLike,
+        YearMonthLike,
         ZonedDateTimeLike,
     )
-    from utilities.whenever import MonthLike
 
 
 FilePath = click.Path(file_okay=True, dir_okay=False, path_type=pathlib.Path)
@@ -252,10 +253,10 @@ class IPv6Address(ParamType):
                 assert_never(never)
 
 
-class Month(ParamType):
-    """A month-valued parameter."""
+class MonthDay(ParamType):
+    """A month-day parameter."""
 
-    name = "month"
+    name = "month-day"
 
     @override
     def __repr__(self) -> str:
@@ -263,13 +264,19 @@ class Month(ParamType):
 
     @override
     def convert(
-        self, value: MonthLike, param: Parameter | None, ctx: Context | None
-    ) -> utilities.whenever.Month:
-        """Convert a value into the `Month` type."""
-        try:
-            return utilities.whenever.Month.ensure(value)
-        except _MonthParseCommonISOError as error:
-            self.fail(str(error), param, ctx)
+        self, value: MonthDayLike, param: Parameter | None, ctx: Context | None
+    ) -> whenever.MonthDay:
+        """Convert a value into the `MonthDay` type."""
+        match value:
+            case whenever.MonthDay():
+                return value
+            case str():
+                try:
+                    return whenever.MonthDay.parse_common_iso(value)
+                except ValueError as error:
+                    self.fail(str(error), param, ctx)
+            case _ as never:
+                assert_never(never)
 
 
 class PlainDateTime(ParamType):
@@ -344,6 +351,32 @@ class TimeDelta(ParamType):
             case str():
                 try:
                     return whenever.TimeDelta.parse_common_iso(value)
+                except ValueError as error:
+                    self.fail(str(error), param, ctx)
+            case _ as never:
+                assert_never(never)
+
+
+class YearMonth(ParamType):
+    """A year-month parameter."""
+
+    name = "year-month"
+
+    @override
+    def __repr__(self) -> str:
+        return self.name.upper()
+
+    @override
+    def convert(
+        self, value: YearMonthLike, param: Parameter | None, ctx: Context | None
+    ) -> whenever.YearMonth:
+        """Convert a value into the `YearMonth` type."""
+        match value:
+            case whenever.YearMonth():
+                return value
+            case str():
+                try:
+                    return whenever.YearMonth.parse_common_iso(value)
                 except ValueError as error:
                     self.fail(str(error), param, ctx)
             case _ as never:
@@ -445,6 +478,14 @@ class FrozenSetEnums[E: enum.Enum](FrozenSetParameter[Enum[E], E]):
         super().__init__(Enum(enum, case_sensitive=case_sensitive), separator=separator)
 
 
+class FrozenSetInts(FrozenSetParameter[IntParamType, int]):
+    """A frozenset-of-ints-valued parameter."""
+
+    @override
+    def __init__(self, *, separator: str = ",") -> None:
+        super().__init__(IntParamType(), separator=separator)
+
+
 class FrozenSetStrs(FrozenSetParameter[StringParamType, str]):
     """A frozenset-of-strs-valued parameter."""
 
@@ -522,6 +563,14 @@ class ListEnums[E: enum.Enum](ListParameter[Enum[E], E]):
         super().__init__(Enum(enum, case_sensitive=case_sensitive), separator=separator)
 
 
+class ListInts(ListParameter[IntParamType, int]):
+    """A list-of-ints-valued parameter."""
+
+    @override
+    def __init__(self, *, separator: str = ",") -> None:
+        super().__init__(IntParamType(), separator=separator)
+
+
 class ListStrs(ListParameter[StringParamType, str]):
     """A list-of-strs-valued parameter."""
 
@@ -557,10 +606,13 @@ __all__ = [
     "IPv6Address",
     "ListChoices",
     "ListEnums",
+    "ListInts",
     "ListParameter",
     "ListStrs",
+    "MonthDay",
     "PlainDateTime",
     "Time",
     "TimeDelta",
+    "YearMonth",
     "ZonedDateTime",
 ]

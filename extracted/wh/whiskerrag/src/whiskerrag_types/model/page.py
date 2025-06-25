@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 T = TypeVar("T")
 
 
-class OrConditionItem:
+class ConditionItem(BaseModel):
     field: str
     operator: str  # eq, neq, gt, gte, lt, lte, like, ilike.
     value: Any
@@ -18,6 +18,10 @@ class QueryParams(BaseModel, Generic[T]):
     eq_conditions: Optional[Dict[str, Any]] = Field(
         default=None,
         description="list of equality conditions, each as a dict with key and value",
+    )
+    conditions: Optional[List[ConditionItem]] = Field(
+        default=None,
+        description="list of or conditions, each as a dict with field, operator and value",
     )
 
     @model_validator(mode="after")

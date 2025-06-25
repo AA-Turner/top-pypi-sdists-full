@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: miniKanren
-Version: 1.0.4
+Version: 1.0.5
 Summary: Relational programming in Python
 Author-email: "Brandon T. Willard" <brandonwillard+kanren@gmail.com>
 Project-URL: repository, http://github.com/pythological/kanren

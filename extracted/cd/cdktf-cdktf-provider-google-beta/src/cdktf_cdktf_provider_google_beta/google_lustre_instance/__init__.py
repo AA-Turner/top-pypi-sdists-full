@@ -1,7 +1,7 @@
 r'''
 # `google_lustre_instance`
 
-Refer to the Terraform Registry for docs: [`google_lustre_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance).
+Refer to the Terraform Registry for docs: [`google_lustre_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleLustreInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleLustreInstance.GoogleLustreInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance google_lustre_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance google_lustre_instance}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class GoogleLustreInstance(
         instance_id: builtins.str,
         location: builtins.str,
         network: builtins.str,
+        per_unit_storage_throughput: builtins.str,
         description: typing.Optional[builtins.str] = None,
         gke_support_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
@@ -70,21 +71,22 @@ class GoogleLustreInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance google_lustre_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance google_lustre_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_gib: Required. The storage capacity of the instance in gibibytes (GiB). Allowed values are from 18000 to 954000, in increments of 9000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#capacity_gib GoogleLustreInstance#capacity_gib}
-        :param filesystem: Required. Immutable. The filesystem name for this instance. This name is used by client-side tools, including when mounting the instance. Must be 8 characters or less and may only contain letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#filesystem GoogleLustreInstance#filesystem}
-        :param instance_id: Required. The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#instance_id GoogleLustreInstance#instance_id}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#location GoogleLustreInstance#location}
-        :param network: Required. Immutable. The full name of the VPC network to which the instance is connected. Must be in the format 'projects/{project_id}/global/networks/{network_name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#network GoogleLustreInstance#network}
-        :param description: Optional. A user-readable description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#description GoogleLustreInstance#description}
-        :param gke_support_enabled: Optional. Indicates whether you want to enable support for GKE clients. By default, GKE clients are not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#gke_support_enabled GoogleLustreInstance#gke_support_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#id GoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#labels GoogleLustreInstance#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#project GoogleLustreInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#timeouts GoogleLustreInstance#timeouts}
+        :param capacity_gib: The storage capacity of the instance in gibibytes (GiB). Allowed values are from '18000' to '954000', in increments of 9000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#capacity_gib GoogleLustreInstance#capacity_gib}
+        :param filesystem: The filesystem name for this instance. This name is used by client-side tools, including when mounting the instance. Must be eight characters or less and can only contain letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#filesystem GoogleLustreInstance#filesystem}
+        :param instance_id: The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#instance_id GoogleLustreInstance#instance_id}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#location GoogleLustreInstance#location}
+        :param network: The full name of the VPC network to which the instance is connected. Must be in the format 'projects/{project_id}/global/networks/{network_name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#network GoogleLustreInstance#network}
+        :param per_unit_storage_throughput: The throughput of the instance in MB/s/TiB. Valid values are 125, 250, 500, 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#per_unit_storage_throughput GoogleLustreInstance#per_unit_storage_throughput}
+        :param description: A user-readable description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#description GoogleLustreInstance#description}
+        :param gke_support_enabled: Indicates whether you want to enable support for GKE clients. By default, GKE clients are not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#gke_support_enabled GoogleLustreInstance#gke_support_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#id GoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#labels GoogleLustreInstance#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#project GoogleLustreInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#timeouts GoogleLustreInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,6 +105,7 @@ class GoogleLustreInstance(
             instance_id=instance_id,
             location=location,
             network=network,
+            per_unit_storage_throughput=per_unit_storage_throughput,
             description=description,
             gke_support_enabled=gke_support_enabled,
             id=id,
@@ -133,7 +136,7 @@ class GoogleLustreInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleLustreInstance to import.
-        :param import_from_id: The id of the existing GoogleLustreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleLustreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleLustreInstance to import is found.
         '''
         if __debug__:
@@ -153,9 +156,9 @@ class GoogleLustreInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#create GoogleLustreInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#delete GoogleLustreInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#update GoogleLustreInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#create GoogleLustreInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#delete GoogleLustreInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#update GoogleLustreInstance#update}.
         '''
         value = GoogleLustreInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -290,6 +293,11 @@ class GoogleLustreInstance(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="perUnitStorageThroughputInput")
+    def per_unit_storage_throughput_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "perUnitStorageThroughputInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="projectInput")
     def project_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectInput"))
@@ -415,6 +423,18 @@ class GoogleLustreInstance(
         jsii.set(self, "network", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="perUnitStorageThroughput")
+    def per_unit_storage_throughput(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "perUnitStorageThroughput"))
+
+    @per_unit_storage_throughput.setter
+    def per_unit_storage_throughput(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87abbe4986d820035f085f74a0e04702da70ca96e3ac1cd12aab65f15ffc2264)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "perUnitStorageThroughput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="project")
     def project(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "project"))
@@ -443,6 +463,7 @@ class GoogleLustreInstance(
         "instance_id": "instanceId",
         "location": "location",
         "network": "network",
+        "per_unit_storage_throughput": "perUnitStorageThroughput",
         "description": "description",
         "gke_support_enabled": "gkeSupportEnabled",
         "id": "id",
@@ -467,6 +488,7 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         instance_id: builtins.str,
         location: builtins.str,
         network: builtins.str,
+        per_unit_storage_throughput: builtins.str,
         description: typing.Optional[builtins.str] = None,
         gke_support_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
@@ -482,17 +504,18 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_gib: Required. The storage capacity of the instance in gibibytes (GiB). Allowed values are from 18000 to 954000, in increments of 9000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#capacity_gib GoogleLustreInstance#capacity_gib}
-        :param filesystem: Required. Immutable. The filesystem name for this instance. This name is used by client-side tools, including when mounting the instance. Must be 8 characters or less and may only contain letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#filesystem GoogleLustreInstance#filesystem}
-        :param instance_id: Required. The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#instance_id GoogleLustreInstance#instance_id}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#location GoogleLustreInstance#location}
-        :param network: Required. Immutable. The full name of the VPC network to which the instance is connected. Must be in the format 'projects/{project_id}/global/networks/{network_name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#network GoogleLustreInstance#network}
-        :param description: Optional. A user-readable description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#description GoogleLustreInstance#description}
-        :param gke_support_enabled: Optional. Indicates whether you want to enable support for GKE clients. By default, GKE clients are not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#gke_support_enabled GoogleLustreInstance#gke_support_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#id GoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#labels GoogleLustreInstance#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#project GoogleLustreInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#timeouts GoogleLustreInstance#timeouts}
+        :param capacity_gib: The storage capacity of the instance in gibibytes (GiB). Allowed values are from '18000' to '954000', in increments of 9000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#capacity_gib GoogleLustreInstance#capacity_gib}
+        :param filesystem: The filesystem name for this instance. This name is used by client-side tools, including when mounting the instance. Must be eight characters or less and can only contain letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#filesystem GoogleLustreInstance#filesystem}
+        :param instance_id: The name of the Managed Lustre instance. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#instance_id GoogleLustreInstance#instance_id}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#location GoogleLustreInstance#location}
+        :param network: The full name of the VPC network to which the instance is connected. Must be in the format 'projects/{project_id}/global/networks/{network_name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#network GoogleLustreInstance#network}
+        :param per_unit_storage_throughput: The throughput of the instance in MB/s/TiB. Valid values are 125, 250, 500, 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#per_unit_storage_throughput GoogleLustreInstance#per_unit_storage_throughput}
+        :param description: A user-readable description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#description GoogleLustreInstance#description}
+        :param gke_support_enabled: Indicates whether you want to enable support for GKE clients. By default, GKE clients are not supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#gke_support_enabled GoogleLustreInstance#gke_support_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#id GoogleLustreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#labels GoogleLustreInstance#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#project GoogleLustreInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#timeouts GoogleLustreInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -512,6 +535,7 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument network", value=network, expected_type=type_hints["network"])
+            check_type(argname="argument per_unit_storage_throughput", value=per_unit_storage_throughput, expected_type=type_hints["per_unit_storage_throughput"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gke_support_enabled", value=gke_support_enabled, expected_type=type_hints["gke_support_enabled"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -524,6 +548,7 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             "instance_id": instance_id,
             "location": location,
             "network": network,
+            "per_unit_storage_throughput": per_unit_storage_throughput,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -618,12 +643,9 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def capacity_gib(self) -> builtins.str:
-        '''Required.
+        '''The storage capacity of the instance in gibibytes (GiB). Allowed values are from '18000' to '954000', in increments of 9000.
 
-        The storage capacity of the instance in gibibytes (GiB). Allowed values
-        are from 18000 to 954000, in increments of 9000.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#capacity_gib GoogleLustreInstance#capacity_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#capacity_gib GoogleLustreInstance#capacity_gib}
         '''
         result = self._values.get("capacity_gib")
         assert result is not None, "Required property 'capacity_gib' is missing"
@@ -631,13 +653,13 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def filesystem(self) -> builtins.str:
-        '''Required.
+        '''The filesystem name for this instance.
 
-        Immutable. The filesystem name for this instance. This name is used by client-side
-        tools, including when mounting the instance. Must be 8 characters or less
-        and may only contain letters and numbers.
+        This name is used by client-side
+        tools, including when mounting the instance. Must be eight characters or
+        less and can only contain letters and numbers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#filesystem GoogleLustreInstance#filesystem}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#filesystem GoogleLustreInstance#filesystem}
         '''
         result = self._values.get("filesystem")
         assert result is not None, "Required property 'filesystem' is missing"
@@ -645,14 +667,14 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Required. The name of the Managed Lustre instance.
+        '''The name of the Managed Lustre instance.
 
         - Must contain only lowercase letters, numbers, and hyphens.
         - Must start with a letter.
         - Must be between 1-63 characters.
         - Must end with a number or a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#instance_id GoogleLustreInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#instance_id GoogleLustreInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -662,7 +684,7 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#location GoogleLustreInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#location GoogleLustreInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -670,19 +692,29 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def network(self) -> builtins.str:
-        '''Required. Immutable. The full name of the VPC network to which the instance is connected. Must be in the format 'projects/{project_id}/global/networks/{network_name}'.
+        '''The full name of the VPC network to which the instance is connected. Must be in the format 'projects/{project_id}/global/networks/{network_name}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#network GoogleLustreInstance#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#network GoogleLustreInstance#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Optional. A user-readable description of the instance.
+    def per_unit_storage_throughput(self) -> builtins.str:
+        '''The throughput of the instance in MB/s/TiB. Valid values are 125, 250, 500, 1000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#description GoogleLustreInstance#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#per_unit_storage_throughput GoogleLustreInstance#per_unit_storage_throughput}
+        '''
+        result = self._values.get("per_unit_storage_throughput")
+        assert result is not None, "Required property 'per_unit_storage_throughput' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A user-readable description of the instance.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#description GoogleLustreInstance#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -691,16 +723,16 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gke_support_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Optional. Indicates whether you want to enable support for GKE clients. By default, GKE clients are not supported.
+        '''Indicates whether you want to enable support for GKE clients. By default, GKE clients are not supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#gke_support_enabled GoogleLustreInstance#gke_support_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#gke_support_enabled GoogleLustreInstance#gke_support_enabled}
         '''
         result = self._values.get("gke_support_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#id GoogleLustreInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#id GoogleLustreInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -710,19 +742,19 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Optional. Labels as key value pairs.
+        '''Labels as key value pairs.
 
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#labels GoogleLustreInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#labels GoogleLustreInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#project GoogleLustreInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#project GoogleLustreInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -730,7 +762,7 @@ class GoogleLustreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleLustreInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#timeouts GoogleLustreInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#timeouts GoogleLustreInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleLustreInstanceTimeouts"], result)
@@ -761,9 +793,9 @@ class GoogleLustreInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#create GoogleLustreInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#delete GoogleLustreInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#update GoogleLustreInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#create GoogleLustreInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#delete GoogleLustreInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#update GoogleLustreInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f59905f7948d374c1445aa6a5f32f2abca21bd4f5e844519873a4801fbdf44bf)
@@ -780,19 +812,19 @@ class GoogleLustreInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#create GoogleLustreInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#create GoogleLustreInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#delete GoogleLustreInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#delete GoogleLustreInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_lustre_instance#update GoogleLustreInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_lustre_instance#update GoogleLustreInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -927,6 +959,7 @@ def _typecheckingstub__225693fee56e41d6e5760a50d07d5d652632a17cb2a93fb3cec113ddd
     instance_id: builtins.str,
     location: builtins.str,
     network: builtins.str,
+    per_unit_storage_throughput: builtins.str,
     description: typing.Optional[builtins.str] = None,
     gke_support_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
@@ -1007,6 +1040,12 @@ def _typecheckingstub__7e3c65f62d17b9c28b51da49b55846cad28072a496833385e78d8218c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__87abbe4986d820035f085f74a0e04702da70ca96e3ac1cd12aab65f15ffc2264(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__88f1df37e57fdaa57da1e3816c687c780645ab5d84a572d4f50db297c9e13586(
     value: builtins.str,
 ) -> None:
@@ -1027,6 +1066,7 @@ def _typecheckingstub__2c216f8a27023f0d0108e1b824961a43b6cabe222f13c77aac3f795e0
     instance_id: builtins.str,
     location: builtins.str,
     network: builtins.str,
+    per_unit_storage_throughput: builtins.str,
     description: typing.Optional[builtins.str] = None,
     gke_support_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,

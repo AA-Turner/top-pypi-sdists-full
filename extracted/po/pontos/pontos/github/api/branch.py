@@ -266,7 +266,7 @@ def update_from_applied_settings(
 
 
 class GitHubAsyncRESTBranches(GitHubAsyncREST):
-    async def exists(self, repo: str, branch: str) -> bool:
+    async def exists(self, repo: str, branch: str) -> bool:  # type: ignore[return]
         """
         Check if a single branch in a repository exists
 
@@ -287,7 +287,14 @@ class GitHubAsyncRESTBranches(GitHubAsyncREST):
         """
         api = f"/repos/{repo}/branches/{branch}"
         response = await self._client.get(api)
-        return response.is_success
+
+        if response.is_success:
+            return True
+
+        if response.status_code == 404:
+            return False
+
+        response.raise_for_status()
 
     async def delete(self, repo: str, branch: str) -> None:
         """

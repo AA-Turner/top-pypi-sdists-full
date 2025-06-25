@@ -1,7 +1,7 @@
 r'''
 # `google_service_networking_vpc_service_controls`
 
-Refer to the Terraform Registry for docs: [`google_service_networking_vpc_service_controls`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls).
+Refer to the Terraform Registry for docs: [`google_service_networking_vpc_service_controls`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleServiceNetworkingVpcServiceControls(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleServiceNetworkingVpcServiceControls.GoogleServiceNetworkingVpcServiceControls",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls google_service_networking_vpc_service_controls}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls google_service_networking_vpc_service_controls}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleServiceNetworkingVpcServiceControls(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls google_service_networking_vpc_service_controls} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls google_service_networking_vpc_service_controls} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Desired VPC Service Controls state service producer VPC network, as described at the top of this page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#enabled GoogleServiceNetworkingVpcServiceControls#enabled}
-        :param network: The network that the consumer is using to connect with services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#network GoogleServiceNetworkingVpcServiceControls#network}
-        :param service: The service that is managing peering connectivity for a service producer's organization. For Google services that support this functionality, this value is 'servicenetworking.googleapis.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#service GoogleServiceNetworkingVpcServiceControls#service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#id GoogleServiceNetworkingVpcServiceControls#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The id of the Google Cloud project containing the consumer network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#project GoogleServiceNetworkingVpcServiceControls#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#timeouts GoogleServiceNetworkingVpcServiceControls#timeouts}
+        :param enabled: Desired VPC Service Controls state service producer VPC network, as described at the top of this page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#enabled GoogleServiceNetworkingVpcServiceControls#enabled}
+        :param network: The network that the consumer is using to connect with services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#network GoogleServiceNetworkingVpcServiceControls#network}
+        :param service: The service that is managing peering connectivity for a service producer's organization. For Google services that support this functionality, this value is 'servicenetworking.googleapis.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#service GoogleServiceNetworkingVpcServiceControls#service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#id GoogleServiceNetworkingVpcServiceControls#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The id of the Google Cloud project containing the consumer network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#project GoogleServiceNetworkingVpcServiceControls#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#timeouts GoogleServiceNetworkingVpcServiceControls#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleServiceNetworkingVpcServiceControls(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleServiceNetworkingVpcServiceControls to import.
-        :param import_from_id: The id of the existing GoogleServiceNetworkingVpcServiceControls that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleServiceNetworkingVpcServiceControls that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleServiceNetworkingVpcServiceControls to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GoogleServiceNetworkingVpcServiceControls(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#create GoogleServiceNetworkingVpcServiceControls#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#delete GoogleServiceNetworkingVpcServiceControls#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#update GoogleServiceNetworkingVpcServiceControls#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#create GoogleServiceNetworkingVpcServiceControls#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#delete GoogleServiceNetworkingVpcServiceControls#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#update GoogleServiceNetworkingVpcServiceControls#update}.
         '''
         value = GoogleServiceNetworkingVpcServiceControlsTimeouts(
             create=create, delete=delete, update=update
@@ -325,12 +325,12 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Desired VPC Service Controls state service producer VPC network, as described at the top of this page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#enabled GoogleServiceNetworkingVpcServiceControls#enabled}
-        :param network: The network that the consumer is using to connect with services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#network GoogleServiceNetworkingVpcServiceControls#network}
-        :param service: The service that is managing peering connectivity for a service producer's organization. For Google services that support this functionality, this value is 'servicenetworking.googleapis.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#service GoogleServiceNetworkingVpcServiceControls#service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#id GoogleServiceNetworkingVpcServiceControls#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The id of the Google Cloud project containing the consumer network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#project GoogleServiceNetworkingVpcServiceControls#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#timeouts GoogleServiceNetworkingVpcServiceControls#timeouts}
+        :param enabled: Desired VPC Service Controls state service producer VPC network, as described at the top of this page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#enabled GoogleServiceNetworkingVpcServiceControls#enabled}
+        :param network: The network that the consumer is using to connect with services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#network GoogleServiceNetworkingVpcServiceControls#network}
+        :param service: The service that is managing peering connectivity for a service producer's organization. For Google services that support this functionality, this value is 'servicenetworking.googleapis.com'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#service GoogleServiceNetworkingVpcServiceControls#service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#id GoogleServiceNetworkingVpcServiceControls#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The id of the Google Cloud project containing the consumer network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#project GoogleServiceNetworkingVpcServiceControls#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#timeouts GoogleServiceNetworkingVpcServiceControls#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -445,7 +445,7 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Desired VPC Service Controls state service producer VPC network, as described at the top of this page.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#enabled GoogleServiceNetworkingVpcServiceControls#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#enabled GoogleServiceNetworkingVpcServiceControls#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -455,7 +455,7 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
     def network(self) -> builtins.str:
         '''The network that the consumer is using to connect with services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#network GoogleServiceNetworkingVpcServiceControls#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#network GoogleServiceNetworkingVpcServiceControls#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -468,7 +468,7 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
         For Google services that support this
         functionality, this value is 'servicenetworking.googleapis.com'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#service GoogleServiceNetworkingVpcServiceControls#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#service GoogleServiceNetworkingVpcServiceControls#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -476,7 +476,7 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#id GoogleServiceNetworkingVpcServiceControls#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#id GoogleServiceNetworkingVpcServiceControls#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -488,7 +488,7 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
     def project(self) -> typing.Optional[builtins.str]:
         '''The id of the Google Cloud project containing the consumer network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#project GoogleServiceNetworkingVpcServiceControls#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#project GoogleServiceNetworkingVpcServiceControls#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -499,7 +499,7 @@ class GoogleServiceNetworkingVpcServiceControlsConfig(
     ) -> typing.Optional["GoogleServiceNetworkingVpcServiceControlsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#timeouts GoogleServiceNetworkingVpcServiceControls#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#timeouts GoogleServiceNetworkingVpcServiceControls#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleServiceNetworkingVpcServiceControlsTimeouts"], result)
@@ -530,9 +530,9 @@ class GoogleServiceNetworkingVpcServiceControlsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#create GoogleServiceNetworkingVpcServiceControls#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#delete GoogleServiceNetworkingVpcServiceControls#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#update GoogleServiceNetworkingVpcServiceControls#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#create GoogleServiceNetworkingVpcServiceControls#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#delete GoogleServiceNetworkingVpcServiceControls#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#update GoogleServiceNetworkingVpcServiceControls#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91bcef50a3d3e407e82804e1b9a4648f6d6f13aaba9c00427e598fa9718bc69f)
@@ -549,19 +549,19 @@ class GoogleServiceNetworkingVpcServiceControlsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#create GoogleServiceNetworkingVpcServiceControls#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#create GoogleServiceNetworkingVpcServiceControls#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#delete GoogleServiceNetworkingVpcServiceControls#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#delete GoogleServiceNetworkingVpcServiceControls#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_service_networking_vpc_service_controls#update GoogleServiceNetworkingVpcServiceControls#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_service_networking_vpc_service_controls#update GoogleServiceNetworkingVpcServiceControls#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

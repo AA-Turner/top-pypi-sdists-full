@@ -1,7 +1,7 @@
 r'''
 # `snowflake_grant_database_role`
 
-Refer to the Terraform Registry for docs: [`snowflake_grant_database_role`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role).
+Refer to the Terraform Registry for docs: [`snowflake_grant_database_role`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GrantDatabaseRole(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.grantDatabaseRole.GrantDatabaseRole",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role snowflake_grant_database_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role snowflake_grant_database_role}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GrantDatabaseRole(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role snowflake_grant_database_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role snowflake_grant_database_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_role_name: The fully qualified name of the database role which will be granted to share or parent role. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#database_role_name GrantDatabaseRole#database_role_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#id GrantDatabaseRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent_database_role_name: The fully qualified name of the parent database role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#parent_database_role_name GrantDatabaseRole#parent_database_role_name}
-        :param parent_role_name: The fully qualified name of the parent account role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#parent_role_name GrantDatabaseRole#parent_role_name}
-        :param share_name: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#share_name GrantDatabaseRole#share_name}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#timeouts GrantDatabaseRole#timeouts}
+        :param database_role_name: The fully qualified name of the database role which will be granted to share or parent role. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#database_role_name GrantDatabaseRole#database_role_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#id GrantDatabaseRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent_database_role_name: The fully qualified name of the parent database role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#parent_database_role_name GrantDatabaseRole#parent_database_role_name}
+        :param parent_role_name: The fully qualified name of the parent account role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#parent_role_name GrantDatabaseRole#parent_role_name}
+        :param share_name: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#share_name GrantDatabaseRole#share_name}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#timeouts GrantDatabaseRole#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GrantDatabaseRole(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GrantDatabaseRole to import.
-        :param import_from_id: The id of the existing GrantDatabaseRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GrantDatabaseRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GrantDatabaseRole to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class GrantDatabaseRole(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#create GrantDatabaseRole#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#delete GrantDatabaseRole#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#read GrantDatabaseRole#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#update GrantDatabaseRole#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#create GrantDatabaseRole#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#delete GrantDatabaseRole#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#read GrantDatabaseRole#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#update GrantDatabaseRole#update}.
         '''
         value = GrantDatabaseRoleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -326,12 +326,12 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_role_name: The fully qualified name of the database role which will be granted to share or parent role. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#database_role_name GrantDatabaseRole#database_role_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#id GrantDatabaseRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent_database_role_name: The fully qualified name of the parent database role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#parent_database_role_name GrantDatabaseRole#parent_database_role_name}
-        :param parent_role_name: The fully qualified name of the parent account role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#parent_role_name GrantDatabaseRole#parent_role_name}
-        :param share_name: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#share_name GrantDatabaseRole#share_name}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#timeouts GrantDatabaseRole#timeouts}
+        :param database_role_name: The fully qualified name of the database role which will be granted to share or parent role. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#database_role_name GrantDatabaseRole#database_role_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#id GrantDatabaseRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent_database_role_name: The fully qualified name of the parent database role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./database_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#parent_database_role_name GrantDatabaseRole#parent_database_role_name}
+        :param parent_role_name: The fully qualified name of the parent account role which will create a parent-child relationship between the roles. For more information about this resource, see `docs <./account_role>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#parent_role_name GrantDatabaseRole#parent_role_name}
+        :param share_name: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#share_name GrantDatabaseRole#share_name}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#timeouts GrantDatabaseRole#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -450,7 +450,7 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./database_role>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#database_role_name GrantDatabaseRole#database_role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#database_role_name GrantDatabaseRole#database_role_name}
         '''
         result = self._values.get("database_role_name")
         assert result is not None, "Required property 'database_role_name' is missing"
@@ -458,7 +458,7 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#id GrantDatabaseRole#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#id GrantDatabaseRole#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -472,7 +472,7 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./database_role>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#parent_database_role_name GrantDatabaseRole#parent_database_role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#parent_database_role_name GrantDatabaseRole#parent_database_role_name}
         '''
         result = self._values.get("parent_database_role_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -483,7 +483,7 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./account_role>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#parent_role_name GrantDatabaseRole#parent_role_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#parent_role_name GrantDatabaseRole#parent_role_name}
         '''
         result = self._values.get("parent_role_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -494,7 +494,7 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./share>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#share_name GrantDatabaseRole#share_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#share_name GrantDatabaseRole#share_name}
         '''
         result = self._values.get("share_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -503,7 +503,7 @@ class GrantDatabaseRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GrantDatabaseRoleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#timeouts GrantDatabaseRole#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#timeouts GrantDatabaseRole#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GrantDatabaseRoleTimeouts"], result)
@@ -540,10 +540,10 @@ class GrantDatabaseRoleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#create GrantDatabaseRole#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#delete GrantDatabaseRole#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#read GrantDatabaseRole#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#update GrantDatabaseRole#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#create GrantDatabaseRole#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#delete GrantDatabaseRole#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#read GrantDatabaseRole#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#update GrantDatabaseRole#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0ad14a5d8d60bf3e219d96518fefd9ea88e674750040e840c1dc9698e109545)
@@ -563,25 +563,25 @@ class GrantDatabaseRoleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#create GrantDatabaseRole#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#create GrantDatabaseRole#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#delete GrantDatabaseRole#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#delete GrantDatabaseRole#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#read GrantDatabaseRole#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#read GrantDatabaseRole#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.0/docs/resources/grant_database_role#update GrantDatabaseRole#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_database_role#update GrantDatabaseRole#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-otel
-Version: 0.11.0
+Version: 0.12.1
 Summary: LLM Observability
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.8
-Requires-Dist: openinference-instrumentation>=0.1.32
+Requires-Dist: openinference-instrumentation>=0.1.34
 Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-proto>=1.12.0
@@ -241,4 +241,28 @@ batch_processor = BatchSpanProcessor(
     span_exporter=GRPCSpanExporter(endpoint="http://custom-endpoint.com:6789")
 )
 tracer_provider.add_span_processor(batch_processor)
+```
+
+## Passing TracerProvider kwargs
+
+Both `phoenix.otel.TracerProvider` and `register()` accept all the same keyword arguments as the standard OpenTelemetry `TracerProvider`. This allows you to configure advanced features like custom ID generators, sampling, and span limits.
+
+```python
+from opentelemetry.sdk.extension.aws.trace import AwsXRayIdGenerator
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+from phoenix.otel import register, TracerProvider
+
+# Configure directly with register()
+tracer_provider = register(
+    project_name="my-app",
+    id_generator=AwsXRayIdGenerator(),  # AWS X-Ray compatible IDs
+    sampler=TraceIdRatioBased(0.1),     # Sample 10% of traces
+)
+
+# Or configure TracerProvider directly
+tracer_provider = TracerProvider(
+    project_name="my-app",
+    id_generator=AwsXRayIdGenerator(),
+    sampler=TraceIdRatioBased(0.5)
+)
 ```

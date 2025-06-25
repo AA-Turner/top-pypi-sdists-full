@@ -27695,6 +27695,37 @@ scout_chartdefinition_api_ValueToColorMapVisitor.__qualname__ = "ValueToColorMap
 scout_chartdefinition_api_ValueToColorMapVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_VideoPanelDataSource(ConjureBeanType):
+    """Enhanced video panel data source to be compatible with multiple assets
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'ref_name': ConjureFieldDefinition('refName', scout_chartdefinition_api_DataSourceRefName)
+        }
+
+    __slots__: List[str] = ['_asset_rid', '_ref_name']
+
+    def __init__(self, asset_rid: str, ref_name: str) -> None:
+        self._asset_rid = asset_rid
+        self._ref_name = ref_name
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+    @builtins.property
+    def ref_name(self) -> str:
+        return self._ref_name
+
+
+scout_chartdefinition_api_VideoPanelDataSource.__name__ = "VideoPanelDataSource"
+scout_chartdefinition_api_VideoPanelDataSource.__qualname__ = "VideoPanelDataSource"
+scout_chartdefinition_api_VideoPanelDataSource.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_VideoVizDefinition(ConjureUnionType):
     _v1: Optional["scout_chartdefinition_api_VideoVizDefinitionV1"] = None
 
@@ -27759,16 +27790,18 @@ class scout_chartdefinition_api_VideoVizDefinitionV1(ConjureBeanType):
             'events': ConjureFieldDefinition('events', OptionalTypeWrapper[List[scout_chartdefinition_api_Event]]),
             'comparison_run_groups': ConjureFieldDefinition('comparisonRunGroups', List[scout_comparisonrun_api_ComparisonRunGroup]),
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
-            'ref_name': ConjureFieldDefinition('refName', OptionalTypeWrapper[scout_chartdefinition_api_DataSourceRefName])
+            'ref_name': ConjureFieldDefinition('refName', OptionalTypeWrapper[scout_chartdefinition_api_DataSourceRefName]),
+            'datasource': ConjureFieldDefinition('datasource', OptionalTypeWrapper[scout_chartdefinition_api_VideoPanelDataSource])
         }
 
-    __slots__: List[str] = ['_events', '_comparison_run_groups', '_title', '_ref_name']
+    __slots__: List[str] = ['_events', '_comparison_run_groups', '_title', '_ref_name', '_datasource']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], events: Optional[List["scout_chartdefinition_api_Event"]] = None, ref_name: Optional[str] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], datasource: Optional["scout_chartdefinition_api_VideoPanelDataSource"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, ref_name: Optional[str] = None, title: Optional[str] = None) -> None:
         self._events = events
         self._comparison_run_groups = comparison_run_groups
         self._title = title
         self._ref_name = ref_name
+        self._datasource = datasource
 
     @builtins.property
     def events(self) -> Optional[List["scout_chartdefinition_api_Event"]]:
@@ -27785,6 +27818,10 @@ class scout_chartdefinition_api_VideoVizDefinitionV1(ConjureBeanType):
     @builtins.property
     def ref_name(self) -> Optional[str]:
         return self._ref_name
+
+    @builtins.property
+    def datasource(self) -> Optional["scout_chartdefinition_api_VideoPanelDataSource"]:
+        return self._datasource
 
 
 scout_chartdefinition_api_VideoVizDefinitionV1.__name__ = "VideoVizDefinitionV1"

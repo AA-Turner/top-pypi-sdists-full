@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_entity`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_entity`](https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity).
+Refer to the Terraform Registry for docs: [`data_newrelic_entity`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicEntity(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicEntity.DataNewrelicEntity",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity newrelic_entity}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity newrelic_entity}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DataNewrelicEntity(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity newrelic_entity} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity newrelic_entity} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the entity in New Relic One. The first entity matching this name for the given search parameters will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#name DataNewrelicEntity#name}
-        :param account_id: The New Relic account ID; if specified, constrains the data source to return an entity belonging to the account with this ID, of all matching entities retrieved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#account_id DataNewrelicEntity#account_id}
-        :param domain: The entity's domain. Valid values are APM, BROWSER, INFRA, MOBILE, SYNTH, and EXT. If not specified, all domains are searched. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#domain DataNewrelicEntity#domain}
-        :param entity_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#entity_tags DataNewrelicEntity#entity_tags}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#id DataNewrelicEntity#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_case: Ignore case when searching the entity name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#ignore_case DataNewrelicEntity#ignore_case}
-        :param ignore_not_found: A boolean attribute which when set to true, does not throw an error if the queried entity is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#ignore_not_found DataNewrelicEntity#ignore_not_found}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#tag DataNewrelicEntity#tag}
-        :param type: The entity's type. Valid values are APPLICATION, DASHBOARD, HOST, MONITOR, SERVICE and WORKLOAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#type DataNewrelicEntity#type}
+        :param name: The name of the entity in New Relic One. The first entity matching this name for the given search parameters will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#name DataNewrelicEntity#name}
+        :param account_id: The New Relic account ID; if specified, constrains the data source to return an entity belonging to the account with this ID, of all matching entities retrieved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#account_id DataNewrelicEntity#account_id}
+        :param domain: The entity's domain. Valid values are APM, BROWSER, INFRA, MOBILE, SYNTH, and EXT. If not specified, all domains are searched. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#domain DataNewrelicEntity#domain}
+        :param entity_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#entity_tags DataNewrelicEntity#entity_tags}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#id DataNewrelicEntity#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_case: Ignore case when searching the entity name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#ignore_case DataNewrelicEntity#ignore_case}
+        :param ignore_not_found: A boolean attribute which when set to true, does not throw an error if the queried entity is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#ignore_not_found DataNewrelicEntity#ignore_not_found}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#tag DataNewrelicEntity#tag}
+        :param type: The entity's type. Valid values are APPLICATION, DASHBOARD, HOST, MONITOR, SERVICE and WORKLOAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#type DataNewrelicEntity#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DataNewrelicEntity(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicEntity to import.
-        :param import_from_id: The id of the existing DataNewrelicEntity that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicEntity that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicEntity to import is found.
         '''
         if __debug__:
@@ -423,15 +423,15 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the entity in New Relic One. The first entity matching this name for the given search parameters will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#name DataNewrelicEntity#name}
-        :param account_id: The New Relic account ID; if specified, constrains the data source to return an entity belonging to the account with this ID, of all matching entities retrieved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#account_id DataNewrelicEntity#account_id}
-        :param domain: The entity's domain. Valid values are APM, BROWSER, INFRA, MOBILE, SYNTH, and EXT. If not specified, all domains are searched. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#domain DataNewrelicEntity#domain}
-        :param entity_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#entity_tags DataNewrelicEntity#entity_tags}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#id DataNewrelicEntity#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_case: Ignore case when searching the entity name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#ignore_case DataNewrelicEntity#ignore_case}
-        :param ignore_not_found: A boolean attribute which when set to true, does not throw an error if the queried entity is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#ignore_not_found DataNewrelicEntity#ignore_not_found}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#tag DataNewrelicEntity#tag}
-        :param type: The entity's type. Valid values are APPLICATION, DASHBOARD, HOST, MONITOR, SERVICE and WORKLOAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#type DataNewrelicEntity#type}
+        :param name: The name of the entity in New Relic One. The first entity matching this name for the given search parameters will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#name DataNewrelicEntity#name}
+        :param account_id: The New Relic account ID; if specified, constrains the data source to return an entity belonging to the account with this ID, of all matching entities retrieved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#account_id DataNewrelicEntity#account_id}
+        :param domain: The entity's domain. Valid values are APM, BROWSER, INFRA, MOBILE, SYNTH, and EXT. If not specified, all domains are searched. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#domain DataNewrelicEntity#domain}
+        :param entity_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#entity_tags DataNewrelicEntity#entity_tags}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#id DataNewrelicEntity#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_case: Ignore case when searching the entity name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#ignore_case DataNewrelicEntity#ignore_case}
+        :param ignore_not_found: A boolean attribute which when set to true, does not throw an error if the queried entity is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#ignore_not_found DataNewrelicEntity#ignore_not_found}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#tag DataNewrelicEntity#tag}
+        :param type: The entity's type. Valid values are APPLICATION, DASHBOARD, HOST, MONITOR, SERVICE and WORKLOAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#type DataNewrelicEntity#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -557,7 +557,7 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The first entity matching this name for the given search parameters will be returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#name DataNewrelicEntity#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#name DataNewrelicEntity#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -569,7 +569,7 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         if specified, constrains the data source to return an entity belonging to the account with this ID, of all matching entities retrieved.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#account_id DataNewrelicEntity#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#account_id DataNewrelicEntity#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -580,20 +580,20 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are APM, BROWSER, INFRA, MOBILE, SYNTH, and EXT. If not specified, all domains are searched.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#domain DataNewrelicEntity#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#domain DataNewrelicEntity#domain}
         '''
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def entity_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#entity_tags DataNewrelicEntity#entity_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#entity_tags DataNewrelicEntity#entity_tags}.'''
         result = self._values.get("entity_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#id DataNewrelicEntity#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#id DataNewrelicEntity#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -607,7 +607,7 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Ignore case when searching the entity name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#ignore_case DataNewrelicEntity#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#ignore_case DataNewrelicEntity#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -618,7 +618,7 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''A boolean attribute which when set to true, does not throw an error if the queried entity is not found.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#ignore_not_found DataNewrelicEntity#ignore_not_found}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#ignore_not_found DataNewrelicEntity#ignore_not_found}
         '''
         result = self._values.get("ignore_not_found")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -629,7 +629,7 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataNewrelicEntityTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#tag DataNewrelicEntity#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#tag DataNewrelicEntity#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataNewrelicEntityTag"]]], result)
@@ -638,7 +638,7 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The entity's type. Valid values are APPLICATION, DASHBOARD, HOST, MONITOR, SERVICE and WORKLOAD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#type DataNewrelicEntity#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#type DataNewrelicEntity#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -663,8 +663,8 @@ class DataNewrelicEntityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataNewrelicEntityTag:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: The tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#key DataNewrelicEntity#key}
-        :param value: The tag value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#value DataNewrelicEntity#value}
+        :param key: The tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#key DataNewrelicEntity#key}
+        :param value: The tag value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#value DataNewrelicEntity#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03f9447261922e55190fb63217be09d147069a6b43d878025496c80f84801e31)
@@ -679,7 +679,7 @@ class DataNewrelicEntityTag:
     def key(self) -> builtins.str:
         '''The tag key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#key DataNewrelicEntity#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#key DataNewrelicEntity#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -689,7 +689,7 @@ class DataNewrelicEntityTag:
     def value(self) -> builtins.str:
         '''The tag value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.62.1/docs/data-sources/entity#value DataNewrelicEntity#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/data-sources/entity#value DataNewrelicEntity#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

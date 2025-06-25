@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whisperx
-Version: 3.3.4
+Version: 3.4.0
 Summary: Time-Accurate Automatic Speech Recognition using Whisper.
 Author: Max Bain
 License: BSD-2-Clause
@@ -119,6 +119,25 @@ uv sync --all-extras --dev
 
 You may also need to install ffmpeg, rust etc. Follow openAI instructions here https://github.com/openai/whisper#setup.
 
+### Common Issues & Troubleshooting 🔧
+
+#### libcudnn Dependencies (GPU Users)
+
+If you're using WhisperX with GPU support and encounter errors like:
+
+- `Could not load library libcudnn_ops_infer.so.8`
+- `Unable to load any of {libcudnn_cnn.so.9.1.0, libcudnn_cnn.so.9.1, libcudnn_cnn.so.9, libcudnn_cnn.so}`
+- `libcudnn_ops_infer.so.8: cannot open shared object file: No such file or directory`
+
+This means your system is missing the CUDA Deep Neural Network library (cuDNN). This library is needed for GPU acceleration but isn't always installed by default.
+
+**Install cuDNN (example for apt based systems):**
+
+```bash
+sudo apt update
+sudo apt install libcudnn8 libcudnn8-dev -y
+```
+
 ### Speaker Diarization
 
 To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation-3.0) and [Speaker-Diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) (if you choose to use Speaker-Diarization 2.x, follow requirements [here](https://huggingface.co/pyannote/speaker-diarization) instead.)
@@ -192,7 +211,7 @@ result = model.transcribe(audio, batch_size=batch_size)
 print(result["segments"]) # before alignment
 
 # delete model if low on GPU resources
-# import gc; gc.collect(); torch.cuda.empty_cache(); del model
+# import gc; import torch; gc.collect(); torch.cuda.empty_cache(); del model
 
 # 2. Align whisper output
 model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
@@ -201,7 +220,7 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device, re
 print(result["segments"]) # after alignment
 
 # delete model if low on GPU resources
-# import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
+# import gc; import torch; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels
 diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)

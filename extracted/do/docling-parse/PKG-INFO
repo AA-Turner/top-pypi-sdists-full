@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: docling-parse
-Version: 4.0.5
+Version: 4.1.0
 Summary: Simple package to extract text with coordinates from programmatic PDFs
 License: MIT
 Keywords: docling,pdf,parser

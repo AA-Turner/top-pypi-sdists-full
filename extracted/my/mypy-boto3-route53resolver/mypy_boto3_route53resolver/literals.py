@@ -104,6 +104,7 @@ IpAddressStatusType = Literal[
     "DETACHING",
     "FAILED_CREATION",
     "FAILED_RESOURCE_GONE",
+    "ISOLATED",
     "REMAP_ATTACHING",
     "REMAP_DETACHING",
     "UPDATE_FAILED",
@@ -154,7 +155,7 @@ ResolverDNSSECValidationStatusType = Literal[
     "UPDATING_TO_USE_LOCAL_RESOURCE_SETTING",
     "USE_LOCAL_RESOURCE_SETTING",
 ]
-ResolverEndpointDirectionType = Literal["INBOUND", "OUTBOUND"]
+ResolverEndpointDirectionType = Literal["INBOUND", "INBOUND_DELEGATION", "OUTBOUND"]
 ResolverEndpointStatusType = Literal[
     "ACTION_NEEDED", "AUTO_RECOVERING", "CREATING", "DELETING", "OPERATIONAL", "UPDATING"
 ]
@@ -170,7 +171,7 @@ ResolverRuleAssociationStatusType = Literal[
     "COMPLETE", "CREATING", "DELETING", "FAILED", "OVERRIDDEN"
 ]
 ResolverRuleStatusType = Literal["COMPLETE", "DELETING", "FAILED", "UPDATING"]
-RuleTypeOptionType = Literal["FORWARD", "RECURSIVE", "SYSTEM"]
+RuleTypeOptionType = Literal["DELEGATE", "FORWARD", "RECURSIVE", "SYSTEM"]
 ShareStatusType = Literal["NOT_SHARED", "SHARED_BY_ME", "SHARED_WITH_ME"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ValidationType = Literal["DISABLE", "ENABLE", "USE_LOCAL_RESOURCE_SETTING"]
@@ -180,6 +181,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -320,6 +322,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -432,6 +435,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -472,7 +476,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -533,7 +536,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -541,6 +543,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",
@@ -577,6 +580,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -614,6 +618,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

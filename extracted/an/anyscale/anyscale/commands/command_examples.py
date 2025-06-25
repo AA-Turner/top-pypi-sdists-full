@@ -652,14 +652,31 @@ collaborators:
 """
 
 CLOUD_GET_CLOUD_EXAMPLE = """\
-$ anyscale cloud get --name cloud_name
-name: anyscale_v2_default_cloud
+$ anyscale cloud get --name my-cloud
 id: cld_123
-provider: AWS
-region: us-west-2
+name: my-cloud
 created_at: 2022-10-18 05:12:13.335803+00:00
-is_default: false
-compute_stack: VM
+is_default: true
+deployments:
+- cloud_deployment_id: cldrsrc_123
+  name: vm-aws-us-west-2
+  provider: AWS
+  compute_stack: VM
+  region: us-west-2
+  networking_mode: PUBLIC
+  object_storage:
+    bucket_name: s3://my-bucket
+  file_storage:
+    file_storage_id: fs-123
+  aws_config:
+    vpc_id: vpc-123
+    subnet_ids:
+    - subnet-123
+    security_group_ids:
+    - sg-123
+    anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-role-123
+    cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-role-123
+    memorydb_cluster_name: my-memorydb-cluster
 """
 
 CLOUD_GET_DEFAULT_CLOUD_EXAMPLE = """\

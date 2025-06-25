@@ -1,7 +1,7 @@
 r'''
 # `google_dataform_repository`
 
-Refer to the Terraform Registry for docs: [`google_dataform_repository`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository).
+Refer to the Terraform Registry for docs: [`google_dataform_repository`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataformRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataformRepository.GoogleDataformRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository google_dataform_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository google_dataform_repository}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleDataformRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository google_dataform_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository google_dataform_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The repository's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#name GoogleDataformRepository#name}
-        :param deletion_policy: Policy to control how the repository and its child resources are deleted. When set to 'FORCE', any child resources of this repository will also be deleted. Possible values: 'DELETE', 'FORCE'. Defaults to 'DELETE'. Default value: "DELETE" Possible values: ["DELETE", "FORCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#deletion_policy GoogleDataformRepository#deletion_policy}
-        :param display_name: Optional. The repository's user-friendly name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#display_name GoogleDataformRepository#display_name}
-        :param git_remote_settings: git_remote_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#git_remote_settings GoogleDataformRepository#git_remote_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#id GoogleDataformRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: Optional. The reference to a KMS encryption key. If provided, it will be used to encrypt user data in the repository and all child resources. It is not possible to add or update the encryption key after the repository is created. Example projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#kms_key_name GoogleDataformRepository#kms_key_name}
-        :param labels: Optional. Repository user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#labels GoogleDataformRepository#labels}
-        :param npmrc_environment_variables_secret_version: Optional. The name of the Secret Manager secret version to be used to interpolate variables into the .npmrc file for package installation operations. Must be in the format projects/* /secrets/* /versions/*. The file itself must be in a JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#npmrc_environment_variables_secret_version GoogleDataformRepository#npmrc_environment_variables_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#project GoogleDataformRepository#project}.
-        :param region: A reference to the region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#region GoogleDataformRepository#region}
-        :param service_account: The service account to run workflow invocations under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#service_account GoogleDataformRepository#service_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#timeouts GoogleDataformRepository#timeouts}
-        :param workspace_compilation_overrides: workspace_compilation_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#workspace_compilation_overrides GoogleDataformRepository#workspace_compilation_overrides}
+        :param name: The repository's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#name GoogleDataformRepository#name}
+        :param deletion_policy: Policy to control how the repository and its child resources are deleted. When set to 'FORCE', any child resources of this repository will also be deleted. Possible values: 'DELETE', 'FORCE'. Defaults to 'DELETE'. Default value: "DELETE" Possible values: ["DELETE", "FORCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#deletion_policy GoogleDataformRepository#deletion_policy}
+        :param display_name: Optional. The repository's user-friendly name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#display_name GoogleDataformRepository#display_name}
+        :param git_remote_settings: git_remote_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#git_remote_settings GoogleDataformRepository#git_remote_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#id GoogleDataformRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: Optional. The reference to a KMS encryption key. If provided, it will be used to encrypt user data in the repository and all child resources. It is not possible to add or update the encryption key after the repository is created. Example projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#kms_key_name GoogleDataformRepository#kms_key_name}
+        :param labels: Optional. Repository user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#labels GoogleDataformRepository#labels}
+        :param npmrc_environment_variables_secret_version: Optional. The name of the Secret Manager secret version to be used to interpolate variables into the .npmrc file for package installation operations. Must be in the format projects/* /secrets/* /versions/*. The file itself must be in a JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#npmrc_environment_variables_secret_version GoogleDataformRepository#npmrc_environment_variables_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#project GoogleDataformRepository#project}.
+        :param region: A reference to the region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#region GoogleDataformRepository#region}
+        :param service_account: The service account to run workflow invocations under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#service_account GoogleDataformRepository#service_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#timeouts GoogleDataformRepository#timeouts}
+        :param workspace_compilation_overrides: workspace_compilation_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#workspace_compilation_overrides GoogleDataformRepository#workspace_compilation_overrides}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleDataformRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataformRepository to import.
-        :param import_from_id: The id of the existing GoogleDataformRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataformRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataformRepository to import is found.
         '''
         if __debug__:
@@ -160,10 +160,10 @@ class GoogleDataformRepository(
         ssh_authentication_config: typing.Optional[typing.Union["GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_branch: The Git remote's default branch name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#default_branch GoogleDataformRepository#default_branch}
-        :param url: The Git remote's URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#url GoogleDataformRepository#url}
-        :param authentication_token_secret_version: The name of the Secret Manager secret version to use as an authentication token for Git operations. This secret is for assigning with HTTPS only(for SSH use 'ssh_authentication_config'). Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#authentication_token_secret_version GoogleDataformRepository#authentication_token_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param ssh_authentication_config: ssh_authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#ssh_authentication_config GoogleDataformRepository#ssh_authentication_config}
+        :param default_branch: The Git remote's default branch name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#default_branch GoogleDataformRepository#default_branch}
+        :param url: The Git remote's URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#url GoogleDataformRepository#url}
+        :param authentication_token_secret_version: The name of the Secret Manager secret version to use as an authentication token for Git operations. This secret is for assigning with HTTPS only(for SSH use 'ssh_authentication_config'). Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#authentication_token_secret_version GoogleDataformRepository#authentication_token_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param ssh_authentication_config: ssh_authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#ssh_authentication_config GoogleDataformRepository#ssh_authentication_config}
         '''
         value = GoogleDataformRepositoryGitRemoteSettings(
             default_branch=default_branch,
@@ -183,9 +183,9 @@ class GoogleDataformRepository(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#create GoogleDataformRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#delete GoogleDataformRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#update GoogleDataformRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#create GoogleDataformRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#delete GoogleDataformRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#update GoogleDataformRepository#update}.
         '''
         value = GoogleDataformRepositoryTimeouts(
             create=create, delete=delete, update=update
@@ -202,9 +202,9 @@ class GoogleDataformRepository(
         table_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_database: The default database (Google Cloud project ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#default_database GoogleDataformRepository#default_database}
-        :param schema_suffix: The suffix that should be appended to all schema (BigQuery dataset ID) names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#schema_suffix GoogleDataformRepository#schema_suffix}
-        :param table_prefix: The prefix that should be prepended to all table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#table_prefix GoogleDataformRepository#table_prefix}
+        :param default_database: The default database (Google Cloud project ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#default_database GoogleDataformRepository#default_database}
+        :param schema_suffix: The suffix that should be appended to all schema (BigQuery dataset ID) names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#schema_suffix GoogleDataformRepository#schema_suffix}
+        :param table_prefix: The prefix that should be prepended to all table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#table_prefix GoogleDataformRepository#table_prefix}
         '''
         value = GoogleDataformRepositoryWorkspaceCompilationOverrides(
             default_database=default_database,
@@ -559,19 +559,19 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The repository's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#name GoogleDataformRepository#name}
-        :param deletion_policy: Policy to control how the repository and its child resources are deleted. When set to 'FORCE', any child resources of this repository will also be deleted. Possible values: 'DELETE', 'FORCE'. Defaults to 'DELETE'. Default value: "DELETE" Possible values: ["DELETE", "FORCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#deletion_policy GoogleDataformRepository#deletion_policy}
-        :param display_name: Optional. The repository's user-friendly name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#display_name GoogleDataformRepository#display_name}
-        :param git_remote_settings: git_remote_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#git_remote_settings GoogleDataformRepository#git_remote_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#id GoogleDataformRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: Optional. The reference to a KMS encryption key. If provided, it will be used to encrypt user data in the repository and all child resources. It is not possible to add or update the encryption key after the repository is created. Example projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#kms_key_name GoogleDataformRepository#kms_key_name}
-        :param labels: Optional. Repository user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#labels GoogleDataformRepository#labels}
-        :param npmrc_environment_variables_secret_version: Optional. The name of the Secret Manager secret version to be used to interpolate variables into the .npmrc file for package installation operations. Must be in the format projects/* /secrets/* /versions/*. The file itself must be in a JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#npmrc_environment_variables_secret_version GoogleDataformRepository#npmrc_environment_variables_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#project GoogleDataformRepository#project}.
-        :param region: A reference to the region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#region GoogleDataformRepository#region}
-        :param service_account: The service account to run workflow invocations under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#service_account GoogleDataformRepository#service_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#timeouts GoogleDataformRepository#timeouts}
-        :param workspace_compilation_overrides: workspace_compilation_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#workspace_compilation_overrides GoogleDataformRepository#workspace_compilation_overrides}
+        :param name: The repository's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#name GoogleDataformRepository#name}
+        :param deletion_policy: Policy to control how the repository and its child resources are deleted. When set to 'FORCE', any child resources of this repository will also be deleted. Possible values: 'DELETE', 'FORCE'. Defaults to 'DELETE'. Default value: "DELETE" Possible values: ["DELETE", "FORCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#deletion_policy GoogleDataformRepository#deletion_policy}
+        :param display_name: Optional. The repository's user-friendly name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#display_name GoogleDataformRepository#display_name}
+        :param git_remote_settings: git_remote_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#git_remote_settings GoogleDataformRepository#git_remote_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#id GoogleDataformRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: Optional. The reference to a KMS encryption key. If provided, it will be used to encrypt user data in the repository and all child resources. It is not possible to add or update the encryption key after the repository is created. Example projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#kms_key_name GoogleDataformRepository#kms_key_name}
+        :param labels: Optional. Repository user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#labels GoogleDataformRepository#labels}
+        :param npmrc_environment_variables_secret_version: Optional. The name of the Secret Manager secret version to be used to interpolate variables into the .npmrc file for package installation operations. Must be in the format projects/* /secrets/* /versions/*. The file itself must be in a JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#npmrc_environment_variables_secret_version GoogleDataformRepository#npmrc_environment_variables_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#project GoogleDataformRepository#project}.
+        :param region: A reference to the region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#region GoogleDataformRepository#region}
+        :param service_account: The service account to run workflow invocations under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#service_account GoogleDataformRepository#service_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#timeouts GoogleDataformRepository#timeouts}
+        :param workspace_compilation_overrides: workspace_compilation_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#workspace_compilation_overrides GoogleDataformRepository#workspace_compilation_overrides}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -713,7 +713,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The repository's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#name GoogleDataformRepository#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#name GoogleDataformRepository#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -725,7 +725,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When set to 'FORCE', any child resources of this repository will also be deleted. Possible values: 'DELETE', 'FORCE'. Defaults to 'DELETE'. Default value: "DELETE" Possible values: ["DELETE", "FORCE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#deletion_policy GoogleDataformRepository#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#deletion_policy GoogleDataformRepository#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -734,7 +734,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. The repository's user-friendly name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#display_name GoogleDataformRepository#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#display_name GoogleDataformRepository#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -745,14 +745,14 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleDataformRepositoryGitRemoteSettings"]:
         '''git_remote_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#git_remote_settings GoogleDataformRepository#git_remote_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#git_remote_settings GoogleDataformRepository#git_remote_settings}
         '''
         result = self._values.get("git_remote_settings")
         return typing.cast(typing.Optional["GoogleDataformRepositoryGitRemoteSettings"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#id GoogleDataformRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#id GoogleDataformRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -767,7 +767,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The reference to a KMS encryption key. If provided, it will be used to encrypt user data in the repository and all child resources.
         It is not possible to add or update the encryption key after the repository is created. Example projects/[kms_project_id]/locations/[region]/keyRings/[key_region]/cryptoKeys/[key]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#kms_key_name GoogleDataformRepository#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#kms_key_name GoogleDataformRepository#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -782,7 +782,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#labels GoogleDataformRepository#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#labels GoogleDataformRepository#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -795,7 +795,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The name of the Secret Manager secret version to be used to interpolate variables into the .npmrc file for package installation operations. Must be in the format projects/* /secrets/* /versions/*. The file itself must be in a JSON format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#npmrc_environment_variables_secret_version GoogleDataformRepository#npmrc_environment_variables_secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#npmrc_environment_variables_secret_version GoogleDataformRepository#npmrc_environment_variables_secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -804,7 +804,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#project GoogleDataformRepository#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#project GoogleDataformRepository#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -812,7 +812,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''A reference to the region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#region GoogleDataformRepository#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#region GoogleDataformRepository#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -821,7 +821,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_account(self) -> typing.Optional[builtins.str]:
         '''The service account to run workflow invocations under.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#service_account GoogleDataformRepository#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#service_account GoogleDataformRepository#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -830,7 +830,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDataformRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#timeouts GoogleDataformRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#timeouts GoogleDataformRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDataformRepositoryTimeouts"], result)
@@ -841,7 +841,7 @@ class GoogleDataformRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleDataformRepositoryWorkspaceCompilationOverrides"]:
         '''workspace_compilation_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#workspace_compilation_overrides GoogleDataformRepository#workspace_compilation_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#workspace_compilation_overrides GoogleDataformRepository#workspace_compilation_overrides}
         '''
         result = self._values.get("workspace_compilation_overrides")
         return typing.cast(typing.Optional["GoogleDataformRepositoryWorkspaceCompilationOverrides"], result)
@@ -878,10 +878,10 @@ class GoogleDataformRepositoryGitRemoteSettings:
         ssh_authentication_config: typing.Optional[typing.Union["GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_branch: The Git remote's default branch name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#default_branch GoogleDataformRepository#default_branch}
-        :param url: The Git remote's URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#url GoogleDataformRepository#url}
-        :param authentication_token_secret_version: The name of the Secret Manager secret version to use as an authentication token for Git operations. This secret is for assigning with HTTPS only(for SSH use 'ssh_authentication_config'). Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#authentication_token_secret_version GoogleDataformRepository#authentication_token_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param ssh_authentication_config: ssh_authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#ssh_authentication_config GoogleDataformRepository#ssh_authentication_config}
+        :param default_branch: The Git remote's default branch name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#default_branch GoogleDataformRepository#default_branch}
+        :param url: The Git remote's URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#url GoogleDataformRepository#url}
+        :param authentication_token_secret_version: The name of the Secret Manager secret version to use as an authentication token for Git operations. This secret is for assigning with HTTPS only(for SSH use 'ssh_authentication_config'). Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#authentication_token_secret_version GoogleDataformRepository#authentication_token_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param ssh_authentication_config: ssh_authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#ssh_authentication_config GoogleDataformRepository#ssh_authentication_config}
         '''
         if isinstance(ssh_authentication_config, dict):
             ssh_authentication_config = GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig(**ssh_authentication_config)
@@ -904,7 +904,7 @@ class GoogleDataformRepositoryGitRemoteSettings:
     def default_branch(self) -> builtins.str:
         '''The Git remote's default branch name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#default_branch GoogleDataformRepository#default_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#default_branch GoogleDataformRepository#default_branch}
         '''
         result = self._values.get("default_branch")
         assert result is not None, "Required property 'default_branch' is missing"
@@ -914,7 +914,7 @@ class GoogleDataformRepositoryGitRemoteSettings:
     def url(self) -> builtins.str:
         '''The Git remote's URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#url GoogleDataformRepository#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#url GoogleDataformRepository#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -926,7 +926,7 @@ class GoogleDataformRepositoryGitRemoteSettings:
 
         This secret is for assigning with HTTPS only(for SSH use 'ssh_authentication_config'). Must be in the format projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#authentication_token_secret_version GoogleDataformRepository#authentication_token_secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#authentication_token_secret_version GoogleDataformRepository#authentication_token_secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -939,7 +939,7 @@ class GoogleDataformRepositoryGitRemoteSettings:
     ) -> typing.Optional["GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig"]:
         '''ssh_authentication_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#ssh_authentication_config GoogleDataformRepository#ssh_authentication_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#ssh_authentication_config GoogleDataformRepository#ssh_authentication_config}
         '''
         result = self._values.get("ssh_authentication_config")
         return typing.cast(typing.Optional["GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig"], result)
@@ -984,8 +984,8 @@ class GoogleDataformRepositoryGitRemoteSettingsOutputReference(
         user_private_key_secret_version: builtins.str,
     ) -> None:
         '''
-        :param host_public_key: Content of a public SSH key to verify an identity of a remote Git host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#host_public_key GoogleDataformRepository#host_public_key}
-        :param user_private_key_secret_version: The name of the Secret Manager secret version to use as a ssh private key for Git operations. Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#user_private_key_secret_version GoogleDataformRepository#user_private_key_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param host_public_key: Content of a public SSH key to verify an identity of a remote Git host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#host_public_key GoogleDataformRepository#host_public_key}
+        :param user_private_key_secret_version: The name of the Secret Manager secret version to use as a ssh private key for Git operations. Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#user_private_key_secret_version GoogleDataformRepository#user_private_key_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig(
             host_public_key=host_public_key,
@@ -1108,8 +1108,8 @@ class GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig:
         user_private_key_secret_version: builtins.str,
     ) -> None:
         '''
-        :param host_public_key: Content of a public SSH key to verify an identity of a remote Git host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#host_public_key GoogleDataformRepository#host_public_key}
-        :param user_private_key_secret_version: The name of the Secret Manager secret version to use as a ssh private key for Git operations. Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#user_private_key_secret_version GoogleDataformRepository#user_private_key_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param host_public_key: Content of a public SSH key to verify an identity of a remote Git host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#host_public_key GoogleDataformRepository#host_public_key}
+        :param user_private_key_secret_version: The name of the Secret Manager secret version to use as a ssh private key for Git operations. Must be in the format projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#user_private_key_secret_version GoogleDataformRepository#user_private_key_secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91d53b6faccf7338eb4eb93627bac1a3fad25d30e48e8e26e847ee708ffaaf32)
@@ -1124,7 +1124,7 @@ class GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig:
     def host_public_key(self) -> builtins.str:
         '''Content of a public SSH key to verify an identity of a remote Git host.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#host_public_key GoogleDataformRepository#host_public_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#host_public_key GoogleDataformRepository#host_public_key}
         '''
         result = self._values.get("host_public_key")
         assert result is not None, "Required property 'host_public_key' is missing"
@@ -1136,7 +1136,7 @@ class GoogleDataformRepositoryGitRemoteSettingsSshAuthenticationConfig:
 
         Must be in the format projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#user_private_key_secret_version GoogleDataformRepository#user_private_key_secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#user_private_key_secret_version GoogleDataformRepository#user_private_key_secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -1242,9 +1242,9 @@ class GoogleDataformRepositoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#create GoogleDataformRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#delete GoogleDataformRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#update GoogleDataformRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#create GoogleDataformRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#delete GoogleDataformRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#update GoogleDataformRepository#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2719976fd13de943c3167e1e6739094d2ed568298a0d57656b4f8c1ca35518d5)
@@ -1261,19 +1261,19 @@ class GoogleDataformRepositoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#create GoogleDataformRepository#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#create GoogleDataformRepository#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#delete GoogleDataformRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#delete GoogleDataformRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#update GoogleDataformRepository#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#update GoogleDataformRepository#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1408,9 +1408,9 @@ class GoogleDataformRepositoryWorkspaceCompilationOverrides:
         table_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_database: The default database (Google Cloud project ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#default_database GoogleDataformRepository#default_database}
-        :param schema_suffix: The suffix that should be appended to all schema (BigQuery dataset ID) names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#schema_suffix GoogleDataformRepository#schema_suffix}
-        :param table_prefix: The prefix that should be prepended to all table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#table_prefix GoogleDataformRepository#table_prefix}
+        :param default_database: The default database (Google Cloud project ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#default_database GoogleDataformRepository#default_database}
+        :param schema_suffix: The suffix that should be appended to all schema (BigQuery dataset ID) names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#schema_suffix GoogleDataformRepository#schema_suffix}
+        :param table_prefix: The prefix that should be prepended to all table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#table_prefix GoogleDataformRepository#table_prefix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cecc5f15ece6202297d034039c369da9796c3f7977e6f14fe5b93e4673192496)
@@ -1429,7 +1429,7 @@ class GoogleDataformRepositoryWorkspaceCompilationOverrides:
     def default_database(self) -> typing.Optional[builtins.str]:
         '''The default database (Google Cloud project ID).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#default_database GoogleDataformRepository#default_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#default_database GoogleDataformRepository#default_database}
         '''
         result = self._values.get("default_database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1438,7 +1438,7 @@ class GoogleDataformRepositoryWorkspaceCompilationOverrides:
     def schema_suffix(self) -> typing.Optional[builtins.str]:
         '''The suffix that should be appended to all schema (BigQuery dataset ID) names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#schema_suffix GoogleDataformRepository#schema_suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#schema_suffix GoogleDataformRepository#schema_suffix}
         '''
         result = self._values.get("schema_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1447,7 +1447,7 @@ class GoogleDataformRepositoryWorkspaceCompilationOverrides:
     def table_prefix(self) -> typing.Optional[builtins.str]:
         '''The prefix that should be prepended to all table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_dataform_repository#table_prefix GoogleDataformRepository#table_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataform_repository#table_prefix GoogleDataformRepository#table_prefix}
         '''
         result = self._values.get("table_prefix")
         return typing.cast(typing.Optional[builtins.str], result)

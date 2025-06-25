@@ -3420,8 +3420,10 @@ class EbsBlockDeviceTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     Throughput: NotRequired[int]
     OutpostArn: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
     Encrypted: NotRequired[bool]
     VolumeInitializationRate: NotRequired[int]
+    AvailabilityZoneId: NotRequired[str]
 
 class BlockPublicAccessStatesTypeDef(TypedDict):
     InternetGatewayBlockMode: NotRequired[BlockPublicAccessModeType]
@@ -16426,6 +16428,7 @@ class CreateFpgaImageRequestTypeDef(TypedDict):
 class CreateImageRequestInstanceCreateImageTypeDef(TypedDict):
     Name: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    SnapshotLocation: NotRequired[SnapshotLocationEnumType]
     DryRun: NotRequired[bool]
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]
@@ -16435,6 +16438,7 @@ class CreateImageRequestTypeDef(TypedDict):
     InstanceId: str
     Name: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    SnapshotLocation: NotRequired[SnapshotLocationEnumType]
     DryRun: NotRequired[bool]
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]

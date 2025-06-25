@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8_import_order
-Version: 0.19.1
+Version: 0.19.2
 Summary: Flake8 and pylama plugin that checks the ordering of import statements.
 Home-page: https://github.com/PyCQA/flake8-import-order
 Author: Alex Stapleton

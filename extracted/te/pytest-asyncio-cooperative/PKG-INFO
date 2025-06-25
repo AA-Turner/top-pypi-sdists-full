@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pytest-asyncio-cooperative
-Version: 0.39.0
+Version: 0.40.0
 Summary: Run all your asynchronous tests cooperatively.
 License: MIT
 Author: Willem Thiart

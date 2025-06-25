@@ -1738,6 +1738,8 @@ class CopyDBSnapshotMessageTypeDef(TypedDict):
     OptionGroupName: NotRequired[str]
     TargetCustomAvailabilityZone: NotRequired[str]
     CopyOptionGroup: NotRequired[bool]
+    SnapshotAvailabilityZone: NotRequired[str]
+    SnapshotTarget: NotRequired[str]
     SourceRegion: NotRequired[str]
 
 
@@ -2453,6 +2455,7 @@ class CreateDBInstanceReadReplicaMessageTypeDef(TypedDict):
     NetworkType: NotRequired[str]
     StorageThroughput: NotRequired[int]
     EnableCustomerOwnedIp: NotRequired[bool]
+    BackupTarget: NotRequired[str]
     AllocatedStorage: NotRequired[int]
     SourceDBClusterIdentifier: NotRequired[str]
     DedicatedLogVolume: NotRequired[bool]
@@ -2498,6 +2501,7 @@ class DBSnapshotTypeDef(TypedDict):
     DBSystemId: NotRequired[str]
     DedicatedLogVolume: NotRequired[bool]
     MultiTenant: NotRequired[bool]
+    SnapshotAvailabilityZone: NotRequired[str]
 
 
 class ModifyDBInstanceMessageTypeDef(TypedDict):

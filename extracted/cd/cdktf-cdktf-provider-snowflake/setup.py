@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-snowflake",
-    "version": "15.0.0",
+    "version": "15.0.1",
     "description": "Prebuilt snowflake Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-snowflake.git",
@@ -160,7 +160,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_snowflake._jsii": [
-            "provider-snowflake@15.0.0.jsii.tgz"
+            "provider-snowflake@15.0.1.jsii.tgz"
         ],
         "cdktf_cdktf_provider_snowflake": [
             "py.typed"
