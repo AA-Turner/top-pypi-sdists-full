@@ -1,45 +1,48 @@
+# ruff: noqa: UP006
+# ruff: noqa: UP007
+# ruff: noqa: UP045
 import sys
 from typing import (
     Any,
-    Union,
+    Dict,
+    List,
     Optional,
     Protocol,
     Sequence,
-    List,
-    Dict,
+    SupportsIndex,
     Tuple,
     TypeVar,
+    Union,
 )
+
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
     from typing_extensions import TypeAlias
-from numbers import (
-    Integral,
-)
+
 from .MPI import (
-    Datatype,
     BottomType,
+    Datatype,
     InPlaceType,
 )
 
 __all__: List[str] = [
-    'SupportsBuffer',
-    'SupportsDLPack',
-    'SupportsCAI',
-    'Buffer',
-    'Bottom',
-    'InPlace',
-    'Aint',
-    'Count',
-    'Displ',
-    'Offset',
-    'TypeSpec',
-    'BufSpec',
-    'BufSpecB',
-    'BufSpecV',
-    'BufSpecW',
-    'TargetSpec',
+    "SupportsBuffer",
+    "SupportsDLPack",
+    "SupportsCAI",
+    "Buffer",
+    "Bottom",
+    "InPlace",
+    "Aint",
+    "Count",
+    "Displ",
+    "Offset",
+    "TypeSpec",
+    "BufSpec",
+    "BufSpecB",
+    "BufSpecV",
+    "BufSpecW",
+    "TargetSpec",
 ]
 
 _Stream: TypeAlias = Union[int, Any]
@@ -49,11 +52,15 @@ _DeviceID: TypeAlias = int
 
 class SupportsBuffer(Protocol):
     if sys.version_info >= (3, 12):
-        def __buffer__(self, __flags: int) -> memoryview: ...
+        def __buffer__(self, flags: int, /) -> memoryview: ...
 
 class SupportsDLPack(Protocol):
-    def __dlpack__(self, *, stream: Optional[_Stream] = None) -> _PyCapsule: ...
-    def __dlpack_device__(self) -> Tuple[_DeviceType, _DeviceID]: ...
+    def __dlpack__(
+        self, /, *, stream: Optional[_Stream] = None
+    ) -> _PyCapsule: ...
+    def __dlpack_device__(
+        self,
+    ) -> Tuple[_DeviceType, _DeviceID]: ...
 
 class SupportsCAI(Protocol):
     @property
@@ -69,13 +76,13 @@ Bottom: TypeAlias = Union[BottomType, None]
 
 InPlace: TypeAlias = Union[InPlaceType, None]
 
-Aint: TypeAlias = Integral
+Aint: TypeAlias = SupportsIndex
 
-Count: TypeAlias = Integral
+Count: TypeAlias = SupportsIndex
 
-Displ: TypeAlias = Integral
+Displ: TypeAlias = SupportsIndex
 
-Offset: TypeAlias = Integral
+Offset: TypeAlias = SupportsIndex
 
 TypeSpec: TypeAlias = Union[Datatype, str]
 
@@ -127,7 +134,7 @@ TargetSpec: TypeAlias = Union[
     List[Any],
 ]
 
-S = TypeVar('S')  # noqa: PYI001
-T = TypeVar('T')  # noqa: PYI001
-U = TypeVar('U')  # noqa: PYI001
-V = TypeVar('V')  # noqa: PYI001
+S = TypeVar("S")  # noqa: PYI001
+T = TypeVar("T")  # noqa: PYI001
+U = TypeVar("U")  # noqa: PYI001
+V = TypeVar("V")  # noqa: PYI001

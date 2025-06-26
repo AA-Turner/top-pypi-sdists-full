@@ -19,24 +19,12 @@ from .filestore import Digests
 from .filestore import FileEntry
 from .filestore import get_hash_spec
 from .log import threadlog
+from .markers import unknown
 from .readonly import get_mutable_deepcopy
 from operator import iconcat
 
 
 notset = object()
-
-
-class _Unknown:
-    __slots__ = ()
-
-    def __bool__(self):
-        return False
-
-    def __repr__(self):
-        return "<Unknown>"
-
-
-Unknown = _Unknown()
 
 
 def join_links_data(links, requires_python, yanked):
@@ -138,7 +126,7 @@ class RootModel:
         self.keyfs = xom.keyfs
 
     def create_user(self, username, password, **kwargs):
-        userlist = self.keyfs.USERLIST.get(readonly=False)
+        userlist = self.keyfs.USERLIST.get_mutable()
         if username in userlist:
             raise InvalidUser("username '%s' already exists" % username)
         if not is_valid_name(username):
@@ -621,6 +609,9 @@ class SimpleLinks:
             self._links = [SimplelinkMeta(x) for x in links]
             self.stale = stale
 
+    def __hash__(self):
+        return hash((self._links, self.stale))
+
     def __iter__(self):
         return self._links.__iter__()
 
@@ -801,13 +792,29 @@ class BaseStage(object):
                 yanked=link_meta.yanked),
             project, link_meta.version)
 
-    def get_linkstore_perstage(self, name, version, readonly=True):
+    def get_linkstore_perstage(self, name, version, readonly=None):
+        if readonly is None:
+            readonly = True
+        else:
+            warnings.warn(
+                "The 'readonly' argument is deprecated. "
+                "Use 'get_mutable_linkstore_perstage' instead.",
+                stacklevel=2,
+            )
         if self.customizer.readonly and not readonly:
             threadlog.warn("index is marked read only")
-        return LinkStore(self, name, version, readonly=readonly)
+        if readonly:
+            return LinkStore(self, name, version)
+        return MutableLinkStore(self, name, version)
+
+    def get_mutable_linkstore_perstage(self, name, version):
+        if self.customizer.readonly:
+            threadlog.warn("index is marked read only")
+        return MutableLinkStore(self, name, version)
 
     def get_link_from_entrypath(self, entrypath):
-        entry = self.xom.filestore.get_file_entry(entrypath)
+        relpath = entrypath.rsplit("#", 1)[0]
+        entry = self.xom.filestore.get_file_entry(relpath)
         if entry.project is None:
             return None
         linkstore = self.get_linkstore_perstage(entry.project,
@@ -820,7 +827,7 @@ class BaseStage(object):
                         *, filename=None, hashes=None, last_modified=None):
         if self.customizer.readonly:
             raise ReadonlyIndex("index is marked read only")
-        linkstore = self.get_linkstore_perstage(link.project, link.version, readonly=False)
+        linkstore = self.get_mutable_linkstore_perstage(link.project, link.version)
         if isinstance(toxresultdata, dict):
             warnings.warn(
                 "The 'store_toxresult' method will only accept binary "
@@ -967,13 +974,13 @@ class BaseStage(object):
                 if private_hit and not whitelisted:
                     # don't check the mirror for private packages
                     return dict(
-                        has_mirror_base=Unknown,
-                        blocked_by_mirror_whitelist=stage.name)
+                        has_mirror_base=unknown, blocked_by_mirror_whitelist=stage.name
+                    )
                 in_index = stage.has_project_perstage(project)
-                if in_index is Unknown:
+                if in_index is unknown:
                     return dict(
-                        has_mirror_base=Unknown,
-                        blocked_by_mirror_whitelist=None)
+                        has_mirror_base=unknown, blocked_by_mirror_whitelist=None
+                    )
                 has_mirror_base = in_index and (not private_hit or whitelisted)
                 blocked_by_mirror_whitelist = in_index and private_hit and not whitelisted
                 return dict(
@@ -1013,7 +1020,7 @@ class BaseStage(object):
         if not self.filter_projects([project]):
             return False
         for stage, res in self.op_sro("has_project_perstage", project=project):
-            if res is Unknown:
+            if res is unknown:
                 return res
             if res:
                 return True
@@ -1107,7 +1114,7 @@ class BaseStage(object):
 
             try:
                 exists = stage.has_project_perstage(project)
-                if not private_hit and exists is Unknown and stage.no_project_list:
+                if not private_hit and exists is unknown and stage.no_project_list:
                     # direct fetching is allowed
                     pass
                 elif not exists:
@@ -1192,19 +1199,44 @@ class BaseStage(object):
 
 class PrivateStage(BaseStage):
     metadata_keys = (
-        'name', 'version',
+        "name",
+        "version",
         # additional meta-data
-        'metadata_version', 'summary', 'home_page', 'author', 'author_email',
-        'maintainer', 'maintainer_email', 'license', 'description',
-        'keywords', 'platform', 'classifiers', 'download_url',
-        'supported_platform', 'comment',
+        "metadata_version",
+        "summary",
+        "home_page",
+        "author",
+        "author_email",
+        "maintainer",
+        "maintainer_email",
+        "license",
+        "description",
+        "keywords",
+        "platform",
+        "classifiers",
+        "download_url",
+        "supported_platform",
+        "comment",
         # PEP 314
-        'provides', 'requires', 'obsoletes',
+        "provides",
+        "requires",
+        "obsoletes",
         # Metadata 1.2
-        'project_urls', 'provides_dist', 'obsoletes_dist',
-        'requires_dist', 'requires_external', 'requires_python',
+        "project_urls",
+        "provides_dist",
+        "obsoletes_dist",
+        "requires_dist",
+        "requires_external",
+        "requires_python",
         # Metadata 2.1
-        'description_content_type', 'provides_extras')
+        "description_content_type",
+        "provides_extras",
+        # Metadata 2.2
+        "dynamic",
+        # Metadata 2.4
+        "license_expression",
+        "license_file",
+    )
     metadata_list_fields = (
         'platform', 'classifiers', 'obsoletes',
         'requires', 'provides', 'obsoletes_dist',
@@ -1273,7 +1305,8 @@ class PrivateStage(BaseStage):
         errors. """
         if self.customizer.readonly:
             raise ReadonlyIndex("index is marked read only")
-        validate_metadata(metadata)
+        # use a copy, as validate_metadata actually removes metadata_version
+        validate_metadata(dict(metadata))
         self._set_versiondata(metadata)
 
     def key_projversions(self, project):
@@ -1289,11 +1322,10 @@ class PrivateStage(BaseStage):
         project = normalize_name(metadata["name"])
         version = metadata["version"]
         key_projversion = self.key_projversion(project, version)
-        versiondata = key_projversion.get(readonly=False)
-        versiondata.update(metadata)
-        key_projversion.set(versiondata)
+        with key_projversion.update() as versiondata:
+            versiondata.update(metadata)
         threadlog.info("set_metadata %s-%s", project, version)
-        versions = self.key_projversions(project).get(readonly=False)
+        versions = self.key_projversions(project).get_mutable()
         if version not in versions:
             versions.add(version)
             self.key_projversions(project).set(versions)
@@ -1301,7 +1333,7 @@ class PrivateStage(BaseStage):
 
     def add_project_name(self, project):
         project = normalize_name(project)
-        projects = self.key_projects.get(readonly=False)
+        projects = self.key_projects.get_mutable()
         if project not in projects:
             if self.customizer.readonly:
                 raise ReadonlyIndex("index is marked read only")
@@ -1323,11 +1355,11 @@ class PrivateStage(BaseStage):
         if not self.has_project_perstage(project):
             raise self.NotFound("project %r not found on stage %r" %
                                 (project, self.name))
-        versions = self.key_projversions(project).get(readonly=False)
+        versions = self.key_projversions(project).get_mutable()
         if version not in versions:
             raise self.NotFound("version %r of project %r not found on stage %r" %
                                 (version, project, self.name))
-        linkstore = self.get_linkstore_perstage(project, version, readonly=False)
+        linkstore = self.get_mutable_linkstore_perstage(project, version)
         linkstore.remove_links()
         versions.remove(version)
         self.key_projversion(project, version).delete()
@@ -1341,8 +1373,7 @@ class PrivateStage(BaseStage):
         # we need to store project and version for use in cleanup part below
         project = entry.project
         version = entry.version
-        linkstore = self.get_linkstore_perstage(
-            project, version, readonly=False)
+        linkstore = self.get_mutable_linkstore_perstage(project, version)
         linkstore.remove_links(basename=entry.basename)
         entry.delete()
         if cleanup:
@@ -1353,9 +1384,20 @@ class PrivateStage(BaseStage):
     def list_versions_perstage(self, project):
         return self.key_projversions(project).get()
 
-    def get_versiondata_perstage(self, project, version, readonly=True):
+    def get_versiondata_perstage(self, project, version, readonly=None):
+        if readonly is None:
+            readonly = True
+        else:
+            warnings.warn(
+                "The 'readonly' argument is deprecated. "
+                "Use the 'get_mutable_deepcopy' function on the result instead.",
+                stacklevel=2,
+            )
         project = normalize_name(project)
-        return self.key_projversion(project, version).get(readonly=readonly)
+        result = self.key_projversion(project, version).get()
+        if not readonly:
+            return get_mutable_deepcopy(result)
+        return result
 
     def get_simplelinks_perstage(self, project):
         data = self.key_projsimplelinks(project).get()
@@ -1400,7 +1442,7 @@ class PrivateStage(BaseStage):
                     raise MissesRegistration("%s-%s", project, version)
             else:
                 raise MissesRegistration("%s-%s", project, version)
-        linkstore = self.get_linkstore_perstage(project, version, readonly=False)
+        linkstore = self.get_mutable_linkstore_perstage(project, version)
         link = linkstore.create_linked_entry(
             rel="releasefile",
             basename=filename,
@@ -1424,11 +1466,9 @@ class PrivateStage(BaseStage):
             threadlog.info("store_doczip: derived version of %s is %s",
                            project, version)
         basename = "%s-%s.doc.zip" % (project, version)
-        verdata = self.get_versiondata_perstage(
-            project, version, readonly=False)
-        if not verdata:
+        if not self.get_versiondata_perstage(project, version):
             self.set_versiondata({'name': project, 'version': version})
-        linkstore = self.get_linkstore_perstage(project, version, readonly=False)
+        linkstore = self.get_mutable_linkstore_perstage(project, version)
         return linkstore.create_linked_entry(
             rel="doczip",
             basename=basename,
@@ -1539,14 +1579,14 @@ def linkdictprop(name, default=notset):
 
 class ELink:
     """ model Link using entrypathes for referencing. """
-    __slots__ = ('_entry', 'basename', 'filestore', 'linkdict', 'project', 'version')
+
+    __slots__ = ("_basename", "_entry", "filestore", "linkdict", "project", "version")
 
     _log = linkdictprop("_log")
-    entrypath = linkdictprop("entrypath")
+    relpath = linkdictprop("entrypath")
     for_entrypath = linkdictprop("for_entrypath", default=None)
     _hash_spec = linkdictprop("hash_spec", default="")
     rel = linkdictprop("rel", default=None)
-    relpath = linkdictprop("entrypath")
     require_python = linkdictprop("require_python")
     yanked = linkdictprop("yanked")
 
@@ -1554,7 +1594,8 @@ class ELink:
         self._entry = notset
         self.filestore = filestore
         self.linkdict = linkdict
-        self.basename = posixpath.basename(self.entrypath)
+        if self.for_entrypath is not None:
+            assert "#" not in self.for_entrypath
         self.project = project
         self.version = version
 
@@ -1609,6 +1650,21 @@ class ELink:
             stacklevel=2)
         return self._hash_spec.split("=")[0]
 
+    @property
+    def basename(self):
+        _basename = getattr(self, "_basename", None)
+        if _basename is None:
+            _basename = self._basename = posixpath.basename(self.relpath)
+        return _basename
+
+    @property
+    def entrypath(self):
+        entrypath = self.relpath
+        hash_spec = self.best_available_hash_spec
+        if hash_spec:
+            return f"{entrypath}#{hash_spec}"
+        return entrypath
+
     def matches_checksum(self, content_or_file):
         hash_algo, hash_value = parse_hash_spec(self._hash_spec)
         if not hash_algo:
@@ -1622,7 +1678,7 @@ class ELink:
     @property
     def entry(self):
         if self._entry is notset:
-            self._entry = self.filestore.get_file_entry(self.entrypath)
+            self._entry = self.filestore.get_file_entry(self.relpath)
         return self._entry
 
     def add_log(self, what, who, **kw):
@@ -1638,12 +1694,12 @@ class ELink:
 
 
 class LinkStore:
-    def __init__(self, stage, project, version, readonly=True):
+    def __init__(self, stage, project, version):
         self.stage = stage
         self.filestore = stage.filestore
         self.project = normalize_name(project)
         self.version = version
-        self.verdata = stage.get_versiondata_perstage(self.project, version, readonly=readonly)
+        self.verdata = stage.get_versiondata_perstage(self.project, version)
         if not self.verdata:
             raise MissesRegistration(
                 "%s-%s on stage %s at %s",
@@ -1685,7 +1741,9 @@ class LinkStore:
     def new_reflink(self, rel, content_or_file, for_entrypath,
                     *, filename=None, hashes=None, last_modified=None):
         if isinstance(for_entrypath, ELink):
-            for_entrypath = for_entrypath.entrypath
+            for_entrypath = for_entrypath.relpath
+        elif for_entrypath is not None:
+            assert "#" not in for_entrypath
         links = self.get_links(entrypath=for_entrypath)
         assert len(links) == 1, f"need exactly one reference, got {links}"
         base_entry = links[0].entry
@@ -1710,24 +1768,29 @@ class LinkStore:
         for link in del_links:
             link.entry.delete()
             linkdicts.remove(link.linkdict)
-            was_deleted.append(link.entrypath)
-            threadlog.info("deleted %r link %s", link.rel, link.entrypath)
+            was_deleted.append(link.relpath)
+            threadlog.info("deleted %r link %s", link.rel, link.relpath)
         if linkdicts:
-            for entrypath in was_deleted:
-                self.remove_links(for_entrypath=entrypath)
+            for relpath in was_deleted:
+                self.remove_links(for_entrypath=relpath)
         if was_deleted:
             self._mark_dirty()
 
     def get_links(self, rel=None, basename=None, entrypath=None,
                   for_entrypath=None):
         if isinstance(for_entrypath, ELink):
-            for_entrypath = for_entrypath.entrypath
+            for_entrypath = for_entrypath.relpath
+        elif for_entrypath is not None:
+            assert "#" not in for_entrypath
 
         def fil(link):
-            return (not rel or rel==link.rel) and \
-                   (not basename or basename==link.basename) and \
-                   (not entrypath or entrypath==link.entrypath) and \
-                   (not for_entrypath or for_entrypath==link.for_entrypath)
+            return (
+                (not rel or rel == link.rel)
+                and (not basename or basename == link.basename)
+                and (not entrypath or entrypath in (link.entrypath, link.relpath))
+                and (not for_entrypath or for_entrypath == link.for_entrypath)
+            )
+
         return list(filter(fil, [ELink(self.filestore, linkdict, self.project, self.version)
                            for linkdict in self.verdata.get("+elinks", [])]))
 
@@ -1750,7 +1813,9 @@ class LinkStore:
 
     def _add_link_to_file_entry(self, rel, file_entry, for_entrypath=None):
         if isinstance(for_entrypath, ELink):
-            for_entrypath = for_entrypath.entrypath
+            for_entrypath = for_entrypath.relpath
+        elif for_entrypath is not None:
+            assert "#" not in for_entrypath
         new_linkdict = {"rel": rel, "entrypath": file_entry.relpath,
                         "hash_spec": file_entry._hash_spec, "_log": []}
         if for_entrypath:
@@ -1761,6 +1826,12 @@ class LinkStore:
         self._mark_dirty()
         return ELink(self.filestore, new_linkdict, self.project,
                      self.version)
+
+
+class MutableLinkStore(LinkStore):
+    def __init__(self, stage, project, version):
+        super().__init__(stage, project, version)
+        self.verdata = get_mutable_deepcopy(self.verdata)
 
 
 @total_ordering
@@ -1783,6 +1854,24 @@ class SimplelinkMeta:
         self.__url = notset
         self.__version = notset
         (self.key, self.href, self.require_python, self.yanked) = link_info
+
+    def __hash__(self):
+        return hash(
+            (
+                self.__basename,
+                self.__cmpval,
+                self.__ext,
+                self.__hash_spec,
+                self.__name,
+                self.__path,
+                self.__url,
+                self.__version,
+                self.href,
+                self.key,
+                self.require_python,
+                self.yanked,
+            )
+        )
 
     def __eq__(self, other):
         if isinstance(other, type(self)):

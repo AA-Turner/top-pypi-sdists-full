@@ -45,7 +45,7 @@ keywords = [
 dependencies = [
     "matplotlib",
     "networkx",
-    "hdmf",
+    "hdmf>=4.1.0",
     "pillow",
     "sphinx",
     "sphinx-gallery",

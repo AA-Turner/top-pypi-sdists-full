@@ -12,6 +12,8 @@ from dbt_common.contracts.constraints import ConstraintType
 from dbt_common.exceptions import DbtInternalError
 from dbt_common.exceptions import DbtRuntimeError
 
+from .constants import DEFAULT_TEMP_SCHEMA_NAME
+from .constants import TEMP_SCHEMA_NAME
 from dbt.adapters.base import BaseRelation
 from dbt.adapters.base.column import Column as BaseColumn
 from dbt.adapters.base.impl import ConstraintSupport
@@ -27,9 +29,6 @@ from dbt.adapters.duckdb.utils import TargetLocation
 from dbt.adapters.events.logging import AdapterLogger
 from dbt.adapters.sql import SQLAdapter
 
-
-TEMP_SCHEMA_NAME = "temp_schema_name"
-DEFAULT_TEMP_SCHEMA_NAME = "dbt_temp"
 
 if TYPE_CHECKING:
     import agate
@@ -68,6 +67,14 @@ class DuckDBAdapter(SQLAdapter):
     @available
     def is_motherduck(self):
         return self.config.credentials.is_motherduck
+
+    @available
+    def is_ducklake(self, relation: DuckDBRelation) -> bool:
+        """Check if a relation's database is backed by a ducklake attachment."""
+        if not relation or not relation.database:
+            return False
+
+        return relation.database in self.config.credentials._ducklake_dbs
 
     @available
     def convert_datetimes_to_strs(self, table: "agate.Table") -> "agate.Table":
@@ -129,13 +136,6 @@ class DuckDBAdapter(SQLAdapter):
         return DuckDBConnectionManager.env().get_binding_char()
 
     @available
-    def catalog_comment(self, prefix):
-        if DuckDBConnectionManager.env().supports_comments():
-            return f"{prefix}.comment"
-        else:
-            return "''"
-
-    @available
     def external_write_options(self, write_location: str, rendered_options: dict) -> str:
         if "format" not in rendered_options:
             ext = os.path.splitext(write_location)[1].lower()
@@ -191,7 +191,10 @@ class DuckDBAdapter(SQLAdapter):
         """This is just a quick-fix. Python models do not execute begin function so the transaction_open is always false."""
         try:
             self.connections.commit_if_has_connection()
-        except DbtInternalError:
+        except DbtInternalError as e:
+            # Log commit errors instead of silently swallowing them to aid debugging
+            logger.exception(f"Commit failed with DbtInternalError: {e}")
+            # Still pass to maintain backward compatibility, but now with visibility
             pass
 
     def submit_python_job(self, parsed_model: dict, compiled_code: str) -> AdapterResponse:

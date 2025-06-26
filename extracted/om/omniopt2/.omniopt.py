@@ -3957,32 +3957,21 @@ def _evaluate_handle_result(
     return final_result
 
 @beartype
-def pretty_process_output(stdout_path: str, stderr_path: str, exit_code: Optional[int]) -> None:
-    global console
+def is_valid_result(result: Union[int, float, Optional[Union[Dict[str, Optional[float]], List[float]]]]) -> bool:
+    return result is not None and (isinstance(result, (int, float)) or (isinstance(result, list) and all(isinstance(x, (int, float)) and x is not None for x in result)) or (isinstance(result, dict) and all(isinstance(v, (int, float)) and v is not None for v in result.values())))
 
-    console = Console(
-        force_interactive=True,
-        soft_wrap=True,
-        color_system="256",
-        force_terminal=not ci_env,
-        width=max(200, terminal_width)
-    )
-
-    def _read(p: str) -> Optional[str]:
-        try:
-            return Path(p).read_text(encoding="utf-8", errors="replace")
-        except FileNotFoundError:
-            print_debug(f"[file not found: {p}]")
-
-            return None
-
-    stdout_txt = _read(stdout_path)
-    stderr_txt = _read(stderr_path)
+@beartype
+def pretty_process_output(stdout_path: str, stderr_path: str, exit_code: Optional[int], result: Union[int, float, Optional[Union[Dict[str, Optional[float]], List[float]]]]) -> None:
+    stdout_txt = get_file_as_string(stdout_path)
+    stderr_txt = get_file_as_string(stderr_path)
 
     # -------- header -------- #
-    outcome = "SUCCESS" if (exit_code is not None and exit_code == 0) else "FAILURE"
+    is_valid = is_valid_result(result)
+
+    outcome = "SUCCESS" if is_valid else "FAILURE"
     header_style = "bold white on green" if exit_code == 0 else "bold white on red"
     console.rule(Text(f" {outcome}  (exit {exit_code}) ", style=header_style))
+    console.rule(Text(f" RESULT: {result} ", style=header_style))
 
     def is_nonempty(s: Optional[str]) -> bool:
         return bool(s and s.strip())
@@ -7040,8 +7029,9 @@ def pretty_print_job_output(job: Job) -> None:
     stdout_path = get_stderr_or_stdout_from_job(job, "stdout")
     stderr_path = get_stderr_or_stdout_from_job(job, "stderr")
     exit_code = get_exit_code_from_stderr_or_stdout_path(stderr_path, stdout_path)
+    result = get_results_with_occ(get_file_as_string(stdout_path))
 
-    pretty_process_output(stdout_path, stderr_path, exit_code)
+    pretty_process_output(stdout_path, stderr_path, exit_code, result)
 
 @beartype
 def get_stderr_or_stdout_from_job(job: Job, path_type: str) -> str:
@@ -8476,6 +8466,8 @@ def execute_trials(
         _args = [trial_index, parameters, i, next_nr_steps, phase]
         index_param_list.append(_args)
         i += 1
+
+        save_results_csv()
 
     start_time = time.time()
 

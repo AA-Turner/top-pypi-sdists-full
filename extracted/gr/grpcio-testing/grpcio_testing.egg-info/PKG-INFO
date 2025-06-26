@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: grpcio-testing
-Version: 1.73.0
+Version: 1.73.1
 Summary: Testing utilities for gRPC Python
 Home-page: https://grpc.io
 Author: The gRPC Authors
@@ -8,7 +8,7 @@ Author-email: grpc-io@googlegroups.com
 License: Apache License 2.0
 License-File: LICENSE
 Requires-Dist: protobuf<7.0.0,>=6.30.0
-Requires-Dist: grpcio>=1.73.0
+Requires-Dist: grpcio>=1.73.1
 
 gRPC Python Testing Package
 ===========================

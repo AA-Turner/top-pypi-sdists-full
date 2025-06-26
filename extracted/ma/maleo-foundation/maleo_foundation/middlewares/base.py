@@ -217,7 +217,8 @@ class RequestLogger:
         log_func(
             f"Request | ID: {request_context.request_id} {authentication_info} | "
             f"IP: {request_context.ip_address} | Host: {request_context.host} | "
-            f"Method: {request_context.method} | URL: {request_context.url} - "
+            f"Method: {request_context.method} | URL: {request_context.url} | "
+            f"Query Parameters: {request_context.query_params} - "
             f"Response | Status: {response.status_code}"
         )
     
@@ -239,7 +240,8 @@ class RequestLogger:
         self.logger.error(
             f"Request | ID: {request_context.request_id} {authentication_info} | "
             f"IP: {request_context.ip_address} | Host: {request_context.host} | "
-            f"Method: {request_context.method} | URL: {request_context.url} - "
+            f"Method: {request_context.method} | URL: {request_context.url} | "
+            f"Query Parameters: {request_context.query_params} - "
             f"Response | Status: 500 | Exception:\n{json.dumps(error_details, indent=4)}"
         )
 

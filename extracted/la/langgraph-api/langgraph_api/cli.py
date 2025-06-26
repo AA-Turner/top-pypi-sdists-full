@@ -114,6 +114,46 @@ class AuthConfig(TypedDict, total=False):
     """
 
 
+def _check_newer_version(pkg: str, timeout: float = 0.2) -> None:
+    """Log a notice if PyPI reports a newer version."""
+    import importlib.metadata as md
+    import json
+    import urllib.request
+
+    from packaging.version import Version
+
+    thread_logger = logging.getLogger("check_version")
+    if not thread_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        thread_logger.addHandler(handler)
+
+    try:
+        current = Version(md.version(pkg))
+        with urllib.request.urlopen(
+            f"https://pypi.org/pypi/{pkg}/json", timeout=timeout
+        ) as resp:
+            latest_str = json.load(resp)["info"]["version"]
+        latest = Version(latest_str)
+        if latest > current:
+            thread_logger.info(
+                "🔔  A newer version of %s is available: %s → %s (pip install -U %s)",
+                pkg,
+                current,
+                latest,
+                pkg,
+            )
+
+    except Exception:
+        pass
+
+    except RuntimeError:
+        thread_logger.info(
+            f"Failed to check for newer version of {pkg}."
+            " To disable version checks, set LANGGRAPH_NO_VERSION_CHECK=true"
+        )
+
+
 def run_server(
     host: str = "127.0.0.1",
     port: int = 2024,
@@ -312,6 +352,12 @@ For production use, please use LangGraph Cloud.
         logger.info(welcome)
         if open_browser:
             threading.Thread(target=_open_browser, daemon=True).start()
+        nvc = os.getenv("LANGGRAPH_NO_VERSION_CHECK")
+        if nvc is None or nvc.lower() not in ("true", "1"):
+            print("Checking for newer version...")
+            threading.Thread(
+                target=_check_newer_version, args=("langgraph-api",), daemon=True
+            ).start()
         supported_kwargs = {
             k: v
             for k, v in kwargs.items()

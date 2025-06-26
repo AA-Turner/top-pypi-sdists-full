@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import uuid
-from typing import Any, Generic, List, Optional, TypedDict, TypeVar
+from typing import Any, Generic, List, Optional, TypedDict, TypeVar, Union
 
 from dbos._app_db import ApplicationDatabase
 from dbos._context import MaxPriority, MinPriority
@@ -128,7 +128,6 @@ class DBOSClient:
         workflow_name = options["workflow_name"]
         queue_name = options["queue_name"]
 
-        app_version = options.get("app_version")
         max_recovery_attempts = options.get("max_recovery_attempts")
         if max_recovery_attempts is None:
             max_recovery_attempts = DEFAULT_MAX_RECOVERY_ATTEMPTS
@@ -139,6 +138,7 @@ class DBOSClient:
         enqueue_options_internal: EnqueueOptionsInternal = {
             "deduplication_id": options.get("deduplication_id"),
             "priority": options.get("priority"),
+            "app_version": options.get("app_version"),
         }
 
         inputs: WorkflowInputs = {
@@ -152,7 +152,7 @@ class DBOSClient:
             "name": workflow_name,
             "class_name": None,
             "queue_name": queue_name,
-            "app_version": app_version,
+            "app_version": enqueue_options_internal["app_version"],
             "config_name": None,
             "authenticated_user": None,
             "assumed_role": None,
@@ -284,7 +284,7 @@ class DBOSClient:
         self,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[str] = None,
+        status: Optional[Union[str, List[str]]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         name: Optional[str] = None,
@@ -314,7 +314,7 @@ class DBOSClient:
         self,
         *,
         workflow_ids: Optional[List[str]] = None,
-        status: Optional[str] = None,
+        status: Optional[Union[str, List[str]]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         name: Optional[str] = None,
@@ -344,7 +344,7 @@ class DBOSClient:
         self,
         *,
         queue_name: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[Union[str, List[str]]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         name: Optional[str] = None,
@@ -368,7 +368,7 @@ class DBOSClient:
         self,
         *,
         queue_name: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[Union[str, List[str]]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         name: Optional[str] = None,

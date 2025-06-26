@@ -63,6 +63,7 @@ def get_ai_messages(
     code,
     imported_code,
     execution_error,
+    execution_logs,
     headers: dict,
     env_vars_keys,
     current_abstra_json,
@@ -79,6 +80,7 @@ def get_ai_messages(
         "code": code,
         "importedCode": imported_code,
         "executionError": execution_error,
+        "executionLogs": execution_logs,
         "version": current_abstra_version,
         "envVars": env_vars_keys,
         "actionsVersion": "v1",
@@ -184,7 +186,11 @@ def connect_tunnel():
                     sleep(5)
                     continue
                 try:
-                    ws = simple_websocket.Client(url, headers=headers)
+                    ws = simple_websocket.Client(
+                        url,
+                        headers=headers,
+                    )
+                    ws.thread.name = "TunnelWebSocket"
                 except Exception:
                     sleep(1)
                     continue
@@ -252,4 +258,4 @@ def connect_tunnel():
                 ws.close()
                 ws = None
 
-    Thread(target=loop, daemon=True).start()
+    Thread(target=loop, daemon=True, name="TunnelLoop").start()

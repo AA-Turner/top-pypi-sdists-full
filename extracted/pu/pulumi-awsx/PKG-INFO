@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pulumi_awsx
-Version: 2.21.1
+Version: 2.22.0
 Summary: Pulumi Amazon Web Services (AWS) AWSX Components.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com
@@ -14,7 +14,7 @@ Requires-Dist: pulumi-aws<7.0.0,>=6.0.4
 Requires-Dist: pulumi-docker<5.0.0,>=4.6.0
 Requires-Dist: pulumi-docker-build<1.0.0,>=0.0.8
 Requires-Dist: semver>=2.8.1
-Requires-Dist: typing-extensions>=4.11; python_version < "3.11"
+Requires-Dist: typing-extensions<5,>=4.11; python_version < "3.11"
 
 [![Actions Status](https://github.com/pulumi/pulumi-awsx/workflows/master/badge.svg)](https://github.com/pulumi/pulumi-awsx/actions)
 [![Slack](http://www.pulumi.com/images/docs/badges/slack.svg)](https://slack.pulumi.com)

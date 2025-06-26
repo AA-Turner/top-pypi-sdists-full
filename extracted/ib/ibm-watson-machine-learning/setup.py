@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2017-2024.
+#  (C) Copyright IBM Corp. 2017-2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ setup(
         'lomond',
         'tabulate',
         'packaging',
-        'ibm-cos-sdk<2.14.0,>=2.12.0',
+        'ibm-cos-sdk<2.15.0,>=2.12.0',
         'importlib-metadata'
     ],
     include_package_data=True,

@@ -483,30 +483,30 @@ class TraceManager:
         retriever_spans = []
         tool_spans = []
 
-        # Process all spans in the trace
-        def process_spans(spans):
-            for span in spans:
-                # Convert BaseSpan to BaseApiSpan
-                api_span = self._convert_span_to_api_span(span)
+        # Process all spans in the trace iteratively
+        span_stack = list(trace.root_spans)  # Start with root spans
 
-                # Categorize spans by type
-                if isinstance(span, AgentSpan):
-                    agent_spans.append(api_span)
-                elif isinstance(span, LlmSpan):
-                    llm_spans.append(api_span)
-                elif isinstance(span, RetrieverSpan):
-                    retriever_spans.append(api_span)
-                elif isinstance(span, ToolSpan):
-                    tool_spans.append(api_span)
-                else:
-                    base_spans.append(api_span)
+        while span_stack:
+            span = span_stack.pop()
 
-                # Process children recursively
-                if span.children:
-                    process_spans(span.children)
+            # Convert BaseSpan to BaseApiSpan
+            api_span = self._convert_span_to_api_span(span)
 
-        # Start processing from root spans
-        process_spans(trace.root_spans)
+            # Categorize spans by type
+            if isinstance(span, AgentSpan):
+                agent_spans.append(api_span)
+            elif isinstance(span, LlmSpan):
+                llm_spans.append(api_span)
+            elif isinstance(span, RetrieverSpan):
+                retriever_spans.append(api_span)
+            elif isinstance(span, ToolSpan):
+                tool_spans.append(api_span)
+            else:
+                base_spans.append(api_span)
+
+            # Add children to the stack for processing
+            if span.children:
+                span_stack.extend(span.children)
 
         # Convert perf_counter values to ISO 8601 strings
         start_time = (
@@ -848,7 +848,7 @@ class Observer:
             model = self.observe_kwargs.get("model", None)
             if model is None and not trace_manager.openai_client:
                 raise ValueError(
-                    "Either provide a model in observe or configure an openai_client in trace_manager. For more information on openai_client, see https://documentation.confident-ai.com/llm-tracing/integrations/openai"
+                    "Either provide a model in observe or configure an openai_client in trace_manager. For more information on openai_client, see https://documentation.confident-ai.com/docs/llm-tracing/integrations/openai"
                 )
             return LlmSpan(**span_kwargs, attributes=None, model=model)
         elif self.span_type == SpanType.RETRIEVER.value:

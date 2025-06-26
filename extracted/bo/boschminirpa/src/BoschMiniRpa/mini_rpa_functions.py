@@ -3,10 +3,12 @@ import io
 from email.utils import formataddr
 
 import pandas as pd
-
+import requests
+import json
 from mini_rpa_hrs_customized_functions import *
 from BoschRpaMagicBox.remote_excel_functions import *
 from BoschRpaMagicBox.helper_functions import *
+from BoschRpaMagicBox.data_process_functions import *
 from mini_rpa_sap_automation import *
 
 
@@ -497,7 +499,7 @@ class MiniRpaFunction(MiniRPACore):
             del from_data
 
     def date_transfer(self, process_number: int, from_file_path: str, from_file_name: str, from_sheet_name: str, from_column_name: str,
-                      has_from_file_condition: bool, is_save: bool) -> None:
+                      has_from_file_condition: bool, is_save: bool, target_date_format='%Y-%m-%d') -> None:
         """This function is used to transfer date format
 
 
@@ -509,6 +511,7 @@ class MiniRpaFunction(MiniRPACore):
             from_column_name: This is the column name whose values will be transferred into date format
             has_from_file_condition: This indicates whether current process has additional condition settings
             is_save: This is indicator whether to save processed data
+            target_date_format(str): This is the target date format, default is '%Y-%m-%d'
 
         """
         is_from_file_exist, _ = smb_check_file_exist(self.user_name, self.user_password, self.server_name, self.share_name, from_file_path, self.port)
@@ -520,14 +523,14 @@ class MiniRpaFunction(MiniRPACore):
                 for column in from_column_list:
                     date_data[column] = date_data[column].fillna('')
                     date_data[column] = date_data[column].astype(str).str.strip()
-                    date_data[column] = date_data[column].apply(self.string_date_parser)
+                    date_data[column] = date_data[column].apply(lambda x: self.string_date_parser(x, target_date_format))
 
                 # date_data = self.update_dataframe(original_date_data, date_data)
                 self.save_file(process_number, from_file_name, date_dtype_dict, date_data, 'date_transfer', from_sheet_name, is_save)
                 del date_data
 
     def date_transfer_date_format(self, process_number: int, from_file_path: str, from_file_name: str, from_sheet_name: str, from_column_name: str,
-                                  has_from_file_condition: bool, is_save: bool) -> None:
+                                  has_from_file_condition: bool, is_save: bool, target_date_format='yyyy-mm-dd') -> None:
         """This function is used to transfer date format
 
 
@@ -539,6 +542,7 @@ class MiniRpaFunction(MiniRPACore):
             from_column_name: This is the column name whose values will be transferred into date format
             has_from_file_condition: This indicates whether current process has additional condition settings
             is_save: This is indicator whether to save processed data
+            target_date_format(str): This is the target date format, default is 'yyyy-mm-dd'
 
         """
         is_from_file_exist, _ = smb_check_file_exist(self.user_name, self.user_password, self.server_name, self.share_name, from_file_path, self.port)
@@ -554,6 +558,18 @@ class MiniRpaFunction(MiniRPACore):
 
                 # date_data = self.update_dataframe(original_date_data, date_data)
                 self.save_file(process_number, from_file_name, date_dtype_dict, date_data, 'date_transfer_date_format', from_sheet_name, is_save)
+                original_save_file_path = self.report_save_path + os.sep + f'{from_file_name}'
+                save_file_path = self.report_process_folder_path + os.sep + f'{process_number}_date_transfer_date_format_{from_file_name}'
+
+                column_index_list = []
+                for column in from_column_list:
+                    column_index = date_data.columns.get_loc(column) + 1
+                    column_index_list.append(column_index)
+
+                set_column_date_format(self.user_name, self.user_password, self.server_name, self.share_name, original_save_file_path, from_sheet_name, self.port,
+                                       column_index_list=column_index_list, date_format=target_date_format)
+                set_column_date_format(self.user_name, self.user_password, self.server_name, self.share_name, save_file_path, from_sheet_name, self.port,
+                                       column_index_list=column_index_list, date_format=target_date_format)
                 del date_data
 
     def remove_duplicates(self, process_number: int, from_file_path: str, from_file_name: str, from_sheet_name: str, from_column_name: str,
@@ -1207,3 +1223,109 @@ class MiniRpaFunction(MiniRPACore):
                 smb_store_remote_file_by_obj(self.user_name, self.user_password, self.server_name, self.share_name, compare_file_path, file_obj, self.port)
         else:
             raise ValueError(f'File {from_file_name} or {update_file_name} does not exist in the specified folder.')
+
+    def save_pdf_table_into_excel(self, pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name,
+                                  sheet_name='Sheet1'):
+        """
+        Save the extracted table from a PDF file into an Excel file.
+
+        Args:
+            pdf_folder_path (str): The folder path where the PDF file is located.
+            pdf_file_name (str): The name of the PDF file to extract the table from.
+            page_number (int): The page number to extract the table from.
+            table_index (int): The index of the table to extract.
+            first_column_name (str): The name of the first column to locate first row.
+            save_column_names(str): List of column names to save in the Excel file.
+            excel_folder_path (str): The folder path where the Excel file will be saved.
+            excel_file_name (str): The name of the Excel file to save the extracted table.
+            sheet_name (str): Name of the sheet in the Excel file.
+        """
+        page_number = int(page_number)
+        table_index = int(table_index)
+        pdf_folder_path = self.replace_variables_in_string(pdf_folder_path)
+        pdf_file_name = self.prepare_file_name(pdf_file_name)
+        excel_folder_path = self.replace_variables_in_string(excel_folder_path)
+        excel_file_name = self.prepare_file_name(excel_file_name)
+
+        if not pdf_folder_path:
+            pdf_folder_path = self.report_save_path
+        pdf_file_path = pdf_folder_path + os.sep + pdf_file_name
+
+        if not excel_folder_path:
+            excel_folder_path = self.report_save_path
+        excel_file_path = excel_folder_path + os.sep + excel_file_name
+
+        save_pdf_table_into_excel(self.user_name, self.user_password, self.server_name, self.share_name, self.port, pdf_file_path, page_number, table_index, first_column_name,
+                                  save_column_names, excel_file_path, sheet_name)
+
+    def save_excel_data_into_text(self, excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name='Sheet1', save_column_names='', keep_header=True):
+        """
+        Save the specified columns of data from an Excel file into a text file.
+
+        Args:
+            excel_folder_path (str): The folder path where the Excel file is located.
+            excel_file_name(str): The name of the Excel file to read data from.
+            text_folder_path (str): The folder path where the text file will be saved.
+            text_file_name (str): The name of the text file to save the data.
+            sheet_name (str): Name of the sheet in the Excel file.
+            save_column_names (str): Comma-separated list of column names to save. If empty, all columns will be saved.
+            keep_header(bool): Whether to keep the header in the text file. Default is True.
+        """
+        excel_folder_path = self.replace_variables_in_string(excel_folder_path)
+        excel_file_name = self.prepare_file_name(excel_file_name)
+        if not excel_folder_path:
+            excel_folder_path = self.report_save_path
+        excel_file_path = excel_folder_path + os.sep + excel_file_name
+
+        text_folder_path = self.replace_variables_in_string(text_folder_path)
+        text_file_name = self.prepare_file_name(text_file_name)
+        if not text_folder_path:
+            text_folder_path = self.report_save_path
+        text_file_path = text_folder_path + os.sep + text_file_name
+
+        save_excel_data_into_text(self.user_name, self.user_password, self.server_name, self.share_name, self.port, excel_file_path, text_file_path, sheet_name, save_column_names,
+                                  keep_header)
+
+    def transfer_xls_into_xlsx(self, xls_folder_path, xls_file_name, xlsx_folder_path, xlsx_file_name, sheet_name, encoding):
+        """
+        Transfer an XLS file to XLSX format.
+
+        Args:
+            xls_folder_path (str): The folder path where the XLS file is located.
+            xls_file_name (str): The name of the XLS file to convert.
+            xlsx_folder_path (str): The folder path where the converted XLSX file will be saved.
+            xlsx_file_name (str): The name of the converted XLSX file.
+            sheet_name (str): The name of the sheet to read from the XLS file.
+            encoding (str): The encoding type for reading the XLS file.
+        """
+        xls_folder_path = self.replace_variables_in_string(xls_folder_path)
+        xls_file_name = self.prepare_file_name(xls_file_name)
+        if not xls_folder_path:
+            xls_folder_path = self.report_save_path
+        xls_file_path = xls_folder_path + os.sep + xls_file_name
+
+        xlsx_folder_path = self.replace_variables_in_string(xlsx_folder_path)
+        xlsx_file_name = self.prepare_file_name(xlsx_file_name)
+        if not xlsx_folder_path:
+            xlsx_folder_path = self.report_save_path
+        xlsx_file_path = xlsx_folder_path + os.sep + xlsx_file_name
+
+        transfer_xls_into_xlsx(self.user_name, self.user_password, self.server_name, self.share_name, xls_file_path, xlsx_file_path, sheet_name, self.port, encoding)
+
+    @staticmethod
+    def trigger_python_bot_task(bot_url, api_credential):
+        """
+        Trigger a Python bot task via API.
+
+        Args:
+            bot_url (str): The URL of the API endpoint to trigger the bot task.
+            api_credential (str): The credential for the API, typically a token or key.
+        """
+        request_data = {
+            "queryType": "start_bot_immediately",
+            "apiCredential": api_credential,
+        }
+
+        res = requests.post(url=bot_url, data=request_data, verify=False)
+        print(res.status_code)
+        print(res.text)

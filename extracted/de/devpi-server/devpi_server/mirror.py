@@ -19,9 +19,9 @@ from html.parser import HTMLParser
 from .config import hookimpl
 from .exceptions import lazy_format_exception
 from .filestore import key_from_link
+from .markers import unknown
 from .model import BaseStageCustomizer
 from .model import BaseStage
-from .model import Unknown
 from .model import ensure_boolean
 from .model import join_links_data
 from .readonly import ensure_deeply_readonly
@@ -32,6 +32,7 @@ from .views import make_uuid_headers
 from pyramid.authentication import b64encode
 import json
 import threading
+import warnings
 import weakref
 
 
@@ -191,6 +192,10 @@ class MirrorStage(BaseStage):
         self.xom = xom
         self.offline = self.xom.config.offline_mode
         self.timeout = xom.config.request_timeout
+        # use a minimum of 30 seconds as timeout for remote server and
+        # 60 seconds when running as replica, because the list can be
+        # quite large and the primary might take a while to process it
+        self.projects_timeout = max(self.timeout, 60 if self.xom.is_replica() else 30)
         # list of locally mirrored projects
         self.key_projects = self.keyfs.PROJNAMES(user=username, index=index)
         # used to log about stale projects only once
@@ -345,7 +350,7 @@ class MirrorStage(BaseStage):
 
     def add_project_name(self, project):
         project = normalize_name(project)
-        projects = self.key_projects.get(readonly=False)
+        projects = self.key_projects.get_mutable()
         if project not in projects:
             projects.add(project)
             self.key_projects.set(projects)
@@ -360,7 +365,7 @@ class MirrorStage(BaseStage):
             for entry in entries:
                 entry.delete()
         self.key_projsimplelinks(project).delete()
-        projects = self.key_projects.get(readonly=False)
+        projects = self.key_projects.get_mutable()
         if project in projects:
             projects.remove(project)
             self.cache_retrieve_times.expire(project)
@@ -394,7 +399,7 @@ class MirrorStage(BaseStage):
         else:
             has_links = False
         if not has_links and cleanup:
-            projects = self.key_projects.get(readonly=False)
+            projects = self.key_projects.get_mutable()
             if project in projects:
                 projects.remove(project)
                 self.key_projects.set(projects)
@@ -427,16 +432,12 @@ class MirrorStage(BaseStage):
         etag = self.cache_projectnames.get_etag()
         if etag is not None:
             headers["If-None-Match"] = etag
-        # use a minimum of 30 seconds as timeout for remote server and
-        # 60s when running as replica, because the list can be quite large
-        # and the primary might take a while to process it
-        if self.xom.is_replica():
-            timeout = max(self.timeout, 60)
-        else:
-            timeout = max(self.timeout, 30)
         response = self.httpget(
-            self.mirror_url_without_auth, allow_redirects=True,
-            extra_headers=headers, timeout=timeout)
+            self.mirror_url_without_auth,
+            allow_redirects=True,
+            extra_headers=headers,
+            timeout=self.projects_timeout,
+        )
         if response.status_code == 304:
             return (self.cache_projectnames.get(), etag)
         elif response.status_code != 200:
@@ -761,7 +762,7 @@ class MirrorStage(BaseStage):
                     "cached not found for project %s" % project)
             else:
                 exists = self.has_project_perstage(project)
-                if exists is Unknown and self.no_project_list:
+                if exists is unknown and self.no_project_list:
                     pass
                 elif not exists:
                     # immediately cache the not found with no ETag
@@ -834,7 +835,7 @@ class MirrorStage(BaseStage):
         if self.no_project_list:
             if project in self._stale_list_projects_perstage():
                 return True
-            return Unknown
+            return unknown
         # use the internal method to avoid a copy
         return project in self._list_projects_perstage()
 
@@ -858,10 +859,18 @@ class MirrorStage(BaseStage):
         (last_serial, links) = info
         return last_serial
 
-    def get_versiondata_perstage(self, project, version, readonly=True):
+    def get_versiondata_perstage(self, project, version, readonly=None):
         # we do not use normalize_name name here, so the returned data
         # contains whatever this method was called with, which is hopefully
         # the title from the project list
+        if readonly is None:
+            readonly = True
+        else:
+            warnings.warn(
+                "The 'readonly' argument is deprecated. "
+                "Use the 'get_mutable_deepcopy' function on the result instead.",
+                stacklevel=2,
+            )
         verdata = {}
         for sm in self.get_simplelinks_perstage(project):
             link_version = sm.version
@@ -874,8 +883,9 @@ class MirrorStage(BaseStage):
                 if sm.yanked is not None and sm.yanked is not False:
                     verdata['yanked'] = sm.yanked
                 elinks = verdata.setdefault("+elinks", [])
-                entrypath = sm.path
-                elinks.append({"rel": "releasefile", "entrypath": entrypath})
+                elinks.append(
+                    dict(rel="releasefile", entrypath=sm.path, hash_spec=sm.hash_spec)
+                )
         if readonly:
             return ensure_deeply_readonly(verdata)
         return verdata

@@ -290,11 +290,18 @@ class RSTDocument(object):
         import json
         from ruamel.yaml import YAML
         from ruamel.yaml.compat import StringIO
-        clean_spec = json.loads(json.dumps(spec, sort_keys=True, indent=4, separators=(',', ': ')))
+        from hdmf.spec.write import YAMLSpecWriter
+        
+        # Convert to plain dict first
+        clean_spec = json.loads(json.dumps(spec, indent=4, separators=(',', ': ')))
+        
+        # Sort keys using YAMLSpecWriter's sort_keys method
+        sorted_spec = YAMLSpecWriter.sort_keys(clean_spec)
+        
         yaml = YAML(pure=True)
         yaml.default_flow_style = False
         stream = StringIO()
-        yaml.dump(clean_spec, stream)
+        yaml.dump(sorted_spec, stream)
         return stream.getvalue()
 
     def add_spec(self, spec):

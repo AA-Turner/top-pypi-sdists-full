@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-snowflake",
-    "version": "15.0.1",
+    "version": "15.1.0",
     "description": "Prebuilt snowflake Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-snowflake.git",
@@ -34,10 +34,13 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.api_authentication_integration_with_jwt_bearer",
         "cdktf_cdktf_provider_snowflake.api_integration",
         "cdktf_cdktf_provider_snowflake.authentication_policy",
+        "cdktf_cdktf_provider_snowflake.compute_pool",
         "cdktf_cdktf_provider_snowflake.cortex_search_service",
+        "cdktf_cdktf_provider_snowflake.current_account",
         "cdktf_cdktf_provider_snowflake.data_snowflake_account_roles",
         "cdktf_cdktf_provider_snowflake.data_snowflake_accounts",
         "cdktf_cdktf_provider_snowflake.data_snowflake_alerts",
+        "cdktf_cdktf_provider_snowflake.data_snowflake_compute_pools",
         "cdktf_cdktf_provider_snowflake.data_snowflake_connections",
         "cdktf_cdktf_provider_snowflake.data_snowflake_cortex_search_services",
         "cdktf_cdktf_provider_snowflake.data_snowflake_current_account",
@@ -52,7 +55,9 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.data_snowflake_failover_groups",
         "cdktf_cdktf_provider_snowflake.data_snowflake_file_formats",
         "cdktf_cdktf_provider_snowflake.data_snowflake_functions",
+        "cdktf_cdktf_provider_snowflake.data_snowflake_git_repositories",
         "cdktf_cdktf_provider_snowflake.data_snowflake_grants",
+        "cdktf_cdktf_provider_snowflake.data_snowflake_image_repositories",
         "cdktf_cdktf_provider_snowflake.data_snowflake_masking_policies",
         "cdktf_cdktf_provider_snowflake.data_snowflake_materialized_views",
         "cdktf_cdktf_provider_snowflake.data_snowflake_network_policies",
@@ -65,6 +70,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.data_snowflake_secrets",
         "cdktf_cdktf_provider_snowflake.data_snowflake_security_integrations",
         "cdktf_cdktf_provider_snowflake.data_snowflake_sequences",
+        "cdktf_cdktf_provider_snowflake.data_snowflake_services",
         "cdktf_cdktf_provider_snowflake.data_snowflake_shares",
         "cdktf_cdktf_provider_snowflake.data_snowflake_stages",
         "cdktf_cdktf_provider_snowflake.data_snowflake_storage_integrations",
@@ -96,6 +102,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.function_python",
         "cdktf_cdktf_provider_snowflake.function_scala",
         "cdktf_cdktf_provider_snowflake.function_sql",
+        "cdktf_cdktf_provider_snowflake.git_repository",
         "cdktf_cdktf_provider_snowflake.grant_account_role",
         "cdktf_cdktf_provider_snowflake.grant_application_role",
         "cdktf_cdktf_provider_snowflake.grant_database_role",
@@ -103,6 +110,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.grant_privileges_to_account_role",
         "cdktf_cdktf_provider_snowflake.grant_privileges_to_database_role",
         "cdktf_cdktf_provider_snowflake.grant_privileges_to_share",
+        "cdktf_cdktf_provider_snowflake.image_repository",
+        "cdktf_cdktf_provider_snowflake.job_service",
         "cdktf_cdktf_provider_snowflake.legacy_service_user",
         "cdktf_cdktf_provider_snowflake.managed_account",
         "cdktf_cdktf_provider_snowflake.masking_policy",
@@ -135,6 +144,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.secret_with_client_credentials",
         "cdktf_cdktf_provider_snowflake.secret_with_generic_string",
         "cdktf_cdktf_provider_snowflake.sequence",
+        "cdktf_cdktf_provider_snowflake.service",
         "cdktf_cdktf_provider_snowflake.service_user",
         "cdktf_cdktf_provider_snowflake.share",
         "cdktf_cdktf_provider_snowflake.shared_database",
@@ -160,7 +170,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_snowflake._jsii": [
-            "provider-snowflake@15.0.1.jsii.tgz"
+            "provider-snowflake@15.1.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_snowflake": [
             "py.typed"

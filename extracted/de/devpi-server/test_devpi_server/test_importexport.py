@@ -92,7 +92,7 @@ def test_export_empty_serverdir(tmpdir, capfd, monkeypatch, storage_args):
     assert ("The path '%s' contains no devpi-server data" % empty) in err
 
 
-def test_export_import(tmpdir, capfd, monkeypatch, storage_args):
+def test_export_import(tmpdir, capfd, monkeypatch, sorted_serverdir, storage_args):
     from devpi_server.importexport import export
     from devpi_server.importexport import import_
     from devpi_server.init import init
@@ -119,12 +119,14 @@ def test_export_import(tmpdir, capfd, monkeypatch, storage_args):
         export_dir.strpath])
     assert ret == 0
     out, err = capfd.readouterr()
-    assert sorted(os.listdir(clean.strpath)) == sorted(os.listdir(import_dir.strpath))
+    assert sorted_serverdir(clean) == sorted_serverdir(import_dir)
     assert 'import_all: importing finished' in out
     assert err == ''
 
 
-def test_export_import_no_root_pypi(tmpdir, capfd, monkeypatch, storage_args):
+def test_export_import_no_root_pypi(
+    tmpdir, capfd, monkeypatch, sorted_serverdir, storage_args
+):
     from devpi_server.importexport import export
     from devpi_server.importexport import import_
     from devpi_server.init import init
@@ -144,30 +146,38 @@ def test_export_import_no_root_pypi(tmpdir, capfd, monkeypatch, storage_args):
         export_dir.strpath])
     assert ret == 0
     # first we test regular import
-    import_dir = tmpdir.join("import")
-    ret = import_(argv=[
-        "devpi-import",
-        "--serverdir", str(import_dir),
-        *storage_args(import_dir),
-        "--no-events",
-        export_dir.strpath])
+    import1_dir = tmpdir.join("import1")
+    ret = import_(
+        argv=[
+            "devpi-import",
+            "--serverdir",
+            str(import1_dir),
+            *storage_args(import1_dir),
+            "--no-events",
+            export_dir.strpath,
+        ]
+    )
     assert ret == 0
     out, err = capfd.readouterr()
-    assert sorted(os.listdir(clean.strpath)) == sorted(os.listdir(import_dir.strpath))
+    assert sorted_serverdir(clean) == sorted_serverdir(import1_dir)
     assert 'import_all: importing finished' in out
     assert err == ''
     # now we add --no-root-pypi
-    import_dir.remove()
-    ret = import_(argv=[
-        "devpi-import",
-        "--serverdir", str(import_dir),
-        *storage_args(import_dir),
-        "--no-events",
-        "--no-root-pypi",
-        export_dir.strpath])
+    import2_dir = tmpdir.join("import2")
+    ret = import_(
+        argv=[
+            "devpi-import",
+            "--serverdir",
+            str(import2_dir),
+            *storage_args(import2_dir),
+            "--no-events",
+            "--no-root-pypi",
+            export_dir.strpath,
+        ]
+    )
     assert ret == 0
     out, err = capfd.readouterr()
-    assert sorted(os.listdir(clean.strpath)) == sorted(os.listdir(import_dir.strpath))
+    assert sorted_serverdir(clean) == sorted_serverdir(import2_dir)
     assert 'import_all: importing finished' in out
     assert err == ''
 
@@ -224,14 +234,9 @@ class TestImportExport:
 
             def import_testdata(self, name, options=()):
                 from devpi_server.importexport import import_
-                if hasattr(importlib.resources, 'files'):
-                    files = importlib.resources.files('test_devpi_server')
-                    path_cm = importlib.resources.as_file(
-                        files / 'importexportdata')
-                else:
-                    path_cm = importlib.resources.path(
-                        'test_devpi_server', 'importexportdata')
-                with path_cm as path:
+
+                files = importlib.resources.files("test_devpi_server")
+                with importlib.resources.as_file(files / "importexportdata") as path:
                     serverdir = gen_path()
                     argv = [
                         "devpi-import",
@@ -513,16 +518,17 @@ class TestImportExport:
             projects = stage.list_projects_perstage()
             assert projects == {'package': 'package'}
             links = sorted(
-                (x.key, x.href, x.require_python, x.yanked)
-                for x in stage.get_simplelinks_perstage("package"))
+                (x.key, x.path, x.require_python, x.yanked)
+                for x in stage.get_simplelinks_perstage("package")
+            )
             assert links == [
                 ('package-1.1.zip', f'root/pypi/+f/{hashdir1}/package-1.1.zip', None, None),
                 ('package-1.2.zip', f'root/pypi/+f/{hashdir2}/package-1.2.zip', None, ""),
                 ('package-2.0.zip', f'root/pypi/+f/{hashdir3}/package-2.0.zip', '>=3.5', None)]
 
     def test_mirrordata(self, impexp):
-        hash_spec = get_hashes(b"content").get_default_spec()
-        hashdir = "/".join(make_splitdir(hash_spec))
+        hashes = get_hashes(b"content")
+        hashdir = "/".join(make_splitdir(hashes.get_default_spec()))
         mapp = impexp.import_testdata('mirrordata')
         with mapp.xom.keyfs.read_transaction():
             stage = mapp.xom.model.getstage('root/pypi')
@@ -532,7 +538,11 @@ class TestImportExport:
             assert link.project == "dddttt"
             assert link.version == "0.1.dev1"
             assert link.relpath == f'root/pypi/+f/{hashdir}/dddttt-0.1.dev1.tar.gz'
-            assert link.entry.hash_spec == hash_spec
+            assert (
+                link.entrypath
+                == f"root/pypi/+f/{hashdir}/dddttt-0.1.dev1.tar.gz#{hashes.best_available_spec}"
+            )
+            assert link.entry.hashes.best_available_spec == hashes.best_available_spec
 
     def test_modifiedpypi(self, impexp):
         mapp = impexp.import_testdata('modifiedpypi')
@@ -728,9 +738,8 @@ class TestImportExport:
         with mapp1.xom.keyfs.write_transaction():
             stage = mapp1.xom.model.getstage(api.stagename)
             key_projversion = stage.key_projversion("hello", "1.0")
-            verdata = key_projversion.get(readonly=False)
-            del verdata["version"]
-            key_projversion.set(verdata)
+            with key_projversion.update() as verdata:
+                del verdata["version"]
         impexp.export()
 
         # and check that it was derived while importing
@@ -1009,7 +1018,7 @@ class TestImportExport:
             assert verdata["version"] == "1.0"
             (link,) = stage.get_releaselinks("he_llo")
             assert link.entry.file_get_content() == b'content'
-            # assert os.stat(link.entry.file_os_path()).st_nlink == 2
+            assert os.stat(link.entry.file_os_path()).st_nlink == 2
             doczip = stage.get_doczip("he_llo", "1.0")
             archive = Archive(BytesIO(doczip))
             assert 'index.html' in archive.namelist()

@@ -51,7 +51,7 @@ def print_bot_parameters(bot_variant_data: dict):
             for process_dict in process_data_list:
                 for variant_name in process_dict['process_step_variant_dict'].keys():
                     if variant_name in ["username", "password", "user_name", "email_account", "user_password", "email_password", "api_token", "api_bearer", 'database_user',
-                                        'database_password']:
+                                        'database_password', 'api_credential']:
                         process_dict['process_step_variant_dict'][variant_name] = '********'
 
     print('\n--------- process_data_dict ----------')

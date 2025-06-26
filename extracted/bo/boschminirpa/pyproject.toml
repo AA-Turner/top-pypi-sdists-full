@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "BoschMiniRpa"
-version = "0.1.94"
+version = "0.1.100"
 authors = [
     { name = "LV Zhichao", email = "zhichao.lv@cn.bosch.com" },
 ]

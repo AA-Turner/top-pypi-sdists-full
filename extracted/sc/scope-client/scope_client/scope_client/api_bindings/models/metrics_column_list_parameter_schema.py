@@ -19,6 +19,8 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from scope_client.api_bindings.models.metrics_column_list_parameter_schema_allowed_column_types_inner import MetricsColumnListParameterSchemaAllowedColumnTypesInner
+from scope_client.api_bindings.models.scope_schema_tag import ScopeSchemaTag
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +33,11 @@ class MetricsColumnListParameterSchema(BaseModel):
     friendly_name: StrictStr = Field(description="User facing name of the parameter.")
     description: StrictStr = Field(description="Description of the parameter.")
     parameter_type: Optional[StrictStr] = 'column_list'
-    __properties: ClassVar[List[str]] = ["parameter_key", "optional", "friendly_name", "description", "parameter_type"]
+    tag_hints: Optional[List[ScopeSchemaTag]] = Field(default=None, description="List of tags that are applicable to this parameter. Datasets with columns that have matching tags can be inferred this way.")
+    source_dataset_parameter_key: StrictStr = Field(description="Name of the parameter that provides the dataset to be used for this column.")
+    allowed_column_types: Optional[List[MetricsColumnListParameterSchemaAllowedColumnTypesInner]] = None
+    allow_any_column_type: Optional[StrictBool] = Field(default=False, description="Indicates if this metric parameter can accept any column type.")
+    __properties: ClassVar[List[str]] = ["parameter_key", "optional", "friendly_name", "description", "parameter_type", "tag_hints", "source_dataset_parameter_key", "allowed_column_types", "allow_any_column_type"]
 
     @field_validator('parameter_type')
     def parameter_type_validate_enum(cls, value):
@@ -82,6 +88,18 @@ class MetricsColumnListParameterSchema(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in allowed_column_types (list)
+        _items = []
+        if self.allowed_column_types:
+            for _item_allowed_column_types in self.allowed_column_types:
+                if _item_allowed_column_types:
+                    _items.append(_item_allowed_column_types.to_dict())
+            _dict['allowed_column_types'] = _items
+        # set to None if allowed_column_types (nullable) is None
+        # and model_fields_set contains the field
+        if self.allowed_column_types is None and "allowed_column_types" in self.model_fields_set:
+            _dict['allowed_column_types'] = None
+
         return _dict
 
     @classmethod
@@ -98,7 +116,11 @@ class MetricsColumnListParameterSchema(BaseModel):
             "optional": obj.get("optional") if obj.get("optional") is not None else False,
             "friendly_name": obj.get("friendly_name"),
             "description": obj.get("description"),
-            "parameter_type": obj.get("parameter_type") if obj.get("parameter_type") is not None else 'column_list'
+            "parameter_type": obj.get("parameter_type") if obj.get("parameter_type") is not None else 'column_list',
+            "tag_hints": obj.get("tag_hints"),
+            "source_dataset_parameter_key": obj.get("source_dataset_parameter_key"),
+            "allowed_column_types": [MetricsColumnListParameterSchemaAllowedColumnTypesInner.from_dict(_item) for _item in obj["allowed_column_types"]] if obj.get("allowed_column_types") is not None else None,
+            "allow_any_column_type": obj.get("allow_any_column_type") if obj.get("allow_any_column_type") is not None else False
         })
         return _obj
 

@@ -138,18 +138,15 @@ databricks_require = ["databricks-connect>=13.0"]
 if sys.version_info < (3, 8, 0):
     databricks_require.append("databricks-sdk==0.44.1")
 
-PY39_PLUS = sys.version_info >= (3, 9, 0)
+auth_require = [
+    "pydantic>=2.11.3",
+    "httpx>=0.28.1",
+    "eval-type-backport; python_version < '3.10'",  # For compatibility with Python 3.10+ typing
+]
 
-auth_require = (
-    [
-        "pydantic>=2.11.3",
-        "httpx>=0.28.1",
-    ]
-    if PY39_PLUS
-    else []
-)
-
-authlib_require = (["authlib>=1.6.0"] + auth_require) if PY39_PLUS else []
+authlib_require = ["authlib>=1.6.0"] + auth_require
+auth_lint_require = authlib_require + ["respx"]
+auth_test_require = auth_lint_require
 
 lint_require = (
     [
@@ -162,7 +159,7 @@ lint_require = (
     + _mypy_require
     + images_require
     + databricks_require
-    + authlib_require
+    + auth_lint_require
 )
 
 tests_require = (
@@ -176,7 +173,7 @@ tests_require = (
     ]
     + images_require
     + databricks_require
-    + authlib_require
+    + auth_test_require
 )
 
 docs_require = [

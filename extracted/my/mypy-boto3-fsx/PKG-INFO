@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-fsx
-Version: 1.38.26
-Summary: Type annotations for boto3 FSx 1.38.26 service generated with mypy-boto3-builder 8.11.0
+Version: 1.38.44
+Summary: Type annotations for boto3 FSx 1.38.44 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 FSx 1.38.26](https://pypi.org/project/boto3/)
+Type annotations for [boto3 FSx 1.38.44](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.26' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.44' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `FSx` service.
 4. Use provided commands to install generated packages.
@@ -353,6 +353,8 @@ from mypy_boto3_fsx import FSxClient
 from mypy_boto3_fsx.paginator import (
     DescribeBackupsPaginator,
     DescribeFileSystemsPaginator,
+    DescribeS3AccessPointAttachmentsPaginator,
+    DescribeSnapshotsPaginator,
     DescribeStorageVirtualMachinesPaginator,
     DescribeVolumesPaginator,
     ListTagsForResourcePaginator,
@@ -365,6 +367,12 @@ client: FSxClient = Session().client("fsx")
 describe_backups_paginator: DescribeBackupsPaginator = client.get_paginator("describe_backups")
 describe_file_systems_paginator: DescribeFileSystemsPaginator = client.get_paginator(
     "describe_file_systems"
+)
+describe_s3_access_point_attachments_paginator: DescribeS3AccessPointAttachmentsPaginator = (
+    client.get_paginator("describe_s3_access_point_attachments")
+)
+describe_snapshots_paginator: DescribeSnapshotsPaginator = client.get_paginator(
+    "describe_snapshots"
 )
 describe_storage_virtual_machines_paginator: DescribeStorageVirtualMachinesPaginator = (
     client.get_paginator("describe_storage_virtual_machines")

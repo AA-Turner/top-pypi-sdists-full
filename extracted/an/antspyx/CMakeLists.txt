@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.16.3...3.26)
 
 project(ants LANGUAGES CXX)
 
+# Set the macOS SDK root
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    execute_process(
+        COMMAND xcrun --show-sdk-path
+        OUTPUT_VARIABLE SDK_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    set(CMAKE_OSX_SYSROOT ${SDK_PATH})
+    message(STATUS "Using macOS SDK: ${CMAKE_OSX_SYSROOT}")
+endif()
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Try to import all Python components potentially needed by nanobind

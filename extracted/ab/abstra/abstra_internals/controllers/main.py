@@ -2,11 +2,14 @@ import datetime
 import pkgutil
 import webbrowser
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from shutil import move
+from tempfile import mkdtemp
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import flask
 
 from abstra_internals.cloud_api import get_api_key_info, get_project_info
+from abstra_internals.consts.filepaths import TEST_DATA_FILEPATH
 from abstra_internals.credentials import (
     delete_credentials,
     get_credentials,
@@ -15,6 +18,7 @@ from abstra_internals.credentials import (
 )
 from abstra_internals.entities.execution_context import ScriptContext
 from abstra_internals.interface.cli.deploy import deploy
+from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.email import EmailRepository
 from abstra_internals.repositories.execution import ExecutionFilter, ExecutionRepository
 from abstra_internals.repositories.execution_logs import (
@@ -37,6 +41,7 @@ from abstra_internals.repositories.project.project import (
 from abstra_internals.repositories.roles import RolesRepository
 from abstra_internals.repositories.tasks import ExecutionTasksResponse, TasksRepository
 from abstra_internals.repositories.users import UsersRepository
+from abstra_internals.services.fs import FileSystemService
 from abstra_internals.services.requirements import RequirementsRepository
 from abstra_internals.settings import Settings
 from abstra_internals.templates import (
@@ -47,8 +52,7 @@ from abstra_internals.templates import (
     new_job_code,
     new_script_code,
 )
-from abstra_internals.utils.dot_abstra import TEST_DATA_FILE
-from abstra_internals.utils.file import files_from_directory, module2path, path2module
+from abstra_internals.utils.file import module2path, path2module
 from abstra_internals.utils.validate import validate_json
 
 
@@ -225,10 +229,9 @@ class MainController:
                     path=str(file.relative_to(Settings.root_path)),
                     type="file" if file.is_file() else "dir",
                 )
-                for file in files_from_directory(parent_path)
-                if file.is_dir()
-                or not allowed_suffixes
-                or file.suffix in allowed_suffixes
+                for file in FileSystemService.list_files(
+                    parent_path, allowed_suffixes=allowed_suffixes, use_ignore=True
+                )
             ]
 
         elif mode == "module":
@@ -315,11 +318,11 @@ class MainController:
     def write_test_data(self, data: str) -> None:
         if not validate_json(data):
             raise Exception("Invalid JSON")
-        test_file = Settings.root_path / TEST_DATA_FILE
+        test_file = Settings.root_path / TEST_DATA_FILEPATH
         test_file.write_text(data, encoding="utf-8")
 
     def read_test_data(self) -> str:
-        test_file = Settings.root_path / TEST_DATA_FILE
+        test_file = Settings.root_path / TEST_DATA_FILEPATH
         if not test_file.is_file():
             return "{}"
         return test_file.read_text(encoding="utf-8")
@@ -375,6 +378,21 @@ class MainController:
 
         return None
 
+    def get_job_status(self, id: str) -> Literal["enabled", "disabled", "not_found"]:
+        project = self.repositories.project.load(include_disabled_stages=True)
+        stage = project.get_stage(id)
+
+        if not isinstance(stage, JobStage):
+            return "not_found"
+
+        project = self.repositories.project.load()
+        stage = project.get_stage(id)
+
+        if isinstance(stage, JobStage):
+            return "enabled"
+
+        return "disabled"
+
     def create_job(
         self,
         title: str,
@@ -399,9 +417,10 @@ class MainController:
         if isinstance(stage, StageWithFile) and (
             code_content := changes.pop("code_content", None)
         ):
-            Settings.root_path.joinpath(stage.file_path).write_text(
-                code_content, encoding="utf-8"
-            )
+            temp_file = Path(mkdtemp()) / stage.file_path
+            with temp_file.open("w", encoding="utf-8") as f:
+                f.write(code_content)
+            move(str(temp_file), Settings.root_path.joinpath(stage.file_path))
 
         if test_data := changes.pop("test_data", None):
             self.write_test_data(test_data)
@@ -487,7 +506,7 @@ class MainController:
         return {"public_url": None}
 
     # Worker lifecycle
-    def fail_worker_executions(self, *, app_id: str, worker_id: str, err_msg: str):
+    def fail_worker_executions(self, *, app_id: str, worker_id: str, reason: str):
         killed_executions = self.execution_repository.find_by_worker(
             worker_id=worker_id,
             status="running",
@@ -498,7 +517,7 @@ class MainController:
             err_log = LogEntry(
                 execution_id=execution.id,
                 created_at=datetime.datetime.now(),
-                payload={"text": err_msg},
+                payload={"text": "[ABSTRA] Execution aborted. " + reason},
                 sequence=999999,
                 event="stderr",
             )
@@ -507,7 +526,11 @@ class MainController:
             self.execution_repository.set_failure_by_id(execution_id=execution.id)
             self.tasks_repository.set_locked_tasks_to_pending(execution.id)
 
-    def fail_app_executions(self, *, app_id: str, err_msg: str):
+        AbstraLogger.capture_message(
+            f"[ABSTRA] Failed {len(killed_executions)} running executions for app `{app_id}` with worker {worker_id} with reason: {reason}"
+        )
+
+    def fail_app_executions(self, *, app_id: str, reason: str):
         exited_execs = self.execution_repository.find_by_app(
             status="running",
             app_id=app_id,
@@ -517,7 +540,7 @@ class MainController:
             err_log = LogEntry(
                 execution_id=execution.id,
                 created_at=datetime.datetime.now(),
-                payload={"text": err_msg},
+                payload={"text": "[ABSTRA] Execution aborted. " + reason},
                 sequence=999999,
                 event="stderr",
             )
@@ -525,3 +548,7 @@ class MainController:
 
             self.execution_repository.set_failure_by_id(execution_id=execution.id)
             self.tasks_repository.set_locked_tasks_to_pending(execution.id)
+
+        AbstraLogger.capture_message(
+            f"[ABSTRA] Failed {len(exited_execs)} running executions for app `{app_id}` with reason: {reason}"
+        )

@@ -1,5 +1,5 @@
 #!/bin/bash
-CXX_STD=CXX11
+CXX_STD=CXX17
 JTHREADS=2
 if [[ "`uname`" == "Darwin" ]] ; then
   CMAKE_BUILD_TYPE=Release
@@ -14,7 +14,7 @@ if [[ "$TRAVIS" == "true" ]] ; then
 fi
 
 itkgit=https://github.com/InsightSoftwareConsortium/ITK.git
-itktag=4535548a8539757c5fe9d81f8de5d804cd0a384f # 2024-03-12
+itktag=0913f2a962d28eb5725a50a17304c4652ca6cfdc # 5.4.3
 # if there is a directory but no git, remove it
 if [[ -d itksource ]]; then
     if [[ ! -d itksource/.git ]]; then
@@ -40,18 +40,26 @@ echo "ITK;${itktag}" >> ./data/softwareVersions.csv
 
 mkdir -p itkbuild
 cd itkbuild
-compflags=" -fPIC -O2  "
+compflags=" -Wno-c++11-long-long -fPIC -O2 -DNDEBUG "
+osx_sysroot=""
+
+if [[ `uname` == 'Darwin' ]] ; then
+  osx_sysroot=$(xcrun --sdk macosx --show-sdk-path)
+fi
+
 cmake \
 	-G"${ADD_G}" \
     -DITK_USE_SYSTEM_PNG=ON \
     -DCMAKE_SH:BOOL=OFF \
     -DCMAKE_BUILD_TYPE:STRING="${CMAKE_BUILD_TYPE}" \
-    -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -Wno-c++11-long-long -fPIC -O2 -DNDEBUG  "\
-    -DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS} -Wno-c++11-long-long -fPIC -O2 -DNDEBUG  "\
+    -DCMAKE_OSX_SYSROOT="${osx_sysroot}" \
+    -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} ${compflags}"\
+    -DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS} ${compflags} "\
     -DITK_USE_GIT_PROTOCOL:BOOL=OFF \
     -DBUILD_SHARED_LIBS:BOOL=OFF \
     -DBUILD_TESTING:BOOL=OFF \
     -DBUILD_EXAMPLES:BOOL=OFF \
+    -DCMAKE_CXX_STANDARD="17"\
     -DITK_LEGACY_REMOVE:BOOL=OFF  \
     -DITK_FUTURE_LEGACY_REMOVE:=BOOL=ON \
     -DITK_BUILD_DEFAULT_MODULES:BOOL=OFF \

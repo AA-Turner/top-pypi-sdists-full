@@ -6,6 +6,7 @@ import typing
 from ..core.datetime_utils import serialize_datetime
 from .extract_config import ExtractConfig
 from .extract_job_create_data_schema_override import ExtractJobCreateDataSchemaOverride
+from .webhook_configuration import WebhookConfiguration
 
 try:
     import pydantic
@@ -21,6 +22,7 @@ class ExtractJobCreate(pydantic.BaseModel):
     Schema for creating an extraction job.
     """
 
+    webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]]
     extraction_agent_id: str = pydantic.Field(description="The id of the extraction agent")
     file_id: str = pydantic.Field(description="The id of the file")
     data_schema_override: typing.Optional[ExtractJobCreateDataSchemaOverride] = pydantic.Field(

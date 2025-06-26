@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ty
-Version: 0.0.1a11
+Version: 0.0.1a12
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -56,10 +56,10 @@ Try out the [online playground](https://play.ty.dev), or run ty with
 uvx ty
 ```
 
-For other ways to install ty, see the [installation](https://github.com/astral-sh/ty/blob/0.0.1-alpha.11/docs/README.md#installation) documentation.
+For other ways to install ty, see the [installation](https://github.com/astral-sh/ty/blob/0.0.1-alpha.12/docs/README.md#installation) documentation.
 
 If you do not provide a subcommand, ty will list available commands — for detailed information about
-command-line options, see the [CLI reference](https://github.com/astral-sh/ty/blob/0.0.1-alpha.11/docs/reference/cli.md).
+command-line options, see the [CLI reference](https://github.com/astral-sh/ty/blob/0.0.1-alpha.12/docs/reference/cli.md).
 
 Use the `check` command to run the type checker:
 
@@ -80,12 +80,12 @@ uvx ty check example.py
 When type checking, ty will find installed packages in the active virtual environment (via
 `VIRTUAL_ENV`) or discover a virtual environment named `.venv` in the project root or working
 directory. It will not find packages in non-virtual environments without specifying the target path
-with `--python`. See the [module discovery](https://github.com/astral-sh/ty/blob/0.0.1-alpha.11/docs/README.md#module-discovery) documentation for
+with `--python`. See the [module discovery](https://github.com/astral-sh/ty/blob/0.0.1-alpha.12/docs/README.md#module-discovery) documentation for
 details.
 
 ## Learning more
 
-To learn more about using ty, see the [documentation](https://github.com/astral-sh/ty/blob/0.0.1-alpha.11/docs/README.md).
+To learn more about using ty, see the [documentation](https://github.com/astral-sh/ty/blob/0.0.1-alpha.12/docs/README.md).
 
 ## Getting involved
 
@@ -97,11 +97,11 @@ at this time. Please [open pull requests](https://github.com/astral-sh/ruff/pull
 to anything in the `ruff` submodule (which includes all of the Rust source code).
 
 See the
-[contributing guide](https://github.com/astral-sh/ty/blob/0.0.1-alpha.11/CONTRIBUTING.md) for more details.
+[contributing guide](https://github.com/astral-sh/ty/blob/0.0.1-alpha.12/CONTRIBUTING.md) for more details.
 
 ## License
 
-ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.1-alpha.11/LICENSE) or
+ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.1-alpha.12/LICENSE) or
 <https://opensource.org/licenses/MIT>).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in ty

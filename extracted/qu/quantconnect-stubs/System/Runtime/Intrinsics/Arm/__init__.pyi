@@ -7295,6 +7295,174 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def shift_right_and_insert(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], shift: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svsri[_n_u8](svuint8_t op1, svuint8_t op2, uint64_t imm3)
+          SRI Ztied1.B, Zop2.B, #imm3
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_add(addend: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svsra[_n_s16](svint16_t op1, svint16_t op2, uint64_t imm3)
+          SSRA Ztied1.H, Zop2.H, #imm3
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_narrowing_saturate_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqshrnb[_n_u16](svuint16_t op1, uint64_t imm2)
+          UQSHRNB Zresult.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_narrowing_saturate_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqshrnt[_n_u16](svuint8_t even, svuint16_t op1, uint64_t imm2)
+          UQSHRNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_narrowing_saturate_unsigned_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqshrunb[_n_s16](svint16_t op1, uint64_t imm2)
+          SQSHRUNB Zresult.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_narrowing_saturate_unsigned_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqshrunt[_n_s16](svuint8_t even, svint16_t op1, uint64_t imm2)
+          SQSHRUNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_rounded(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svrshr[_n_s16]_m(svbool_t pg, svint16_t op1, uint64_t imm2)
+          SRSHR Ztied1.H, Pg/M, Ztied1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_rounded_add(addend: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svrsra[_n_s16](svint16_t op1, svint16_t op2, uint64_t imm3)
+          SRSRA Ztied1.H, Zop2.H, #imm3
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_rounded_narrowing_saturate_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrshrnb[_n_s32](svint32_t op1, uint64_t imm2)
+          SQRSHRNB Zresult.H, Zop1.S, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_rounded_narrowing_saturate_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrshrnt[_n_s32](svint16_t even, svint32_t op1, uint64_t imm2)
+          SQRSHRNT Ztied.H, Zop1.S, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_rounded_narrowing_saturate_unsigned_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqrshrunb[_n_s16](svint16_t op1, uint64_t imm2)
+          SQRSHRUNB Zresult.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_arithmetic_rounded_narrowing_saturate_unsigned_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqrshrunt[_n_s16](svuint8_t even, svint16_t op1, uint64_t imm2)
+          SQRSHRUNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_add(addend: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svsra[_n_u8](svuint8_t op1, svuint8_t op2, uint64_t imm3)
+          USRA Ztied1.B, Zop2.B, #imm3
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_narrowing_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svshrnb[_n_u16](svuint16_t op1, uint64_t imm2)
+          SHRNB Zresult.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_narrowing_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svshrnt[_n_u16](svuint8_t even, svuint16_t op1, uint64_t imm2)
+          SHRNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_rounded(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrshr[_n_u8]_m(svbool_t pg, svuint8_t op1, uint64_t imm2)
+          URSHR Ztied1.B, Pg/M, Ztied1.B, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_rounded_add(addend: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrsra[_n_u8](svuint8_t op1, svuint8_t op2, uint64_t imm3)
+          URSRA Ztied1.B, Zop2.B, #imm3
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_rounded_narrowing_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrshrnb[_n_u16](svuint16_t op1, uint64_t imm2)
+          RSHRNB Zresult.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_rounded_narrowing_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrshrnt[_n_u16](svuint8_t even, svuint16_t op1, uint64_t imm2)
+          RSHRNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_rounded_narrowing_saturate_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqrshrnb[_n_u16](svuint16_t op1, uint64_t imm2)
+          UQRSHRNB Zresult.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_right_logical_rounded_narrowing_saturate_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqrshrnt[_n_u16](svuint8_t even, svuint16_t op1, uint64_t imm2)
+          UQRSHRNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
     def xor(value_1: System.Numerics.Vector[int], value_2: System.Numerics.Vector[int], value_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t sveor3[_u8](svuint8_t op1, svuint8_t op2, svuint8_t op3)

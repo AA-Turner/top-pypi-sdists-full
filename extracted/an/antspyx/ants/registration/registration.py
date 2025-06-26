@@ -1,16 +1,17 @@
 """
 ANTsPy Registration
 """
-__all__ = ["registration", 
-           "motion_correction"]
+__all__ = ["registration",
+           "motion_correction",
+           "label_image_registration"]
 
-import os
 import numpy as np
 from tempfile import mktemp
 import glob
 import re
 import pandas as pd
 import itertools
+import os
 
 import ants
 from ants.internal import get_lib_fn, get_pointer_string, process_arguments
@@ -42,6 +43,8 @@ def registration(
     multivariate_extras=None,
     restrict_transformation=None,
     smoothing_in_mm=False,
+    singleprecision=True,
+    use_legacy_histogram_matching=False,
     **kwargs
 ):
     """
@@ -63,7 +66,9 @@ def registration(
         See Notes below for more.
 
     initial_transform : list of strings (optional)
-        transforms to prepend. If None, a translation is computed to align the image centers of mass.
+        transforms to prepend. If None, a translation is computed to align the image centers of mass, unless the type of
+        transform is deformable-only (time-varying diffeomorphisms, SyNOnly, or antsRegistrationSyN*[so|bo]).
+        To force initialization with an identity transform, set this to 'Identity'.
 
     outprefix : string
         output will be named with this prefix.
@@ -82,10 +87,10 @@ def registration(
 
     flow_sigma : scalar
         smoothing for update field
-        At each iteration, the similarity metric and gradient is calculated. 
-        That gradient field is also called the update field and is smoothed 
-        before composing with the total field (i.e., the estimate of the total 
-        transform at that iteration). This total field can also be smoothed 
+        At each iteration, the similarity metric and gradient is calculated.
+        That gradient field is also called the update field and is smoothed
+        before composing with the total field (i.e., the estimate of the total
+        transform at that iteration). This total field can also be smoothed
         after each iteration.
 
     total_sigma : scalar
@@ -151,6 +156,15 @@ def registration(
 
     smoothing_in_mm : boolean ; currently only impacts low dimensional registration
 
+    singleprecision : boolean
+        if True, use float32 for computations. This is useful for reducing memory
+        usage for large datasets, at the cost of precision.
+
+    use_legacy_histogram_matching : boolean
+        if True, use the original histogram matching in ANTs. This is not recommended, but is available for backwards
+        compatibilty with earlier versions, where it was always turned on. The default is False. A better implementation of
+        histogram matching is available in the ants.histogram_match_image2 function.
+
     kwargs : keyword args
         extra arguments
 
@@ -167,14 +181,14 @@ def registration(
     type_of_transform can be one of:
         - "Translation": Translation transformation.
         - "Rigid": Rigid transformation: Only rotation and translation.
-        - "Similarity": Similarity transformation: scaling, rotation and translation.
+        - "Similarity": Similarity transformation: uniform scaling, rotation and translation.
         - "QuickRigid": Rigid transformation: Only rotation and translation.
                         May be useful for quick visualization fixes.'
         - "DenseRigid": Rigid transformation: Only rotation and translation.
                         Employs dense sampling during metric estimation.'
         - "BOLDRigid": Rigid transformation: Parameters typical for BOLD to
                         BOLD intrasubject registration'.'
-        - "Affine": Affine transformation: Rigid + scaling.
+        - "Affine": Affine transformation: Rigid + scaling + shear (12 parameters).
         - "AffineFast": Fast version of Affine.
         - "BOLDAffine": Affine transformation: Parameters typical for BOLD to
                         BOLD intrasubject registration'.'
@@ -191,12 +205,7 @@ def registration(
         - "SyNRA": Symmetric normalization: Rigid + Affine + deformable
                     transformation, with mutual information as optimization metric.
         - "SyNOnly": Symmetric normalization with no rigid or affine stages.
-                    Uses mutual information as optimization metric. Affine alignment is
-                    from the initial_transform arg, either provide the .mat from linear
-                    registration or use initial_transform='Identity' if the images are 
-                    already affinely aligned.
-                    Can be useful if you want to run an unmasked affine followed by
-                    masked deformable registration.
+                    Uses mutual information as optimization metric.
         - "SyNCC": SyN, but with cross-correlation as the metric.
         - "SyNabp": SyN optimized for abpBrainExtraction.
         - "SyNBold": SyN, but optimized for registrations between BOLD and T1 images.
@@ -205,15 +214,25 @@ def registration(
         - "SyNAggro": SyN, but with more aggressive registration
                         (fine-scale matching and more deformation).
                         Takes more time than SyN.
+        - "SyNLessAggro": Does exactly the same thing as "SyNAggro".
         - "TV[n]": time-varying diffeomorphism with where 'n' indicates number of
             time points in velocity field discretization.  The initial transform
             should be computed, if needed, in a separate call to ants.registration.
         - "TVMSQ": time-varying diffeomorphism with mean square metric
         - "TVMSQC": time-varying diffeomorphism with mean square metric for very large deformation
         - "antsRegistrationSyN[x]": recreation of the antsRegistrationSyN.sh script in ANTs
-                                    where 'x' is one of the transforms available (e.g., 't', 'b', 's')
-        - "antsRegistrationSyNQuick[x]": recreation of the antsRegistrationSyNQuick.sh script in ANTs
-                                    where 'x' is one of the transforms available (e.g., 't', 'b', 's')
+                                    where 'x' is one of the transforms available:
+                                         t: translation (1 stage)
+                                         r: rigid (1 stage)
+                                         a: rigid + affine (2 stages)
+                                         s: rigid + affine + deformable syn (3 stages)
+                                         sr: rigid + deformable syn (2 stages)
+                                         so: deformable syn only (1 stage)
+                                         b: rigid + affine + deformable b-spline syn (3 stages)
+                                         br: rigid + deformable b-spline syn (2 stages)
+                                         bo: deformable b-spline syn only (1 stage)
+        - "antsRegistrationSyNQuick[x]": recreation of the antsRegistrationSyNQuick.sh script in ANTs.
+                                         x options as above.
         - "antsRegistrationSyNRepro[x]": reproducible registration.  x options as above.
         - "antsRegistrationSyNQuickRepro[x]": quick reproducible registration.  x options as above.
 
@@ -261,8 +280,8 @@ def registration(
 
     myiterations = aff_iterations
     args = [fixed, moving, type_of_transform, outprefix]
-    myf_aff = "6x4x2x1"  # old fixed params
-    mys_aff = "3x2x1x0"  # old fixed params
+    shrinkfactors_affine = "6x4x2x1"  # old fixed params
+    smoothingsigmas_affine = "3x2x1x0"  # old fixed params
     if (
         type(aff_shrink_factors) is int
         or type(aff_smoothing_sigmas) is int
@@ -274,8 +293,8 @@ def registration(
             raise ValueError("aff_iterations should be a single integer.")
         if type(aff_shrink_factors) is not int:
             raise ValueError("aff_shrink_factors should be a single integer.")
-        myf_aff = aff_shrink_factors
-        mys_aff = aff_smoothing_sigmas
+        shrinkfactors_affine = aff_shrink_factors
+        smoothingsigmas_affine = aff_smoothing_sigmas
         myiterations = aff_iterations
 
     if restrict_transformation is not None:
@@ -283,8 +302,8 @@ def registration(
             restrict_transformationchar = "x".join([str(ri) for ri in restrict_transformation])
 
     if type(aff_shrink_factors) is tuple:
-        myf_aff = "x".join([str(ri) for ri in aff_shrink_factors])
-        mys_aff = "x".join([str(ri) for ri in aff_smoothing_sigmas])
+        shrinkfactors_affine = "x".join([str(ri) for ri in aff_shrink_factors])
+        smoothingsigmas_affine = "x".join([str(ri) for ri in aff_smoothing_sigmas])
         myiterations = "x".join([str(ri) for ri in aff_iterations])
         if len(aff_iterations) != len(aff_smoothing_sigmas):
             raise ValueError(
@@ -304,8 +323,8 @@ def registration(
         myiterations = "2100x1200x0x0"
     if type_of_transform == "BOLDAffine":
         type_of_transform = "Affine"
-        myf_aff = "2x1"
-        mys_aff = "1x0"
+        shrinkfactors_affine = "2x1"
+        smoothingsigmas_affine = "1x0"
         myiterations = "100x20"
     if type_of_transform == "QuickRigid":
         type_of_transform = "Rigid"
@@ -315,12 +334,12 @@ def registration(
         aff_random_sampling_rate = 1.0
     if type_of_transform == "BOLDRigid":
         type_of_transform = "Rigid"
-        myf_aff = "2x1"
-        mys_aff = "1x0"
+        shrinkfactors_affine = "2x1"
+        smoothingsigmas_affine = "1x0"
         myiterations = "100x20"
 
     if smoothing_in_mm:
-        mys_aff = mys_aff + 'mm'
+        smoothingsigmas_affine = smoothingsigmas_affine + 'mm'
 
     mysyn = "SyN[%f,%f,%f]" % (grad_step, flow_sigma, total_sigma)
     if type_of_transform == "Elastic":
@@ -341,6 +360,8 @@ def registration(
         synits = "x".join([str(ri) for ri in reg_iterations])
 
     inpixeltype = fixed.pixeltype
+    output_pixel_type = 'float' if singleprecision else 'double'
+
     tvTypes = [
         "TV[1]",
         "TV[2]",
@@ -384,446 +405,292 @@ def registration(
         "DenseRigid",
         "BOLDRigid"
     }
-    ttexists = type_of_transform in allowable_tx
+    deformable_only_transforms = [
+        "SyNOnly",
+        "antsRegistrationSyN[so]",
+        "antsRegistrationSyNQuick[so]",
+        "antsRegistrationSyNRepro[so]",
+        "antsRegistrationSyNQuickRepro[so]",
+        "antsRegistrationSyN[bo]",
+        "antsRegistrationSyNQuick[bo]",
+        "antsRegistrationSyNRepro[bo]",
+        "antsRegistrationSyNQuickRepro[bo]",
+        "TVMSQ",
+        "TVMSQC"
+    ] + tvTypes
+    transform_type_exists = type_of_transform in allowable_tx
 
     # Perform checking of antsRegistrationSyN transforms later
-    if not "antsRegistrationSyN" in type_of_transform and not ttexists:
+    if not "antsRegistrationSyN" in type_of_transform and not transform_type_exists:
         raise ValueError(f'{type_of_transform} does not exist')
 
-    initx = initial_transform
-    if isinstance(initx, str):
-        initx = [initx]
+    if isinstance(initial_transform, str):
+        initial_transform = [initial_transform]
     # if isinstance(initx, ANTsTransform):
     # tempTXfilename = tempfile( fileext = '.mat' )
     # initx = invertAntsrTransform( initialTransform )
     # initx = invertAntsrTransform( initx )
     # writeAntsrTransform( initx, tempTXfilename )
-    # initx = tempTXfilename
-    moving = moving.clone("float")
-    fixed = fixed.clone("float")
+    # initial_transform = tempTXfilename
+    moving = moving.clone(output_pixel_type)
+    fixed = fixed.clone(output_pixel_type)
     # NOTE: this may be better for general purpose applications: TBD
 #    moving = ants.iMath( moving.clone("float"), "Normalize" )
 #    fixed = ants.iMath( fixed.clone("float"), "Normalize" )
     warpedfixout = moving.clone()
     warpedmovout = fixed.clone()
-    f = get_pointer_string(fixed)
-    m = get_pointer_string(moving)
-    wfo = get_pointer_string(warpedfixout)
-    wmo = get_pointer_string(warpedmovout)
+    fixed_str = get_pointer_string(fixed)
+    moving_str = get_pointer_string(moving)
+    warpedfixout_str = get_pointer_string(warpedfixout)
+    warpedmovout_str = get_pointer_string(warpedmovout)
     if mask is not None:
         mask_binary = mask != 0
-        f_mask_str = get_pointer_string(mask_binary)
+        fixed_mask_str = get_pointer_string(mask_binary)
     else:
-        f_mask_str = "NA"
+        fixed_mask_str = "NA"
 
     if moving_mask is not None:
         moving_mask_binary = moving_mask != 0
-        m_mask_str = get_pointer_string(moving_mask_binary)
+        moving_mask_str = get_pointer_string(moving_mask_binary)
     else:
-        m_mask_str = "NA"
+        moving_mask_str = "NA"
 
-    maskopt = "[%s,%s]" % (f_mask_str, m_mask_str)
+    maskopt = "[%s,%s]" % (fixed_mask_str, moving_mask_str)
 
     if mask_all_stages:
-        earlymaskopt = maskopt;
+        earlymaskopt = maskopt
     else:
         earlymaskopt = "[NA,NA]"
 
-    if initx is None:
-        initx = ["[%s,%s,1]" % (f, m)]
+    if initial_transform is None:
+        if type_of_transform in deformable_only_transforms:
+            initial_transform = ["Identity"]
+        else:
+            initial_transform = ["[%s,%s,1]" % (fixed_str, moving_str)]
+
     # ------------------------------------------------------------
     if type_of_transform == "SyNBold":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Rigid[0.25]",
-            "-c",
-            "[1200x1200x100,1e-6,5]",
-            "-s",
-            "2x1x0",
-            "-f",
-            "4x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Rigid[0.25]",
+            "--convergence", "[1200x1200x100,1e-6,5]",
+            "--smoothing-sigmas", "2x1x0",
+            "--shrink-factors", "4x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "SyNBoldAff":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Rigid[0.25]",
-            "-c",
-            "[1200x1200x100,1e-6,5]",
-            "-s",
-            "2x1x0",
-            "-f",
-            "4x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[0.25]",
-            "-c",
-            "[200x20,1e-6,5]",
-            "-s",
-            "1x0",
-            "-f",
-            "2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % (synits),
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Rigid[0.25]",
+            "--convergence", "[1200x1200x100,1e-6,5]",
+            "--smoothing-sigmas", "2x1x0",
+            "--shrink-factors", "4x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[0.25]",
+            "--convergence", "[200x20,1e-6,5]",
+            "--smoothing-sigmas", "1x0",
+            "--shrink-factors", "2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % (synits),
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "ElasticSyN":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[0.25]",
-            "-c",
-            "2100x1200x200x0",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x2x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % (synits),
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[0.25]",
+            "--convergence", "2100x1200x200x0",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x2x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % (synits),
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "SyN" or type_of_transform == "Elastic":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[0.25]",
-            "-c",
-            "2100x1200x1200x0",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x2x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[0.25]",
+            "--convergence", "2100x1200x1200x0",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x2x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "SyNRA":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Rigid[0.25]",
-            "-c",
-            "2100x1200x1200x0",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x2x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[0.25]",
-            "-c",
-            "2100x1200x1200x0",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x2x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Rigid[0.25]",
+            "--convergence", "2100x1200x1200x0",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x2x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[0.25]",
+            "--convergence", "2100x1200x1200x0",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x2x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "SyNOnly":
-        args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-        ]
-        if multivariate_extras is not None:
-            metrics = []
-            for kk in range(len(multivariate_extras)):
-                metrics.append("-m")
-                metricname = multivariate_extras[kk][0]
-                metricfixed = get_pointer_string(
-                    multivariate_extras[kk][1]
-                )
-                metricmov = get_pointer_string(
-                    multivariate_extras[kk][2]
-                )
-                metricWeight = multivariate_extras[kk][3]
-                metricSampling = multivariate_extras[kk][4]
-                metricString = "%s[%s,%s,%s,%s]" % (
-                    metricname,
-                    metricfixed,
-                    metricmov,
-                    metricWeight,
-                    metricSampling,
-                )
-                metrics.append(metricString)
+        if multivariate_extras is None:
             args = [
-                "-d",
-                str(fixed.dimension),
-                "-r"
-            ] + initx + [
-                "-m",
-                "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
+                "--dimensionality", str(fixed.dimension),
+                "-r"] + initial_transform + [
+                "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+                "--transform", mysyn,
+                "--convergence", "[%s,1e-7,8]" % synits,
+                "--smoothing-sigmas", smoothingsigmas,
+                "--shrink-factors", shrinkfactors,
+                "-u", str(int(use_legacy_histogram_matching)),
+                "-z", "1",
+                "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
             ]
-            args1 = [
-                "-t",
-                mysyn,
-                "-c",
-                "[%s,1e-7,8]" % synits,
-                "-s",
-                smoothingsigmas,
-                "-f",
-                shrinkfactors,
-                "-u",
-                "1",
-                "-z",
-                "1",
-                "-o",
-                "[%s,%s,%s]" % (outprefix, wmo, wfo),
+        else:
+            metrics = []
+            for mve_idx in range(len(multivariate_extras)):
+                metrics.append("--metric")
+                metric_name = multivariate_extras[mve_idx][0]
+                metric_fixed_str = get_pointer_string(
+                    multivariate_extras[mve_idx][1]
+                )
+                metric_moving_str = get_pointer_string(
+                    multivariate_extras[mve_idx][2]
+                )
+                metric_weight = multivariate_extras[mve_idx][3]
+                metric_sampling = multivariate_extras[mve_idx][4]
+                metric_full_string = "%s[%s,%s,%s,%s]" % (
+                    metric_name,
+                    metric_fixed_str,
+                    metric_moving_str,
+                    metric_weight,
+                    metric_sampling,
+                )
+                metrics.append(metric_full_string)
+            args_pre = [
+                "--dimensionality", str(fixed.dimension),
+                "-r"] + initial_transform + [
+                "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
             ]
-            for kk in range(len(metrics)):
-                args.append(metrics[kk])
-            for kk in range(len(args1)):
-                args.append(args1[kk])
+            args_post = [
+                "--transform", mysyn,
+                "--convergence", "[%s,1e-7,8]" % synits,
+                "--smoothing-sigmas", smoothingsigmas,
+                "--shrink-factors", shrinkfactors,
+                "-u", str(int(use_legacy_histogram_matching)),
+                "-z", "1",
+                "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            ]
+            args = args_pre + metrics + args_post
         args.append("-x")
         args.append(maskopt)
     # ------------------------------------------------------------
     elif type_of_transform == "SyNAggro":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[0.25]",
-            "-c",
-            "2100x1200x1200x100",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x2x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[0.25]",
+            "--convergence", "2100x1200x1200x100",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x2x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "SyNCC":
-        syn_metric = "CC"
-        syn_sampling = 4
-        synits = "2100x1200x1200x20"
-        smoothingsigmas = "3x2x1x0"
-        shrinkfactors = "4x3x2x1"
-        mysyn = "SyN[0.15,3,0]"
-
+        # syn_metric = "CC"
+        # syn_sampling = 4
+        # synits = "2100x1200x1200x20"
+        # smoothingsigmas = "3x2x1x0"
+        # shrinkfactors = "4x3x2x1"
+        # mysyn = "SyN[0.15,3,0]"
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Rigid[1]",
-            "-c",
-            "2100x1200x1200x0",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x4x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[1]",
-            "-c",
-            "1200x1200x100",
-            "-s",
-            "2x1x0",
-            "-f",
-            "4x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Rigid[1]",
+            "--convergence", "2100x1200x1200x0",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x4x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[1]",
+            "--convergence", "1200x1200x100",
+            "--smoothing-sigmas", "2x1x0",
+            "--shrink-factors", "4x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % ("CC", fixed_str, moving_str, 4),
+            "--transform", "SyN[0.15,3,0]",
+            "--convergence", "[2100x1200x1200x20,1e-7,8]",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x3x2x1",
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "TRSAA":
@@ -835,170 +702,89 @@ def registration(
         myconvhi = "x".join([str(r) for r in reg_iterations])
         myconvhi = "[%s,1.e-7,10]" % myconvhi
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Translation[1]",
-            "-c",
-            myconvlow,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Rigid[1]",
-            "-c",
-            myconvlow,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Similarity[1]",
-            "-c",
-            myconvlow,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[1]",
-            "-c",
-            myconvhi,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[1]",
-            "-c",
-            myconvhi,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Translation[1]",
+            "--convergence", myconvlow,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Rigid[1]",
+            "--convergence", myconvlow,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Similarity[1]",
+            "--convergence", myconvlow,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[1]",
+            "--convergence", myconvhi,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[1]",
+            "--convergence", myconvhi,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------s
     elif type_of_transform == "SyNabp":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "mattes[%s,%s,1,32,regular,0.25]" % (f, m),
-            "-t",
-            "Rigid[0.1]",
-            "-c",
-            "1000x500x250x100",
-            "-s",
-            "4x2x1x0",
-            "-f",
-            "8x4x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "mattes[%s,%s,1,32,regular,0.25]" % (f, m),
-            "-t",
-            "Affine[0.1]",
-            "-c",
-            "1000x500x250x100",
-            "-s",
-            "4x2x1x0",
-            "-f",
-            "8x4x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "CC[%s,%s,0.5,4]" % (f, m),
-            "-t",
-            "SyN[0.1,3,0]",
-            "-c",
-            "50x10x0",
-            "-s",
-            "2x1x0",
-            "-f",
-            "4x2x1",
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "mattes[%s,%s,1,32,regular,0.25]" % (fixed_str, moving_str),
+            "--transform", "Rigid[0.1]",
+            "--convergence", "1000x500x250x100",
+            "--smoothing-sigmas", "4x2x1x0",
+            "--shrink-factors", "8x4x2x1",
+            "-x", earlymaskopt,
+            "--metric", "mattes[%s,%s,1,32,regular,0.25]" % (fixed_str, moving_str),
+            "--transform", "Affine[0.1]",
+            "--convergence", "1000x500x250x100",
+            "--smoothing-sigmas", "4x2x1x0",
+            "--shrink-factors", "8x4x2x1",
+            "-x", earlymaskopt,
+            "--metric", "CC[%s,%s,0.5,4]" % (fixed_str, moving_str),
+            "--transform", "SyN[0.1,3,0]",
+            "--convergence", "50x10x0",
+            "--smoothing-sigmas", "2x1x0",
+            "--shrink-factors", "4x2x1",
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "SyNLessAggro":
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "Affine[0.25]",
-            "-c",
-            "2100x1200x1200x100",
-            "-s",
-            "3x2x1x0",
-            "-f",
-            "4x2x2x1",
-            "-x",
-            earlymaskopt,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            mysyn,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "Affine[0.25]",
+            "--convergence", "2100x1200x1200x100",
+            "--smoothing-sigmas", "3x2x1x0",
+            "--shrink-factors", "4x2x2x1",
+            "-x", earlymaskopt,
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", mysyn,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform in tvTypes:
@@ -1007,68 +793,49 @@ def registration(
         nTimePoints = type_of_transform.split("[")[1].split("]")[0]
         tvtx = (
             "TimeVaryingVelocityField["
-            + str(grad_step)
-            + ","
-            + nTimePoints
-            + ","
-            + str(flow_sigma)
-            + ",0.0,"
-            + str(total_sigma)
-            + ",0]"
+            + ",".join([
+                str(grad_step),
+                nTimePoints,
+                str(flow_sigma),
+                "0.0",
+                str(total_sigma),
+                "0"])
+            +"]"
         )
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            tvtx,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "0",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", tvtx,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "0",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     elif type_of_transform == "TVMSQ":
         if grad_step is None:
             grad_step = 1.0
-
         tvtx = "TimeVaryingVelocityField[%s, 4, 0.0,0.0, 0.5,0 ]" % str(
             grad_step
         )
         args = [
-            "-d",
+            "--dimensionality",
             str(fixed.dimension),
-            # '-r', initx,
-            "-m",
-            "%s[%s,%s,1,%s]" % (syn_metric, f, m, syn_sampling),
-            "-t",
-            tvtx,
-            "-c",
-            "[%s,1e-7,8]" % synits,
-            "-s",
-            smoothingsigmas,
-            "-f",
-            shrinkfactors,
-            "-u",
-            "1",
-            "-z",
-            "0",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            '-r'
+        ] + initial_transform + [
+            "--metric",
+            "%s[%s,%s,1,%s]" % (syn_metric, fixed_str, moving_str, syn_sampling),
+            "--transform", tvtx,
+            "--convergence", "[%s,1e-7,8]" % synits,
+            "--smoothing-sigmas", smoothingsigmas,
+            "--shrink-factors", shrinkfactors,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "0",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif type_of_transform == "TVMSQC":
@@ -1079,74 +846,52 @@ def registration(
             grad_step
         )
         args = [
-            "-d",
-            str(fixed.dimension),
-            # '-r', initx,
-            "-m",
-            "demons[%s,%s,0.5,0]" % (f, m),
-            "-m",
-            "meansquares[%s,%s,1,0]" % (f, m),
-            "-t",
-            tvtx,
-            "-c",
-            "[1200x1200x100x20x0,0,5]",
-            "-s",
-            "8x6x4x2x1vox",
-            "-f",
-            "8x6x4x2x1",
-            "-u",
-            "1",
-            "-z",
-            "0",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            '-r'] + initial_transform + [
+            "--metric", "demons[%s,%s,0.5,0]" % (fixed_str, moving_str),
+            "--metric", "meansquares[%s,%s,1,0]" % (fixed_str, moving_str),
+            "--transform", tvtx,
+            "--convergence", "[1200x1200x100x20x0,0,5]",
+            "--smoothing-sigmas", "8x6x4x2x1vox",
+            "--shrink-factors", "8x6x4x2x1",
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "0",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
-    elif (
-        (type_of_transform == "Rigid")
-        or (type_of_transform == "Similarity")
-        or (type_of_transform == "Translation")
-        or (type_of_transform == "Affine")
-    ):
+    elif type_of_transform in ("Rigid", "Similarity", "Translation", "Affine"):
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-m",
-            "%s[%s,%s,1,%s,regular,%s]"
-            % (aff_metric, f, m, aff_sampling, aff_random_sampling_rate),
-            "-t",
-            "%s[0.25]" % type_of_transform,
-            "-c",
-            myiterations,
-            "-s",
-            mys_aff,
-            "-f",
-            myf_aff,
-            "-u",
-            "1",
-            "-z",
-            "1",
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
-            "-x",
-            maskopt
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--metric", "%s[%s,%s,1,%s,regular,%s]" % (aff_metric, fixed_str, moving_str, aff_sampling, aff_random_sampling_rate),
+            "--transform", "%s[0.25]" % type_of_transform,
+            "--convergence", myiterations,
+            "--smoothing-sigmas", smoothingsigmas_affine,
+            "--shrink-factors", shrinkfactors_affine,
+            "-u", str(int(use_legacy_histogram_matching)),
+            "-z", "1",
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
+            "-x", maskopt
         ]
     # ------------------------------------------------------------
     elif "antsRegistrationSyN" in type_of_transform:
-
-        do_quick = False
-        if "Quick" in type_of_transform:
-            do_quick = True
+        do_quick = ("Quick" in type_of_transform)
+        do_repro = ("Repro" in type_of_transform)
 
         subtype_of_transform = "s"
         spline_distance = 26
-        metric_parameter = 4
-        if do_quick:
-            metric_parameter = 32
+        metric_parameter = 32 if do_quick else 2
+        linear_metric = "GC[%s,%s,1,1,Regular,0.25]" if do_repro else "MI[%s,%s,1,32,Regular,0.25]"
+
+        rigid_shrink_factors = "8x4x2x1"
+        rigid_smoothing_sigmas = "3x2x1x0vox"
+
+        affine_shrink_factors = "8x4x2x1"
+        affine_smoothing_sigmas = "3x2x1x0vox"
+        
+        linear_gradient_step = 0.1
+        syn_gradient_step = 0.2
 
         if "[" in type_of_transform and "]" in type_of_transform:
             subtype_of_transform = type_of_transform.split("[")[1].split(
@@ -1155,121 +900,80 @@ def registration(
             if "," in subtype_of_transform:
                 subtype_of_transform_args = subtype_of_transform.split(",")
                 subtype_of_transform = subtype_of_transform_args[0]
-                if not ( subtype_of_transform == "b"
-                         or subtype_of_transform == "br"
-                         or subtype_of_transform == "bo"
-                         or subtype_of_transform == "s"
-                         or subtype_of_transform == "sr"
-                         or subtype_of_transform == "so" ):
+                if not ( subtype_of_transform in ["b", "br", "bo", "s", "sr", "so"]):
                     raise ValueError("Extra parameters are only valid for 's' or 'b' SyN transforms.")
                 metric_parameter = subtype_of_transform_args[1]
                 if len(subtype_of_transform_args) > 2:
                     spline_distance = subtype_of_transform_args[2]
 
-        do_repro = False
-        if "Repro" in type_of_transform:
-            do_repro = True
-
-        if do_quick == True:
+        if do_quick:
             rigid_convergence = "[1000x500x250x0,1e-6,10]"
+            affine_convergence = "[1000x500x250x0,1e-6,10]"
+            syn_convergence = "[100x70x50x0,1e-6,10]"
+            if do_repro:
+                metric_parameter = 2
+                syn_metric = "CC[%s,%s,1,%s]" % (fixed_str, moving_str, metric_parameter)
+            else:
+                metric_parameter = 32
+                syn_metric = "MI[%s,%s,1,%s]" % (fixed_str, moving_str, metric_parameter)
         else:
             rigid_convergence = "[1000x500x250x100,1e-6,10]"
-        rigid_shrink_factors = "8x4x2x1"
-        rigid_smoothing_sigmas = "3x2x1x0vox"
-
-        if do_quick == True:
-            affine_convergence = "[1000x500x250x0,1e-6,10]"
-        else:
             affine_convergence = "[1000x500x250x100,1e-6,10]"
-        affine_shrink_factors = "8x4x2x1"
-        affine_smoothing_sigmas = "3x2x1x0vox"
-
-        linear_metric="MI[%s,%s,1,32,Regular,0.25]"
-        if do_repro == True:
-            linear_metric="GC[%s,%s,1,1,Regular,0.25]"
-
-        if do_quick == True:
-            syn_convergence = "[100x70x50x0,1e-6,10]"
-            metric_parameter = 32
-            syn_metric = "MI[%s,%s,1,%s]" % (f, m, metric_parameter)
-        else:
-            metric_parameter = 2
             syn_convergence = "[100x70x50x20,1e-6,10]"
-            syn_metric = "CC[%s,%s,1,%s]" % (f, m, metric_parameter)
+            metric_parameter = 2
+            syn_metric = "CC[%s,%s,1,%s]" % (fixed_str, moving_str, metric_parameter)
         syn_shrink_factors = "8x4x2x1"
         syn_smoothing_sigmas = "3x2x1x0vox"
-
-        if do_quick == True and do_repro == True:
-            syn_convergence = "[100x70x50x0,1e-6,10]"
-            metric_parameter = 2
-            syn_metric = "CC[%s,%s,1,%s]" % (f, m, metric_parameter)
-
-        if random_seed is None and do_repro == True:
-            random_seed = str( 1 )
-
-        tx = "Rigid"
-        if subtype_of_transform == "t":
-            tx = "Translation"
-
-        rigid_stage = [
-            "--transform",
-            tx + "[0.1]",
-            "--metric",
-            linear_metric % (f, m),
-            "--convergence",
-            rigid_convergence,
-            "--shrink-factors",
-            rigid_shrink_factors,
-            "--smoothing-sigmas",
-            rigid_smoothing_sigmas,
-        ]
-
-        affine_stage = [
-            "--transform",
-            "Affine[0.1]",
-            "--metric",
-            linear_metric % (f, m),
-            "--convergence",
-            affine_convergence,
-            "--shrink-factors",
-            affine_shrink_factors,
-            "--smoothing-sigmas",
-            affine_smoothing_sigmas,
-        ]
-
-        if subtype_of_transform == "sr" or subtype_of_transform == "br":
-            if do_quick == True:
+        if subtype_of_transform in ("sr", "br"):
+            if do_quick:
                 syn_convergence = "[50x0,1e-6,10]"
             else:
                 syn_convergence = "[50x20,1e-6,10]"
             syn_shrink_factors = "2x1"
             syn_smoothing_sigmas = "1x0vox"
 
-        syn_stage = [
-            "--metric",
-            syn_metric,
-        ]
+        if random_seed is None and do_repro:
+            random_seed = "1"
 
+        rigidtx = "Translation" if subtype_of_transform == "t" else "Rigid"
+
+        rigid_stage = [
+            "--transform", rigidtx + "[" + str(linear_gradient_step) + "]",
+            "--metric", linear_metric % (fixed_str, moving_str),
+            "--convergence", rigid_convergence,
+            "--shrink-factors", rigid_shrink_factors,
+            "--smoothing-sigmas", rigid_smoothing_sigmas,
+        ]
+        affine_stage = [
+            "--transform", "Affine[" + str(linear_gradient_step) + "]",
+            "--metric", linear_metric % (fixed_str, moving_str),
+            "--convergence", affine_convergence,
+            "--shrink-factors", affine_shrink_factors,
+            "--smoothing-sigmas", affine_smoothing_sigmas,
+        ]
+        syn_stage = [
+            "--metric", syn_metric,
+        ]
         if multivariate_extras is not None:
-            for kk in range(len(multivariate_extras)):
+            for mve_idx in range(len(multivariate_extras)):
                 syn_stage.append("--metric")
-                metricname = multivariate_extras[kk][0]
-                metricfixed = get_pointer_string(
-                    multivariate_extras[kk][1]
+                metric_name = multivariate_extras[mve_idx][0]
+                metric_fixed_str = get_pointer_string(
+                    multivariate_extras[mve_idx][1]
                 )
-                metricmov = get_pointer_string(
-                    multivariate_extras[kk][2]
+                metric_moving_str = get_pointer_string(
+                    multivariate_extras[mve_idx][2]
                 )
-                metricWeight = multivariate_extras[kk][3]
-                metricSampling = multivariate_extras[kk][4]
-                metricString = "%s[%s,%s,%s,%s]" % (
-                    metricname,
-                    metricfixed,
-                    metricmov,
-                    metricWeight,
-                    metricSampling,
+                metric_weight = multivariate_extras[mve_idx][3]
+                metric_sampling = multivariate_extras[mve_idx][4]
+                metric_full_string = "%s[%s,%s,%s,%s]" % (
+                    metric_name,
+                    metric_fixed_str,
+                    metric_moving_str,
+                    metric_weight,
+                    metric_sampling,
                 )
-                syn_stage.append(metricString)
+                syn_stage.append(metric_full_string)
 
         syn_stage.append("--convergence")
         syn_stage.append(syn_convergence)
@@ -1278,29 +982,18 @@ def registration(
         syn_stage.append("--smoothing-sigmas")
         syn_stage.append(syn_smoothing_sigmas)
 
-        if (
-            subtype_of_transform == "b"
-            or subtype_of_transform == "br"
-            or subtype_of_transform == "bo"
-        ):
-            syn_stage.insert(0, "BSplineSyN[0.1," + str(spline_distance) + ",0,3]")
+        if subtype_of_transform in ("b", "br", "bo"):
+            syn_stage.insert(0, "BSplineSyN[" + str(syn_gradient_step) + "," + str(spline_distance) + ",0,3]")
             syn_stage.insert(0, "--transform")
 
-        if (
-            subtype_of_transform == "s"
-            or subtype_of_transform == "sr"
-            or subtype_of_transform == "so"
-        ):
-            syn_stage.insert(0, "SyN[0.1,3,0]")
+        if subtype_of_transform in ("s", "sr", "so"):
+            syn_stage.insert(0, "SyN[" + str(syn_gradient_step) + ",3,0]")
             syn_stage.insert(0, "--transform")
 
         args = [
-            "-d",
-            str(fixed.dimension),
-            "-r"
-        ] + initx + [
-            "-o",
-            "[%s,%s,%s]" % (outprefix, wmo, wfo),
+            "--dimensionality", str(fixed.dimension),
+            "-r"] + initial_transform + [
+            "--output", "[%s,%s,%s]" % (outprefix, warpedmovout_str, warpedfixout_str),
         ]
 
         if subtype_of_transform == "r" or subtype_of_transform == "t":
@@ -1339,7 +1032,7 @@ def registration(
         args.append(restrict_transformationchar)
 
     args.append("--float")
-    args.append("1")
+    args.append(str(int(singleprecision)))
     args.append("--write-composite-transform")
     args.append(write_composite_transform * 1)
     if verbose:
@@ -1555,3 +1248,411 @@ def motion_correction(
         "motion_parameters": motion_parameters,
         "FD": FD,
     }
+
+def label_image_registration(fixed_label_images,
+                             moving_label_images,
+                             fixed_intensity_images=None,
+                             moving_intensity_images=None,
+                             fixed_mask=None,
+                             moving_mask=None,
+                             initial_transforms='affine',
+                             type_of_deformable_transform='antsRegistrationSyNQuick[so]',
+                             label_image_weighting=1.0,
+                             output_prefix='',
+                             random_seed=None,
+                             verbose=False):
+
+    """
+    Perform pairwise registration using fixed and moving sets of label
+    images (and, optionally, sets of corresponding intensity images).
+
+    Arguments
+    ---------
+    fixed_label_images : single or list of ANTsImage
+        A single (or set of) fixed label image(s).
+
+    moving_label_images : single or list of ANTsImage
+        A single (or set of) moving label image(s).
+
+    fixed_intensity_images : single or list of ANTsImage
+        Optional---a single (or set of) fixed intensity image(s).
+
+    moving_intensity_images : single or list of ANTsImage
+        Optional---a single (or set of) moving intensity image(s).
+
+    fixed_mask : ANTsImage
+        Defines region for similarity metric calculation in the space
+        of the fixed image.
+
+    moving_mask : ANTsImage
+        Defines region for similarity metric calculation in the space
+        of the moving image.
+
+    initial_transforms : string or list of files
+        If specified, there are two options:  2) Use label images with 
+        the centers of mass to a calculate linear transform of type 
+        'identity', 'rigid', 'similarity', or 'affine'.  2) Specify a
+        list of transform files, e.g., the output of ants.registration().
+
+    type_of_deformable_transform : string
+        Only works with deformable-only transforms, specifically the family
+        of antsRegistrationSyN*[so] or antsRegistrationSyN*[bo] transforms.
+        See 'type_of_transform' in ants.registration.  Additionally, one can
+        use a list to pass a more tailored deformably-only transform
+        optimization using SyN or BSplineSyN transforms.  The order of
+        parameters in the list would be 1) transform specification, i.e.
+        "SyN" or "BSplineSyN", 2) gradient (real), 3) intensity metric (string),
+        4) intensity metric parameter (real), 5) convergence iterations per level
+        (tuple) 6) smoothing factors per level (tuple), 7) shrink factors per level
+        (tuple).  An example would type_of_deformable_transform = ["SyN", 0.2, "CC",
+        4, (100,50,10), (2,1,0), (4,2,1)].
+
+    label_image_weighting : float or list of floats
+        Relative weighting for the label images.
+
+    output_prefix : string
+        Define the output prefix for the filenames of the output transform
+        files.
+
+    random_seed : integer
+        Definition for deformable registration.
+
+    verbose : boolean
+        Print progress to the screen.
+
+    Returns
+    -------
+    Set of transforms definining the mapping to/from the fixed image domain
+    to the moving image domain.
+
+    Example
+    -------
+    >>> import ants
+    >>>
+    >>> r16 = ants.image_read(ants.get_ants_data('r16'))
+    >>> r16_seg1 = ants.threshold_image(r16, "Kmeans", 3) - 1
+    >>> r16_seg2 = ants.threshold_image(r16, "Kmeans", 5) - 1
+    >>> r64 = ants.image_read(ants.get_ants_data('r64'))
+    >>> r64_seg1 = ants.threshold_image(r64, "Kmeans", 3) - 1
+    >>> r64_seg2 = ants.threshold_image(r64, "Kmeans", 5) - 1
+    >>> reg = ants.label_image_registration([r16_seg1, r16_seg2],
+                                            [r64_seg1, r64_seg2],
+                                            fixed_intensity_images=r16,
+                                            moving_intensity_images=r64,
+                                            initial_transforms='affine',
+                                            type_of_deformable_transform='antsRegistrationSyNQuick[bo]',
+                                            label_image_weighting=[1.0, 2.0],
+                                            verbose=True)
+    """
+
+    # Perform validation check on the input
+
+    if isinstance(fixed_label_images, ants.ANTsImage):
+        fixed_label_images = [ants.image_clone(fixed_label_images)]
+    if isinstance(moving_label_images, ants.ANTsImage):
+        moving_label_images = [ants.image_clone(moving_label_images)]
+
+    if len(fixed_label_images) != len(moving_label_images):
+        raise ValueError("The number of fixed and moving label images do not match.")
+
+    if fixed_intensity_images is not None or moving_intensity_images is not None:
+        if isinstance(fixed_intensity_images, ants.ANTsImage):
+            fixed_intensity_images = [ants.image_clone(fixed_intensity_images)]
+        if isinstance(moving_intensity_images, ants.ANTsImage):
+            moving_intensity_images = [ants.image_clone(moving_intensity_images)]
+        if len(fixed_intensity_images) != len(moving_intensity_images):
+            raise ValueError("The number of fixed and moving intensity images do not match.")
+
+    label_image_weights = list()
+    if isinstance(label_image_weighting, (int, float)):
+        label_image_weights = [label_image_weighting] * len(fixed_label_images)
+    else:
+        label_image_weights = tuple(label_image_weighting)
+        if len(fixed_label_images) != len(label_image_weights):
+            raise ValueError("The length of label_image_weights must" +
+                             "match the number of label image pairs.")
+
+    image_dimension = fixed_label_images[0].dimension
+
+    if output_prefix == "" or output_prefix is None or len(output_prefix) == 0:
+        output_prefix = mktemp()
+
+    do_deformable = True
+    if type_of_deformable_transform is None or len(type_of_deformable_transform) == 0:
+       do_deformable = False
+
+    common_label_ids = list()
+    total_number_of_labels = 0
+    for i in range(len(fixed_label_images)):
+        fixed_label_geoms = ants.label_geometry_measures(fixed_label_images[i])
+        fixed_label_ids = np.array(fixed_label_geoms['Label'])
+        moving_label_geoms = ants.label_geometry_measures(moving_label_images[i])
+        moving_label_ids = np.array(moving_label_geoms['Label'])
+        common_label_ids.append(np.intersect1d(moving_label_ids, fixed_label_ids))
+        total_number_of_labels += len(common_label_ids[i])
+        if verbose:
+            print("Common label ids for image pair ", str(i), ": ", common_label_ids[i])
+        if len(common_label_ids[i]) == 0:
+            raise ValueError("No common labels for image pair " + str(i))
+
+    deformable_multivariate_extras = list()
+
+    if verbose:
+        print("Total number of labels: " + str(total_number_of_labels))
+
+    initial_xfrm_files = list()
+
+    ##############################
+    #
+    #    Initial linear transform
+    #
+    ##############################
+
+    if isinstance(initial_transforms, str) and initial_transforms in ['rigid', 'similarity', 'affine']:
+
+        if verbose:
+            print("\n\nComputing linear transform.\n")
+
+        if total_number_of_labels < 3:
+            raise ValueError("  Number of labels must be >= 3.")
+
+        fixed_centers_of_mass = np.zeros((total_number_of_labels, image_dimension))
+        moving_centers_of_mass = np.zeros((total_number_of_labels, image_dimension))
+        count = 0
+        for i in range(len(common_label_ids)):
+            for j in range(len(common_label_ids[i])):
+                label = common_label_ids[i][j]
+                if verbose:
+                    print("  Finding centers of mass for image pair " + str(i) + ", label " + str(label))
+                fixed_single_label_image = ants.threshold_image(fixed_label_images[i], label, label, 1, 0)
+                fixed_centers_of_mass[count, :] = ants.get_center_of_mass(fixed_single_label_image)
+                moving_single_label_image = ants.threshold_image(moving_label_images[i], label, label, 1, 0)
+                moving_centers_of_mass[count, :] = ants.get_center_of_mass(moving_single_label_image)
+                count += 1
+                if do_deformable:
+                    deformable_multivariate_extras.append(["MSQ", fixed_single_label_image,
+                                                           moving_single_label_image,
+                                                           label_image_weights[i], 0])
+
+        linear_xfrm = ants.fit_transform_to_paired_points(moving_centers_of_mass,
+                                                          fixed_centers_of_mass,
+                                                          transform_type=initial_transforms,
+                                                          verbose=verbose)
+        
+        if do_deformable:
+            linear_xfrm_file = output_prefix + "LandmarkBasedLinear" + initial_transforms + ".mat"
+        else:
+            linear_xfrm_file = output_prefix + "0GenericAffine.mat"
+
+        ants.write_transform(linear_xfrm, linear_xfrm_file)
+        initial_xfrm_files.append(linear_xfrm_file)
+
+    elif initial_transforms is not None or initial_transforms == 'identity':
+        
+        if do_deformable:
+            for i in range(len(common_label_ids)):
+                for j in range(len(common_label_ids[i])):
+                    label = common_label_ids[i][j]
+                    fixed_single_label_image = ants.threshold_image(fixed_label_images[i], label, label, 1, 0)
+                    moving_single_label_image = ants.threshold_image(moving_label_images[i], label, label, 1, 0)
+                    deformable_multivariate_extras.append(["MSQ", fixed_single_label_image,
+                                                        moving_single_label_image,
+                                                        label_image_weights[i], 0])
+
+        if initial_transforms != 'identity':
+            if not isinstance(initial_transforms, list):
+                initial_transforms = [initial_transforms]
+            for i in range(len(initial_transforms)):
+                if not os.path.exists(initial_transforms[i]):
+                    raise ValueError(initial_transforms[i] + " does not exist.")
+                else:
+                    initial_xfrm_files.append(initial_transforms[i])
+            
+    ##############################
+    #
+    #    Deformable transform
+    #
+    ##############################
+
+    if do_deformable:
+
+        if verbose:
+            print("\n\nComputing deformable transform using images.\n")
+
+        intensity_metric = "CC"
+        intensity_metric_parameter = 2
+        syn_shrink_factors = "8x4x2x1"
+        syn_smoothing_sigmas = "3x2x1x0vox"
+        syn_convergence = "[100x70x50x20,1e-6,10]"
+        spline_distance = 26
+        gradient_step = 0.2
+        syn_transform = "SyN"
+
+        syn_stage = list()
+
+        if isinstance(type_of_deformable_transform, list):
+
+            if (len(type_of_deformable_transform) != 7 or
+                not isinstance(type_of_deformable_transform[0], str) or
+                not isinstance(type_of_deformable_transform[1], float) or
+                not isinstance(type_of_deformable_transform[2], str) or
+                not isinstance(type_of_deformable_transform[3], int) or
+                not isinstance(type_of_deformable_transform[4], tuple) or
+                not isinstance(type_of_deformable_transform[5], tuple) or
+                not isinstance(type_of_deformable_transform[6], tuple)):
+                raise ValueError("Incorrect specification for type_of_deformable_transform.  See help menu.")
+
+            syn_transform = type_of_deformable_transform[0]
+            gradient_step = type_of_deformable_transform[1]
+            intensity_metric = type_of_deformable_transform[2]
+            intensity_metric_parameter = type_of_deformable_transform[3]
+
+            t = type_of_deformable_transform[4]
+            tstr = ''.join(map(lambda x: str(x) + 'x', t[:len(t)-1])) + str(t[len(t)-1])
+            syn_convergence = "[" + tstr + ",1e-6,10]"
+
+            t = type_of_deformable_transform[5]
+            tstr = ''.join(map(lambda x: str(x) + 'x', t[:len(t)-1])) + str(t[len(t)-1])
+            syn_smoothing_sigmas = tstr + "vox"
+
+            t = type_of_deformable_transform[6]
+            syn_shrink_factors = ''.join(map(lambda x: str(x) + 'x', t[:len(t)-1])) + str(t[len(t)-1])
+
+        else:
+
+            do_quick = False
+            if "Quick" in type_of_deformable_transform:
+                do_quick = True
+            elif "Repro" in type_of_deformable_transform:
+                random_seed = str(1)
+
+            if "[" in type_of_deformable_transform and "]" in type_of_deformable_transform:
+                subtype_of_deformable_transform = type_of_deformable_transform.split("[")[1].split("]")[0]
+                if not ('bo' in subtype_of_deformable_transform or 'so' in subtype_of_deformable_transform):
+                    raise ValueError("Only 'so' or 'bo' transforms are available.")
+                else:
+                    if 'bo' in subtype_of_deformable_transform:
+                        syn_transform = "BSplineSyN"
+                if "," in subtype_of_deformable_transform:
+                    subtype_of_deformable_transform_args = subtype_of_deformable_transform.split(",")
+                    subtype_of_deformable_transform = subtype_of_deformable_transform_args[0]
+                    intensity_metric_parameter = subtype_of_deformable_transform_args[1]
+                    if len(subtype_of_deformable_transform_args) > 2:
+                        spline_distance = subtype_of_deformable_transform_args[2]
+
+            if do_quick:
+                intensity_metric = "MI"
+                intensity_metric_parameter = 32
+                syn_convergence = "[100x70x50x0,1e-6,10]"
+
+        if fixed_intensity_images is not None and len(fixed_intensity_images) > 0:
+            for i in range(len(fixed_intensity_images)):
+                syn_stage.append("--metric")
+                metric_string = "%s[%s,%s,%s,%s]" % (
+                    intensity_metric,
+                    get_pointer_string(fixed_intensity_images[i]),
+                    get_pointer_string(moving_intensity_images[i]),
+                    1.0, intensity_metric_parameter)
+                syn_stage.append(metric_string)
+
+        for kk in range(len(deformable_multivariate_extras)):
+            syn_stage.append("--metric")
+            metricString = "%s[%s,%s,%s,%s]" % (
+                "MSQ",
+                get_pointer_string(deformable_multivariate_extras[kk][1]),
+                get_pointer_string(deformable_multivariate_extras[kk][2]),
+                deformable_multivariate_extras[kk][3], 0.0)
+            syn_stage.append(metricString)
+
+        syn_stage.append("--convergence")
+        syn_stage.append(syn_convergence)
+        syn_stage.append("--shrink-factors")
+        syn_stage.append(syn_shrink_factors)
+        syn_stage.append("--smoothing-sigmas")
+        syn_stage.append(syn_smoothing_sigmas)
+
+        if syn_transform == "SyN":
+            syn_stage.insert(0, "SyN[" + str(gradient_step) + ",3,0]")
+        else:
+            syn_stage.insert(0, "BSplineSyN[" + str(gradient_step) + "," + str(spline_distance) + ",0,3]")
+        syn_stage.insert(0, "--transform")
+
+        args = ["--dimensionality", str(image_dimension),
+                "--output", output_prefix]
+
+        if len(initial_xfrm_files) > 0:
+          for i in range(len(initial_xfrm_files)):
+            initial_args = ["-r", initial_xfrm_files[i]]
+            args.append(initial_args)
+
+        args.append(syn_stage)
+
+        fixed_mask_string = 'NA'
+        if fixed_mask is not None:
+            fixed_mask_binary = fixed_mask != 0
+            fixed_mask_string = get_pointer_string(fixed_mask_binary)
+
+        moving_mask_string = 'NA'
+        if moving_mask is not None:
+            moving_mask_binary = moving_mask != 0
+            moving_mask_string = get_pointer_string(moving_mask_binary)
+
+        mask_option = "[%s,%s]" % (fixed_mask_string, moving_mask_string)
+
+        args.append("-x")
+        args.append(mask_option)
+
+        args = list(itertools.chain.from_iterable(
+                    itertools.repeat(x, 1)
+                    if isinstance(x, str)
+                    else x for x in args))
+
+        args.append("--float")
+        args.append("1")
+
+        if random_seed is not None:
+            args.append("--random-seed")
+            args.append(random_seed)
+
+        if verbose:
+            args.append("-v")
+            args.append("1")
+
+        processed_args = process_arguments(args)
+        if verbose:
+            print("antsRegistration " + ' '.join(processed_args))
+
+        libfn = get_lib_fn("antsRegistration")
+        deformable_registration_exit_error = libfn(processed_args)
+
+        if deformable_registration_exit_error != 0:
+            raise RuntimeError(f"Registration failed with error code {deformable_registration_exit_error}")
+
+    all_xfrms = sorted(set(glob.glob(output_prefix + "*" + "[0-9]*")))
+
+    find_inverse_warps_idx = np.where([re.search("[0-9]InverseWarp.nii.gz", ff) for ff in all_xfrms])[0]
+    find_forward_warps_idx = np.where([re.search("[0-9]Warp.nii.gz", ff) for ff in all_xfrms])[0]
+    find_affines_idx = np.where([re.search("[0-9]GenericAffine.mat", ff) for ff in all_xfrms])[0]
+
+    fwdtransforms = list()
+    invtransforms = list()
+
+    if len(find_forward_warps_idx) > 0:
+        fwdtransforms.append(all_xfrms[find_forward_warps_idx[0]])
+    if len(find_affines_idx) > 0:    
+        fwdtransforms.append(all_xfrms[find_affines_idx[0]])
+        invtransforms.append(all_xfrms[find_affines_idx[0]])
+    if len(find_inverse_warps_idx) > 0:
+        invtransforms.append(all_xfrms[find_inverse_warps_idx[0]])
+
+    if verbose:
+        print("\n\nResulting transforms")
+        print("  fwdtransforms: ", fwdtransforms)
+        print("  invtransforms: ", invtransforms)
+
+    return {
+        "fwdtransforms": fwdtransforms,
+        "invtransforms": invtransforms,
+    }
+
+

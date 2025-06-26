@@ -10,7 +10,7 @@ project(
     check: true,
   ).stdout().strip(),
   license: 'BSD-3-Clause',
-  meson_version: '>=1.0.0',
+  meson_version: '>=1.1.0',
 )
 
 # ---
@@ -77,6 +77,16 @@ MPI_ch = custom_target(
   install_dir: [false, dstdir / 'mpi4py', dstdir / 'mpi4py']
 )
 
+mpiabi = get_option('mpiabi')
+pysabi = get_option('pysabi')
+ext_args = {}
+if mpiabi
+  ext_args += {'c_args': ['-DPYMPIABI=1']}
+endif
+if pysabi != ''
+  ext_args += {'limited_api': pysabi}
+endif
+
 py.extension_module(
   'MPI',
   sources: MPI_ch[0],
@@ -85,6 +95,7 @@ py.extension_module(
   dependencies: [mpi],
   subdir: 'mpi4py',
   install: true,
+  kwargs: ext_args,
 )
 
 executable(
@@ -144,7 +155,7 @@ install_subdir(
   install_dir: dstdir / 'mpi4py',
 )
 
-if py.language_version().version_compare('>=3.8')
+if true
   foreach pkg, src : package
     subdir = join_paths(pkg.split('.'))
     sources = []
@@ -166,7 +177,7 @@ if py.language_version().version_compare('>=3.8')
 endif
 
 if host_machine.system() == 'windows'
-  mpidllpath = ['mpi.pth']
+  mpidllpath = ['_mpi_dll_path.py', 'mpi.pth']
   foreach fn : mpidllpath
     if fs.exists(srcdir / fn)
       py.install_sources(

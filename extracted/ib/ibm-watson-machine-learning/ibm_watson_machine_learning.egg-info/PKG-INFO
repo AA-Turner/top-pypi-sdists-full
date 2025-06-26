@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: ibm_watson_machine_learning
-Version: 1.0.367
+Version: 1.0.368
 Summary: IBM Watson Machine Learning API Client
 Home-page: https://ibm.github.io/watson-machine-learning-sdk
 Author: IBM
@@ -32,7 +32,7 @@ Requires-Dist: certifi
 Requires-Dist: lomond
 Requires-Dist: tabulate
 Requires-Dist: packaging
-Requires-Dist: ibm-cos-sdk<2.14.0,>=2.12.0
+Requires-Dist: ibm-cos-sdk<2.15.0,>=2.12.0
 Requires-Dist: importlib-metadata
 Provides-Extra: fl-rt23-1-py3-10
 Requires-Dist: tensorflow==2.12.0; extra == "fl-rt23-1-py3-10"
@@ -67,6 +67,18 @@ Requires-Dist: msgpack-numpy==0.4.8; extra == "fl-rt23-1-py3-10"
 Requires-Dist: cryptography==39.0.1; extra == "fl-rt23-1-py3-10"
 Provides-Extra: fl-crypto
 Requires-Dist: pyhelayers==1.5.0.3; extra == "fl-crypto"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 ******************************************

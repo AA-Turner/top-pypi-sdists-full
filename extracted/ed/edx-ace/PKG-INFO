@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-ace
-Version: 1.14.0
+Version: 1.15.0
 Summary: Framework for Messaging
 Home-page: https://github.com/openedx/edx-ace
 Author: edX
@@ -31,8 +31,6 @@ Provides-Extra: sailthru
 Requires-Dist: sailthru-client<2.3,>2.2; extra == "sailthru"
 Provides-Extra: push-notifications
 Requires-Dist: django-push-notifications[FCM]; extra == "push-notifications"
-Provides-Extra: braze-push
-Requires-Dist: edx-braze-client==1.0.2; extra == "braze-push"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -196,6 +194,12 @@ Change Log
 
 Unreleased
 **********
+
+[1.15.0] - 2025-04-25
+---------------------
+
+* Removed edx-braze-client from repo
+* Removed braze_push channel from repo
 
 [1.13.0] - 2025-04-25
 ---------------------

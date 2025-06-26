@@ -14506,6 +14506,8 @@ class persistent_compute_api_InvalidComputationType(ConjureEnumType):
     '''LOG_SERIES'''
     LITERAL_RANGES = 'LITERAL_RANGES'
     '''LITERAL_RANGES'''
+    ARRAY = 'ARRAY'
+    '''ARRAY'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -17865,7 +17867,7 @@ class scout_asset_api_Asset(ConjureBeanType):
             'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
             'labels': ConjureFieldDefinition('labels', List[api_Label]),
             'links': ConjureFieldDefinition('links', List[scout_run_api_Link]),
-            'data_scopes': ConjureFieldDefinition('dataScopes', List[scout_asset_api_AssetDataScope]),
+            'data_scopes': ConjureFieldDefinition('dataScopes', List[scout_asset_api_DataScope]),
             'created_by': ConjureFieldDefinition('createdBy', OptionalTypeWrapper[str]),
             'created_at': ConjureFieldDefinition('createdAt', str),
             'updated_at': ConjureFieldDefinition('updatedAt', str),
@@ -17877,7 +17879,7 @@ class scout_asset_api_Asset(ConjureBeanType):
 
     __slots__: List[str] = ['_rid', '_title', '_description', '_properties', '_labels', '_links', '_data_scopes', '_created_by', '_created_at', '_updated_at', '_attachments', '_type', '_is_staged', '_is_archived']
 
-    def __init__(self, attachments: List[str], created_at: str, data_scopes: List["scout_asset_api_AssetDataScope"], is_archived: bool, is_staged: bool, labels: List[str], links: List["scout_run_api_Link"], properties: Dict[str, str], rid: str, title: str, updated_at: str, created_by: Optional[str] = None, description: Optional[str] = None, type: Optional[str] = None) -> None:
+    def __init__(self, attachments: List[str], created_at: str, data_scopes: List["scout_asset_api_DataScope"], is_archived: bool, is_staged: bool, labels: List[str], links: List["scout_run_api_Link"], properties: Dict[str, str], rid: str, title: str, updated_at: str, created_by: Optional[str] = None, description: Optional[str] = None, type: Optional[str] = None) -> None:
         self._rid = rid
         self._title = title
         self._description = description
@@ -17924,7 +17926,7 @@ To associate links with a range of time, create a time range on the asset with l
         return self._links
 
     @builtins.property
-    def data_scopes(self) -> List["scout_asset_api_AssetDataScope"]:
+    def data_scopes(self) -> List["scout_asset_api_DataScope"]:
         """The data scopes associated with the asset.
         """
         return self._data_scopes
@@ -17963,58 +17965,6 @@ To associate links with a range of time, create a time range on the asset with l
 scout_asset_api_Asset.__name__ = "Asset"
 scout_asset_api_Asset.__qualname__ = "Asset"
 scout_asset_api_Asset.__module__ = "nominal_api.scout_asset_api"
-
-
-class scout_asset_api_AssetDataScope(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'data_scope_name': ConjureFieldDefinition('dataScopeName', scout_asset_api_DataScopeName),
-            'data_source': ConjureFieldDefinition('dataSource', scout_run_api_DataSource),
-            'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_run_api_Duration]),
-            'timestamp_type': ConjureFieldDefinition('timestampType', scout_run_api_WeakTimestampType),
-            'series_tags': ConjureFieldDefinition('seriesTags', Dict[scout_asset_api_SeriesTagName, scout_asset_api_SeriesTagValue])
-        }
-
-    __slots__: List[str] = ['_data_scope_name', '_data_source', '_offset', '_timestamp_type', '_series_tags']
-
-    def __init__(self, data_scope_name: str, data_source: "scout_run_api_DataSource", series_tags: Dict[str, str], timestamp_type: "scout_run_api_WeakTimestampType", offset: Optional["scout_run_api_Duration"] = None) -> None:
-        self._data_scope_name = data_scope_name
-        self._data_source = data_source
-        self._offset = offset
-        self._timestamp_type = timestamp_type
-        self._series_tags = series_tags
-
-    @builtins.property
-    def data_scope_name(self) -> str:
-        """The name of the data scope. The name is guaranteed to be be unique within the context of an asset.
-        """
-        return self._data_scope_name
-
-    @builtins.property
-    def data_source(self) -> "scout_run_api_DataSource":
-        return self._data_source
-
-    @builtins.property
-    def offset(self) -> Optional["scout_run_api_Duration"]:
-        return self._offset
-
-    @builtins.property
-    def timestamp_type(self) -> "scout_run_api_WeakTimestampType":
-        return self._timestamp_type
-
-    @builtins.property
-    def series_tags(self) -> Dict[str, str]:
-        """Filters the data source to series matching these tag values. The filtered set of series should be
-the ones that belong to the asset.
-        """
-        return self._series_tags
-
-
-scout_asset_api_AssetDataScope.__name__ = "AssetDataScope"
-scout_asset_api_AssetDataScope.__qualname__ = "AssetDataScope"
-scout_asset_api_AssetDataScope.__module__ = "nominal_api.scout_asset_api"
 
 
 class scout_asset_api_AssetSortOptions(ConjureBeanType):
@@ -18139,10 +18089,10 @@ class scout_asset_api_CreateAssetDataScope(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'data_scope_name': ConjureFieldDefinition('dataScopeName', scout_asset_api_DataScopeName),
+            'data_scope_name': ConjureFieldDefinition('dataScopeName', scout_api_DataSourceRefName),
             'data_source': ConjureFieldDefinition('dataSource', scout_run_api_DataSource),
             'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_run_api_Duration]),
-            'series_tags': ConjureFieldDefinition('seriesTags', Dict[scout_asset_api_SeriesTagName, scout_asset_api_SeriesTagValue])
+            'series_tags': ConjureFieldDefinition('seriesTags', Dict[api_TagName, api_TagValue])
         }
 
     __slots__: List[str] = ['_data_scope_name', '_data_source', '_offset', '_series_tags']
@@ -18318,6 +18268,58 @@ scout_asset_api_CreateTypeRequest.__qualname__ = "CreateTypeRequest"
 scout_asset_api_CreateTypeRequest.__module__ = "nominal_api.scout_asset_api"
 
 
+class scout_asset_api_DataScope(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'data_scope_name': ConjureFieldDefinition('dataScopeName', scout_api_DataSourceRefName),
+            'data_source': ConjureFieldDefinition('dataSource', scout_run_api_DataSource),
+            'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_run_api_Duration]),
+            'timestamp_type': ConjureFieldDefinition('timestampType', scout_run_api_WeakTimestampType),
+            'series_tags': ConjureFieldDefinition('seriesTags', Dict[api_TagName, api_TagValue])
+        }
+
+    __slots__: List[str] = ['_data_scope_name', '_data_source', '_offset', '_timestamp_type', '_series_tags']
+
+    def __init__(self, data_scope_name: str, data_source: "scout_run_api_DataSource", series_tags: Dict[str, str], timestamp_type: "scout_run_api_WeakTimestampType", offset: Optional["scout_run_api_Duration"] = None) -> None:
+        self._data_scope_name = data_scope_name
+        self._data_source = data_source
+        self._offset = offset
+        self._timestamp_type = timestamp_type
+        self._series_tags = series_tags
+
+    @builtins.property
+    def data_scope_name(self) -> str:
+        """The name of the data scope. The name is guaranteed to be be unique within the context of an asset.
+        """
+        return self._data_scope_name
+
+    @builtins.property
+    def data_source(self) -> "scout_run_api_DataSource":
+        return self._data_source
+
+    @builtins.property
+    def offset(self) -> Optional["scout_run_api_Duration"]:
+        return self._offset
+
+    @builtins.property
+    def timestamp_type(self) -> "scout_run_api_WeakTimestampType":
+        return self._timestamp_type
+
+    @builtins.property
+    def series_tags(self) -> Dict[str, str]:
+        """Filters the data source to series matching these tag values. The filtered set of series should be
+the ones that belong to the asset.
+        """
+        return self._series_tags
+
+
+scout_asset_api_DataScope.__name__ = "DataScope"
+scout_asset_api_DataScope.__qualname__ = "DataScope"
+scout_asset_api_DataScope.__module__ = "nominal_api.scout_asset_api"
+
+
 class scout_asset_api_PropertyConfig(ConjureBeanType):
 
     @builtins.classmethod
@@ -18371,7 +18373,7 @@ class scout_asset_api_SearchAssetChannelsRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'search_text': ConjureFieldDefinition('searchText', str),
-            'data_scope_name_filter': ConjureFieldDefinition('dataScopeNameFilter', OptionalTypeWrapper[List[scout_asset_api_DataScopeName]]),
+            'data_scope_name_filter': ConjureFieldDefinition('dataScopeNameFilter', OptionalTypeWrapper[List[scout_api_DataSourceRefName]]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
             'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int])
         }
@@ -19233,7 +19235,7 @@ class scout_asset_api_UpdateAssetRefNamesRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'data_scope_ref_name_updates': ConjureFieldDefinition('dataScopeRefNameUpdates', Dict[scout_asset_api_DataScopeName, scout_asset_api_DataScopeName])
+            'data_scope_ref_name_updates': ConjureFieldDefinition('dataScopeRefNameUpdates', Dict[scout_api_DataSourceRefName, scout_api_DataSourceRefName])
         }
 
     __slots__: List[str] = ['_data_scope_ref_name_updates']
@@ -35852,6 +35854,8 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
     _and_: Optional["scout_compute_api_BitAndFunction"] = None
     _or_: Optional["scout_compute_api_BitOrFunction"] = None
     _xor: Optional["scout_compute_api_BitXorFunction"] = None
+    _shift_right: Optional["scout_compute_api_BitShiftRightFunction"] = None
+    _shift_left: Optional["scout_compute_api_BitShiftLeftFunction"] = None
     _bit_test: Optional["scout_compute_api_BitTestFunction"] = None
 
     @builtins.classmethod
@@ -35860,6 +35864,8 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
             'and_': ConjureFieldDefinition('and', scout_compute_api_BitAndFunction),
             'or_': ConjureFieldDefinition('or', scout_compute_api_BitOrFunction),
             'xor': ConjureFieldDefinition('xor', scout_compute_api_BitXorFunction),
+            'shift_right': ConjureFieldDefinition('shiftRight', scout_compute_api_BitShiftRightFunction),
+            'shift_left': ConjureFieldDefinition('shiftLeft', scout_compute_api_BitShiftLeftFunction),
             'bit_test': ConjureFieldDefinition('bitTest', scout_compute_api_BitTestFunction)
         }
 
@@ -35868,11 +35874,13 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
             and_: Optional["scout_compute_api_BitAndFunction"] = None,
             or_: Optional["scout_compute_api_BitOrFunction"] = None,
             xor: Optional["scout_compute_api_BitXorFunction"] = None,
+            shift_right: Optional["scout_compute_api_BitShiftRightFunction"] = None,
+            shift_left: Optional["scout_compute_api_BitShiftLeftFunction"] = None,
             bit_test: Optional["scout_compute_api_BitTestFunction"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (xor is not None) + (bit_test is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (xor is not None) + (shift_right is not None) + (shift_left is not None) + (bit_test is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -35884,6 +35892,12 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
             if xor is not None:
                 self._xor = xor
                 self._type = 'xor'
+            if shift_right is not None:
+                self._shift_right = shift_right
+                self._type = 'shiftRight'
+            if shift_left is not None:
+                self._shift_left = shift_left
+                self._type = 'shiftLeft'
             if bit_test is not None:
                 self._bit_test = bit_test
                 self._type = 'bitTest'
@@ -35903,6 +35917,16 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._xor = xor
             self._type = 'xor'
+        elif type_of_union == 'shiftRight':
+            if shift_right is None:
+                raise ValueError('a union value must not be None')
+            self._shift_right = shift_right
+            self._type = 'shiftRight'
+        elif type_of_union == 'shiftLeft':
+            if shift_left is None:
+                raise ValueError('a union value must not be None')
+            self._shift_left = shift_left
+            self._type = 'shiftLeft'
         elif type_of_union == 'bitTest':
             if bit_test is None:
                 raise ValueError('a union value must not be None')
@@ -35922,6 +35946,14 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
         return self._xor
 
     @builtins.property
+    def shift_right(self) -> Optional["scout_compute_api_BitShiftRightFunction"]:
+        return self._shift_right
+
+    @builtins.property
+    def shift_left(self) -> Optional["scout_compute_api_BitShiftLeftFunction"]:
+        return self._shift_left
+
+    @builtins.property
     def bit_test(self) -> Optional["scout_compute_api_BitTestFunction"]:
         return self._bit_test
 
@@ -35934,6 +35966,10 @@ class scout_compute_api_BitOperationFunction(ConjureUnionType):
             return visitor._or(self.or_)
         if self._type == 'xor' and self.xor is not None:
             return visitor._xor(self.xor)
+        if self._type == 'shiftRight' and self.shift_right is not None:
+            return visitor._shift_right(self.shift_right)
+        if self._type == 'shiftLeft' and self.shift_left is not None:
+            return visitor._shift_left(self.shift_left)
         if self._type == 'bitTest' and self.bit_test is not None:
             return visitor._bit_test(self.bit_test)
 
@@ -35955,6 +35991,14 @@ class scout_compute_api_BitOperationFunctionVisitor:
 
     @abstractmethod
     def _xor(self, xor: "scout_compute_api_BitXorFunction") -> Any:
+        pass
+
+    @abstractmethod
+    def _shift_right(self, shift_right: "scout_compute_api_BitShiftRightFunction") -> Any:
+        pass
+
+    @abstractmethod
+    def _shift_left(self, shift_left: "scout_compute_api_BitShiftLeftFunction") -> Any:
         pass
 
     @abstractmethod
@@ -36019,6 +36063,56 @@ class scout_compute_api_BitOrFunction(ConjureBeanType):
 scout_compute_api_BitOrFunction.__name__ = "BitOrFunction"
 scout_compute_api_BitOrFunction.__qualname__ = "BitOrFunction"
 scout_compute_api_BitOrFunction.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_BitShiftLeftFunction(ConjureBeanType):
+    """Shifts the bits in each value left according to the given operand.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operand': ConjureFieldDefinition('operand', int)
+        }
+
+    __slots__: List[str] = ['_operand']
+
+    def __init__(self, operand: int) -> None:
+        self._operand = operand
+
+    @builtins.property
+    def operand(self) -> int:
+        return self._operand
+
+
+scout_compute_api_BitShiftLeftFunction.__name__ = "BitShiftLeftFunction"
+scout_compute_api_BitShiftLeftFunction.__qualname__ = "BitShiftLeftFunction"
+scout_compute_api_BitShiftLeftFunction.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_BitShiftRightFunction(ConjureBeanType):
+    """Right shifts the bits in each value right according to the given operand.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operand': ConjureFieldDefinition('operand', int)
+        }
+
+    __slots__: List[str] = ['_operand']
+
+    def __init__(self, operand: int) -> None:
+        self._operand = operand
+
+    @builtins.property
+    def operand(self) -> int:
+        return self._operand
+
+
+scout_compute_api_BitShiftRightFunction.__name__ = "BitShiftRightFunction"
+scout_compute_api_BitShiftRightFunction.__qualname__ = "BitShiftRightFunction"
+scout_compute_api_BitShiftRightFunction.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_BitTestFunction(ConjureBeanType):
@@ -69138,6 +69232,29 @@ scout_run_api_DataReviewMetrics.__qualname__ = "DataReviewMetrics"
 scout_run_api_DataReviewMetrics.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_run_api_DataScopes(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'data_scopes': ConjureFieldDefinition('dataScopes', Dict[scout_api_DataSourceRefName, scout_asset_api_DataScope])
+        }
+
+    __slots__: List[str] = ['_data_scopes']
+
+    def __init__(self, data_scopes: Dict[str, "scout_asset_api_DataScope"]) -> None:
+        self._data_scopes = data_scopes
+
+    @builtins.property
+    def data_scopes(self) -> Dict[str, "scout_asset_api_DataScope"]:
+        return self._data_scopes
+
+
+scout_run_api_DataScopes.__name__ = "DataScopes"
+scout_run_api_DataScopes.__qualname__ = "DataScopes"
+scout_run_api_DataScopes.__module__ = "nominal_api.scout_run_api"
+
+
 class scout_run_api_DataSource(ConjureUnionType):
     _dataset: Optional[str] = None
     _connection: Optional[str] = None
@@ -69521,7 +69638,8 @@ class scout_run_api_Run(ConjureBeanType):
             'links': ConjureFieldDefinition('links', List[scout_run_api_Link]),
             'created_at': ConjureFieldDefinition('createdAt', str),
             'updated_at': ConjureFieldDefinition('updatedAt', str),
-            'asset_data_scopes': ConjureFieldDefinition('assetDataScopes', List[scout_asset_api_AssetDataScope]),
+            'asset_data_scopes_map': ConjureFieldDefinition('assetDataScopesMap', Dict[scout_rids_api_AssetRid, scout_run_api_DataScopes]),
+            'asset_data_scopes': ConjureFieldDefinition('assetDataScopes', List[scout_asset_api_DataScope]),
             'data_sources': ConjureFieldDefinition('dataSources', Dict[scout_api_DataSourceRefName, scout_run_api_RunDataSource]),
             'attachments': ConjureFieldDefinition('attachments', List[api_rids_AttachmentRid]),
             'asset': ConjureFieldDefinition('asset', OptionalTypeWrapper[scout_rids_api_AssetRid]),
@@ -69529,9 +69647,9 @@ class scout_run_api_Run(ConjureBeanType):
             'is_archived': ConjureFieldDefinition('isArchived', bool)
         }
 
-    __slots__: List[str] = ['_rid', '_run_number', '_run_prefix', '_title', '_description', '_author_rid', '_start_time', '_end_time', '_properties', '_labels', '_links', '_created_at', '_updated_at', '_asset_data_scopes', '_data_sources', '_attachments', '_asset', '_assets', '_is_archived']
+    __slots__: List[str] = ['_rid', '_run_number', '_run_prefix', '_title', '_description', '_author_rid', '_start_time', '_end_time', '_properties', '_labels', '_links', '_created_at', '_updated_at', '_asset_data_scopes_map', '_asset_data_scopes', '_data_sources', '_attachments', '_asset', '_assets', '_is_archived']
 
-    def __init__(self, asset_data_scopes: List["scout_asset_api_AssetDataScope"], assets: List[str], attachments: List[str], created_at: str, data_sources: Dict[str, "scout_run_api_RunDataSource"], description: str, is_archived: bool, labels: List[str], links: List["scout_run_api_Link"], properties: Dict[str, str], rid: str, run_number: int, start_time: "scout_run_api_UtcTimestamp", title: str, updated_at: str, asset: Optional[str] = None, author_rid: Optional[str] = None, end_time: Optional["scout_run_api_UtcTimestamp"] = None, run_prefix: Optional[str] = None) -> None:
+    def __init__(self, asset_data_scopes: List["scout_asset_api_DataScope"], asset_data_scopes_map: Dict[str, "scout_run_api_DataScopes"], assets: List[str], attachments: List[str], created_at: str, data_sources: Dict[str, "scout_run_api_RunDataSource"], description: str, is_archived: bool, labels: List[str], links: List["scout_run_api_Link"], properties: Dict[str, str], rid: str, run_number: int, start_time: "scout_run_api_UtcTimestamp", title: str, updated_at: str, asset: Optional[str] = None, author_rid: Optional[str] = None, end_time: Optional["scout_run_api_UtcTimestamp"] = None, run_prefix: Optional[str] = None) -> None:
         self._rid = rid
         self._run_number = run_number
         self._run_prefix = run_prefix
@@ -69545,6 +69663,7 @@ class scout_run_api_Run(ConjureBeanType):
         self._links = links
         self._created_at = created_at
         self._updated_at = updated_at
+        self._asset_data_scopes_map = asset_data_scopes_map
         self._asset_data_scopes = asset_data_scopes
         self._data_sources = data_sources
         self._attachments = attachments
@@ -69605,13 +69724,19 @@ class scout_run_api_Run(ConjureBeanType):
         return self._updated_at
 
     @builtins.property
-    def asset_data_scopes(self) -> List["scout_asset_api_AssetDataScope"]:
-        """returns the data scopes for the assets associated with the run.
+    def asset_data_scopes_map(self) -> Dict[str, "scout_run_api_DataScopes"]:
+        """Map from asset RIDs to their data scopes
         """
+        return self._asset_data_scopes_map
+
+    @builtins.property
+    def asset_data_scopes(self) -> List["scout_asset_api_DataScope"]:
         return self._asset_data_scopes
 
     @builtins.property
     def data_sources(self) -> Dict[str, "scout_run_api_RunDataSource"]:
+        """Map from refnames to run data sources. Will be empty for multi-asset runs.
+        """
         return self._data_sources
 
     @builtins.property
@@ -83636,10 +83761,6 @@ scout_compute_api_SeriesName = str
 
 timeseries_logicalseries_api_MeasureName = str
 
-scout_asset_api_DataScopeName = str
-
-scout_asset_api_SeriesTagName = str
-
 scout_run_api_LogSetRid = str
 
 scout_units_api_UnitProperty = str
@@ -83665,8 +83786,6 @@ scout_channelvariables_api_ComputeSpecV1 = str
 timeseries_logicalseries_api_TableName = str
 
 scout_rids_api_NotebookRid = str
-
-scout_asset_api_SeriesTagValue = str
 
 scout_rids_api_UserRid = str
 

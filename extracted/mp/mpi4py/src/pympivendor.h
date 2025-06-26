@@ -12,7 +12,7 @@ static int PyMPI_Get_vendor(const char **vendor_name,
   const char *name = "unknown";
   int major=0, minor=0, micro=0;
 
-#if defined(PyMPI_ABI) || defined(CIBUILDWHEEL)
+#if defined(MPI_ABI_VERSION) || defined(PYMPIABI)
 
   int ierr, len = 0, cnt;
   char lib[MPI_MAX_LIBRARY_VERSION_STRING] = {0}, *str;
@@ -139,19 +139,6 @@ static int PyMPI_Get_vendor(const char **vendor_name,
   micro = OMPI_RELEASE_VERSION;
   #endif
 
-#elif defined(LAM_MPI)
-
-  name = "LAM/MPI";
-  #if defined(LAM_MAJOR_VERSION)
-  major = LAM_MAJOR_VERSION;
-  #endif
-  #if defined(LAM_MINOR_VERSION)
-  minor = LAM_MINOR_VERSION;
-  #endif
-  #if defined(LAM_RELEASE_VERSION)
-  micro = LAM_RELEASE_VERSION;
-  #endif
-
 #endif
 
   if (vendor_name)   *vendor_name   = name;
@@ -161,10 +148,3 @@ static int PyMPI_Get_vendor(const char **vendor_name,
 
   return MPI_SUCCESS;
 }
-
-/*
-   Local variables:
-   c-basic-offset: 2
-   indent-tabs-mode: nil
-   End:
-*/

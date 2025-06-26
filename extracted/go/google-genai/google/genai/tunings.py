@@ -777,6 +777,7 @@ class Tunings(_api_module.BaseModule):
     return_value = types.TuningJob._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -841,6 +842,7 @@ class Tunings(_api_module.BaseModule):
     return_value = types.ListTuningJobsResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -907,6 +909,7 @@ class Tunings(_api_module.BaseModule):
     return_value = types.TuningJob._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -975,6 +978,7 @@ class Tunings(_api_module.BaseModule):
     return_value = types.Operation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -1115,6 +1119,7 @@ class AsyncTunings(_api_module.BaseModule):
     return_value = types.TuningJob._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -1181,6 +1186,7 @@ class AsyncTunings(_api_module.BaseModule):
     return_value = types.ListTuningJobsResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -1247,6 +1253,7 @@ class AsyncTunings(_api_module.BaseModule):
     return_value = types.TuningJob._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -1315,6 +1322,7 @@ class AsyncTunings(_api_module.BaseModule):
     return_value = types.Operation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -1514,7 +1522,7 @@ class _IpythonUtils:
         </script>
     """
 
-    from IPython.core.display import display
+    from IPython.display import display
     from IPython.display import HTML
 
     display(HTML(html))

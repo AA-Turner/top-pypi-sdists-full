@@ -9,6 +9,7 @@ from abstra_internals.environment import (
 )
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.consumer import Consumer, QueueMessage
+from abstra_internals.repositories.producer import LocalProducerRepository
 from abstra_internals.settings import Settings
 
 
@@ -32,7 +33,10 @@ class ConsumerController:
             f"[ConsumerController] Starting loop with {self.concurrency} threads"
         )
 
-        thread_pool = ThreadPoolExecutor(max_workers=self.concurrency)
+        thread_pool = ThreadPoolExecutor(
+            max_workers=self.concurrency,
+            thread_name_prefix="ExecutionConsumer",
+        )
 
         try:
             for msg in self.consumer.iter():
@@ -50,9 +54,10 @@ class ConsumerController:
             thread_pool.shutdown(wait=True)
             AbstraLogger.warning("[ConsumerController] All threads finished")
 
+            # If the loop exits and there are running executions, gracefull shutdown has failed
             self.main_controller.fail_app_executions(
                 app_id=self.app_id,
-                err_msg="[ABSTRA]: Consumer main loop exited",
+                reason="Failed to set status",
             )
 
     def run_subprocess(self, msg: QueueMessage):
@@ -70,8 +75,15 @@ class ConsumerController:
                 self.consumer.threadsafe_ack(msg)
                 return
 
+            local_queue = None
+            if isinstance(
+                self.main_controller.repositories.producer, LocalProducerRepository
+            ):
+                local_queue = self.main_controller.repositories.producer.queue
+
             p = mp_context.Process(
                 target=process_main,
+                name=f"Worker-{head_id}",
                 kwargs=dict(
                     stage=stage,
                     worker_id=worker_id,
@@ -79,8 +91,8 @@ class ConsumerController:
                     root_path=Settings.root_path,
                     server_port=Settings.server_port,
                     request=msg.preexecution.context,
+                    local_queue=local_queue,
                 ),
-                name=f"Worker-{head_id}",
             )
 
             p.start()
@@ -107,24 +119,16 @@ class ConsumerController:
                 f"[ConsumerController] Error processing message [{msg.delivery_tag}]: {e}"
             )
 
-            AbstraLogger.capture_message(
-                f"[ConsumerController] Error processing message [{msg.delivery_tag}]: {e}"
-            )
-
             AbstraLogger.capture_exception(e)
 
             self.main_controller.fail_worker_executions(
                 app_id=self.app_id,
                 worker_id=worker_id,
-                err_msg=f"[ABSTRA]: {e}",
+                reason=f"{e}",
             )
 
             self.consumer.threadsafe_nack(msg)
 
             AbstraLogger.warning(
-                f"[ConsumerController] Message [{msg.delivery_tag}] has been negatively acknowledged"
-            )
-
-            AbstraLogger.capture_message(
                 f"[ConsumerController] Message [{msg.delivery_tag}] has been negatively acknowledged"
             )

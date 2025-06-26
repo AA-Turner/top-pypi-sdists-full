@@ -10,7 +10,9 @@ import contextlib
 import py
 from . import mythread
 from .interfaces import IStorageConnection3
+from .interfaces import IWriter2
 from .keyfs_types import PTypedKey
+from .keyfs_types import Record
 from .keyfs_types import TypedKey
 from .log import threadlog, thread_push_log, thread_pop_log
 from .log import thread_change_log_prefix
@@ -167,70 +169,78 @@ class TxNotificationThread:
         log.debug("calling hooks for tx%s", event_serial)
         with self.keyfs.get_connection() as conn:
             changes = conn.get_changes(event_serial)
-            # we first check for missing files before we call subscribers
-            for relpath, (keyname, back_serial, val) in changes.items():
-                if keyname in ('STAGEFILE', 'PYPIFILE_NOMD5'):
-                    key = self.keyfs.get_key_instance(keyname, relpath)
-                    entry = FileEntry(key, val)
-                    if entry.meta == {} or entry.last_modified is None:
-                        # the file was removed
-                        continue
-                    ixconfig = self.get_ixconfig(entry, event_serial)
-                    if ixconfig is None:
-                        # the index doesn't exist (anymore)
-                        continue
-                    elif ixconfig.get('type') == 'mirror' and ixconfig.get('mirror_use_external_urls', False):
-                        # the index uses external URLs now
-                        continue
-                    if conn.io_file_exists(entry._storepath):
+        # we first check for missing files before we call subscribers
+        for relpath, (keyname, _back_serial, val) in changes.items():
+            if keyname in ("STAGEFILE", "PYPIFILE_NOMD5"):
+                key = self.keyfs.get_key_instance(keyname, relpath)
+                entry = FileEntry(key, val)
+                if entry.meta == {} or entry.last_modified is None:
+                    # the file was removed
+                    continue
+                ixconfig = self.get_ixconfig(entry, event_serial)
+                if ixconfig is None:
+                    # the index doesn't exist (anymore)
+                    continue
+                if ixconfig.get("type") == "mirror" and ixconfig.get(
+                    "mirror_use_external_urls", False
+                ):
+                    # the index uses external URLs now
+                    continue
+                with self.keyfs.filestore_transaction():
+                    if entry.file_exists():
                         # all good
                         continue
-                    # the file is missing, check whether we can ignore it
-                    serial = self.keyfs.get_current_serial()
-                    if event_serial < serial:
-                        # there are newer serials existing
-                        with self.keyfs.read_transaction() as tx:
-                            current_val = tx.get(key)
-                        if current_val is None:
-                            # entry was deleted
+                # the file is missing, check whether we can ignore it
+                serial = self.keyfs.get_current_serial()
+                if event_serial < serial:
+                    # there are newer serials existing
+                    with self.keyfs.read_transaction() as tx:
+                        current_val = tx.get(key)
+                    if current_val is None:
+                        # entry was deleted
+                        continue
+                    current_entry = FileEntry(key, current_val)
+                    if current_entry.meta == {} or current_entry.last_modified is None:
+                        # the file was removed at some point
+                        continue
+                    current_ixconfig = self.get_ixconfig(entry, serial)
+                    if current_ixconfig is None:
+                        # the index doesn't exist (anymore)
+                        continue
+                    if current_ixconfig.get("type") == "mirror":
+                        if current_ixconfig.get("mirror_use_external_urls", False):
+                            # the index uses external URLs now
                             continue
-                        current_entry = FileEntry(key, current_val)
-                        if current_entry.meta == {} or current_entry.last_modified is None:
-                            # the file was removed at some point
+                        if current_entry.project is None:
+                            # this is an old mirror entry with no
+                            # project info, so this can be ignored
                             continue
-                        current_ixconfig = self.get_ixconfig(entry, serial)
-                        if current_ixconfig is None:
-                            # the index doesn't exist (anymore)
-                            continue
-                        if current_ixconfig.get('type') == 'mirror':
-                            if current_ixconfig.get('mirror_use_external_urls', False):
-                                # the index uses external URLs now
-                                continue
-                            if current_entry.project is None:
-                                # this is an old mirror entry with no
-                                # project info, so this can be ignored
-                                continue
-                        log.debug("missing current_entry.meta %r" % current_entry.meta)
-                    log.debug("missing entry.meta %r" % entry.meta)
-                    raise MissingFileException(relpath, event_serial)
-            # all files exist or are deleted in a later serial,
-            # call subscribers now
-            for relpath, (keyname, back_serial, val) in changes.items():
-                subscribers = self._on_key_change.get(keyname, [])
-                if not subscribers:
-                    continue
-                key = self.keyfs.get_key_instance(keyname, relpath)
-                ev = KeyChangeEvent(key, val, event_serial, back_serial)
-                for sub in subscribers:
-                    subname = getattr(sub, "__name__", sub)
-                    log.debug("%s(key=%r, at_serial=%r, back_serial=%r",
-                              subname, ev.typedkey, event_serial, ev.back_serial)
-                    try:
-                        sub(ev)
-                    except Exception:
-                        if raising:
-                            raise
-                        log.exception("calling %s failed, serial=%s", sub, event_serial)
+                    log.debug("missing current_entry.meta %r", current_entry.meta)
+                log.debug("missing entry.meta %r", entry.meta)
+                raise MissingFileException(relpath, event_serial)
+        # all files exist or are deleted in a later serial,
+        # call subscribers now
+        for relpath, (keyname, back_serial, val) in changes.items():
+            subscribers = self._on_key_change.get(keyname, [])
+            if not subscribers:
+                continue
+            key = self.keyfs.get_key_instance(keyname, relpath)
+            ev = KeyChangeEvent(key, val, event_serial, back_serial)
+            for sub in subscribers:
+                subname = getattr(sub, "__name__", sub)
+                log.debug(
+                    "%s(key=%r, at_serial=%r, back_serial=%r",
+                    subname,
+                    ev.typedkey,
+                    event_serial,
+                    ev.back_serial,
+                )
+                try:
+                    sub(ev)
+                except Exception:
+                    if raising:
+                        raise
+                    log.exception("calling %s failed, serial=%s", sub, event_serial)
 
         log.debug("finished calling all hooks for tx%s", event_serial)
 
@@ -282,20 +292,27 @@ class KeyFS(object):
         self._storage.perform_crash_recovery()
 
     def import_changes(self, serial, changes):
-        with self.get_connection(write=True) as conn:
-            with conn.write_transaction() as fswriter:
-                next_serial = conn.last_changelog_serial + 1
-                assert next_serial == serial, (next_serial, serial)
-                changes = {
-                    self.get_key_instance(keyname, relpath): (val, back_serial)
-                    for relpath, (keyname, back_serial, val) in changes.items()}
-                for typedkey, (val, back_serial) in changes.items():
-                    fswriter.record_set(
-                        typedkey, get_mutable_deepcopy(val),
-                        back_serial=back_serial)
+        with contextlib.ExitStack() as cstack:
+            conn = cstack.enter_context(self.get_connection(write=True))
+            fswriter = IWriter2(cstack.enter_context(conn.write_transaction()))
+            next_serial = conn.last_changelog_serial + 1
+            assert next_serial == serial, (next_serial, serial)
+            records = []
+            subscriber_changes = {}
+            for relpath, (keyname, back_serial, val) in changes.items():
+                try:
+                    (_, _, old_val) = conn.get_relpath_at(relpath, serial - 1)
+                except KeyError:
+                    old_val = absent
+                typedkey = self.get_key_instance(keyname, relpath)
+                subscriber_changes[typedkey] = (val, back_serial)
+                records.append(
+                    Record(typedkey, get_mutable_deepcopy(val), back_serial, old_val)
+                )
+            fswriter.records_set(records)
         if callable(self._import_subscriber):
             with self.read_transaction(at_serial=serial):
-                self._import_subscriber(serial, changes)
+                self._import_subscriber(serial, subscriber_changes)
 
     def subscribe_on_import(self, subscriber):
         assert self._import_subscriber is None
@@ -377,9 +394,11 @@ class KeyFS(object):
             key = key(**key.extract_params(relpath))
         return key
 
-    def _tx_prefix(self):
+    def _tx_prefix(self, *, filestore=False):
         tx = self._threadlocal.tx
-        return "[%stx%s]" % ("W" if tx.write else "R", tx.at_serial)
+        mode = "F" if filestore else ("W" if tx.write else "R")
+        at_serial = getattr(tx, "at_serial", "")
+        return "[%stx%s]" % (mode, at_serial)
 
     def begin_transaction_in_thread(self, write=False, at_serial=None):
         if write and self._readonly:
@@ -428,6 +447,40 @@ class KeyFS(object):
             self._threadlocal.tx.commit()
         finally:
             self.clear_transaction()
+
+    @contextlib.contextmanager
+    def _filestore_transaction(self):
+        tx = FileStoreTransaction(self)
+        self._threadlocal.tx = tx
+        prefix = self._tx_prefix(filestore=True)
+        thread_push_log(prefix)
+        try:
+            yield tx
+        except BaseException:
+            try:
+                tx.rollback()
+            finally:
+                del self._threadlocal.tx
+                thread_pop_log(prefix)
+            raise
+        try:
+            tx.commit()
+        finally:
+            del self._threadlocal.tx
+            thread_pop_log(prefix)
+
+    @contextlib.contextmanager
+    def filestore_transaction(self):
+        """Guarantees a transaction able to directly write files.
+
+        An existing transaction is reused.
+        """
+        tx = getattr(self._threadlocal, "tx", None)
+        if tx is not None:
+            yield tx
+        else:
+            with self._filestore_transaction() as tx:
+                yield tx
 
     @contextlib.contextmanager
     def _transaction(self, *, write=False, at_serial=None):
@@ -575,6 +628,38 @@ class TransactionRootModel(RootModel):
         return self.model_cache[key]
 
 
+class FileStoreTransaction:
+    def __init__(self, keyfs):
+        self.keyfs = keyfs
+        self.closed = False
+        self.write = True
+
+    @cached_property
+    def conn(self):
+        return self.keyfs.get_connection(write=True, closing=False)
+
+    def _close(self):
+        if self.closed:
+            # We can reach this when the transaction is restarted and there
+            # is an exception after the commit and before the assignment of
+            # the __dict__. The ``transaction`` context manager will call
+            # ``rollback``, which then arrives here.
+            return
+        threadlog.debug("closing filestore transaction")
+        self.conn.close()
+        self.closed = True
+
+    def commit(self):
+        self.conn.commit_files_without_increasing_serial()
+        self._close()
+
+    def rollback(self):
+        if hasattr(self.conn, "rollback"):
+            self.conn.rollback()
+        threadlog.debug("filestore transaction rollback")
+        self._close()
+
+
 class Transaction(object):
     def __init__(self, keyfs, at_serial=None, write=False):
         if write and at_serial:
@@ -675,7 +760,7 @@ class Transaction(object):
             self._original[typedkey] = (serial, val)
         return self._original[typedkey]
 
-    def get(self, typedkey, readonly=True):
+    def _get(self, typedkey):
         if typedkey in self.cache:
             val = self.cache[typedkey]
         else:
@@ -683,10 +768,26 @@ class Transaction(object):
         if val in (absent, deleted):
             # for convenience we return an empty instance
             val = typedkey.type()
-        if readonly:
-            return ensure_deeply_readonly(val)
+        return val
+
+    def get(self, typedkey, *, readonly=None):
+        """Return current read-only value referenced by typedkey."""
+        if readonly is None:
+            readonly = True
         else:
-            return get_mutable_deepcopy(val)
+            warnings.warn(
+                "The 'readonly' argument is deprecated. You should either drop it, ",
+                "use the 'get_mutable' method "
+                "or wrap the result in the 'get_mutable_deepcopy' function.",
+                stacklevel=2,
+            )
+        if readonly:
+            return ensure_deeply_readonly(self._get(typedkey))
+        return get_mutable_deepcopy(self._get(typedkey))
+
+    def get_mutable(self, typedkey):
+        """Return current mutable value referenced by typedkey."""
+        return get_mutable_deepcopy(self._get(typedkey))
 
     def exists(self, typedkey):
         if typedkey in self.cache:
@@ -730,23 +831,23 @@ class Transaction(object):
             if val == old_val:
                 continue
             if val is deleted:
+                if old_val in (absent, deleted):
+                    continue
                 val = None
-            records.append((typedkey, val, back_serial, old_val))
+            records.append(Record(typedkey, val, back_serial, old_val))
         if not records and not self.conn.dirty_files:
             threadlog.debug("nothing to commit, just closing tx")
             result = self._close()
             self._run_listeners(self._finished_listeners)
             return result
-        try:
-            with self.conn.write_transaction() as fswriter:
-                for (typedkey, val, back_serial, old_val) in records:
-                    fswriter.record_set(typedkey, val, back_serial)
-                commit_serial = getattr(fswriter, "commit_serial", absent)
-                if commit_serial is absent:
-                    # for storages which don't have the attribute yet
-                    commit_serial = self.conn.last_changelog_serial + 1
-        finally:
-            self._close()
+        with contextlib.ExitStack() as cstack:
+            cstack.callback(self._close)
+            fswriter = IWriter2(cstack.enter_context(self.conn.write_transaction()))
+            fswriter.records_set(records)
+            commit_serial = getattr(fswriter, "commit_serial", absent)
+            if commit_serial is absent:
+                # for storages which don't have the attribute yet
+                commit_serial = self.conn.last_changelog_serial + 1
         self.commit_serial = commit_serial
         self._run_listeners(self._success_listeners)
         self._run_listeners(self._finished_listeners)

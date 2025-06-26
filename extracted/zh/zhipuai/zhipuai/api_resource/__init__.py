@@ -45,6 +45,14 @@ from .web_search import (
     WebSearchApi
 )
 
+from .agents import (
+    Agents
+)
+
+from .audio import (
+    Audio
+)
+
 __all__ = [
     'Videos',
     'AsyncCompletions',

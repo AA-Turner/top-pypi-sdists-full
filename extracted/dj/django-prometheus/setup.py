@@ -36,7 +36,7 @@ setup(
     packages=find_packages(
         exclude=[
             "tests",
-        ]
+        ],
     ),
     test_suite="django_prometheus.tests",
     long_description=LONG_DESCRIPTION,
@@ -45,6 +45,7 @@ setup(
     setup_requires=["pytest-runner"],
     options={"bdist_wheel": {"universal": "1"}},
     install_requires=[
+        "Django>=4.2,<6.0",
         "prometheus-client>=0.7",
     ],
     classifiers=[

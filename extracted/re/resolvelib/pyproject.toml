@@ -6,7 +6,7 @@ authors = [
     {name = "Tzu-ping Chung", email = "uranusjr@gmail.com"},
 ]
 dependencies = []
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 readme = "README.rst"
 license = {text = "ISC License"}
 keywords = ["dependency", "resolution"]
@@ -40,7 +40,7 @@ release = [
 ]
 
 [build-system]
-requires = ['setuptools>=62', 'wheel']
+requires = ["setuptools >= 62"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -53,7 +53,7 @@ find = {where = ["src"], namespaces = false}
 version = {attr = "resolvelib.__version__"}
 
 [tool.distutils.bdist_wheel]
-universal = true
+universal = false  # `py3` only tag
 
 [tool.towncrier]
 package = 'resolvelib'
@@ -63,6 +63,11 @@ directory = 'news/'
 title_format = '{version} ({project_date})'
 issue_format = '`#{issue} <https://github.com/sarugaku/resolvelib/issues/{issue}>`_'
 template = 'news/CHANGELOG.rst.jinja2'
+
+[[tool.towncrier.type]]
+directory = 'significant'
+name = 'Significant Changes'
+showcontent = true
 
 [[tool.towncrier.type]]
 directory = 'feature'
@@ -98,7 +103,7 @@ exclude = [
 ]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 12
+max-complexity = 20
 
 [tool.mypy]
 warn_unused_configs = true

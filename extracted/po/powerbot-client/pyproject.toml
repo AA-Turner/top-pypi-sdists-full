@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "powerbot_client"
-version = "2.22.1"
+version = "2.23.0"
 description = "PowerBot Asyncio Client"
 authors = ["PowerBot <support@powerbot-trading.com>"]
 readme = "README.md"

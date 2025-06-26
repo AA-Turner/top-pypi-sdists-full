@@ -366,6 +366,7 @@ class Files(_api_module.BaseModule):
     return_value = types.ListFilesResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -427,6 +428,7 @@ class Files(_api_module.BaseModule):
     return_value = types.CreateFileResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -494,6 +496,7 @@ class Files(_api_module.BaseModule):
     return_value = types.File._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -562,6 +565,7 @@ class Files(_api_module.BaseModule):
     return_value = types.DeleteFileResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -840,6 +844,7 @@ class AsyncFiles(_api_module.BaseModule):
     return_value = types.ListFilesResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -901,6 +906,7 @@ class AsyncFiles(_api_module.BaseModule):
     return_value = types.CreateFileResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -970,6 +976,7 @@ class AsyncFiles(_api_module.BaseModule):
     return_value = types.File._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -1038,6 +1045,7 @@ class AsyncFiles(_api_module.BaseModule):
     return_value = types.DeleteFileResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 

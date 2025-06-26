@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use itertools::Itertools;
-
-const DEFAULT_INCLUDE_PATTERNS: &[&str] = &["**/*.toml"];
+use tombi_config::FilesOptions;
+use tombi_glob::WalkDir;
 
 /// Input source for TOML files.
 ///
@@ -14,82 +13,45 @@ pub enum FileInput {
 }
 
 impl FileInput {
-    pub fn new<T: AsRef<str>>(
+    pub async fn new<T: AsRef<str>>(
         files: &[T],
-        include_patterns: Option<&[&str]>,
-        exclude_patterns: Option<&[&str]>,
+        config_path: Option<&std::path::Path>,
+        files_options: FilesOptions,
     ) -> Self {
-        let mut matched_paths = Vec::new();
-        let include_patterns = include_patterns.unwrap_or(DEFAULT_INCLUDE_PATTERNS);
-        let exclude_patterns = exclude_patterns.unwrap_or_default();
-        let exclude_matchers: Vec<glob::Pattern> = exclude_patterns
-            .iter()
-            .filter_map(|p| match glob::Pattern::new(p) {
-                Ok(pattern) => Some(pattern),
-                Err(e) => {
-                    matched_paths.push(Err(crate::Error::GlobPatternInvalid(e.to_string())));
-                    None
-                }
-            })
-            .collect();
+        let root = config_path.and_then(|p| p.parent()).unwrap_or(".".as_ref());
 
         match files.len() {
             0 => {
                 tracing::debug!("Searching for TOML files using configured patterns...");
-                tracing::debug!("Include patterns: {:?}", include_patterns);
-                tracing::debug!("Exclude patterns: {:?}", exclude_patterns);
 
-                for pattern in include_patterns {
-                    if let Ok(paths) = glob::glob(pattern) {
-                        matched_paths.extend(
-                            paths
-                                .filter_map(|entry| entry.ok())
-                                .filter(|path| {
-                                    !exclude_matchers
-                                        .iter()
-                                        .any(|matcher| matcher.matches_path(path))
-                                })
-                                .map(Ok)
-                                .collect_vec(),
-                        );
-                    } else {
-                        matched_paths
-                            .push(Err(crate::Error::GlobPatternInvalid(pattern.to_string())));
-                    }
-                }
-
-                FileInput::Files(matched_paths)
+                FileInput::Files(search_with_patterns_async(root, files_options).await)
             }
             1 if files[0].as_ref() == "-" => FileInput::Stdin,
             _ => {
                 tracing::debug!("Searching for TOML files using user input patterns...");
-                tracing::debug!("Exclude patterns: {:?}", exclude_patterns);
 
-                for file in files {
-                    if is_glob_pattern(file.as_ref()) {
-                        if let Ok(paths) = glob::glob(file.as_ref()) {
-                            matched_paths.extend(
-                                paths
-                                    .filter_map(|entry| entry.ok())
-                                    .filter(|path| {
-                                        !exclude_matchers
-                                            .iter()
-                                            .any(|matcher| matcher.matches_path(path))
-                                    })
-                                    .map(Ok)
-                                    .collect_vec(),
-                            );
-                        } else {
-                            matched_paths
-                                .push(Err(crate::Error::GlobPatternInvalid(file.as_ref().into())));
-                        }
+                let mut matched_paths = Vec::with_capacity(100);
+
+                for file_input in files {
+                    let file_path = file_input.as_ref();
+
+                    if is_glob_pattern(file_path) || file_path.ends_with(".toml") {
+                        matched_paths.extend(
+                            search_with_patterns_async(
+                                root,
+                                FilesOptions {
+                                    include: Some(vec![file_path.to_string()]),
+                                    exclude: None,
+                                },
+                            )
+                            .await,
+                        );
                     } else {
-                        let path = PathBuf::from(file.as_ref());
-                        if !path.exists() {
-                            matched_paths
-                                .push(Err(crate::Error::FileNotFound(file.as_ref().into())));
-                        } else {
+                        let path = PathBuf::from(file_path);
+                        if path.exists() {
                             matched_paths.push(Ok(path));
+                        } else {
+                            matched_paths.push(Err(crate::Error::FileNotFound(path)));
                         }
                     }
                 }
@@ -114,4 +76,23 @@ fn is_glob_pattern(value: &str) -> bool {
         }
     }
     false
+}
+
+async fn search_with_patterns_async<P: AsRef<std::path::Path>>(
+    root: P,
+    files_options: FilesOptions,
+) -> Vec<Result<PathBuf, crate::Error>> {
+    tracing::debug!("Include patterns: {:?}", files_options.include);
+    tracing::debug!("Exclude patterns: {:?}", files_options.exclude);
+
+    match WalkDir::new_with_options(root, files_options).walk().await {
+        Ok(results) => {
+            let matched_paths: Vec<Result<PathBuf, crate::Error>> =
+                results.into_iter().map(|r| Ok(r)).collect();
+            matched_paths
+        }
+        Err(err) => {
+            vec![Err(crate::Error::GlobSearchFailed(err))]
+        }
+    }
 }

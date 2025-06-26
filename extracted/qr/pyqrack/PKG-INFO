@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyqrack
-Version: 1.59.0
+Version: 1.60.0
 Summary: pyqrack - Pure Python vm6502q/qrack Wrapper
 Home-page: https://github.com/vm6502q/pyqrack
 Author: Daniel Strano
@@ -90,4 +90,4 @@ For custom Qrack build floating-point precision, where options are `half`, `floa
 
 Please feel welcome to open an issue, if you'd like help. 😃
 
-**Special thanks go to Zeeshan Ahmed, for bug fixes and design suggestions, Ashish Panigrahi, for documentation and design suggestions, WingCode, for documentation, and to the broader community of Qrack contributors, for years of happy Qracking! You rock!**
+**Special thanks go to Zeeshan Ahmed, for bug fixes and design suggestions, Ashish Panigrahi, for documentation and design suggestions, WingCode, for documentation, Or Golan, for CI build pipeline tooling, and to the broader community of Qrack contributors, for years of happy Qracking! You rock!**

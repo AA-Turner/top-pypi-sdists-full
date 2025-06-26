@@ -33,6 +33,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy import sparse
 
 from pymatreader import read_mat
 
@@ -267,3 +268,74 @@ def test_cell_with_group(version):
     data = read_mat(Path(test_data_folder, f'struct_in_cell_v{version}.mat'))
     assert data['x']['test']['int'] == 4  # noqa PLR2004
     assert data['x']['test']['float'] == 3.2  # noqa PLR2004
+
+
+@pytest.mark.parametrize('version', ['4', '6', '7', '73'])
+def test_sparse_matrices(version):
+    """Test that sparse matrices are read correctly."""
+    data = read_mat(Path(test_data_folder, f'sparse_v{version}.mat'))
+
+    N, Nel = data['N'], data['Nel']  # noqa: N806
+
+    assert int(N) == N
+    assert int(Nel) == Nel
+    N, Nel = int(N), int(Nel)  # ensure they are integers  # noqa: N806
+
+    # Special matrices
+    A_empty = data['A_empty']  # noqa: N806
+    assert A_empty.shape == (0, 0)
+    assert A_empty.nnz == 0
+    assert A_empty.dtype == np.float64
+
+    A_single = data['A_single']  # noqa: N806
+    assert A_single.shape == (1, 1)
+    assert A_single.nnz == 1
+    assert A_single.dtype == np.float64
+
+    # Other matrices
+    matrix_dim = 10
+    assert N == matrix_dim  # noqa:SIM300
+    assert Nel == matrix_dim // 2  # noqa:SIM300
+
+    for empty in ['empty_', '']:
+        for name in ['col', 'row', 'wide', 'square', 'tall']:
+            mat_name = f'A_{empty}{name}'
+            print(f'Checking matrix: {mat_name} (version {version})')
+
+            assert mat_name in data
+
+            # Get the sparse matrix
+            matrix = data[mat_name]
+
+            # Check that the matrix is a sparse matrix/array
+            assert isinstance(matrix, sparse.sparray)
+
+            # Check that the number of non-zero elements matches Nel
+            if empty:
+                assert matrix.nnz == 0
+            else:
+                assert matrix.nnz == Nel
+
+            # Check that the data type is correct
+            assert matrix.dtype == np.float64
+
+            # Check the shape of the matrix
+            mat_shapes = dict(
+                col=(N, 1),
+                row=(1, N),
+                wide=(N, 2 * N),
+                square=(N, N),
+                tall=(2 * N, N)
+            )
+
+            assert matrix.shape == mat_shapes[name]
+
+            # Check every single value of the matrix
+            # Load the "true" data from the CSV file
+            csv_matrix = np.loadtxt(
+                Path(test_data_folder, f'sparse_{empty}{name}.csv'),
+                delimiter=','
+            ).reshape(mat_shapes[name])
+
+            np.testing.assert_allclose(matrix.toarray(), csv_matrix, atol=1e-15)
+

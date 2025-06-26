@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-prebuilt
-Version: 0.2.2
+Version: 0.2.3
 Summary: Library with high-level APIs for creating and executing LangGraph agents and tools.
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT

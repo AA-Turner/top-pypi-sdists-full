@@ -1,7 +1,7 @@
 r'''
 # `snowflake_grant_privileges_to_share`
 
-Refer to the Terraform Registry for docs: [`snowflake_grant_privileges_to_share`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share).
+Refer to the Terraform Registry for docs: [`snowflake_grant_privileges_to_share`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GrantPrivilegesToShare(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.grantPrivilegesToShare.GrantPrivilegesToShare",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share snowflake_grant_privileges_to_share}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share snowflake_grant_privileges_to_share}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GrantPrivilegesToShare(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share snowflake_grant_privileges_to_share} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share snowflake_grant_privileges_to_share} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param privileges: The privileges to grant on the share. See available list of privileges: https://docs.snowflake.com/en/sql-reference/sql/grant-privilege-share#syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#privileges GrantPrivilegesToShare#privileges}
-        :param to_share: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#to_share GrantPrivilegesToShare#to_share}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#id GrantPrivilegesToShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param on_all_tables_in_schema: The fully qualified identifier for the schema for which the specified privilege will be granted for all tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_all_tables_in_schema GrantPrivilegesToShare#on_all_tables_in_schema}
-        :param on_database: The fully qualified name of the database on which privileges will be granted. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_database GrantPrivilegesToShare#on_database}
-        :param on_function: The fully qualified name of the function on which privileges will be granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_function GrantPrivilegesToShare#on_function}
-        :param on_schema: The fully qualified name of the schema on which privileges will be granted. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_schema GrantPrivilegesToShare#on_schema}
-        :param on_table: The fully qualified name of the table on which privileges will be granted. For more information about this resource, see `docs <./table>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_table GrantPrivilegesToShare#on_table}
-        :param on_tag: The fully qualified name of the tag on which privileges will be granted. For more information about this resource, see `docs <./tag>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_tag GrantPrivilegesToShare#on_tag}
-        :param on_view: The fully qualified name of the view on which privileges will be granted. For more information about this resource, see `docs <./view>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_view GrantPrivilegesToShare#on_view}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#timeouts GrantPrivilegesToShare#timeouts}
+        :param privileges: The privileges to grant on the share. See available list of privileges: https://docs.snowflake.com/en/sql-reference/sql/grant-privilege-share#syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#privileges GrantPrivilegesToShare#privileges}
+        :param to_share: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#to_share GrantPrivilegesToShare#to_share}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#id GrantPrivilegesToShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param on_all_tables_in_schema: The fully qualified identifier for the schema for which the specified privilege will be granted for all tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_all_tables_in_schema GrantPrivilegesToShare#on_all_tables_in_schema}
+        :param on_database: The fully qualified name of the database on which privileges will be granted. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_database GrantPrivilegesToShare#on_database}
+        :param on_function: The fully qualified name of the function on which privileges will be granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_function GrantPrivilegesToShare#on_function}
+        :param on_schema: The fully qualified name of the schema on which privileges will be granted. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_schema GrantPrivilegesToShare#on_schema}
+        :param on_table: The fully qualified name of the table on which privileges will be granted. For more information about this resource, see `docs <./table>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_table GrantPrivilegesToShare#on_table}
+        :param on_tag: The fully qualified name of the tag on which privileges will be granted. For more information about this resource, see `docs <./tag>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_tag GrantPrivilegesToShare#on_tag}
+        :param on_view: The fully qualified name of the view on which privileges will be granted. For more information about this resource, see `docs <./view>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_view GrantPrivilegesToShare#on_view}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#timeouts GrantPrivilegesToShare#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GrantPrivilegesToShare(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GrantPrivilegesToShare to import.
-        :param import_from_id: The id of the existing GrantPrivilegesToShare that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GrantPrivilegesToShare that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GrantPrivilegesToShare to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class GrantPrivilegesToShare(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#create GrantPrivilegesToShare#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#delete GrantPrivilegesToShare#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#read GrantPrivilegesToShare#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#update GrantPrivilegesToShare#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#create GrantPrivilegesToShare#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#delete GrantPrivilegesToShare#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#read GrantPrivilegesToShare#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#update GrantPrivilegesToShare#update}.
         '''
         value = GrantPrivilegesToShareTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -452,17 +452,17 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param privileges: The privileges to grant on the share. See available list of privileges: https://docs.snowflake.com/en/sql-reference/sql/grant-privilege-share#syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#privileges GrantPrivilegesToShare#privileges}
-        :param to_share: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#to_share GrantPrivilegesToShare#to_share}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#id GrantPrivilegesToShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param on_all_tables_in_schema: The fully qualified identifier for the schema for which the specified privilege will be granted for all tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_all_tables_in_schema GrantPrivilegesToShare#on_all_tables_in_schema}
-        :param on_database: The fully qualified name of the database on which privileges will be granted. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_database GrantPrivilegesToShare#on_database}
-        :param on_function: The fully qualified name of the function on which privileges will be granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_function GrantPrivilegesToShare#on_function}
-        :param on_schema: The fully qualified name of the schema on which privileges will be granted. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_schema GrantPrivilegesToShare#on_schema}
-        :param on_table: The fully qualified name of the table on which privileges will be granted. For more information about this resource, see `docs <./table>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_table GrantPrivilegesToShare#on_table}
-        :param on_tag: The fully qualified name of the tag on which privileges will be granted. For more information about this resource, see `docs <./tag>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_tag GrantPrivilegesToShare#on_tag}
-        :param on_view: The fully qualified name of the view on which privileges will be granted. For more information about this resource, see `docs <./view>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_view GrantPrivilegesToShare#on_view}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#timeouts GrantPrivilegesToShare#timeouts}
+        :param privileges: The privileges to grant on the share. See available list of privileges: https://docs.snowflake.com/en/sql-reference/sql/grant-privilege-share#syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#privileges GrantPrivilegesToShare#privileges}
+        :param to_share: The fully qualified name of the share on which privileges will be granted. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#to_share GrantPrivilegesToShare#to_share}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#id GrantPrivilegesToShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param on_all_tables_in_schema: The fully qualified identifier for the schema for which the specified privilege will be granted for all tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_all_tables_in_schema GrantPrivilegesToShare#on_all_tables_in_schema}
+        :param on_database: The fully qualified name of the database on which privileges will be granted. For more information about this resource, see `docs <./database>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_database GrantPrivilegesToShare#on_database}
+        :param on_function: The fully qualified name of the function on which privileges will be granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_function GrantPrivilegesToShare#on_function}
+        :param on_schema: The fully qualified name of the schema on which privileges will be granted. For more information about this resource, see `docs <./schema>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_schema GrantPrivilegesToShare#on_schema}
+        :param on_table: The fully qualified name of the table on which privileges will be granted. For more information about this resource, see `docs <./table>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_table GrantPrivilegesToShare#on_table}
+        :param on_tag: The fully qualified name of the tag on which privileges will be granted. For more information about this resource, see `docs <./tag>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_tag GrantPrivilegesToShare#on_tag}
+        :param on_view: The fully qualified name of the view on which privileges will be granted. For more information about this resource, see `docs <./view>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_view GrantPrivilegesToShare#on_view}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#timeouts GrantPrivilegesToShare#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -593,7 +593,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def privileges(self) -> typing.List[builtins.str]:
         '''The privileges to grant on the share. See available list of privileges: https://docs.snowflake.com/en/sql-reference/sql/grant-privilege-share#syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#privileges GrantPrivilegesToShare#privileges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#privileges GrantPrivilegesToShare#privileges}
         '''
         result = self._values.get("privileges")
         assert result is not None, "Required property 'privileges' is missing"
@@ -605,7 +605,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./share>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#to_share GrantPrivilegesToShare#to_share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#to_share GrantPrivilegesToShare#to_share}
         '''
         result = self._values.get("to_share")
         assert result is not None, "Required property 'to_share' is missing"
@@ -613,7 +613,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#id GrantPrivilegesToShare#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#id GrantPrivilegesToShare#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -625,7 +625,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def on_all_tables_in_schema(self) -> typing.Optional[builtins.str]:
         '''The fully qualified identifier for the schema for which the specified privilege will be granted for all tables.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_all_tables_in_schema GrantPrivilegesToShare#on_all_tables_in_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_all_tables_in_schema GrantPrivilegesToShare#on_all_tables_in_schema}
         '''
         result = self._values.get("on_all_tables_in_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -636,7 +636,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./database>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_database GrantPrivilegesToShare#on_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_database GrantPrivilegesToShare#on_database}
         '''
         result = self._values.get("on_database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -645,7 +645,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def on_function(self) -> typing.Optional[builtins.str]:
         '''The fully qualified name of the function on which privileges will be granted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_function GrantPrivilegesToShare#on_function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_function GrantPrivilegesToShare#on_function}
         '''
         result = self._values.get("on_function")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -656,7 +656,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./schema>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_schema GrantPrivilegesToShare#on_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_schema GrantPrivilegesToShare#on_schema}
         '''
         result = self._values.get("on_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -667,7 +667,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./table>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_table GrantPrivilegesToShare#on_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_table GrantPrivilegesToShare#on_table}
         '''
         result = self._values.get("on_table")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -678,7 +678,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./tag>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_tag GrantPrivilegesToShare#on_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_tag GrantPrivilegesToShare#on_tag}
         '''
         result = self._values.get("on_tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -689,7 +689,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information about this resource, see `docs <./view>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#on_view GrantPrivilegesToShare#on_view}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#on_view GrantPrivilegesToShare#on_view}
         '''
         result = self._values.get("on_view")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -698,7 +698,7 @@ class GrantPrivilegesToShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GrantPrivilegesToShareTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#timeouts GrantPrivilegesToShare#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#timeouts GrantPrivilegesToShare#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GrantPrivilegesToShareTimeouts"], result)
@@ -735,10 +735,10 @@ class GrantPrivilegesToShareTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#create GrantPrivilegesToShare#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#delete GrantPrivilegesToShare#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#read GrantPrivilegesToShare#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#update GrantPrivilegesToShare#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#create GrantPrivilegesToShare#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#delete GrantPrivilegesToShare#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#read GrantPrivilegesToShare#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#update GrantPrivilegesToShare#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f0d63e40266bfe497e3f4a0bfb06d4ad83792ee513f729932dc6b29aea908be)
@@ -758,25 +758,25 @@ class GrantPrivilegesToShareTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#create GrantPrivilegesToShare#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#create GrantPrivilegesToShare#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#delete GrantPrivilegesToShare#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#delete GrantPrivilegesToShare#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#read GrantPrivilegesToShare#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#read GrantPrivilegesToShare#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/grant_privileges_to_share#update GrantPrivilegesToShare#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/grant_privileges_to_share#update GrantPrivilegesToShare#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

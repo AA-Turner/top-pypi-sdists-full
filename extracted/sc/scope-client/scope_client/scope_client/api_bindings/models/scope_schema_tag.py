@@ -34,6 +34,7 @@ class ScopeSchemaTag(str, Enum):
     CONTINUOUS = 'continuous'
     PREDICTION = 'prediction'
     GROUND_TRUTH = 'ground_truth'
+    PIN_IN_DEEP_DIVE = 'pin_in_deep_dive'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -400,6 +400,7 @@ def hrs_merge_weekly_rehiring_data(username, password, server_name, share_name, 
     text_column_name_list = text_column_names.replace('，', ',').split(',')
     text_column_name_list = [column_name.strip() for column_name in text_column_name_list if column_name.strip()]
     text_column_name_dict = {column_name: str for column_name in text_column_name_list}
+    print(text_column_name_dict)
     for file_dict in rehiring_file_list:
         if file_dict['is_file']:
             file_name = file_dict['name']

@@ -7,11 +7,11 @@
 #ifndef MPI_REAL2
 #undef PyMPI_HAVE_MPI_REAL2
 #endif
-#ifndef MPI_MPI_COMPLEX4
+#ifndef MPI_COMPLEX4
 #undef PyMPI_HAVE_MPI_COMPLEX4
 #endif
 
-#if !defined(CIBUILDWHEEL)
+#if MPI_VERSION < 4
 
 #if I_MPI_NUMVERSION >= 20210900300
 #define PyMPI_HAVE_MPI_Bcast_c 1
@@ -155,7 +155,7 @@
 #define PyMPI_HAVE_MPI_Neighbor_alltoall_init 1
 #define PyMPI_HAVE_MPI_Neighbor_alltoallv_init 1
 #define PyMPI_HAVE_MPI_Neighbor_alltoallw_init 1
-#if defined(__linux__)
+#if defined(__linux__) || I_MPI_NUMVERSION >= 20211400300
 #define PyMPI_HAVE_MPI_Bcast_init_c 1
 #define PyMPI_HAVE_MPI_Gather_init_c 1
 #define PyMPI_HAVE_MPI_Gatherv_init_c 1
@@ -190,7 +190,7 @@
 #define PyMPI_HAVE_MPI_Rput_c 1
 #define PyMPI_HAVE_MPI_Raccumulate_c 1
 #define PyMPI_HAVE_MPI_Rget_accumulate_c 1
-#if defined(__linux__)
+#if defined(__linux__) || I_MPI_NUMVERSION >= 20211400300
 #define PyMPI_HAVE_MPI_File_read_at_c 1
 #define PyMPI_HAVE_MPI_File_read_at_all_c 1
 #define PyMPI_HAVE_MPI_File_write_at_c 1
@@ -219,6 +219,8 @@
 #define PyMPI_HAVE_MPI_File_write_all_begin_c 1
 #define PyMPI_HAVE_MPI_File_read_ordered_begin_c 1
 #define PyMPI_HAVE_MPI_File_write_ordered_begin_c 1
+#endif
+#if defined(__linux__) || I_MPI_NUMVERSION >= 20211600300
 #define PyMPI_HAVE_MPI_File_get_type_extent_c 1
 #define PyMPI_HAVE_MPI_Datarep_conversion_function_c 1
 #define PyMPI_HAVE_MPI_CONVERSION_FN_NULL_C 1
@@ -259,6 +261,15 @@
 #define PyMPI_HAVE_MPI_F_TAG 1
 #define PyMPI_HAVE_MPI_F_ERROR 1
 #define PyMPI_HAVE_MPI_F_STATUS_SIZE 1
+#endif
+
+#if I_MPI_NUMVERSION >= 20211500300
+#define PyMPI_HAVE_MPI_Info_create_env 1
+#define PyMPI_HAVE_MPI_Info_get_string 1
+#define PyMPI_HAVE_MPI_Isendrecv 1
+#define PyMPI_HAVE_MPI_Isendrecv_replace 1
+#define PyMPI_HAVE_MPI_Isendrecv_c 1
+#define PyMPI_HAVE_MPI_Isendrecv_replace_c 1
 #endif
 
 #endif

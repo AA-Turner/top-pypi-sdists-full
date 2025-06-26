@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hikari
-Version: 2.3.4
+Version: 2.3.5
 Summary: A sane Discord API for Python 3 built on asyncio and good intentions
 Project-URL: Documentation, https://docs.hikari-py.dev/en/stable
 Project-URL: Source (GitHub), https://github.com/hikari-py/hikari

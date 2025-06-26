@@ -1,3 +1,4 @@
+/* Generated with `python conf/mpiapigen.py` */
 #ifndef PyMPI_PYMPICONF_H
 #define PyMPI_PYMPICONF_H
 
@@ -60,6 +61,8 @@
 #undef  PyMPI_HAVE_MPI_UINT16_T
 #undef  PyMPI_HAVE_MPI_UINT32_T
 #undef  PyMPI_HAVE_MPI_UINT64_T
+#undef  PyMPI_HAVE_MPI_FLOAT16_T
+#undef  PyMPI_HAVE_MPI_BFLOAT16_T
 #undef  PyMPI_HAVE_MPI_C_COMPLEX
 #undef  PyMPI_HAVE_MPI_C_FLOAT_COMPLEX
 #undef  PyMPI_HAVE_MPI_C_DOUBLE_COMPLEX
@@ -85,6 +88,7 @@
 #undef  PyMPI_HAVE_MPI_LOGICAL2
 #undef  PyMPI_HAVE_MPI_LOGICAL4
 #undef  PyMPI_HAVE_MPI_LOGICAL8
+#undef  PyMPI_HAVE_MPI_LOGICAL16
 #undef  PyMPI_HAVE_MPI_INTEGER1
 #undef  PyMPI_HAVE_MPI_INTEGER2
 #undef  PyMPI_HAVE_MPI_INTEGER4
@@ -128,6 +132,7 @@
 #undef  PyMPI_HAVE_MPI_Type_create_f90_integer
 #undef  PyMPI_HAVE_MPI_Type_create_f90_real
 #undef  PyMPI_HAVE_MPI_Type_create_f90_complex
+#undef  PyMPI_HAVE_MPI_TYPECLASS_LOGICAL
 #undef  PyMPI_HAVE_MPI_TYPECLASS_INTEGER
 #undef  PyMPI_HAVE_MPI_TYPECLASS_REAL
 #undef  PyMPI_HAVE_MPI_TYPECLASS_COMPLEX
@@ -810,6 +815,7 @@
 #undef  PyMPI_HAVE_MPI_Remove_error_string
 #undef  PyMPI_HAVE_MPI_SUCCESS
 #undef  PyMPI_HAVE_MPI_ERR_LASTCODE
+#undef  PyMPI_HAVE_MPI_ERR_ABI
 #undef  PyMPI_HAVE_MPI_ERR_TYPE
 #undef  PyMPI_HAVE_MPI_ERR_REQUEST
 #undef  PyMPI_HAVE_MPI_ERR_OP
@@ -889,6 +895,9 @@
 #undef  PyMPI_HAVE_MPI_Get_version
 #undef  PyMPI_HAVE_MPI_MAX_LIBRARY_VERSION_STRING
 #undef  PyMPI_HAVE_MPI_Get_library_version
+#undef  PyMPI_HAVE_MPI_Abi_get_version
+#undef  PyMPI_HAVE_MPI_Abi_get_info
+#undef  PyMPI_HAVE_MPI_Abi_get_fortran_info
 #undef  PyMPI_HAVE_MPI_MAX_PROCESSOR_NAME
 #undef  PyMPI_HAVE_MPI_Get_processor_name
 #undef  PyMPI_HAVE_MPI_Get_hw_resource_info
@@ -926,6 +935,28 @@
 #undef  PyMPI_HAVE_MPI_Win_f2c
 #undef  PyMPI_HAVE_MPI_File_f2c
 #undef  PyMPI_HAVE_MPI_Errhandler_f2c
+#undef  PyMPI_HAVE_MPI_Comm_toint
+#undef  PyMPI_HAVE_MPI_Errhandler_toint
+#undef  PyMPI_HAVE_MPI_File_toint
+#undef  PyMPI_HAVE_MPI_Group_toint
+#undef  PyMPI_HAVE_MPI_Info_toint
+#undef  PyMPI_HAVE_MPI_Message_toint
+#undef  PyMPI_HAVE_MPI_Op_toint
+#undef  PyMPI_HAVE_MPI_Request_toint
+#undef  PyMPI_HAVE_MPI_Session_toint
+#undef  PyMPI_HAVE_MPI_Type_toint
+#undef  PyMPI_HAVE_MPI_Win_toint
+#undef  PyMPI_HAVE_MPI_Comm_fromint
+#undef  PyMPI_HAVE_MPI_Errhandler_fromint
+#undef  PyMPI_HAVE_MPI_File_fromint
+#undef  PyMPI_HAVE_MPI_Group_fromint
+#undef  PyMPI_HAVE_MPI_Info_fromint
+#undef  PyMPI_HAVE_MPI_Message_fromint
+#undef  PyMPI_HAVE_MPI_Op_fromint
+#undef  PyMPI_HAVE_MPI_Request_fromint
+#undef  PyMPI_HAVE_MPI_Session_fromint
+#undef  PyMPI_HAVE_MPI_Type_fromint
+#undef  PyMPI_HAVE_MPI_Win_fromint
 #undef  PyMPI_HAVE_MPI_HOST
 #undef  PyMPI_HAVE_MPI_Info_get
 #undef  PyMPI_HAVE_MPI_Info_get_valuelen
@@ -967,4 +998,4 @@
 #undef  PyMPI_HAVE_MPI_Comm_shrink
 #undef  PyMPI_HAVE_MPI_Comm_ishrink
 
-#endif /* !PyMPI_PYMPICONF_H */
+#endif /* PyMPI_PYMPICONF_H */

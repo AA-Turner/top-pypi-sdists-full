@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: antspyx
-Version: 0.5.4
+Version: 0.6.1
 Summary: A fast medical imaging analysis library in Python with algorithms for registration, segmentation, and more.
 Author-Email: "Brian B. Avants" <stnava@gmail.com>
 Classifier: License :: OSI Approved :: Apache Software License
@@ -8,12 +8,14 @@ Project-URL: Homepage, https://github.com/antsx/antspy
 Requires-Python: >=3.8
 Requires-Dist: pandas
 Requires-Dist: pyyaml
-Requires-Dist: numpy<=2.0.1
+Requires-Dist: numpy
 Requires-Dist: statsmodels
 Requires-Dist: webcolors
 Requires-Dist: matplotlib
 Requires-Dist: Pillow
 Requires-Dist: requests
+Requires-Dist: scikit-learn
+Requires-Dist: scipy<1.16
 Description-Content-Type: text/markdown
 
 # Advanced Normalization Tools in Python
@@ -25,13 +27,15 @@ Description-Content-Type: text/markdown
 [![Nightly Build](https://github.com/ANTsX/ANTsPy/actions/workflows/wheels.yml/badge.svg)](https://github.com/ANTsX/ANTsPy/actions/workflows/wheels.yml)
 [![ci-pytest](https://github.com/ANTsX/ANTsPy/actions/workflows/ci-pytest.yml/badge.svg)](https://github.com/ANTsX/ANTsPy/actions/workflows/ci-pytest.yml)
 [![ci-docker](https://github.com/ANTsX/ANTsPy/actions/workflows/ci-docker.yml/badge.svg)](https://github.com/ANTsX/ANTsPy/actions/workflows/ci-docker.yml)
+[![docs](https://readthedocs.org/projects/antspy/badge/?version=latest&style=flat)](https://antspy.readthedocs.io/en/latest/)
+
 [![Docker Pulls](https://img.shields.io/docker/pulls/antsx/antspy.svg)](https://hub.docker.com/repository/docker/antsx/antspy)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
 [![PubMed](https://img.shields.io/badge/ANTsX_paper-Open_Access-8DABFF?logo=pubmed)](https://pubmed.ncbi.nlm.nih.gov/33907199/)
 
 The ANTsPy library wraps the well-established C++ biomedical image processing framework [ANTs](https://github.com/antsx/ants). It includes blazing-fast reading and writing of medical images, algorithms for registration, segmentation, and statistical learning, as well as functions to create publication-ready visualizations.
 
-If you are looking to train deep learning models on medical imaging datasets, you might be interested in [ANTsPyNet](https://github.com/antsx/antspy) which provides tools for training and visualizing deep learning models.
+If you are looking to train deep learning models on medical imaging datasets, you might be interested in [ANTsPyNet](https://github.com/ANTsX/ANTsPyNet) which provides tools for training and visualizing deep learning models.
 
 <br>
 
@@ -44,6 +48,11 @@ The easiest way to install ANTsPy is via the latest pre-compiled binaries from P
 ```bash
 pip install antspyx
 ```
+Or alternatively from conda:
+
+```bash
+conda install conda-forge::antspyx
+```
 
 Because of limited storage space, pip binaries are not available for every combination of python
 version and platform. We also have had to delete older releases to make space. If you
@@ -55,6 +64,8 @@ binaries. This means pip will not install binaries targeted for the current Mac 
 version, and will instead try to compile from source. The compatibility checks can be
 disabled by setting the  environment variable `SYSTEM_VERSION_COMPAT=0`. More details on
 the [wiki](https://github.com/ANTsX/ANTsPy/wiki/MacOS-wheel-compatibility-issues).
+
+Windows users will need a compatible [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022) installation.
 
 
 ### Building from source
@@ -115,9 +126,9 @@ Resources for learning about ANTsPy can be found in the [tutorials](https://gith
 
 - Basic overview [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/tutorial_5min.md)]
 - Composite registrations [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/concatenateRegistrations.ipynb)]
-- Multi-metric registration [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/concatenateRegistration/MultiMetricRegistration.ipynb)]
-- Image math operations [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/iMath_help.ipynb)]
-- Wrapping ITK code [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/UsingITK.ipynb)]
+- Multi-metric registration [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/MultiMetricRegistration.ipynb)]
+- Image math operations [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/iMath_help.md)]
+- Wrapping ITK code [[Link](https://github.com/ANTsX/ANTsPy/blob/master/tutorials/UsingITK.md)]
 
 More tutorials can be found in the [ANTs](https://github.com/ANTsX/ANTs) repository.
 

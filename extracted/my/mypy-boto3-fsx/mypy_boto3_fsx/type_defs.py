@@ -57,6 +57,8 @@ from .literals import (
     ResourceTypeType,
     RestoreOpenZFSVolumeOptionType,
     RetentionPeriodTypeType,
+    S3AccessPointAttachmentLifecycleType,
+    S3AccessPointAttachmentsFilterNameType,
     SecurityStyleType,
     SnaplockTypeType,
     SnapshotFilterNameType,
@@ -113,6 +115,10 @@ __all__ = (
     "CopySnapshotAndUpdateVolumeRequestTypeDef",
     "CopySnapshotAndUpdateVolumeResponseTypeDef",
     "CreateAggregateConfigurationTypeDef",
+    "CreateAndAttachS3AccessPointOpenZFSConfigurationTypeDef",
+    "CreateAndAttachS3AccessPointRequestTypeDef",
+    "CreateAndAttachS3AccessPointResponseTypeDef",
+    "CreateAndAttachS3AccessPointS3ConfigurationTypeDef",
     "CreateBackupRequestTypeDef",
     "CreateBackupResponseTypeDef",
     "CreateDataRepositoryAssociationRequestTypeDef",
@@ -190,8 +196,13 @@ __all__ = (
     "DescribeFileSystemsRequestTypeDef",
     "DescribeFileSystemsResponsePaginatorTypeDef",
     "DescribeFileSystemsResponseTypeDef",
+    "DescribeS3AccessPointAttachmentsRequestPaginateTypeDef",
+    "DescribeS3AccessPointAttachmentsRequestTypeDef",
+    "DescribeS3AccessPointAttachmentsResponseTypeDef",
     "DescribeSharedVpcConfigurationResponseTypeDef",
+    "DescribeSnapshotsRequestPaginateTypeDef",
     "DescribeSnapshotsRequestTypeDef",
+    "DescribeSnapshotsResponsePaginatorTypeDef",
     "DescribeSnapshotsResponseTypeDef",
     "DescribeStorageVirtualMachinesRequestPaginateTypeDef",
     "DescribeStorageVirtualMachinesRequestTypeDef",
@@ -200,6 +211,8 @@ __all__ = (
     "DescribeVolumesRequestTypeDef",
     "DescribeVolumesResponsePaginatorTypeDef",
     "DescribeVolumesResponseTypeDef",
+    "DetachAndDeleteS3AccessPointRequestTypeDef",
+    "DetachAndDeleteS3AccessPointResponseTypeDef",
     "DisassociateFileSystemAliasesRequestTypeDef",
     "DisassociateFileSystemAliasesResponseTypeDef",
     "DiskIopsConfigurationTypeDef",
@@ -237,10 +250,16 @@ __all__ = (
     "OpenZFSClientConfigurationUnionTypeDef",
     "OpenZFSCreateRootVolumeConfigurationTypeDef",
     "OpenZFSFileSystemConfigurationTypeDef",
+    "OpenZFSFileSystemIdentityOutputTypeDef",
+    "OpenZFSFileSystemIdentityTypeDef",
+    "OpenZFSFileSystemIdentityUnionTypeDef",
     "OpenZFSNfsExportOutputTypeDef",
     "OpenZFSNfsExportTypeDef",
     "OpenZFSNfsExportUnionTypeDef",
     "OpenZFSOriginSnapshotConfigurationTypeDef",
+    "OpenZFSPosixFileSystemUserOutputTypeDef",
+    "OpenZFSPosixFileSystemUserTypeDef",
+    "OpenZFSPosixFileSystemUserUnionTypeDef",
     "OpenZFSReadCacheConfigurationTypeDef",
     "OpenZFSUserOrGroupQuotaTypeDef",
     "OpenZFSVolumeConfigurationTypeDef",
@@ -252,6 +271,11 @@ __all__ = (
     "RestoreVolumeFromSnapshotRequestTypeDef",
     "RestoreVolumeFromSnapshotResponseTypeDef",
     "RetentionPeriodTypeDef",
+    "S3AccessPointAttachmentTypeDef",
+    "S3AccessPointAttachmentsFilterTypeDef",
+    "S3AccessPointOpenZFSConfigurationTypeDef",
+    "S3AccessPointTypeDef",
+    "S3AccessPointVpcConfigurationTypeDef",
     "S3DataRepositoryConfigurationOutputTypeDef",
     "S3DataRepositoryConfigurationTypeDef",
     "S3DataRepositoryConfigurationUnionTypeDef",
@@ -399,6 +423,10 @@ class CreateAggregateConfigurationTypeDef(TypedDict):
     ConstituentsPerAggregate: NotRequired[int]
 
 
+class S3AccessPointVpcConfigurationTypeDef(TypedDict):
+    VpcId: NotRequired[str]
+
+
 class FileCacheLustreMetadataConfigurationTypeDef(TypedDict):
     StorageCapacity: int
 
@@ -544,6 +572,11 @@ class DescribeFileSystemsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class S3AccessPointAttachmentsFilterTypeDef(TypedDict):
+    Name: NotRequired[S3AccessPointAttachmentsFilterNameType]
+    Values: NotRequired[Sequence[str]]
+
+
 class SnapshotFilterTypeDef(TypedDict):
     Name: NotRequired[SnapshotFilterNameType]
     Values: NotRequired[Sequence[str]]
@@ -557,6 +590,11 @@ class StorageVirtualMachineFilterTypeDef(TypedDict):
 class VolumeFilterTypeDef(TypedDict):
     Name: NotRequired[VolumeFilterNameType]
     Values: NotRequired[Sequence[str]]
+
+
+class DetachAndDeleteS3AccessPointRequestTypeDef(TypedDict):
+    Name: str
+    ClientRequestToken: NotRequired[str]
 
 
 class DisassociateFileSystemAliasesRequestTypeDef(TypedDict):
@@ -628,9 +666,21 @@ class OpenZFSClientConfigurationTypeDef(TypedDict):
     Options: Sequence[str]
 
 
+class OpenZFSPosixFileSystemUserOutputTypeDef(TypedDict):
+    Uid: int
+    Gid: int
+    SecondaryGids: NotRequired[List[int]]
+
+
 class OpenZFSOriginSnapshotConfigurationTypeDef(TypedDict):
     SnapshotARN: NotRequired[str]
     CopyStrategy: NotRequired[OpenZFSCopyStrategyType]
+
+
+class OpenZFSPosixFileSystemUserTypeDef(TypedDict):
+    Uid: int
+    Gid: int
+    SecondaryGids: NotRequired[Sequence[int]]
 
 
 class ReleaseFileSystemNfsV3LocksRequestTypeDef(TypedDict):
@@ -765,6 +815,12 @@ class DescribeSharedVpcConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DetachAndDeleteS3AccessPointResponseTypeDef(TypedDict):
+    Lifecycle: S3AccessPointAttachmentLifecycleType
+    Name: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DisassociateFileSystemAliasesResponseTypeDef(TypedDict):
     Aliases: List[AliasTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -865,6 +921,17 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     ResourceARN: str
     Tags: Sequence[TagTypeDef]
+
+
+class CreateAndAttachS3AccessPointS3ConfigurationTypeDef(TypedDict):
+    VpcConfiguration: NotRequired[S3AccessPointVpcConfigurationTypeDef]
+    Policy: NotRequired[str]
+
+
+class S3AccessPointTypeDef(TypedDict):
+    ResourceARN: NotRequired[str]
+    Alias: NotRequired[str]
+    VpcConfiguration: NotRequired[S3AccessPointVpcConfigurationTypeDef]
 
 
 class CreateFileCacheLustreConfigurationTypeDef(TypedDict):
@@ -1002,6 +1069,26 @@ class ListTagsForResourceRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class DescribeS3AccessPointAttachmentsRequestPaginateTypeDef(TypedDict):
+    Names: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[S3AccessPointAttachmentsFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeS3AccessPointAttachmentsRequestTypeDef(TypedDict):
+    Names: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[S3AccessPointAttachmentsFilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class DescribeSnapshotsRequestPaginateTypeDef(TypedDict):
+    SnapshotIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[SnapshotFilterTypeDef]]
+    IncludeShared: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeSnapshotsRequestTypeDef(TypedDict):
     SnapshotIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[SnapshotFilterTypeDef]]
@@ -1096,6 +1183,16 @@ class OpenZFSNfsExportOutputTypeDef(TypedDict):
 
 OpenZFSClientConfigurationUnionTypeDef = Union[
     OpenZFSClientConfigurationTypeDef, OpenZFSClientConfigurationOutputTypeDef
+]
+OpenZFSFileSystemIdentityOutputTypeDef = TypedDict(
+    "OpenZFSFileSystemIdentityOutputTypeDef",
+    {
+        "Type": Literal["POSIX"],
+        "PosixUser": NotRequired[OpenZFSPosixFileSystemUserOutputTypeDef],
+    },
+)
+OpenZFSPosixFileSystemUserUnionTypeDef = Union[
+    OpenZFSPosixFileSystemUserTypeDef, OpenZFSPosixFileSystemUserOutputTypeDef
 ]
 
 
@@ -1354,6 +1451,12 @@ class OntapFileSystemConfigurationTypeDef(TypedDict):
     ThroughputCapacityPerHAPair: NotRequired[int]
 
 
+class DescribeSnapshotsResponsePaginatorTypeDef(TypedDict):
+    Snapshots: List[SnapshotPaginatorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CreateSnapshotResponseTypeDef(TypedDict):
     Snapshot: SnapshotTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1432,6 +1535,20 @@ OpenZFSVolumeConfigurationTypeDef = TypedDict(
 
 class OpenZFSNfsExportTypeDef(TypedDict):
     ClientConfigurations: Sequence[OpenZFSClientConfigurationUnionTypeDef]
+
+
+class S3AccessPointOpenZFSConfigurationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    FileSystemIdentity: NotRequired[OpenZFSFileSystemIdentityOutputTypeDef]
+
+
+OpenZFSFileSystemIdentityTypeDef = TypedDict(
+    "OpenZFSFileSystemIdentityTypeDef",
+    {
+        "Type": Literal["POSIX"],
+        "PosixUser": NotRequired[OpenZFSPosixFileSystemUserUnionTypeDef],
+    },
+)
 
 
 class CreateSnaplockConfigurationTypeDef(TypedDict):
@@ -1557,6 +1674,21 @@ class UpdateFileSystemRequestTypeDef(TypedDict):
 
 
 OpenZFSNfsExportUnionTypeDef = Union[OpenZFSNfsExportTypeDef, OpenZFSNfsExportOutputTypeDef]
+S3AccessPointAttachmentTypeDef = TypedDict(
+    "S3AccessPointAttachmentTypeDef",
+    {
+        "Lifecycle": NotRequired[S3AccessPointAttachmentLifecycleType],
+        "LifecycleTransitionReason": NotRequired[LifecycleTransitionReasonTypeDef],
+        "CreationTime": NotRequired[datetime],
+        "Name": NotRequired[str],
+        "Type": NotRequired[Literal["OPENZFS"]],
+        "OpenZFSConfiguration": NotRequired[S3AccessPointOpenZFSConfigurationTypeDef],
+        "S3AccessPoint": NotRequired[S3AccessPointTypeDef],
+    },
+)
+OpenZFSFileSystemIdentityUnionTypeDef = Union[
+    OpenZFSFileSystemIdentityTypeDef, OpenZFSFileSystemIdentityOutputTypeDef
+]
 
 
 class CreateOntapVolumeConfigurationTypeDef(TypedDict):
@@ -1662,6 +1794,22 @@ UpdateOpenZFSVolumeConfigurationTypeDef = TypedDict(
 )
 
 
+class CreateAndAttachS3AccessPointResponseTypeDef(TypedDict):
+    S3AccessPointAttachment: S3AccessPointAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeS3AccessPointAttachmentsResponseTypeDef(TypedDict):
+    S3AccessPointAttachments: List[S3AccessPointAttachmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateAndAttachS3AccessPointOpenZFSConfigurationTypeDef(TypedDict):
+    VolumeId: str
+    FileSystemIdentity: OpenZFSFileSystemIdentityUnionTypeDef
+
+
 class CreateVolumeFromBackupRequestTypeDef(TypedDict):
     BackupId: str
     Name: str
@@ -1731,6 +1879,20 @@ class UpdateVolumeRequestTypeDef(TypedDict):
     OntapConfiguration: NotRequired[UpdateOntapVolumeConfigurationTypeDef]
     Name: NotRequired[str]
     OpenZFSConfiguration: NotRequired[UpdateOpenZFSVolumeConfigurationTypeDef]
+
+
+CreateAndAttachS3AccessPointRequestTypeDef = TypedDict(
+    "CreateAndAttachS3AccessPointRequestTypeDef",
+    {
+        "Name": str,
+        "Type": Literal["OPENZFS"],
+        "ClientRequestToken": NotRequired[str],
+        "OpenZFSConfiguration": NotRequired[
+            CreateAndAttachS3AccessPointOpenZFSConfigurationTypeDef
+        ],
+        "S3AccessPoint": NotRequired[CreateAndAttachS3AccessPointS3ConfigurationTypeDef],
+    },
+)
 
 
 class AdministrativeActionPaginatorTypeDef(TypedDict):

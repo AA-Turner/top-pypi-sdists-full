@@ -172,6 +172,7 @@ from .job_record_parameters import (
 from .job_record_with_usage_metrics import JobRecordWithUsageMetrics
 from .l_lama_parse_transform_config import LLamaParseTransformConfig
 from .legacy_parse_job_config import LegacyParseJobConfig
+from .license_info_response import LicenseInfoResponse
 from .llama_extract_settings import LlamaExtractSettings
 from .llama_index_core_base_llms_types_chat_message import LlamaIndexCoreBaseLlmsTypesChatMessage
 from .llama_index_core_base_llms_types_chat_message_blocks_item import (
@@ -353,6 +354,8 @@ from .validation_error_loc_item import ValidationErrorLocItem
 from .vertex_ai_embedding_config import VertexAiEmbeddingConfig
 from .vertex_embedding_mode import VertexEmbeddingMode
 from .vertex_text_embedding import VertexTextEmbedding
+from .webhook_configuration import WebhookConfiguration
+from .webhook_configuration_webhook_events_item import WebhookConfigurationWebhookEventsItem
 
 __all__ = [
     "AdvancedModeTransformConfig",
@@ -517,6 +520,7 @@ __all__ = [
     "JobRecordWithUsageMetrics",
     "LLamaParseTransformConfig",
     "LegacyParseJobConfig",
+    "LicenseInfoResponse",
     "LlamaExtractSettings",
     "LlamaIndexCoreBaseLlmsTypesChatMessage",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem",
@@ -686,4 +690,6 @@ __all__ = [
     "VertexAiEmbeddingConfig",
     "VertexEmbeddingMode",
     "VertexTextEmbedding",
+    "WebhookConfiguration",
+    "WebhookConfigurationWebhookEventsItem",
 ]

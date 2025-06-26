@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_external_functions`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_external_functions`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions).
+Refer to the Terraform Registry for docs: [`data_snowflake_external_functions`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeExternalFunctions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeExternalFunctions.DataSnowflakeExternalFunctions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions snowflake_external_functions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions snowflake_external_functions}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataSnowflakeExternalFunctions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions snowflake_external_functions} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions snowflake_external_functions} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database from which to return the schemas from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#database DataSnowflakeExternalFunctions#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#id DataSnowflakeExternalFunctions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param schema: The schema from which to return the external functions from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#schema DataSnowflakeExternalFunctions#schema}
+        :param database: The database from which to return the schemas from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#database DataSnowflakeExternalFunctions#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#id DataSnowflakeExternalFunctions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param schema: The schema from which to return the external functions from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#schema DataSnowflakeExternalFunctions#schema}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataSnowflakeExternalFunctions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeExternalFunctions to import.
-        :param import_from_id: The id of the existing DataSnowflakeExternalFunctions that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeExternalFunctions that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeExternalFunctions to import is found.
         '''
         if __debug__:
@@ -243,9 +243,9 @@ class DataSnowflakeExternalFunctionsConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database from which to return the schemas from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#database DataSnowflakeExternalFunctions#database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#id DataSnowflakeExternalFunctions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param schema: The schema from which to return the external functions from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#schema DataSnowflakeExternalFunctions#schema}
+        :param database: The database from which to return the schemas from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#database DataSnowflakeExternalFunctions#database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#id DataSnowflakeExternalFunctions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param schema: The schema from which to return the external functions from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#schema DataSnowflakeExternalFunctions#schema}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -351,14 +351,14 @@ class DataSnowflakeExternalFunctionsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def database(self) -> typing.Optional[builtins.str]:
         '''The database from which to return the schemas from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#database DataSnowflakeExternalFunctions#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#database DataSnowflakeExternalFunctions#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#id DataSnowflakeExternalFunctions#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#id DataSnowflakeExternalFunctions#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -370,7 +370,7 @@ class DataSnowflakeExternalFunctionsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def schema(self) -> typing.Optional[builtins.str]:
         '''The schema from which to return the external functions from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/data-sources/external_functions#schema DataSnowflakeExternalFunctions#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/external_functions#schema DataSnowflakeExternalFunctions#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)

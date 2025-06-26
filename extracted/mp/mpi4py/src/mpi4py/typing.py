@@ -6,49 +6,41 @@
 import sys
 from typing import (
     Any,
-    Union,
-    Optional,
-    Sequence,
-    List,
     Dict,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+    SupportsIndex,
     Tuple,
     TypeVar,
+    Union,
 )
-try:  # pragma: no branch
-    from typing import Protocol
-except ImportError:  # pragma: no cover
-    try:
-        from typing_extensions import Protocol
-    except ImportError:
-        Protocol = object
-from numbers import (
-    Integral,
-)
+
 from .MPI import (
-    Datatype,
     BottomType,
+    Datatype,
     InPlaceType,
 )
 
 __all__ = [
-    'SupportsBuffer',
-    'SupportsDLPack',
-    'SupportsCAI',
-    'Buffer',
-    'Bottom',
-    'InPlace',
-    'Aint',
-    'Count',
-    'Displ',
-    'Offset',
-    'TypeSpec',
-    'BufSpec',
-    'BufSpecB',
-    'BufSpecV',
-    'BufSpecW',
-    'TargetSpec',
+    "SupportsBuffer",
+    "SupportsDLPack",
+    "SupportsCAI",
+    "Buffer",
+    "Bottom",
+    "InPlace",
+    "Aint",
+    "Count",
+    "Displ",
+    "Offset",
+    "TypeSpec",
+    "BufSpec",
+    "BufSpecB",
+    "BufSpecV",
+    "BufSpecW",
+    "TargetSpec",
 ]
-
 
 _Stream = Union[int, Any]
 _PyCapsule = object
@@ -63,7 +55,8 @@ class SupportsBuffer(Protocol):
     """
 
     if sys.version_info >= (3, 12):  # pragma: no branch
-        def __buffer__(self, flags: int) -> memoryview:
+
+        def __buffer__(self, flags: int, /) -> memoryview:
             """Create a buffer from a Python object."""
 
 
@@ -73,7 +66,7 @@ class SupportsDLPack(Protocol):
     .. seealso:: :ref:`dlpack:python-spec`
     """
 
-    def __dlpack__(self, *, stream: Optional[_Stream] = None) -> _PyCapsule:
+    def __dlpack__(self, /, *, stream: Optional[_Stream] = None) -> _PyCapsule:
         """Export data for consumption as a DLPack capsule."""
 
     def __dlpack_device__(self) -> Tuple[_DeviceType, _DeviceID]:
@@ -113,25 +106,25 @@ In-place buffer argument.
 """
 
 
-Aint = Integral
+Aint = SupportsIndex
 """
 Address-sized integral type.
 """
 
 
-Count = Integral
+Count = SupportsIndex
 """
 Integral type for counts.
 """
 
 
-Displ = Integral
+Displ = SupportsIndex
 """
 Integral type for displacements.
 """
 
 
-Offset = Integral
+Offset = SupportsIndex
 """
 Integral type for offsets.
 """
@@ -246,7 +239,7 @@ Target specification.
 """
 
 
-S = TypeVar('S')
-T = TypeVar('T')
-U = TypeVar('U')
-V = TypeVar('V')
+S = TypeVar("S")
+T = TypeVar("T")
+U = TypeVar("U")
+V = TypeVar("V")

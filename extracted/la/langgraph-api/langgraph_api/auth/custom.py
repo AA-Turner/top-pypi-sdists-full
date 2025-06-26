@@ -436,6 +436,9 @@ class DotDict:
     def items(self):
         return self._dict.items()
 
+    def get(self, key, /, default=None):
+        return self._dict.get(key, default)
+
     def values(self):
         return self._dict.values()
 

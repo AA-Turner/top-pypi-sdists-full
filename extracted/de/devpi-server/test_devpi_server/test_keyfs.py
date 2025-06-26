@@ -36,6 +36,19 @@ class TestKeyFS:
         pytest.raises(KeyError, lambda: keyfs.tx.get_value_at(key, 0))
 
     @notransaction
+    def test_delete_non_existent(self, keyfs, key):
+        k = keyfs.add_key("NAME", key, bytes)
+        with keyfs.write_transaction():
+            assert not k.exists()
+            k.delete()
+            assert not k.exists()
+        with keyfs.read_transaction():
+            assert not k.exists()
+        with keyfs._storage.get_connection() as conn:
+            # there should be no changelog entry
+            assert conn.last_changelog_serial == -1
+
+    @notransaction
     def test_keyfs_readonly(self, storage, tmpdir):
         keyfs = KeyFS(tmpdir, storage, readonly=True)
         with pytest.raises(keyfs.ReadOnly):
@@ -254,7 +267,7 @@ class TestKey:
         assert is_deeply_readonly(key1.get())
 
         # if we get it new in write mode, we get a new copy
-        d2 = key1.get(readonly=False)
+        d2 = key1.get_mutable()
         assert d2 == d
         d2[3] = 4
         assert d2 != d
@@ -272,14 +285,11 @@ class TestKey:
     def test_get_inplace(self, keyfs):
         key1 = keyfs.add_key("NAME", "some1", dict)
         keyfs.restart_as_write_transaction()
-        key1.set({1:2})
-        try:
-            with key1.update() as d:
-                d["hello"] = "world"
-                raise ValueError()
-        except ValueError:
-            pass
-        assert key1.get() == {1:2}  # , "hello": "world"}
+        key1.set({1: 2})
+        with contextlib.suppress(ValueError), key1.update() as d:
+            d["hello"] = "world"
+            raise ValueError
+        assert key1.get() == {1: 2}
 
     def test_filestore(self, keyfs):
         key1 = keyfs.add_key("NAME", "hello", bytes)
@@ -798,6 +808,9 @@ class TestSubscriber:
         keyfs.wait_tx_serial(keyfs.get_current_serial())
 
     def test_wait_tx_async(self, keyfs, pool, queue):
+        from devpi_server.interfaces import IWriter2
+        from devpi_server.keyfs_types import Record
+
         # start a thread which waits for the next serial
         key = keyfs.add_key("NAME", "hello", int)
         wait_serial = keyfs.get_next_serial()
@@ -812,8 +825,9 @@ class TestSubscriber:
 
         # directly modify the database without keyfs-transaction machinery
         with keyfs._storage.get_connection(write=True) as conn:
-            with conn.write_transaction() as wtx:
-                wtx.record_set(key, 1, -1)
+            with conn.write_transaction() as _wtx:
+                wtx = IWriter2(_wtx)
+                wtx.records_set([Record(key, 1, -1, None)])
 
         # check wait_tx_serial() call from the thread returned True
         assert queue.get() is True
@@ -906,7 +920,7 @@ def test_crash_recovery(keyfs, storage_info):
         keyfs.finalize_init()
 
 
-def test_keyfs_sqlite(gen_path):
+def test_keyfs_sqlite(gen_path, sorted_serverdir):
     from devpi_server import keyfs_sqlite
     tmp = gen_path()
     keyfs = KeyFS(tmp, keyfs_sqlite.Storage)
@@ -917,10 +931,10 @@ def test_keyfs_sqlite(gen_path):
     with keyfs.read_transaction() as tx:
         assert tx.conn.io_file_os_path('foo') is None
         assert tx.conn.io_file_get('foo') == b'bar'
-    assert [x.name for x in tmp.iterdir()] == ['.sqlite_db']
+    assert sorted_serverdir(tmp) == [".sqlite_db"]
 
 
-def test_keyfs_sqlite_fs(gen_path):
+def test_keyfs_sqlite_fs(gen_path, sorted_serverdir):
     from devpi_server import keyfs_sqlite_fs
     tmp = gen_path()
     keyfs = KeyFS(tmp, keyfs_sqlite_fs.Storage)
@@ -932,7 +946,7 @@ def test_keyfs_sqlite_fs(gen_path):
         assert tx.conn.io_file_get('foo') == b'bar'
         with open(tx.conn.io_file_os_path('foo'), 'rb') as f:
             assert f.read() == b'bar'
-    assert sorted(x.name for x in tmp.iterdir()) == ['.sqlite', 'foo']
+    assert sorted_serverdir(tmp) == [".sqlite", "foo"]
 
 
 @notransaction

@@ -28,15 +28,6 @@ def config(gen_path):
         ["devpi-server", "--serverdir", str(serverdir)])
 
 
-def test_pkgresources_version_matches_init():
-    try:
-        import importlib.metadata as importlib_metadata
-    except ImportError:
-        import importlib_metadata
-    ver = devpi_server.__version__
-    assert importlib_metadata.version("devpi-server") == ver
-
-
 def test_version(capfd):
     main(["devpi-server", "--version"])
     out, err = capfd.readouterr()
@@ -136,9 +127,11 @@ def test_run_commands_called(tmpdir):
 
 
 @wsgi_run_throws
-def test_fatal_if_no_storage_and_no_sqlite_file(tmpdir):
+def test_fatal_if_no_storage_and_no_sqlite_file(tmp_path):
     from devpi_server.init import init
-    from devpi_server.main import _main, get_pluginmanager
+    from devpi_server.main import _main
+    from devpi_server.main import get_pluginmanager
+    import shutil
 
     class Plugin:
         @hookimpl
@@ -146,18 +139,16 @@ def test_fatal_if_no_storage_and_no_sqlite_file(tmpdir):
             return 1
     pm = get_pluginmanager()
     pm.register(Plugin())
-    init(
-        argv=["devpi-init", "--serverdir", str(tmpdir)],
-        pluginmanager=pm)
-    _main(
-        argv=["devpi-server", "--serverdir", str(tmpdir)],
-        pluginmanager=pm)
-    tmpdir.join('.sqlite').remove()
+
+    init_path = tmp_path / "with_init"
+    init(argv=["devpi-init", "--serverdir", str(init_path)], pluginmanager=pm)
+    _main(argv=["devpi-server", "--serverdir", str(init_path)], pluginmanager=pm)
+    no_init_path = tmp_path / "without_init"
+    shutil.copytree(init_path, no_init_path)
+    for p in no_init_path.glob(".sql*"):
+        p.unlink()
     with pytest.raises(Fatal) as excinfo:
-        _main(
-            argv=["devpi-server", "--serverdir", str(tmpdir)],
-            pluginmanager=pm
-        )
+        _main(argv=["devpi-server", "--serverdir", str(no_init_path)], pluginmanager=pm)
     assert "you first need to run devpi-init or devpi-import" in str(excinfo.value)
 
 
@@ -274,11 +265,11 @@ def test_replica_max_retries_option(makexom, monkeypatch):
     {'timeout': 42, 'arg': ["--request-timeout=42"], 'kwarg': None},
     {'timeout': 123, 'arg': [], 'kwarg': 123}
 ])
-def test_request_args_timeout_handover(makexom, input_set):
+def test_request_args_timeout_handover(makexom, monkeypatch, input_set):
     def mock_http_get(*args, **kwargs):
         assert kwargs["timeout"] == input_set['timeout']
     xom = makexom(input_set['arg'])
-    xom._httpsession.get = mock_http_get
+    monkeypatch.setattr(xom._httpsession, "get", mock_http_get)
 
     xom.httpget("http://whatever", allow_redirects=False, timeout=input_set['kwarg'])
 

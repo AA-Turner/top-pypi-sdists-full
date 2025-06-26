@@ -7,13 +7,13 @@
 #ifndef MPI_REAL2
 #undef PyMPI_HAVE_MPI_REAL2
 #endif
-#ifndef MPI_MPI_COMPLEX4
+#ifndef MPI_COMPLEX4
 #undef PyMPI_HAVE_MPI_COMPLEX4
 #endif
 
 /* MPI I/O may not be available */
 #ifndef ROMIO_VERSION
-#include "mpi-io.h"
+#include "mpiio.h"
 #endif
 
 #endif /* !PyMPI_CONFIG_MPICH3_H */

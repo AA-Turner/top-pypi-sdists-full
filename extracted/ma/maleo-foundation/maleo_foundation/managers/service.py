@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import BaseModel, Field
 from redis.asyncio.client import Redis
+from redis.exceptions import RedisError
 from starlette.exceptions import HTTPException
 from starlette.types import Lifespan, AppType
 from sqlalchemy import MetaData
@@ -332,6 +333,15 @@ class ServiceManager:
     def cache(self) -> CacheManagers:
         return self._cache
 
+    def check_redis_connection(self) -> bool:
+        try:
+            self._redis.ping()
+            self._loggers.application.info("Redis connection check successful.")
+            return True
+        except RedisError as e:
+            self._loggers.application.error(f"Redis connection check failed: {e}", exc_info=True)
+            return False
+
     def _initialize_cloud_storage(self) -> None:
         environment = (
             BaseEnums.EnvironmentType.STAGING
@@ -395,7 +405,7 @@ class ServiceManager:
     def create_app(
         self,
         router: APIRouter,
-        lifespan: Optional[Lifespan[AppType]]=None
+        lifespan: Optional[Lifespan[AppType]] = None
     ) -> FastAPI:
         self._loggers.application.info("Creating FastAPI application")
         root_path = "" if self._settings.ENVIRONMENT == "local" else f"/{self._configs.service.key.removeprefix("maleo-")}"

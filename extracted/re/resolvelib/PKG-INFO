@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: resolvelib
-Version: 1.1.0
+Version: 1.2.0
 Summary: Resolve abstract dependencies into concrete ones
 Author-email: Tzu-ping Chung <uranusjr@gmail.com>
 License: ISC License
@@ -12,7 +12,7 @@ Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: lint
@@ -26,6 +26,7 @@ Provides-Extra: release
 Requires-Dist: build; extra == "release"
 Requires-Dist: towncrier; extra == "release"
 Requires-Dist: twine; extra == "release"
+Dynamic: license-file
 
 ==========
 ResolveLib
@@ -116,4 +117,4 @@ A Requirement should specify two things: a Package, and a Specifier.
 Contributing
 ============
 
-Please see `developer documentation <./DEVELOPMENT.rst>`__.
+Please see `developer documentation <https://github.com/sarugaku/resolvelib/blob/main/DEVELOPMENT.rst>`__.

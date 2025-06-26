@@ -149,6 +149,8 @@ class EnqueueOptionsInternal(TypedDict):
     deduplication_id: Optional[str]
     # Priority of the workflow on the queue, starting from 1 ~ 2,147,483,647. Default 0 (highest priority).
     priority: Optional[int]
+    # On what version the workflow is enqueued. Current version if not specified.
+    app_version: Optional[str]
 
 
 class RecordedResult(TypedDict):
@@ -185,7 +187,9 @@ class GetWorkflowsInput:
         self.authenticated_user: Optional[str] = None  # The user who ran the workflow.
         self.start_time: Optional[str] = None  # Timestamp in ISO 8601 format
         self.end_time: Optional[str] = None  # Timestamp in ISO 8601 format
-        self.status: Optional[str] = None
+        self.status: Optional[List[str]] = (
+            None  # Get workflows with one of these statuses
+        )
         self.application_version: Optional[str] = (
             None  # The application version that ran this workflow. = None
         )
@@ -205,7 +209,7 @@ class GetWorkflowsInput:
 
 class GetQueuedWorkflowsInput(TypedDict):
     queue_name: Optional[str]  # Get workflows belonging to this queue
-    status: Optional[str]  # Get workflows with this status
+    status: Optional[list[str]]  # Get workflows with one of these statuses
     start_time: Optional[str]  # Timestamp in ISO 8601 format
     end_time: Optional[str]  # Timestamp in ISO 8601 format
     limit: Optional[int]  # Return up to this many workflows IDs.
@@ -832,7 +836,7 @@ class SystemDatabase:
                 <= datetime.datetime.fromisoformat(input.end_time).timestamp() * 1000
             )
         if input.status:
-            query = query.where(SystemSchema.workflow_status.c.status == input.status)
+            query = query.where(SystemSchema.workflow_status.c.status.in_(input.status))
         if input.application_version:
             query = query.where(
                 SystemSchema.workflow_status.c.application_version
@@ -938,10 +942,9 @@ class SystemDatabase:
                 SystemSchema.workflow_status.c.queue_name == input["queue_name"]
             )
 
-        if input.get("status"):
-            query = query.where(
-                SystemSchema.workflow_status.c.status == input["status"]
-            )
+        status = input.get("status", None)
+        if status:
+            query = query.where(SystemSchema.workflow_status.c.status.in_(status))
         if "start_time" in input and input["start_time"] is not None:
             query = query.where(
                 SystemSchema.workflow_status.c.created_at

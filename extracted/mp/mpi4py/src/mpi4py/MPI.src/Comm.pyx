@@ -1918,6 +1918,22 @@ cdef class Comm:
         def __set__(self, value: str):
             self.Set_name(value)
 
+    # Integer Handle
+    # --------------
+
+    def toint(self) -> int:
+        """
+        Translate object to integer handle.
+        """
+        return MPI_Comm_toint(self.ob_mpi)
+
+    @classmethod
+    def fromint(cls, arg: int, /) -> Comm:
+        """
+        Translate integer handle to object.
+        """
+        return fromhandle(MPI_Comm_fromint(arg))
+
     # Fortran Handle
     # --------------
 
@@ -2517,7 +2533,7 @@ cdef class Intracomm(Comm):
 
     def Spawn(
         self,
-        command: str,
+        command: PathLike[AnyStr],
         args: Sequence[str] | None = None,
         int maxprocs: int = 1,
         Info info: Info = INFO_NULL,
@@ -2535,7 +2551,7 @@ cdef class Intracomm(Comm):
         CHKERR( MPI_Comm_rank(self.ob_mpi, &rank) )
         cdef object unused1, unused2, unused3
         if root == rank:
-            unused1 = asmpistr(command, &cmd)
+            unused1 = asmpifspath(command, &cmd)
             unused2 = asarray_argv(args, &argv)
         if errcodes is not None:
             unused3 = newarray(maxprocs, &ierrcodes)
@@ -2553,7 +2569,7 @@ cdef class Intracomm(Comm):
 
     def Spawn_multiple(
         self,
-        command: Sequence[str],
+        command: Sequence[PathLike[AnyStr]],
         args: Sequence[Sequence[str]] | None = None,
         maxprocs: Sequence[int] | None = None,
         info: Sequence[Info] | Info = INFO_NULL,

@@ -163,6 +163,7 @@ from .types import (
     JobRecordWithUsageMetrics,
     LLamaParseTransformConfig,
     LegacyParseJobConfig,
+    LicenseInfoResponse,
     LlamaExtractSettings,
     LlamaIndexCoreBaseLlmsTypesChatMessage,
     LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem,
@@ -332,6 +333,8 @@ from .types import (
     VertexAiEmbeddingConfig,
     VertexEmbeddingMode,
     VertexTextEmbedding,
+    WebhookConfiguration,
+    WebhookConfigurationWebhookEventsItem,
 )
 from .errors import UnprocessableEntityError
 from .resources import (
@@ -369,6 +372,7 @@ from .resources import (
     PipelineUpdateTransformConfig,
     RetrievalParamsSearchFiltersInferenceSchemaValue,
     UpdateReportPlanApiV1ReportsReportIdPlanPatchRequestAction,
+    admin,
     beta,
     chat_apps,
     data_sinks,
@@ -574,6 +578,7 @@ __all__ = [
     "JobRecordWithUsageMetrics",
     "LLamaParseTransformConfig",
     "LegacyParseJobConfig",
+    "LicenseInfoResponse",
     "LlamaCloudEnvironment",
     "LlamaExtractSettings",
     "LlamaIndexCoreBaseLlmsTypesChatMessage",
@@ -757,6 +762,9 @@ __all__ = [
     "VertexAiEmbeddingConfig",
     "VertexEmbeddingMode",
     "VertexTextEmbedding",
+    "WebhookConfiguration",
+    "WebhookConfigurationWebhookEventsItem",
+    "admin",
     "beta",
     "chat_apps",
     "data_sinks",

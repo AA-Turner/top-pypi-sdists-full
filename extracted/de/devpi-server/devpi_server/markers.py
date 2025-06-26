@@ -1,14 +1,34 @@
-class _absent:
-    def __repr__(self):
+from __future__ import annotations
+
+
+class Absent:
+    __slots__ = ()
+
+    def __repr__(self) -> str:
         return '<absent>'
 
 
-absent = _absent()
+absent = Absent()
 
 
-class _deleted:
-    def __repr__(self):
+class Deleted:
+    __slots__ = ()
+
+    def __repr__(self) -> str:
         return '<deleted>'
 
 
-deleted = _deleted()
+deleted = Deleted()
+
+
+class Unknown:
+    __slots__ = ()
+
+    def __bool__(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return "<unknown>"
+
+
+unknown = Unknown()

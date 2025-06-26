@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.47.1
+Version: 0.48.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -10,7 +10,7 @@ License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: chromadb>=0.4.22
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.126.0
+Requires-Dist: crewai>=0.130.0
 Requires-Dist: docker>=7.1.0
 Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
@@ -46,6 +46,8 @@ Requires-Dist: mcp>=1.6.0; extra == 'mcp'
 Requires-Dist: mcpadapt>=0.1.9; extra == 'mcp'
 Provides-Extra: multion
 Requires-Dist: multion>=1.1.0; extra == 'multion'
+Provides-Extra: oxylabs
+Requires-Dist: oxylabs==2.0.0; extra == 'oxylabs'
 Provides-Extra: patronus
 Requires-Dist: patronus>=0.0.16; extra == 'patronus'
 Provides-Extra: qdrant-client

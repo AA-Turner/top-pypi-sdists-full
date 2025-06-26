@@ -3367,11 +3367,11 @@ components:
                     primer at the 5' end of the fragment.
                   example: seq_yWs5X7lv
                   type: string
-                restrictionEnzyme3:
+                restrictionEnzyme3Id:
                   description: ID of enzyme used to digest fragment at 3' end
                   example: enz_Z1fxwlBi
                   type: string
-                restrictionEnzyme5:
+                restrictionEnzyme5Id:
                   description: ID of enzyme used to digest fragment at 5' end
                   example: enz_Z1fxwlBi
                   type: string

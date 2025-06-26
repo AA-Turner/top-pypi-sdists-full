@@ -12,9 +12,8 @@ from whenever import ZonedDateTime
 
 from utilities.atomicwrites import writer
 from utilities.functools import cache
-from utilities.git import get_repo_root
 from utilities.hashlib import md5_hash
-from utilities.pathlib import ensure_suffix
+from utilities.pathlib import ensure_suffix, get_root, get_tail, module_path
 from utilities.platform import (
     IS_LINUX,
     IS_MAC,
@@ -124,18 +123,18 @@ def is_pytest() -> bool:
 ##
 
 
-def node_id_to_path(
-    node_id: str, /, *, head: PathLike | None = None, suffix: str | None = None
+def node_id_path(
+    node_id: str, /, *, root: PathLike | None = None, suffix: str | None = None
 ) -> Path:
-    """Map a node ID to a path."""
+    """Get the path of a node ID."""
     path_file, *parts = node_id.split("::")
     path_file = Path(path_file)
     if path_file.suffix != ".py":
         raise NodeIdToPathError(node_id=node_id)
     path = path_file.with_suffix("")
-    if head is not None:
-        path = path.relative_to(head)
-    path = Path(".".join(path.parts), "__".join(parts))
+    if root is not None:
+        path = get_tail(path, root)
+    path = Path(module_path(path), "__".join(parts))
     if suffix is not None:
         path = ensure_suffix(path, suffix)
     return path
@@ -241,9 +240,7 @@ def _skipif_recent(*, root: PathLike | None = None, delta: TimeDelta = SECOND) -
 
 def _get_path(*, root: PathLike | None = None) -> Path:
     if root is None:
-        root_use = get_repo_root().joinpath(  # pragma: no cover
-            ".pytest_cache", "throttle"
-        )
+        root_use = get_root().joinpath(".pytest_cache", "throttle")  # pragma: no cover
     else:
         root_use = root
     return Path(root_use, _md5_hash_cached(_get_name()))
@@ -270,7 +267,7 @@ __all__ = [
     "add_pytest_collection_modifyitems",
     "add_pytest_configure",
     "is_pytest",
-    "node_id_to_path",
+    "node_id_path",
     "random_state",
     "skipif_linux",
     "skipif_mac",

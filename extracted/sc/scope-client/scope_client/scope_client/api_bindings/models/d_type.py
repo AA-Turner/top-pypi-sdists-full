@@ -35,6 +35,7 @@ class DType(str, Enum):
     TIMESTAMP = 'timestamp'
     DATE = 'date'
     JSON = 'json'
+    IMAGE = 'image'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

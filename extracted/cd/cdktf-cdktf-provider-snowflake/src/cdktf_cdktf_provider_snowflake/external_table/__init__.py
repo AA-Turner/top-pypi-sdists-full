@@ -1,7 +1,7 @@
 r'''
 # `snowflake_external_table`
 
-Refer to the Terraform Registry for docs: [`snowflake_external_table`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table).
+Refer to the Terraform Registry for docs: [`snowflake_external_table`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ExternalTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.externalTable.ExternalTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table snowflake_external_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table snowflake_external_table}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ExternalTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table snowflake_external_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table snowflake_external_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#column ExternalTable#column}
-        :param database: The database in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#database ExternalTable#database}
-        :param file_format: Specifies the file format for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#file_format ExternalTable#file_format}
-        :param location: Specifies a location for the external table, using its FQDN. You can hardcode it (``"@MYDB.MYSCHEMA.MYSTAGE"``), or populate dynamically (``"@${snowflake_stage.mystage.fully_qualified_name}"``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#location ExternalTable#location}
-        :param name: Specifies the identifier for the external table; must be unique for the database and schema in which the externalTable is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
-        :param schema: The schema in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#schema ExternalTable#schema}
-        :param auto_refresh: (Default: ``true``) Specifies whether to automatically refresh the external table metadata once, immediately after the external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#auto_refresh ExternalTable#auto_refresh}
-        :param aws_sns_topic: Specifies the aws sns topic for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#aws_sns_topic ExternalTable#aws_sns_topic}
-        :param comment: Specifies a comment for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#comment ExternalTable#comment}
-        :param copy_grants: (Default: ``false``) Specifies to retain the access permissions from the original table when an external table is recreated using the CREATE OR REPLACE TABLE variant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#copy_grants ExternalTable#copy_grants}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#id ExternalTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param partition_by: Specifies any partition columns to evaluate for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#partition_by ExternalTable#partition_by}
-        :param pattern: Specifies the file names and/or paths on the external stage to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#pattern ExternalTable#pattern}
-        :param refresh_on_create: (Default: ``true``) Specifies weather to refresh when an external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#refresh_on_create ExternalTable#refresh_on_create}
-        :param table_format: Identifies the external table table type. For now, only "delta" for Delta Lake table format is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#table_format ExternalTable#table_format}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#tag ExternalTable#tag}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#timeouts ExternalTable#timeouts}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#column ExternalTable#column}
+        :param database: The database in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#database ExternalTable#database}
+        :param file_format: Specifies the file format for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#file_format ExternalTable#file_format}
+        :param location: Specifies a location for the external table, using its FQDN. You can hardcode it (``"@MYDB.MYSCHEMA.MYSTAGE"``), or populate dynamically (``"@${snowflake_stage.mystage.fully_qualified_name}"``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#location ExternalTable#location}
+        :param name: Specifies the identifier for the external table; must be unique for the database and schema in which the externalTable is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
+        :param schema: The schema in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#schema ExternalTable#schema}
+        :param auto_refresh: (Default: ``true``) Specifies whether to automatically refresh the external table metadata once, immediately after the external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#auto_refresh ExternalTable#auto_refresh}
+        :param aws_sns_topic: Specifies the aws sns topic for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#aws_sns_topic ExternalTable#aws_sns_topic}
+        :param comment: Specifies a comment for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#comment ExternalTable#comment}
+        :param copy_grants: (Default: ``false``) Specifies to retain the access permissions from the original table when an external table is recreated using the CREATE OR REPLACE TABLE variant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#copy_grants ExternalTable#copy_grants}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#id ExternalTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param partition_by: Specifies any partition columns to evaluate for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#partition_by ExternalTable#partition_by}
+        :param pattern: Specifies the file names and/or paths on the external stage to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#pattern ExternalTable#pattern}
+        :param refresh_on_create: (Default: ``true``) Specifies weather to refresh when an external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#refresh_on_create ExternalTable#refresh_on_create}
+        :param table_format: Identifies the external table table type. For now, only "delta" for Delta Lake table format is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#table_format ExternalTable#table_format}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#tag ExternalTable#tag}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#timeouts ExternalTable#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ExternalTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ExternalTable to import.
-        :param import_from_id: The id of the existing ExternalTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ExternalTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ExternalTable to import is found.
         '''
         if __debug__:
@@ -198,10 +198,10 @@ class ExternalTable(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#create ExternalTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#delete ExternalTable#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#read ExternalTable#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#update ExternalTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#create ExternalTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#delete ExternalTable#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#read ExternalTable#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#update ExternalTable#update}.
         '''
         value = ExternalTableTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -582,9 +582,9 @@ class ExternalTableColumn:
         type: builtins.str,
     ) -> None:
         '''
-        :param as_: String that specifies the expression for the column. When queried, the column returns results derived from this expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#as ExternalTable#as}
-        :param name: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
-        :param type: Column type, e.g. VARIANT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#type ExternalTable#type}
+        :param as_: String that specifies the expression for the column. When queried, the column returns results derived from this expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#as ExternalTable#as}
+        :param name: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
+        :param type: Column type, e.g. VARIANT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#type ExternalTable#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e9d101ba892c2444ab450c77b7132807835cb88f9517cc49197ffabe4b7fdb3)
@@ -601,7 +601,7 @@ class ExternalTableColumn:
     def as_(self) -> builtins.str:
         '''String that specifies the expression for the column. When queried, the column returns results derived from this expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#as ExternalTable#as}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#as ExternalTable#as}
         '''
         result = self._values.get("as_")
         assert result is not None, "Required property 'as_' is missing"
@@ -611,7 +611,7 @@ class ExternalTableColumn:
     def name(self) -> builtins.str:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -621,7 +621,7 @@ class ExternalTableColumn:
     def type(self) -> builtins.str:
         '''Column type, e.g. VARIANT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#type ExternalTable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#type ExternalTable#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -891,23 +891,23 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#column ExternalTable#column}
-        :param database: The database in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#database ExternalTable#database}
-        :param file_format: Specifies the file format for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#file_format ExternalTable#file_format}
-        :param location: Specifies a location for the external table, using its FQDN. You can hardcode it (``"@MYDB.MYSCHEMA.MYSTAGE"``), or populate dynamically (``"@${snowflake_stage.mystage.fully_qualified_name}"``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#location ExternalTable#location}
-        :param name: Specifies the identifier for the external table; must be unique for the database and schema in which the externalTable is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
-        :param schema: The schema in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#schema ExternalTable#schema}
-        :param auto_refresh: (Default: ``true``) Specifies whether to automatically refresh the external table metadata once, immediately after the external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#auto_refresh ExternalTable#auto_refresh}
-        :param aws_sns_topic: Specifies the aws sns topic for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#aws_sns_topic ExternalTable#aws_sns_topic}
-        :param comment: Specifies a comment for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#comment ExternalTable#comment}
-        :param copy_grants: (Default: ``false``) Specifies to retain the access permissions from the original table when an external table is recreated using the CREATE OR REPLACE TABLE variant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#copy_grants ExternalTable#copy_grants}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#id ExternalTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param partition_by: Specifies any partition columns to evaluate for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#partition_by ExternalTable#partition_by}
-        :param pattern: Specifies the file names and/or paths on the external stage to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#pattern ExternalTable#pattern}
-        :param refresh_on_create: (Default: ``true``) Specifies weather to refresh when an external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#refresh_on_create ExternalTable#refresh_on_create}
-        :param table_format: Identifies the external table table type. For now, only "delta" for Delta Lake table format is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#table_format ExternalTable#table_format}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#tag ExternalTable#tag}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#timeouts ExternalTable#timeouts}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#column ExternalTable#column}
+        :param database: The database in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#database ExternalTable#database}
+        :param file_format: Specifies the file format for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#file_format ExternalTable#file_format}
+        :param location: Specifies a location for the external table, using its FQDN. You can hardcode it (``"@MYDB.MYSCHEMA.MYSTAGE"``), or populate dynamically (``"@${snowflake_stage.mystage.fully_qualified_name}"``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#location ExternalTable#location}
+        :param name: Specifies the identifier for the external table; must be unique for the database and schema in which the externalTable is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
+        :param schema: The schema in which to create the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#schema ExternalTable#schema}
+        :param auto_refresh: (Default: ``true``) Specifies whether to automatically refresh the external table metadata once, immediately after the external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#auto_refresh ExternalTable#auto_refresh}
+        :param aws_sns_topic: Specifies the aws sns topic for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#aws_sns_topic ExternalTable#aws_sns_topic}
+        :param comment: Specifies a comment for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#comment ExternalTable#comment}
+        :param copy_grants: (Default: ``false``) Specifies to retain the access permissions from the original table when an external table is recreated using the CREATE OR REPLACE TABLE variant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#copy_grants ExternalTable#copy_grants}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#id ExternalTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param partition_by: Specifies any partition columns to evaluate for the external table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#partition_by ExternalTable#partition_by}
+        :param pattern: Specifies the file names and/or paths on the external stage to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#pattern ExternalTable#pattern}
+        :param refresh_on_create: (Default: ``true``) Specifies weather to refresh when an external table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#refresh_on_create ExternalTable#refresh_on_create}
+        :param table_format: Identifies the external table table type. For now, only "delta" for Delta Lake table format is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#table_format ExternalTable#table_format}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#tag ExternalTable#tag}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#timeouts ExternalTable#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1054,7 +1054,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ExternalTableColumn]]:
         '''column block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#column ExternalTable#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#column ExternalTable#column}
         '''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
@@ -1064,7 +1064,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database in which to create the external table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#database ExternalTable#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#database ExternalTable#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -1074,7 +1074,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def file_format(self) -> builtins.str:
         '''Specifies the file format for the external table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#file_format ExternalTable#file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#file_format ExternalTable#file_format}
         '''
         result = self._values.get("file_format")
         assert result is not None, "Required property 'file_format' is missing"
@@ -1084,7 +1084,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Specifies a location for the external table, using its FQDN. You can hardcode it (``"@MYDB.MYSCHEMA.MYSTAGE"``), or populate dynamically (``"@${snowflake_stage.mystage.fully_qualified_name}"``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#location ExternalTable#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#location ExternalTable#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1096,7 +1096,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the database and schema in which the externalTable is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1106,7 +1106,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema in which to create the external table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#schema ExternalTable#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#schema ExternalTable#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -1118,7 +1118,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``) Specifies whether to automatically refresh the external table metadata once, immediately after the external table is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#auto_refresh ExternalTable#auto_refresh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#auto_refresh ExternalTable#auto_refresh}
         '''
         result = self._values.get("auto_refresh")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1127,7 +1127,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_sns_topic(self) -> typing.Optional[builtins.str]:
         '''Specifies the aws sns topic for the external table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#aws_sns_topic ExternalTable#aws_sns_topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#aws_sns_topic ExternalTable#aws_sns_topic}
         '''
         result = self._values.get("aws_sns_topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1136,7 +1136,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the external table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#comment ExternalTable#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#comment ExternalTable#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1147,14 +1147,14 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Specifies to retain the access permissions from the original table when an external table is recreated using the CREATE OR REPLACE TABLE variant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#copy_grants ExternalTable#copy_grants}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#copy_grants ExternalTable#copy_grants}
         '''
         result = self._values.get("copy_grants")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#id ExternalTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#id ExternalTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1166,7 +1166,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def partition_by(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies any partition columns to evaluate for the external table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#partition_by ExternalTable#partition_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#partition_by ExternalTable#partition_by}
         '''
         result = self._values.get("partition_by")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1175,7 +1175,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pattern(self) -> typing.Optional[builtins.str]:
         '''Specifies the file names and/or paths on the external stage to match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#pattern ExternalTable#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#pattern ExternalTable#pattern}
         '''
         result = self._values.get("pattern")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1186,7 +1186,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``) Specifies weather to refresh when an external table is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#refresh_on_create ExternalTable#refresh_on_create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#refresh_on_create ExternalTable#refresh_on_create}
         '''
         result = self._values.get("refresh_on_create")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1195,7 +1195,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def table_format(self) -> typing.Optional[builtins.str]:
         '''Identifies the external table table type. For now, only "delta" for Delta Lake table format is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#table_format ExternalTable#table_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#table_format ExternalTable#table_format}
         '''
         result = self._values.get("table_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1206,7 +1206,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ExternalTableTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#tag ExternalTable#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#tag ExternalTable#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ExternalTableTag"]]], result)
@@ -1215,7 +1215,7 @@ class ExternalTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ExternalTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#timeouts ExternalTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#timeouts ExternalTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ExternalTableTimeouts"], result)
@@ -1252,10 +1252,10 @@ class ExternalTableTag:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Tag name, e.g. department. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
-        :param value: Tag value, e.g. marketing_info. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#value ExternalTable#value}
-        :param database: Name of the database that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#database ExternalTable#database}
-        :param schema: Name of the schema that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#schema ExternalTable#schema}
+        :param name: Tag name, e.g. department. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
+        :param value: Tag value, e.g. marketing_info. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#value ExternalTable#value}
+        :param database: Name of the database that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#database ExternalTable#database}
+        :param schema: Name of the schema that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#schema ExternalTable#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__386e516996753478dd760de1eed8683ccb21de172546729069df5d1ab6ad032c)
@@ -1276,7 +1276,7 @@ class ExternalTableTag:
     def name(self) -> builtins.str:
         '''Tag name, e.g. department.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#name ExternalTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#name ExternalTable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1286,7 +1286,7 @@ class ExternalTableTag:
     def value(self) -> builtins.str:
         '''Tag value, e.g. marketing_info.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#value ExternalTable#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#value ExternalTable#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1296,7 +1296,7 @@ class ExternalTableTag:
     def database(self) -> typing.Optional[builtins.str]:
         '''Name of the database that the tag was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#database ExternalTable#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#database ExternalTable#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1305,7 +1305,7 @@ class ExternalTableTag:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Name of the schema that the tag was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#schema ExternalTable#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#schema ExternalTable#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1552,10 +1552,10 @@ class ExternalTableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#create ExternalTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#delete ExternalTable#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#read ExternalTable#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#update ExternalTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#create ExternalTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#delete ExternalTable#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#read ExternalTable#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#update ExternalTable#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb8c5858e988b7e491674ad49adbf97299143e044b4d4318b1ba8db953e8eaf1)
@@ -1575,25 +1575,25 @@ class ExternalTableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#create ExternalTable#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#create ExternalTable#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#delete ExternalTable#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#delete ExternalTable#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#read ExternalTable#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#read ExternalTable#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs/resources/external_table#update ExternalTable#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_table#update ExternalTable#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

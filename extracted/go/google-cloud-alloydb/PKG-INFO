@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-alloydb
-Version: 0.4.7
+Version: 0.4.8
 Summary: Google Cloud Alloydb API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-alloydb
 Author: Google LLC

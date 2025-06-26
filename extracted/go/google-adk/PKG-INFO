@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.4.2
+Version: 1.5.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.9
@@ -19,6 +19,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: Apache Software License
 License-File: LICENSE
+Requires-Dist: PyYAML>=6.0.2
 Requires-Dist: anyio>=4.9.0;python_version>='3.10'
 Requires-Dist: authlib>=1.5.1
 Requires-Dist: click>=8.1.8
@@ -28,7 +29,7 @@ Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.95.1
 Requires-Dist: google-cloud-secret-manager>=2.22.0
 Requires-Dist: google-cloud-speech>=2.30.0
 Requires-Dist: google-cloud-storage>=2.18.0, <3.0.0
-Requires-Dist: google-genai>=1.17.0
+Requires-Dist: google-genai>=1.21.1
 Requires-Dist: graphviz>=0.20.2
 Requires-Dist: mcp>=1.8.0;python_version>='3.10'
 Requires-Dist: opentelemetry-api>=1.31.0
@@ -37,7 +38,6 @@ Requires-Dist: opentelemetry-sdk>=1.31.0
 Requires-Dist: pydantic>=2.0, <3.0.0
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: PyYAML>=6.0.2
 Requires-Dist: requests>=2.32.4
 Requires-Dist: sqlalchemy>=2.0
 Requires-Dist: starlette>=0.46.2
@@ -48,9 +48,9 @@ Requires-Dist: websockets>=15.0.1
 Requires-Dist: a2a-sdk>=0.2.7 ; extra == "a2a" and (python_version>='3.10')
 Requires-Dist: flit>=3.10.0 ; extra == "dev"
 Requires-Dist: isort>=6.0.0 ; extra == "dev"
+Requires-Dist: mypy>=1.15.0 ; extra == "dev"
 Requires-Dist: pyink>=24.10.0 ; extra == "dev"
 Requires-Dist: pylint>=2.6.0 ; extra == "dev"
-Requires-Dist: mypy>=1.15.0 ; extra == "dev"
 Requires-Dist: autodoc_pydantic ; extra == "docs"
 Requires-Dist: furo ; extra == "docs"
 Requires-Dist: myst-parser ; extra == "docs"
@@ -60,6 +60,7 @@ Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: google-cloud-aiplatform[evaluation]>=1.87.0 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: tabulate>=0.9.0 ; extra == "eval"
+Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
 Requires-Dist: anthropic>=0.43.0 ; extra == "extensions"
 Requires-Dist: beautifulsoup4>=3.2.2 ; extra == "extensions"
 Requires-Dist: crewai[tools] ; extra == "extensions" and (python_version>='3.10')
@@ -226,7 +227,7 @@ adk eval \
 ## 🤝 Contributing
 
 We welcome contributions from the community! Whether it's bug reports, feature requests, documentation improvements, or code contributions, please see our
-- [General contribution guideline and flow](https://google.github.io/adk-docs/contributing-guide/#questions).
+- [General contribution guideline and flow](https://google.github.io/adk-docs/contributing-guide/).
 - Then if you want to contribute code, please read [Code Contributing Guidelines](./CONTRIBUTING.md) to get started.
 
 ## 📄 License

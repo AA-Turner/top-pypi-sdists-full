@@ -111,7 +111,7 @@ class JSONSplitConfig(BaseModel):
 
 
 class YuqueSplitConfig(BaseSplitConfig):
-    type: Literal["yuque"] = "yuque"
+    type: Literal["yuquedoc"] = "yuquedoc"
     separators: List[str] = Field(
         ...,
         description="""List of separators to split the text. If None, uses default separators""",

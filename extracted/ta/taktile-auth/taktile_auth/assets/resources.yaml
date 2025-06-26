@@ -159,6 +159,10 @@ workspace_sandbox_job_trigger:
   # write: can execute sandbox job triggers
   org_id: wildcard
   ws_id: wildcard
+workspace_test_job_trigger:
+  # write: can execute test job triggers
+  org_id: wildcard
+  ws_id: wildcard
 audit_logs:
   # read: can read audit logs
   org_id: wildcard

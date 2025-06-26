@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-25T00:26:31.488098                                                            #
+# Generated on 2025-06-25T20:19:31.224138                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
-import collections
 import abc
 import typing
+import collections
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.user_configs.config_parameters
-    import collections.abc
-    import abc
     import typing
+    import abc
+    import collections.abc
     import metaflow.parameters
 
 from ..exception import MetaflowException as MetaflowException

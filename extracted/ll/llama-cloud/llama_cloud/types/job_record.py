@@ -7,6 +7,7 @@ from ..core.datetime_utils import serialize_datetime
 from .job_names import JobNames
 from .job_record_parameters import JobRecordParameters
 from .status_enum import StatusEnum
+from .webhook_configuration import WebhookConfiguration
 
 try:
     import pydantic
@@ -22,6 +23,7 @@ class JobRecord(pydantic.BaseModel):
     Schema for a job's metadata.
     """
 
+    webhook_configurations: typing.Optional[typing.List[WebhookConfiguration]]
     job_name: JobNames = pydantic.Field(description="The name of the job.")
     partitions: typing.Dict[str, str] = pydantic.Field(
         description="The partitions for this execution. Used for determining where to save job output."

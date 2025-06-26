@@ -79,6 +79,11 @@ class SDKStub(object):
                 request_serializer=browserstack__sdk_dot_sdk__pb2.ObservabilityConfigRequest.SerializeToString,
                 response_deserializer=browserstack__sdk_dot_sdk__pb2.ObservabilityConfigResponse.FromString,
                 )
+        self.AccessibilityResult = channel.unary_unary(
+                '/browserstack.sdk.v1.SDK/AccessibilityResult',
+                request_serializer=browserstack__sdk_dot_sdk__pb2.AccessibilityResultRequest.SerializeToString,
+                response_deserializer=browserstack__sdk_dot_sdk__pb2.AccessibilityResultResponse.FromString,
+                )
         self.TestFrameworkEvent = channel.unary_unary(
                 '/browserstack.sdk.v1.SDK/TestFrameworkEvent',
                 request_serializer=browserstack__sdk_dot_sdk__pb2.TestFrameworkEventRequest.SerializeToString,
@@ -173,6 +178,11 @@ class SDKServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
     def ObservabilityConfig(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+    def AccessibilityResult(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -273,6 +283,11 @@ def add_SDKServicer_to_server(servicer, server):
                     servicer.ObservabilityConfig,
                     request_deserializer=browserstack__sdk_dot_sdk__pb2.ObservabilityConfigRequest.FromString,
                     response_serializer=browserstack__sdk_dot_sdk__pb2.ObservabilityConfigResponse.SerializeToString,
+            ),
+            'AccessibilityResult': grpc.unary_unary_rpc_method_handler(
+                    servicer.AccessibilityResult,
+                    request_deserializer=browserstack__sdk_dot_sdk__pb2.AccessibilityResultRequest.FromString,
+                    response_serializer=browserstack__sdk_dot_sdk__pb2.AccessibilityResultResponse.SerializeToString,
             ),
             'TestFrameworkEvent': grpc.unary_unary_rpc_method_handler(
                     servicer.TestFrameworkEvent,
@@ -528,6 +543,22 @@ class SDK(object):
         return grpc.experimental.unary_unary(request, target, '/browserstack.sdk.v1.SDK/ObservabilityConfig',
             browserstack__sdk_dot_sdk__pb2.ObservabilityConfigRequest.SerializeToString,
             browserstack__sdk_dot_sdk__pb2.ObservabilityConfigResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+    @staticmethod
+    def AccessibilityResult(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/browserstack.sdk.v1.SDK/AccessibilityResult',
+            browserstack__sdk_dot_sdk__pb2.AccessibilityResultRequest.SerializeToString,
+            browserstack__sdk_dot_sdk__pb2.AccessibilityResultResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
     @staticmethod

@@ -26,7 +26,7 @@ class ObjectType(BaseModel):
     """
     ObjectType
     """ # noqa: E501
-    object: Dict[str, MetricsColumnParameterSchemaAllowedColumnTypesInner]
+    object: Dict[str, MetricsColumnListParameterSchemaAllowedColumnTypesInner]
     __properties: ClassVar[List[str]] = ["object"]
 
     model_config = ConfigDict(
@@ -88,7 +88,7 @@ class ObjectType(BaseModel):
 
         _obj = cls.model_validate({
             "object": dict(
-                (_k, MetricsColumnParameterSchemaAllowedColumnTypesInner.from_dict(_v))
+                (_k, MetricsColumnListParameterSchemaAllowedColumnTypesInner.from_dict(_v))
                 for _k, _v in obj["object"].items()
             )
             if obj.get("object") is not None
@@ -96,7 +96,7 @@ class ObjectType(BaseModel):
         })
         return _obj
 
-from scope_client.api_bindings.models.metrics_column_parameter_schema_allowed_column_types_inner import MetricsColumnParameterSchemaAllowedColumnTypesInner
+from scope_client.api_bindings.models.metrics_column_list_parameter_schema_allowed_column_types_inner import MetricsColumnListParameterSchemaAllowedColumnTypesInner
 # TODO: Rewrite to not use raise_errors
 ObjectType.model_rebuild(raise_errors=False)
 

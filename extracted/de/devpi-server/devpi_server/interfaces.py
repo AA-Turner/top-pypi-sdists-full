@@ -11,16 +11,16 @@ from zope.interface.verify import verifyObject
 
 
 if TYPE_CHECKING:
+    from .keyfs_types import Record
     from .keyfs_types import PTypedKey, TypedKey
+    from collections.abc import Iterable
+    from collections.abc import Iterator
+    from contextlib import AbstractContextManager
+    from types import TracebackType
     from typing import Any
     from typing import Callable
-    from typing import ContextManager
     from typing import IO
-    from typing import Iterable
-    from typing import Iterator
     from typing import Optional
-    from typing import Tuple
-    from typing import Type
     from typing import Union
 
 
@@ -32,7 +32,7 @@ class IStorageConnection(Interface):
         """ Return last stored serial.
             Returns -1 if nothing is stored yet. """
 
-    def db_read_typedkey(relpath: str) -> Tuple[str, int]:
+    def db_read_typedkey(relpath: str) -> tuple[str, int]:
         """ Return key name and serial for given relpath.
             Raises KeyError if not found. """
 
@@ -68,8 +68,8 @@ class IStorageConnection(Interface):
         """ Writes any files which have been changed without
             increasing the serial. """
 
-    def write_transaction() -> ContextManager:
-        """ Returns a context providing class with a record_set method. """
+    def write_transaction() -> AbstractContextManager:
+        """Returns a context providing class with a IWriter2 interface."""
 
 
 class IStorageConnection2(IStorageConnection):
@@ -91,6 +91,44 @@ class IStorageConnection3(IStorageConnection2):
         """ Returns a new open file like object for binary writing. """
 
 
+class IWriter(Interface):
+    commit_serial = Attribute("""
+        The current to be commited serial set when entering the context manager. """)
+
+    def __enter__() -> None:
+        pass
+
+    def __exit__(  # noqa: PLE0302, PYI036
+        cls: Optional[type[BaseException]],
+        val: Optional[BaseException],  # noqa: PYI036
+        tb: Optional[TracebackType],  # noqa: PYI036
+    ) -> None:
+        pass
+
+    def record_set(
+        typedkey: Union[PTypedKey, TypedKey], value: Any, back_serial: int
+    ) -> None:
+        pass
+
+
+class IWriter2(Interface):
+    commit_serial = Attribute("""
+        The current to be commited serial set when entering the context manager. """)
+
+    def __enter__() -> None:
+        pass
+
+    def __exit__(  # noqa: PLE0302 PYI036
+        cls: Optional[type[BaseException]],
+        val: Optional[BaseException],  # noqa: PYI036
+        tb: Optional[TracebackType],  # noqa: PYI036
+    ) -> None:
+        pass
+
+    def records_set(records: Iterable[Record]) -> None:
+        pass
+
+
 # some adapters for legacy plugins
 
 
@@ -100,7 +138,7 @@ def unwrap_connection_obj(obj: Any) -> Any:
     return obj
 
 
-def get_connection_class(obj: Any) -> Type:
+def get_connection_class(obj: Any) -> type:
     return unwrap_connection_obj(obj).__class__
 
 
@@ -161,8 +199,8 @@ def adapt_istorageconnection2(iface: IStorageConnection2, obj: Any) -> Any:
                         value=val)
 
     # now add fallback methods directly to the class
-    cls.get_relpath_at = get_relpath_at
-    cls.iter_relpaths_at = iter_relpaths_at
+    cls.get_relpath_at = get_relpath_at  # type: ignore[attr-defined]
+    cls.iter_relpaths_at = iter_relpaths_at  # type: ignore[attr-defined]
     # and add the interface
     classImplements(cls, iface)  # type: ignore[misc]
     # make sure the object now actually provides this interface
@@ -196,19 +234,50 @@ def adapt_istorageconnection3(iface: IStorageConnection3, obj: Any) -> Any:
         return _io_file_set(self, path, content_or_file)
 
     # now add fallback method directly to the class
-    cls.io_file_new_open = io_file_new_open
-    orig_io_file_set = cls.io_file_set
+    cls.io_file_new_open = io_file_new_open  # type: ignore[attr-defined]
+    orig_io_file_set = cls.io_file_set  # type: ignore[attr-defined]
 
     # we need another wrapper to pass in the io_file_set from original class
     # for some reason a partial doesn't work here
     def _io_file_set(self: Any, path: str, content_or_file: Union[bytes, IO[bytes]]) -> None:
         return io_file_set(self, path, content_or_file, _io_file_set=orig_io_file_set)
 
-    cls.io_file_set = _io_file_set
+    cls.io_file_set = _io_file_set  # type: ignore[attr-defined]
     # and add the interface
     classImplements(cls, iface)  # type: ignore[misc]
     # make sure the object now actually provides this interface
     verifyObject(iface, _obj)
+    return obj
+
+
+@_register_adapter
+def adapt_iwriter(iface: IWriter, obj: Any) -> Any:
+    # any writer which needs to be adapted to this interface is a
+    # legacy one and we can say that it provides the original
+    # interface directly
+    cls = obj.__class__
+    classImplements(cls, iface)  # type: ignore[misc]
+    # make sure the object now actually provides this interface
+    verifyObject(iface, obj)
+    return obj
+
+
+@_register_adapter
+def adapt_iwriter2(iface: IWriter2, obj: Any) -> Any:
+    # first make sure the old writer interface is implemented
+    obj = IWriter(obj)
+    cls = obj.__class__
+
+    # now add fallback method directly to the class
+    def _records_set(self: Any, records: Iterable[Record]) -> None:
+        for record in records:
+            self.record_set(record.key, record.value, record.back_serial)
+
+    cls.records_set = _records_set
+    # and add the interface
+    classImplements(cls, iface)  # type: ignore[misc]
+    # make sure the object now actually provides this interface
+    verifyObject(iface, obj)
     return obj
 
 

@@ -356,11 +356,17 @@ class MiniRpaManager(MiniRpaFunction):
                 self.copy_to_exist(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, self.update_file_path,
                                    self.update_sheet_name, update_column_name, has_from_file_condition)
             elif function_name == 'date_transfer':
+                target_date_format = self.process_dict.get('target_date_format', '%Y-%m-%d')
+                if not target_date_format:
+                    target_date_format = '%Y-%m-%d'
                 self.date_transfer(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, has_from_file_condition,
-                                   is_save)
+                                   is_save, target_date_format)
             elif function_name == 'date_transfer_date_format':
+                target_date_format = self.process_dict.get('target_date_format', 'yyyy-mm-dd')
+                if not target_date_format:
+                    target_date_format = 'yyyy-mm-dd'
                 self.date_transfer_date_format(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, has_from_file_condition,
-                                               is_save)
+                                               is_save, target_date_format)
             elif function_name == 'remove_duplicates':
                 self.remove_duplicates(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, has_from_file_condition,
                                        keep_config, is_save)
@@ -435,6 +441,30 @@ class MiniRpaManager(MiniRpaFunction):
                 self.hrs_collect_row_value_diffs(from_folder_path, from_file_name, from_sheet_name, from_column_by, update_folder_path,
                                                  update_file_name, update_sheet_name, update_column_by, config_folder_path, config_file_name, config_sheet_name,
                                                  compare_result_file_name)
+            elif function_name == 'save_pdf_table_into_excel':
+                pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name, sheet_name = (
+                    self.process_dict.get('pdf_folder_path', ''), self.process_dict.get('pdf_file_name', ''), self.process_dict.get('page_number', 1),
+                    self.process_dict.get('table_index', 1), self.process_dict.get('first_column_name', ''), self.process_dict.get('save_column_names', ''),
+                    self.process_dict.get('excel_folder_path', ''), self.process_dict.get('excel_file_name', ''), self.process_dict.get('sheet_name', ''),
+                )
+                self.save_pdf_table_into_excel(pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name,
+                                               sheet_name)
+            elif function_name == 'save_excel_data_into_text':
+                excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name, save_column_names,keep_header = (
+                    self.process_dict.get('excel_folder_path', ''), self.process_dict.get('excel_file_name', ''), self.process_dict.get('text_folder_path', ''),
+                    self.process_dict.get('text_file_name', ''), self.process_dict.get('sheet_name', 'Sheet1'), self.process_dict.get('save_column_names', ''),
+                    self.process_dict.get('keep_header', True)
+                )
+                self.save_excel_data_into_text(excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name, save_column_names,keep_header)
+            elif function_name == 'transfer_xls_into_xlsx':
+                (xls_folder_path, xls_file_name, xlsx_folder_path, xlsx_file_name, sheet_name, encoding) = (self.process_dict.get('xls_folder_path', ''),
+                                                                                                            self.process_dict.get('xls_file_name', ''),
+                                                                                                            self.process_dict.get('xlsx_folder_path', ''),
+                                                                                                            self.process_dict.get('xlsx_file_name', ''),
+                                                                                                            self.process_dict.get('sheet_name', 'Sheet1'),
+                                                                                                            self.process_dict.get('encoding', 'utf-8'))
+
+                self.transfer_xls_into_xlsx(xls_folder_path, xls_file_name, xlsx_folder_path, xlsx_file_name, sheet_name, encoding)
 
         if self.delivery_data:
             self.prepare_file_name_suffix()
@@ -584,6 +614,11 @@ class MiniRpaManager(MiniRpaFunction):
 
                 self.copy_file_cross_public_folders(from_server_name, from_share_name, from_folder_path, from_file_name, update_server_name, update_share_name, update_folder_path,
                                                     update_file_name)
+
+            elif delivery_type == 'trigger_python_bot_task':
+                bot_url = self.delivery_dict.get('bot_url', '')
+                api_credential = self.delivery_dict.get('api_credential', '')
+                self.trigger_python_bot_task(bot_url, api_credential)
 
         if self.process_database:
             database_config_dict = {

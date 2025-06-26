@@ -6897,7 +6897,7 @@ class ZigZag(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndi
     """
 
     @property
-    def high_pivot(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+    def high_pivot(self) -> QuantConnect.Indicators.Identity:
         """
         Stores the most recent high pivot value in the ZigZag calculation.
         Updated whenever a valid high pivot is identified.
@@ -6905,7 +6905,7 @@ class ZigZag(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndi
         ...
 
     @property
-    def low_pivot(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+    def low_pivot(self) -> QuantConnect.Indicators.Identity:
         """
         Stores the most recent low pivot value in the ZigZag calculation.
         Updated whenever a valid low pivot is identified.

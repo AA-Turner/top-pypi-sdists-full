@@ -6,6 +6,8 @@ import functools
 import inspect
 import sys
 
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)  # Explicitly use stdout instead of stderr
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")

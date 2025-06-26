@@ -6,7 +6,7 @@ import dask.config
 import rich
 
 from .exceptions import AuthenticationError
-from .utils import COILED_SERVER, handle_credentials
+from .utils import COILED_SERVER, handle_credentials, session_certifi_ssl
 
 
 def get_local_user() -> str:
@@ -22,7 +22,7 @@ def get_local_user() -> str:
 
 async def make_unattached_token(server, label=None) -> dict:
     url = server + "/api/v1/api-tokens-no-user/"
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(**session_certifi_ssl()) as session:
         async with session.post(url, data={"label": label}) as resp:
             return await resp.json()
 

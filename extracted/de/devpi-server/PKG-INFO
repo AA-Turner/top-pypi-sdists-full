@@ -1,37 +1,51 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.15.0
-Summary: devpi-server: reliable private and pypi.org caching server
-Home-page: https://devpi.net
-Maintainer: Florian Schulze
-Maintainer-email: mail@pyfidelity.com
-License: MIT
+Version: 6.16.0
+Summary: devpi-server: reliable, private, and pypi.org caching server
+Maintainer-email: Florian Schulze <mail@pyfidelity.com>
+License-Expression: MIT
 Project-URL: Bug Tracker, https://github.com/devpi/devpi/issues
 Project-URL: Changelog, https://github.com/devpi/devpi/blob/main/server/CHANGELOG
 Project-URL: Documentation, https://doc.devpi.net
 Project-URL: Funding, https://github.com/sponsors/devpi
+Project-URL: Homepage, https://devpi.net
 Project-URL: Source Code, https://github.com/devpi/devpi
-Keywords: pypi realtime cache server
+Keywords: pypi,realtime,cache,server
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
-Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
+Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-License-File: AUTHORS
+Requires-Dist: argon2-cffi
+Requires-Dist: attrs>=22.2.0
+Requires-Dist: defusedxml
+Requires-Dist: devpi_common<5,>3.6.0
+Requires-Dist: httpx
+Requires-Dist: itsdangerous>=0.24
+Requires-Dist: lazy
+Requires-Dist: legacy-cgi; python_version >= "3.13"
+Requires-Dist: passlib[argon2]
+Requires-Dist: platformdirs
+Requires-Dist: pluggy<2.0,>=0.6.0
+Requires-Dist: py>=1.4.23
+Requires-Dist: pyramid>=2
+Requires-Dist: repoze.lru>=0.6
+Requires-Dist: strictyaml
+Requires-Dist: waitress>=1.0.1
+Requires-Dist: ruamel.yaml
+Dynamic: license-file
 
 =============================================================================
 devpi-server: server for private package indexes and PyPI caching
@@ -97,13 +111,41 @@ For support contracts and paid help contact ``mail at pyfidelity.com``.
 .. _GitHub Discussions: https://github.com/devpi/devpi/discussions
 
 
+
 =========
 Changelog
 =========
 
 
 
+
 .. towncrier release notes start
+
+6.16.0 (2025-06-25)
+===================
+
+Deprecations and Removals
+-------------------------
+
+- Dropped support for Python 3.7 and 3.8.
+
+
+
+Features
+--------
+
+- Update stored package metadata fields to version 2.4 for license expressions (PEP 639).
+
+
+
+Bug Fixes
+---------
+
+- Preserve hash when importing mirror data to prevent unnecessary updates later on.
+
+- Keep original metadata_version in database.
+
+
 
 6.15.0 (2025-05-18)
 ===================
@@ -182,24 +224,5 @@ Bug Fixes
 - Preserve query string when proxying requests from replica to primary. This fixes force removal on non-volatile indexes and probably other bugs.
 
 - Fix #1044: Correctly update cache expiry time when mirrored server returns 304 Not Modified.
-
-
-
-6.12.0 (2024-06-25)
-===================
-
-Features
---------
-
-- Added ``devpiserver_on_toxresult_store`` hook to allow blocking or skipping a toxresult upload on more specific conditions as ``acl_toxresult_upload`` would allow.
-
-- Added ``devpiserver_on_toxresult_upload_forbidden`` hook to allow returning a custom message and result (403 or 200).
-
-
-
-Bug Fixes
----------
-
-- Return json data if toxresult upload is forbidden.
 
 

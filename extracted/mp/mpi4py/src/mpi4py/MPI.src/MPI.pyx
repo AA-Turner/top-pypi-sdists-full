@@ -15,6 +15,7 @@ include "asstring.pxi"
 include "asfspath.pxi"
 include "asbuffer.pxi"
 include "asarray.pxi"
+include "constant.pxi"
 include "objmodel.pxi"
 include "attrimpl.pxi"
 include "errhimpl.pxi"
@@ -224,6 +225,37 @@ def Get_library_version() -> str:
     cdef int nlen = 0
     CHKERR( MPI_Get_library_version(name, &nlen) )
     return tompistr(name, nlen)
+
+
+# MPI ABI
+# -------
+
+def Get_abi_version() -> tuple[int, int]:
+    """
+    Obtain the MPI ABI version number.
+    """
+    cdef int version = 1
+    cdef int subversion = 0
+    CHKERR( MPI_Abi_get_version(&version, &subversion) )
+    return (version, subversion)
+
+
+def Get_abi_info() -> Info:
+    """
+    Obtain information about the MPI ABI.
+    """
+    cdef Info info = <Info>New(Info)
+    CHKERR( MPI_Abi_get_info(&info.ob_mpi) )
+    return info
+
+
+def Get_abi_fortran_info() -> Info:
+    """
+    Obtain information about the Fortran MPI ABI.
+    """
+    cdef Info info = <Info>New(Info)
+    CHKERR( MPI_Abi_get_fortran_info(&info.ob_mpi) )
+    return info
 
 
 # Environmental Inquires

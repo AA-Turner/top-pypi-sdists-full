@@ -14483,12 +14483,12 @@ l_pack_animation = {
 }
 
 l_item_media = {
-    "ru": "✏️ 1. <b>Отправь</b> sticker/emoji или photo/video/gif для добавления в [{0}]\n\n<blockquote>или выбери из набора существующий <b>{1}</b> для редактирования/удаления - чтобы ускорить изменения удали и добавь набор снова</blockquote>\n<blockquote>жми ⚫️/🙌🏽/🔄, чтобы закруглить/удалить фон/конвертировать фото в видео</blockquote>",
-    "en": "✏️ 1. <b>Send</b> sticker/emoji or photo/video/gif to add to [{0}]\n\n<blockquote>or choose an existing <b>{1}</b> from the set for editing/deleting - to speed up changes delete and add the set again</blockquote>\n<blockquote>press ⚫️/🙌🏽/🔄 to round/remove background/convert photo to video</blockquote>",
-    "es": "✏️ 1. <b>Envía</b> sticker/emoji o foto/video/gif para agregar a [{0}]\n\n<blockquote>o selecciona un <b>{1}</b> existente del conjunto para editar/eliminar - para acelerar los cambios elimina y agrega el conjunto de nuevo</blockquote>\n<blockquote>presiona ⚫️/🙌🏽/🔄 para redondear/eliminar fondo/convertir foto en video</blockquote>",
-    "fr": "✏️ 1. <b>Envoie</b> sticker/emoji ou photo/vidéo/gif pour ajouter à [{0}]\n\n<blockquote>ou choisis un <b>{1}</b> existant du lot pour modifier/supprimer - pour accélérer les modifications supprime et ajoute le lot à nouveau</blockquote>\n<blockquote>appuie sur ⚫️/🙌🏽/🔄 pour arrondir/supprimer le fond/convertir la photo en vidéo</blockquote>",
-    "zh": "✏️ 1. <b>发送</b> sticker/emoji 或 photo/video/gif 添加到 [{0}]\n\n<blockquote>或从集合中选择已有的 <b>{1}</b> 进行编辑/删除 - 为了加快修改，请删除并重新添加集合</blockquote>\n<blockquote>点击 ⚫️/🙌🏽/🔄，进行圆角/去背景/将照片转换为视频</blockquote>",
-    "ar": "✏️ 1. <b>أرسل</b> ملصق/رموز تعبيرية أو صورة/فيديو/gif لإضافتها إلى [{0}]\n\n<blockquote>أو اختر <b>{1}</b> موجود من المجموعة للتعديل/الحذف - لتسريع التغييرات احذف وأعد إضافة المجموعة</blockquote>\n<blockquote>اضغط ⚫️/🙌🏽/🔄 لتدوير/إزالة الخلفية/تحويل الصورة إلى فيديو</blockquote>",
+    "ru": "✏️ 1. <b>Отправь</b> sticker/emoji или photo/video/gif для добавления в [{0}]\n\n<blockquote>или выбери из набора существующий <b>{1}</b> для редактирования/удаления - чтобы ускорить изменения удали и добавь набор снова</blockquote>\n<blockquote>жми ⚫️/🙌🏽/🔄, чтобы закруглить/удалить фон фото/конвертировать фото в видео</blockquote>",
+    "en": "✏️ 1. <b>Send</b> sticker/emoji or photo/video/gif to add to [{0}]\n\n<blockquote>or choose an existing <b>{1}</b> from the set for editing/deleting - to speed up changes delete and add the set again</blockquote>\n<blockquote>press ⚫️/🙌🏽/🔄 to round/remove photo background/convert photo to video</blockquote>",
+    "es": "✏️ 1. <b>Envía</b> sticker/emoji o foto/video/gif para agregar a [{0}]\n\n<blockquote>o elige un <b>{1}</b> existente del conjunto para editar/eliminar - para acelerar los cambios elimina y vuelve a agregar el conjunto</blockquote>\n<blockquote>presiona ⚫️/🙌🏽/🔄 para redondear/eliminar fondo de la foto/convertir foto en video</blockquote>",
+    "fr": "✏️ 1. <b>Envoie</b> sticker/emoji ou photo/vidéo/gif pour ajouter à [{0}]\n\n<blockquote>ou choisis un <b>{1}</b> existant du lot pour modifier/supprimer - pour accélérer les modifications supprime et réajoute le lot</blockquote>\n<blockquote>appuie sur ⚫️/🙌🏽/🔄 pour arrondir/supprimer le fond de la photo/convertir la photo en vidéo</blockquote>",
+    "zh": "✏️ 1. <b>发送</b> 贴纸/表情或照片/视频/GIF 添加到 [{0}]\n\n<blockquote>或从集合中选择已有的 <b>{1}</b> 进行编辑/删除 - 为加快更改请删除并重新添加集合</blockquote>\n<blockquote>点击 ⚫️/🙌🏽/🔄 进行圆角/移除照片背景/将照片转换为视频</blockquote>",
+    "ar": "✏️ 1. <b>أرسل</b> ملصق/رمز تعبيري أو صورة/فيديو/GIF لإضافتها إلى [{0}]\n\n<blockquote>أو اختر <b>{1}</b> موجود من المجموعة للتعديل/الحذف - لتسريع التغييرات احذف وأعد إضافة المجموعة</blockquote>\n<blockquote>اضغط ⚫️/🙌🏽/🔄 لتدوير/إزالة خلفية الصورة/تحويل الصورة إلى فيديو</blockquote>"
 }
 l_item_format = {
     "ru": "✏️ 2. <b>Выбери</b> формат для <b>{0}</b>\n\n<blockquote>или жми «➡️️/Next», чтобы перейти к следующему шагу</blockquote>",
@@ -14837,12 +14837,12 @@ l_item_rbg_only_photo = {
 }
 
 l_pack_item_add = {
-    'ru': "👩🏽‍💻 <b>Отправь</b> sticker/emoji или photo/video/gif для добавления в <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>жми ⚫️/🙌🏽/🔄, чтобы закруглить/удалить фон/конвертировать фото в видео</blockquote>",
-    'en': "👩🏽‍💻 <b>Send</b> a sticker/emoji or photo/video/gif to add to <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>tap ⚫️/🙌🏽/🔄 to round/remove background/convert photo to video</blockquote>",
-    'es': "👩🏽‍💻 <b>Envía</b> un sticker/emoji o foto/video/gif para añadir a <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>toca ⚫️/🙌🏽/🔄 para redondear/quitar fondo/convertir foto a video</blockquote>",
-    'fr': "👩🏽‍💻 <b>Envoie</b> un sticker/emoji ou photo/vidéo/gif pour ajouter à <b>{0}</b> : <a href='{1}'>{2}</a>\n\n<blockquote>appuie sur ⚫️/🙌🏽/🔄 pour arrondir/enlever le fond/convertir une photo en vidéo</blockquote>",
-    'zh': "👩🏽‍💻 <b>发送</b> 贴纸/表情符号或照片/视频/GIF 以添加到 <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>点击 ⚫️/🙌🏽/🔄 来圆角/去除背景/将照片转换为视频</blockquote>",
-    'ar': "👩🏽‍💻 <b>أرسل</b> ملصق/إيموجي أو صورة/فيديو/ملف GIF للإضافة إلى <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>اضغط ⚫️/🙌🏽/🔄 لتدوير/إزالة الخلفية/تحويل الصورة إلى فيديو</blockquote>",
+    "ru": "👩🏽‍💻 <b>Отправь</b> sticker/emoji или photo/video/gif для добавления в <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>жми ⚫️/🙌🏽/🔄, чтобы закруглить/удалить фон фото/конвертировать фото в видео</blockquote>",
+    "en": "👩🏽‍💻 <b>Send</b> sticker/emoji or photo/video/gif to add to <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>press ⚫️/🙌🏽/🔄 to round/remove photo background/convert photo to video</blockquote>",
+    "es": "👩🏽‍💻 <b>Envía</b> sticker/emoji o foto/video/gif para añadir a <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>presiona ⚫️/🙌🏽/🔄 para redondear/eliminar fondo de la foto/convertir foto en video</blockquote>",
+    "fr": "👩🏽‍💻 <b>Envoie</b> sticker/emoji ou photo/vidéo/gif pour ajouter à <b>{0}</b> : <a href='{1}'>{2}</a>\n\n<blockquote>appuie sur ⚫️/🙌🏽/🔄 pour arrondir/supprimer le fond de la photo/конвертировать la photo en vidéo</blockquote>",
+    "zh": "👩🏽‍💻 <b>发送</b> 贴纸/表情或照片/视频/GIF 以添加到 <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>点击 ⚫️/🙌🏽/🔄 来圆角/移除照片背景/将照片转换为视频</blockquote>",
+    "ar": "👩🏽‍💻 <b>أرسل</b> ملصق/رمز تعبيري أو صورة/فيديو/GIF للإضافة إلى <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>اضغط ⚫️/🙌🏽/🔄 لتدوير/إزالة خلفية الصورة/تحويل الصورة إلى فيديو</blockquote>"
 }
 l_pack_sub_for_many_media = {
     "ru": "👩🏽‍💻 <b>Необходимо</b> оформить подписку для загрузки нескольких медиа-файлов за раз",
@@ -14869,12 +14869,12 @@ l_pack_replace_success = {
     "ar": "👩🏽‍💻 <b>الاستبدال:</b> ناجح\n\n📍 <b>التغييرات</b> في الحزمة ستسري خلال نصف ساعة",
 }
 l_pack_item_add2 = {
-    "ru": "👩🏽‍💻 <b>Отправь</b> sticker/emoji или photo/video/gif для замены элемента в <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>жми ⚫️/🙌🏽/🔄, чтобы закруглить/удалить фон/конвертировать фото в видео</blockquote>",
-    "en": "👩🏽‍💻 <b>Send</b> a sticker/emoji or photo/video/gif to replace an item in <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>Press ⚫️/🙌🏽/🔄 to round/remove background/convert photo to video</blockquote>",
-    "es": "👩🏽‍💻 <b>Envía</b> un sticker/emoji o foto/video/gif para reemplazar un elemento en <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>Pulsa ⚫️/🙌🏽/🔄 para redondear/quitar fondo/convertir foto en vídeo</blockquote>",
-    "fr": "👩🏽‍💻 <b>Envoie</b> un sticker/emoji ou photo/vidéo/gif pour remplacer un élément dans <b>{0}</b> : <a href='{1}'>{2}</a>\n\n<blockquote>Appuie sur ⚫️/🙌🏽/🔄 pour arrondir/enlever le fond/convertir une photo en vidéo</blockquote>",
-    "zh": "👩🏽‍💻 <b>发送</b> 贴纸/表情或照片/视频/GIF 来替换 <b>{0}</b> 中的项目: <a href='{1}'>{2}</a>\n\n<blockquote>按 ⚫️/🙌🏽/🔄 来圆角/移除背景/将照片转换为视频</blockquote>",
-    "ar": "👩🏽‍💻 <b>أرسل</b> ملصق/إيموجي أو صورة/فيديو/صورة متحركة لاستبدال عنصر في <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>اضغط ⚫️/🙌🏽/🔄 لتقريب/إزالة الخلفية/تحويل الصورة إلى فيديو</blockquote>",
+    "ru": "👩🏽‍💻 <b>Отправь</b> sticker/emoji или photo/video/gif для замены элемента в <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>жми ⚫️/🙌🏽/🔄, чтобы закруглить/удалить фон фото/конвертировать фото в видео</blockquote>",
+    "en": "👩🏽‍💻 <b>Send</b> sticker/emoji or photo/video/gif to replace an item in <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>press ⚫️/🙌🏽/🔄 to round/remove photo background/convert photo to video</blockquote>",
+    "es": "👩🏽‍💻 <b>Envía</b> sticker/emoji o foto/video/gif para reemplazar un elemento en <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>presiona ⚫️/🙌🏽/🔄 para redondear/eliminar fondo de la foto/convertir foto en video</blockquote>",
+    "fr": "👩🏽‍💻 <b>Envoie</b> sticker/emoji ou photo/vidéo/gif pour remplacer un élément dans <b>{0}</b> : <a href='{1}'>{2}</a>\n\n<blockquote>appuie sur ⚫️/🙌🏽/🔄 pour arrondir/supprimer le fond de la photo/convertir la photo en vidéo</blockquote>",
+    "zh": "👩🏽‍💻 <b>发送</b> 贴纸/表情或照片/视频/GIF 来替换 <b>{0}</b> 中的项目: <a href='{1}'>{2}</a>\n\n<blockquote>点击 ⚫️/🙌🏽/🔄 来圆角/移除照片背景/将照片转换为视频</blockquote>",
+    "ar": "👩🏽‍💻 <b>أرسل</b> ملصق/رمز تعبيري أو صورة/فيديو/GIF لاستبدال عنصر في <b>{0}</b>: <a href='{1}'>{2}</a>\n\n<blockquote>اضغط ⚫️/🙌🏽/🔄 لتدوير/إزالة خلفية الصورة/تحويل الصورة إلى فيديو</blockquote>"
 }
 
 # endregion

@@ -1,10 +1,13 @@
-from mpi4py import MPI
+import mpitestutil as testutil
 import mpiunittest as unittest
 
-class GReqCtx:
+from mpi4py import MPI
 
+
+class GReqCtx:
+    #
     source = 3
-    tag    = 7
+    tag = 7
     completed = False
 
     cancel_called = False
@@ -13,18 +16,20 @@ class GReqCtx:
     def query(self, status):
         status.Set_source(self.source)
         status.Set_tag(self.tag)
+
     def free(self):
         self.free_called = True
+
     def cancel(self, completed):
         self.cancel_called = True
         if completed is not self.completed:
             raise MPI.Exception(MPI.ERR_PENDING)
 
 
-@unittest.skipMPI('MPI(<2.0)')
-@unittest.skipMPI('openmpi(==4.1.0)')
+@unittest.skipMPI("MPI(<2.0)")
+@unittest.skipMPI("openmpi(==4.1.0)")
 class TestGrequest(unittest.TestCase):
-
+    #
     def testConstructor(self):
         ctx = GReqCtx()
         greq = MPI.Grequest.Start(ctx.query, ctx.free, ctx.cancel)
@@ -34,9 +39,14 @@ class TestGrequest(unittest.TestCase):
         dupe = MPI.Grequest.fromhandle(greq.handle)
         self.assertIs(type(dupe), MPI.Grequest)
         self.assertEqual(dupe, greq)
-        dupe = MPI.Grequest.f2py(greq.py2f())
-        self.assertIs(type(dupe), MPI.Grequest)
-        self.assertEqual(dupe, greq)
+        if greq.toint() != -1:
+            dupe = MPI.Grequest.fromint(greq.toint())
+            self.assertIs(type(dupe), MPI.Grequest)
+            self.assertEqual(dupe, greq)
+        if greq.py2f() != -1:
+            dupe = MPI.Grequest.f2py(greq.py2f())
+            self.assertIs(type(dupe), MPI.Grequest)
+            self.assertEqual(dupe, greq)
         dupe = MPI.Request(greq)
         self.assertIs(type(dupe), MPI.Request)
         self.assertEqual(dupe, greq)
@@ -46,17 +56,19 @@ class TestGrequest(unittest.TestCase):
         greq.Complete()
         greq.Wait()
 
-    @unittest.skipMPI('openmpi')  # TODO: open-mpi/ompi#11681
+    @unittest.skipMPI("openmpi")  # TODO(dalcinl): open-mpi/ompi#11681
     def testExceptionHandling(self):
         ctx = GReqCtx()
 
-        def raise_mpi(*args):
+        def raise_mpi(*_args):
             raise MPI.Exception(MPI.ERR_BUFFER)
-        def raise_rte(*args):
+
+        def raise_rte(*_args):
             raise ValueError(42)
+
         def check_exc(exception, is_mpi, stderr):
             output = stderr.getvalue()
-            header = 'Traceback (most recent call last):\n'
+            header = "Traceback (most recent call last):\n"
             if is_mpi:
                 chkcode = MPI.ERR_BUFFER
                 excname = MPI.Exception.__name__
@@ -75,7 +87,7 @@ class TestGrequest(unittest.TestCase):
             greq = MPI.Grequest.Start(raise_fn, ctx.free, ctx.cancel)
             greq.Complete()
             with self.assertRaises(MPI.Exception) as exc_cm:
-                with unittest.capture_stderr() as stderr:
+                with testutil.capture_stderr() as stderr:
                     greq.Wait()
             if greq:
                 greq.Free()
@@ -84,7 +96,7 @@ class TestGrequest(unittest.TestCase):
             greq = MPI.Grequest.Start(ctx.query, raise_fn, ctx.cancel)
             greq.Complete()
             with self.assertRaises(MPI.Exception) as exc_cm:
-                with unittest.capture_stderr() as stderr:
+                with testutil.capture_stderr() as stderr:
                     greq.Wait()
             if greq:
                 greq.Free()
@@ -92,7 +104,7 @@ class TestGrequest(unittest.TestCase):
             #
             greq = MPI.Grequest.Start(ctx.query, ctx.free, raise_fn)
             with self.assertRaises(MPI.Exception) as exc_cm:
-                with unittest.capture_stderr() as stderr:
+                with testutil.capture_stderr() as stderr:
                     greq.Cancel()
             greq.Complete()
             greq.Wait()
@@ -180,5 +192,5 @@ class TestGrequest(unittest.TestCase):
         self.assertIsNone(obj)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

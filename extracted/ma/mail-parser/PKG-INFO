@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mail-parser
-Version: 4.1.3
+Version: 4.1.4
 Summary: Improved wrapper for email standard library
 Home-page: https://github.com/SpamScope/mail-parser
 Author: Fedele Mantuano

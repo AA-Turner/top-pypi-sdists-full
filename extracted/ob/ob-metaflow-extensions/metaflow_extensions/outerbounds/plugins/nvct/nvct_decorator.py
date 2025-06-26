@@ -46,23 +46,23 @@ SUPPORTABLE_GPU_TYPES = {
     "H100": [
         {
             "n_gpus": 1,
-            "instance_type": "GCP.GPU.H100_1x",
-            "backend": "gcp-asia-se-1a",
+            "instance_type": "OCI.GPU.H100_1x",
+            "backend": "nvcf-dgxc-k8s-oci-nrt-prd8",
         },
         {
             "n_gpus": 2,
-            "instance_type": "GCP.GPU.H100_2x",
-            "backend": "gcp-asia-se-1a",
+            "instance_type": "OCI.GPU.H100_2x",
+            "backend": "nvcf-dgxc-k8s-oci-nrt-prd8",
         },
         {
             "n_gpus": 4,
-            "instance_type": "GCP.GPU.H100_4x",
-            "backend": "gcp-asia-se-1a",
+            "instance_type": "OCI.GPU.H100_4x",
+            "backend": "nvcf-dgxc-k8s-oci-nrt-prd8",
         },
         {
             "n_gpus": 8,
-            "instance_type": "GCP.GPU.H100_8x",
-            "backend": "gcp-asia-se-1a",
+            "instance_type": "OCI.GPU.H100_8x",
+            "backend": "nvcf-dgxc-k8s-oci-nrt-prd8",
         },
     ],
     "NEBIUS_H100": [

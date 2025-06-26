@@ -11,7 +11,7 @@ import pytest
 def reqmock(monkeypatch):
     mr = mocked_request()
 
-    def get_adapter(self, url):
+    def get_adapter(self, url):  # noqa: ARG001
         return MockAdapter(mr, url)
 
     monkeypatch.setattr("requests.sessions.Session.get_adapter", get_adapter)
@@ -23,11 +23,12 @@ def patch_reqsessionmock(monkeypatch):
     def patch_reqsessionmock(session):
         mr = mocked_request()
 
-        def get_adapter(self, url):
+        def get_adapter(self, url):  # noqa: ARG001
             return MockAdapter(mr, url)
 
         monkeypatch.setattr(session, "get_adapter", get_adapter.__get__(session))
         return mr
+
     return patch_reqsessionmock
 
 
@@ -44,33 +45,46 @@ class mocked_request:
     def __init__(self):
         self.url2reply = {}
 
-    def process_request(self, request, kwargs):
+    def get_response(self, request):
         url = request.url
         response = self.url2reply.get((url, request.method))
-        if response is None:
-            response = self.url2reply.get((url, None))
-            if response is None:
-                for (name, method), response in self.url2reply.items():
-                    if method is None or method == request.method:
-                        if fnmatch.fnmatch(request.url, name):
-                            break
-                else:
-                    raise Exception("not mocked call to %s" % url)  # noqa: TRY002
-        response.add_request(request)
-        r = HTTPAdapter().build_response(request, response.make())
-        return r
+        if response is not None:
+            return response
+        response = self.url2reply.get((url, None))
+        if response is not None:
+            return response
+        for (name, method), response in self.url2reply.items():
+            if method not in (None, request.method):
+                continue
+            if fnmatch.fnmatch(request.url, name):
+                return response
+        raise Exception("not mocked call to %s" % url)  # noqa: TRY002
 
-    def mockresponse(self, url, code, method=None, data=None, headers=None,
-                     on_request=None, reason=None):
+    def process_request(self, request, kwargs):  # noqa: ARG002
+        response = self.get_response(request)
+        response.add_request(request)
+        return HTTPAdapter().build_response(request, response.make())
+
+    def mockresponse(
+        self,
+        url,
+        code,
+        method=None,
+        data=None,
+        headers=None,
+        on_request=None,
+        reason=None,
+    ):
         if not url:
             url = "*"
         r = ReplyMaker(
-            code=code, data=data, headers=headers,
-            on_request=on_request, reason=reason)
+            code=code, data=data, headers=headers, on_request=on_request, reason=reason
+        )
         if method is not None:
             method = method.upper()
         self.url2reply[(url, method)] = r
         return r
+
     mock = mockresponse
 
 
@@ -81,10 +95,7 @@ class ReplyMaker:
         self.data = data
         self.requests = []
         self.on_request = on_request
-        self.kwargs = dict(
-            status=code,
-            headers=headers,
-            reason=reason)
+        self.kwargs = dict(status=code, headers=headers, reason=reason)
 
     def add_request(self, request):
         if self.on_request:
@@ -93,6 +104,5 @@ class ReplyMaker:
 
     def make(self):
         return HTTPResponse(
-            body=BytesIO(self.data),
-            preload_content=False,
-            **self.kwargs)
+            body=BytesIO(self.data), preload_content=False, **self.kwargs
+        )

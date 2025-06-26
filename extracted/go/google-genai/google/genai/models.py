@@ -781,6 +781,13 @@ def _GenerateContentConfig_to_mldev(
         ),
     )
 
+  if getv(from_object, ['response_json_schema']) is not None:
+    setv(
+        to_object,
+        ['responseJsonSchema'],
+        getv(from_object, ['response_json_schema']),
+    )
+
   if getv(from_object, ['routing_config']) is not None:
     raise ValueError('routing_config parameter is not supported in Gemini API.')
 
@@ -1396,6 +1403,11 @@ def _GenerateVideosConfig_to_mldev(
 
   if getv(from_object, ['last_frame']) is not None:
     raise ValueError('last_frame parameter is not supported in Gemini API.')
+
+  if getv(from_object, ['compression_quality']) is not None:
+    raise ValueError(
+        'compression_quality parameter is not supported in Gemini API.'
+    )
 
   return to_object
 
@@ -2197,6 +2209,13 @@ def _GenerateContentConfig_to_vertex(
         ),
     )
 
+  if getv(from_object, ['response_json_schema']) is not None:
+    setv(
+        to_object,
+        ['responseJsonSchema'],
+        getv(from_object, ['response_json_schema']),
+    )
+
   if getv(from_object, ['routing_config']) is not None:
     setv(to_object, ['routingConfig'], getv(from_object, ['routing_config']))
 
@@ -2848,6 +2867,20 @@ def _UpscaleImageAPIConfig_to_vertex(
         getv(from_object, ['output_compression_quality']),
     )
 
+  if getv(from_object, ['enhance_input_image']) is not None:
+    setv(
+        parent_object,
+        ['parameters', 'upscaleConfig', 'enhanceInputImage'],
+        getv(from_object, ['enhance_input_image']),
+    )
+
+  if getv(from_object, ['image_preservation_factor']) is not None:
+    setv(
+        parent_object,
+        ['parameters', 'upscaleConfig', 'imagePreservationFactor'],
+        getv(from_object, ['image_preservation_factor']),
+    )
+
   if getv(from_object, ['number_of_images']) is not None:
     setv(
         parent_object,
@@ -3240,6 +3273,13 @@ def _GenerateVideosConfig_to_vertex(
         _Image_to_vertex(getv(from_object, ['last_frame']), to_object),
     )
 
+  if getv(from_object, ['compression_quality']) is not None:
+    setv(
+        parent_object,
+        ['parameters', 'compressionQuality'],
+        getv(from_object, ['compression_quality']),
+    )
+
   return to_object
 
 
@@ -3554,6 +3594,12 @@ def _GenerateContentResponse_from_mldev(
     parent_object: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
   to_object: dict[str, Any] = {}
+
+  if getv(from_object, ['sdkHttpResponse']) is not None:
+    setv(
+        to_object, ['sdk_http_response'], getv(from_object, ['sdkHttpResponse'])
+    )
+
   if getv(from_object, ['candidates']) is not None:
     setv(
         to_object,
@@ -4211,6 +4257,12 @@ def _GenerateContentResponse_from_vertex(
     parent_object: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
   to_object: dict[str, Any] = {}
+
+  if getv(from_object, ['sdkHttpResponse']) is not None:
+    setv(
+        to_object, ['sdk_http_response'], getv(from_object, ['sdkHttpResponse'])
+    )
+
   if getv(from_object, ['candidates']) is not None:
     setv(
         to_object,
@@ -4792,6 +4844,9 @@ class Models(_api_module.BaseModule):
     return_value = types.GenerateContentResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+    return_value.sdk_http_response = types.HttpResponse(
+        headers=response.headers
+    )
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -4856,9 +4911,11 @@ class Models(_api_module.BaseModule):
           ' methods.'
       )
 
-    for response_dict in self._api_client.request_streamed(
+    for response in self._api_client.request_streamed(
         'post', path, request_dict, http_options
     ):
+
+      response_dict = '' if not response.body else json.loads(response.body)
 
       if self._api_client.vertexai:
         response_dict = _GenerateContentResponse_from_vertex(response_dict)
@@ -4868,6 +4925,9 @@ class Models(_api_module.BaseModule):
 
       return_value = types.GenerateContentResponse._from_response(
           response=response_dict, kwargs=parameter_model.model_dump()
+      )
+      return_value.sdk_http_response = types.HttpResponse(
+          headers=response.headers
       )
       self._api_client._verify_response(return_value)
       yield return_value
@@ -4959,6 +5019,7 @@ class Models(_api_module.BaseModule):
     return_value = types.EmbedContentResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5034,6 +5095,7 @@ class Models(_api_module.BaseModule):
     return_value = types.GenerateImagesResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5135,6 +5197,7 @@ class Models(_api_module.BaseModule):
     return_value = types.EditImageResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5203,6 +5266,7 @@ class Models(_api_module.BaseModule):
     return_value = types.UpscaleImageResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5263,6 +5327,7 @@ class Models(_api_module.BaseModule):
     return_value = types.Model._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5322,6 +5387,7 @@ class Models(_api_module.BaseModule):
     return_value = types.ListModelsResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5387,6 +5453,7 @@ class Models(_api_module.BaseModule):
     return_value = types.Model._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5452,6 +5519,7 @@ class Models(_api_module.BaseModule):
     return_value = types.DeleteModelResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5540,6 +5608,7 @@ class Models(_api_module.BaseModule):
     return_value = types.CountTokensResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5620,6 +5689,7 @@ class Models(_api_module.BaseModule):
     return_value = types.ComputeTokensResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5725,6 +5795,7 @@ class Models(_api_module.BaseModule):
     return_value = types.GenerateVideosOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -5973,6 +6044,7 @@ class Models(_api_module.BaseModule):
         # Yield chunks only if there's no function response parts.
         for chunk in response:
           if not function_map:
+            _extra_utils.append_chunk_contents(contents, chunk)
             yield chunk
           else:
             if (
@@ -5985,6 +6057,7 @@ class Models(_api_module.BaseModule):
                 chunk, function_map
             )
             if not func_response_parts:
+              _extra_utils.append_chunk_contents(contents, chunk)
               yield chunk
 
       else:
@@ -5994,6 +6067,7 @@ class Models(_api_module.BaseModule):
             chunk.automatic_function_calling_history = (
                 automatic_function_calling_history
             )
+          _extra_utils.append_chunk_contents(contents, chunk)
           yield chunk
         if (
             chunk is None
@@ -6192,6 +6266,10 @@ class Models(_api_module.BaseModule):
         output_compression_quality=config_dct.get(
             'output_compression_quality', None
         ),
+        enhance_input_image=config_dct.get('enhance_input_image', None),
+        image_preservation_factor=config_dct.get(
+            'image_preservation_factor', None
+        ),
     )  # pylint: disable=protected-access
 
     # Provide default values through API config.
@@ -6322,6 +6400,9 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.GenerateContentResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+    return_value.sdk_http_response = types.HttpResponse(
+        headers=response.headers
+    )
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6391,7 +6472,9 @@ class AsyncModels(_api_module.BaseModule):
     )
 
     async def async_generator():  # type: ignore[no-untyped-def]
-      async for response_dict in response_stream:
+      async for response in response_stream:
+
+        response_dict = '' if not response.body else json.loads(response.body)
 
         if self._api_client.vertexai:
           response_dict = _GenerateContentResponse_from_vertex(response_dict)
@@ -6401,6 +6484,9 @@ class AsyncModels(_api_module.BaseModule):
 
         return_value = types.GenerateContentResponse._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
+        )
+        return_value.sdk_http_response = types.HttpResponse(
+            headers=response.headers
         )
         self._api_client._verify_response(return_value)
         yield return_value
@@ -6494,6 +6580,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.EmbedContentResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6569,6 +6656,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.GenerateImagesResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6670,6 +6758,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.EditImageResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6738,6 +6827,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.UpscaleImageResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6800,6 +6890,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.Model._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6861,6 +6952,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.ListModelsResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6926,6 +7018,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.Model._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -6991,6 +7084,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.DeleteModelResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -7079,6 +7173,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.CountTokensResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -7158,6 +7253,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.ComputeTokensResponse._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -7263,6 +7359,7 @@ class AsyncModels(_api_module.BaseModule):
     return_value = types.GenerateVideosOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -7483,6 +7580,7 @@ class AsyncModels(_api_module.BaseModule):
           # Yield chunks only if there's no function response parts.
           async for chunk in response:  # type: ignore[attr-defined]
             if not function_map:
+              _extra_utils.append_chunk_contents(contents, chunk)
               yield chunk
             else:
               if (
@@ -7497,6 +7595,7 @@ class AsyncModels(_api_module.BaseModule):
                   )
               )
               if not func_response_parts:
+                _extra_utils.append_chunk_contents(contents, chunk)
                 yield chunk
 
         else:
@@ -7507,6 +7606,7 @@ class AsyncModels(_api_module.BaseModule):
               chunk.automatic_function_calling_history = (
                   automatic_function_calling_history
               )
+            _extra_utils.append_chunk_contents(contents, chunk)
             yield chunk
           if (
               chunk is None
@@ -7761,6 +7861,10 @@ class AsyncModels(_api_module.BaseModule):
         output_mime_type=config_dct.get('output_mime_type', None),
         output_compression_quality=config_dct.get(
             'output_compression_quality', None
+        ),
+        enhance_input_image=config_dct.get('enhance_input_image', None),
+        image_preservation_factor=config_dct.get(
+            'image_preservation_factor', None
         ),
     )  # pylint: disable=protected-access
 

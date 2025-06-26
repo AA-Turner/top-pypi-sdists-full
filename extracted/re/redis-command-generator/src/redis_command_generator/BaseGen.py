@@ -91,9 +91,7 @@ class BaseGen():
         if type not in self.scan_cursors[conn]:
             self.scan_cursors[conn][type] = 0
 
-        # cursor, keys = redis_obj.scan(self.scan_cursors[conn][type], _type=type)
-        scan_return = redis_obj.scan(self.scan_cursors[conn][type], _type=type)
-        cursor, keys = scan_return
+        cursor, keys = redis_obj.scan(self.scan_cursors[conn][type], _type=type)
         self.scan_cursors[conn][type] = cursor
         return random.choice(keys) if keys else None
     

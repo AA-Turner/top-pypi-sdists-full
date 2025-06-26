@@ -443,6 +443,10 @@ class ReleaseManager:
                 if line.find("Aheadworks_") != -1:
                     m = re.search("Aheadworks_([^\"']+)", line)
                     return m.group(1)
+                # Hyva extensions workaround
+                if line.find("Hyva_") != -1:
+                    m = re.search("Hyva_([^\"']+)", line)
+                    return m.group(1)
         return ""
 
     def _prepare_for_publishing(self, module_path, magento_package_name, module_version):

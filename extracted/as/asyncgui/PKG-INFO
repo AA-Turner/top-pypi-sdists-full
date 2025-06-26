@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: asyncgui
-Version: 0.8.0
+Version: 0.9.0
 Summary: A minimalistic async library that focuses on fast responsiveness
 License: MIT
 Keywords: async
@@ -28,7 +28,7 @@ Description-Content-Type: text/markdown
 
 ...is a minimalistic async library that:
 
-- does not provide features involving system calls, such as I/O, time retrieval, thread suspension, or thread spawning.
+- does not provide features involving system calls, such as I/O.
 - has no external dependencies when using Python 3.11 or later.
 - does not own a main loop, but is designed to integrate with an existing one.
 - avoids global state.
@@ -43,8 +43,8 @@ Description-Content-Type: text/markdown
 Pin the minor version.
 
 ```text
-poetry add asyncgui@~0.8
-pip install "asyncgui>=0.8,<0.9"
+poetry add asyncgui@~0.9
+pip install "asyncgui>=0.9,<0.10"
 ```
 
 ## Tested on

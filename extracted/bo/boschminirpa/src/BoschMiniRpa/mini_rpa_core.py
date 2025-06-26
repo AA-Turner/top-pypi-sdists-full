@@ -349,19 +349,20 @@ class MiniRPACore:
         return date_value
 
     @staticmethod
-    def string_date_parser(date_value):
+    def string_date_parser(date_value, target_date_format='%Y-%m-%d'):
         """This function is used to parse date value
 
         Args:
             date_value(str): This is the date value
+            target_date_format(str): This is the target date format, default is '%Y-%m-%d'
 
         """
         date_value = str(date_value)
         try:
-            date_value = str(datetime.datetime.strptime(date_value, '%Y-%m-%d').date())
+            date_value = str(datetime.datetime.strptime(date_value, '%Y-%m-%d').date().strftime(target_date_format))
         except ValueError:
             try:
-                date_value = str(datetime.datetime.strptime(date_value, '%Y-%m-%d %H:%M:%S').date())
+                date_value = str(datetime.datetime.strptime(date_value, '%Y-%m-%d %H:%M:%S').date().strftime(target_date_format))
             except ValueError:
                 date_value = ''
 
@@ -377,7 +378,7 @@ class MiniRPACore:
         """
         date_value = str(date_value).split(' ')[0]
         transformed_date = None
-        for date_format in ['%d.%m.%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y.%m.%d', '%m/%d/%Y', '%Y%m%d', '%d%m%Y', '%m%d%Y', '%Y/%m/%d', '%d/%m/%Y']:
+        for date_format in ['%d.%m.%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y.%m.%d', '%m/%d/%Y', '%Y%m%d', '%d%m%Y', '%m%d%Y', '%Y/%m/%d', '%d/%m/%Y', '%m.%d.%Y', '%m-%d-%Y']:
             try:
                 transformed_date = datetime.datetime.strptime(date_value, date_format).date()
                 break

@@ -6,7 +6,12 @@
 
 /* -------------------------------------------------------------------------- */
 
-#if (MPICH_NUMVERSION >= 30000000) || defined(CIBUILDWHEEL)
+#define PyMPI_MPICH3_GE(NUMVERSION) \
+  ((MPICH_NUMVERSION >= NUMVERSION) && (MPICH_NUMVERSION < 40000000))
+
+/* -------------------------------------------------------------------------- */
+
+#if PyMPI_MPICH3_GE(30000000) || PyMPI_LEGACY_ABI
 static int PyMPI_MPICH3_MPI_Type_get_extent_x(MPI_Datatype datatype,
                                               MPI_Count   *lb,
                                               MPI_Count   *extent)
@@ -33,10 +38,25 @@ static int PyMPI_MPICH3_MPI_Type_get_extent_x(MPI_Datatype datatype,
  fn_exit:
   return ierr;
 }
+#undef  MPI_Type_get_extent_x
 #define MPI_Type_get_extent_x PyMPI_MPICH3_MPI_Type_get_extent_x
 #endif
 
-#if (MPICH_NUMVERSION >= 30000000) || defined(CIBUILDWHEEL)
+#if PyMPI_LEGACY_ABI
+static int PyMPI_MPICH3_MPI_Type_get_extent_c(MPI_Datatype datatype,
+                                              MPI_Count    *lb,
+                                              MPI_Count    *extent)
+{
+  if (pympi_numversion() >= 40)
+    return MPI_Type_get_extent_c(datatype, lb, extent);
+  else
+    return MPI_Type_get_extent_x(datatype, lb, extent);
+}
+#undef  MPI_Type_get_extent_c
+#define MPI_Type_get_extent_c PyMPI_MPICH3_MPI_Type_get_extent_c
+#endif
+
+#if PyMPI_MPICH3_GE(30000000) || PyMPI_LEGACY_ABI
 static int PyMPI_MPICH3_MPI_Type_get_true_extent_x(MPI_Datatype datatype,
                                                    MPI_Count   *lb,
                                                    MPI_Count   *extent)
@@ -63,33 +83,58 @@ static int PyMPI_MPICH3_MPI_Type_get_true_extent_x(MPI_Datatype datatype,
  fn_exit:
   return ierr;
 }
+#undef  MPI_Type_get_true_extent_x
 #define MPI_Type_get_true_extent_x PyMPI_MPICH3_MPI_Type_get_true_extent_x
 #endif
 
-#if (MPICH_NUMVERSION >= 30400000) || defined(CIBUILDWHEEL)
+#if PyMPI_LEGACY_ABI
+static int PyMPI_MPICH3_MPI_Type_get_true_extent_c(MPI_Datatype datatype,
+                                                   MPI_Count   *lb,
+                                                   MPI_Count   *extent)
+{
+  if (pympi_numversion() >= 40)
+    return MPI_Type_get_true_extent_c(datatype, lb, extent);
+  else
+    return MPI_Type_get_true_extent_x(datatype, lb, extent);
+}
+#undef  MPI_Type_get_true_extent_c
+#define MPI_Type_get_true_extent_c PyMPI_MPICH3_MPI_Type_get_true_extent_c
+#endif
+
+
+#if PyMPI_MPICH3_GE(30400000) || PyMPI_LEGACY_ABI
 static int PyMPI_MPICH3_MPI_Initialized(int *flag)
 {
   int ierr;
-  ierr = MPI_Initialized(flag); if (ierr) return ierr;
+  {ierr = MPI_Initialized(flag); if (ierr) return ierr;}
+#if  PyMPI_LEGACY_ABI
+  if (pympi_numversion() >= 40) return MPI_SUCCESS;
+#endif
   if (!flag || *flag) return MPI_SUCCESS;
-  ierr = MPI_Finalized(flag); if (ierr) return ierr;
+  {ierr = MPI_Finalized(flag); if (ierr) return ierr;}
   return MPI_SUCCESS;
 }
+#undef  MPI_Initialized
 #define MPI_Initialized PyMPI_MPICH3_MPI_Initialized
 #endif
 
-#if (MPICH_NUMVERSION >= 30400000) || defined(CIBUILDWHEEL)
+#if PyMPI_MPICH3_GE(30400000) || PyMPI_LEGACY_ABI
 static int PyMPI_MPICH3_MPI_Win_get_attr(MPI_Win win,
                                          int keyval,
                                          void *attrval,
                                          int *flag)
 {
-  int ierr; static MPI_Aint zero[1] = {0}; zero[0] = 0;
-  ierr = MPI_Win_get_attr(win, keyval, attrval, flag); if (ierr) return ierr;
+  int ierr;
+  static MPI_Aint zero[1] = {0}; zero[0] = 0;
+  {ierr = MPI_Win_get_attr(win, keyval, attrval, flag); if (ierr) return ierr;}
+#if  PyMPI_LEGACY_ABI
+  if (pympi_numversion() >= 40) return MPI_SUCCESS;
+#endif
   if (keyval == MPI_WIN_SIZE && flag && *flag && attrval)
-    if (**((MPI_Aint**)attrval) == -1) *((void**)attrval) = zero;
+    if (**((MPI_Aint**)attrval) == -1) *((void**)attrval) = (void*) zero;
   return MPI_SUCCESS;
 }
+#undef  MPI_Win_get_attr
 #define MPI_Win_get_attr PyMPI_MPICH3_MPI_Win_get_attr
 #endif
 
@@ -97,12 +142,11 @@ static int PyMPI_MPICH3_MPI_Win_get_attr(MPI_Win win,
 
 #if (MPICH_NUMVERSION == 30101300)
 
-static int PyMPI_MPICH_MPI_Status_c2f(const MPI_Status *c_status,
+static int PyMPI_MPICH_MPI_Status_c2f(MPI_Status *c_status,
                                       MPI_Fint *f_status)
 {
-  if (c_status == MPI_STATUS_IGNORE ||
-      c_status == MPI_STATUSES_IGNORE) return MPI_ERR_OTHER;
-  *(MPI_Status *)f_status = *c_status;
+  if (c_status == NULL || f_status == NULL) return MPI_ERR_ARG;
+  *(MPI_Status *)(char *)f_status = *c_status;
   return MPI_SUCCESS;
 }
 #define MPI_Status_c2f PyMPI_MPICH_MPI_Status_c2f
@@ -163,7 +207,7 @@ static int PyMPI_MPICH_MPI_Type_get_true_extent_x(MPI_Datatype datatype,
 #undef  MPI_Type_get_true_extent_x
 #define MPI_Type_get_true_extent_x PyMPI_MPICH_MPI_Type_get_true_extent_x
 
-static int PyMPI_MPICH_MPI_Get_accumulate(const void *origin_addr,
+static int PyMPI_MPICH_MPI_Get_accumulate(void *origin_addr,
                                           int origin_count,
                                           MPI_Datatype origin_datatype,
                                           void *result_addr,
@@ -175,8 +219,8 @@ static int PyMPI_MPICH_MPI_Get_accumulate(const void *origin_addr,
                                           MPI_Datatype target_datatype,
                                           MPI_Op op, MPI_Win win)
 {
-  double origin_buf, result_buf;
-  if (!origin_addr && !origin_count) origin_addr = (const void *)&origin_buf;
+  double origin_buf = 0, result_buf = 0;
+  if (!origin_addr && !origin_count) origin_addr = (void *)&origin_buf;
   if (!result_addr && !result_count) result_addr = (void *)&result_buf;
   return MPI_Get_accumulate(origin_addr, origin_count, origin_datatype,
                             result_addr, result_count, result_datatype,
@@ -187,7 +231,7 @@ static int PyMPI_MPICH_MPI_Get_accumulate(const void *origin_addr,
 #undef  MPI_Get_accumulate
 #define MPI_Get_accumulate PyMPI_MPICH_MPI_Get_accumulate
 
-static int PyMPI_MPICH_MPI_Rget_accumulate(const void *origin_addr,
+static int PyMPI_MPICH_MPI_Rget_accumulate(void *origin_addr,
                                            int origin_count,
                                            MPI_Datatype origin_datatype,
                                            void *result_addr,
@@ -200,8 +244,8 @@ static int PyMPI_MPICH_MPI_Rget_accumulate(const void *origin_addr,
                                            MPI_Op op, MPI_Win win,
                                            MPI_Request *request)
 {
-  double origin_buf, result_buf;
-  if (!origin_addr && !origin_count) origin_addr = (const void *)&origin_buf;
+  double origin_buf = 0, result_buf = 0;
+  if (!origin_addr && !origin_count) origin_addr = (void *)&origin_buf;
   if (!result_addr && !result_count) result_addr = (void *)&result_buf;
   return MPI_Rget_accumulate(origin_addr, origin_count, origin_datatype,
                              result_addr, result_count, result_datatype,

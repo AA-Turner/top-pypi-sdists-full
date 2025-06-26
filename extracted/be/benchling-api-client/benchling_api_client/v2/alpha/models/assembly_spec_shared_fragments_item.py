@@ -23,8 +23,8 @@ class AssemblySpecSharedFragmentsItem:
     _start: float
     _preferred_primer3_id: Union[Unset, str] = UNSET
     _preferred_primer5_id: Union[Unset, str] = UNSET
-    _restriction_enzyme3: Union[Unset, str] = UNSET
-    _restriction_enzyme5: Union[Unset, str] = UNSET
+    _restriction_enzyme3_id: Union[Unset, str] = UNSET
+    _restriction_enzyme5_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
     def __repr__(self):
@@ -37,8 +37,8 @@ class AssemblySpecSharedFragmentsItem:
         fields.append("start={}".format(repr(self._start)))
         fields.append("preferred_primer3_id={}".format(repr(self._preferred_primer3_id)))
         fields.append("preferred_primer5_id={}".format(repr(self._preferred_primer5_id)))
-        fields.append("restriction_enzyme3={}".format(repr(self._restriction_enzyme3)))
-        fields.append("restriction_enzyme5={}".format(repr(self._restriction_enzyme5)))
+        fields.append("restriction_enzyme3_id={}".format(repr(self._restriction_enzyme3_id)))
+        fields.append("restriction_enzyme5_id={}".format(repr(self._restriction_enzyme5_id)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "AssemblySpecSharedFragmentsItem({})".format(", ".join(fields))
 
@@ -59,8 +59,8 @@ class AssemblySpecSharedFragmentsItem:
         start = self._start
         preferred_primer3_id = self._preferred_primer3_id
         preferred_primer5_id = self._preferred_primer5_id
-        restriction_enzyme3 = self._restriction_enzyme3
-        restriction_enzyme5 = self._restriction_enzyme5
+        restriction_enzyme3_id = self._restriction_enzyme3_id
+        restriction_enzyme5_id = self._restriction_enzyme5_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -81,10 +81,10 @@ class AssemblySpecSharedFragmentsItem:
             field_dict["preferredPrimer3Id"] = preferred_primer3_id
         if preferred_primer5_id is not UNSET:
             field_dict["preferredPrimer5Id"] = preferred_primer5_id
-        if restriction_enzyme3 is not UNSET:
-            field_dict["restrictionEnzyme3"] = restriction_enzyme3
-        if restriction_enzyme5 is not UNSET:
-            field_dict["restrictionEnzyme5"] = restriction_enzyme5
+        if restriction_enzyme3_id is not UNSET:
+            field_dict["restrictionEnzyme3Id"] = restriction_enzyme3_id
+        if restriction_enzyme5_id is not UNSET:
+            field_dict["restrictionEnzyme5Id"] = restriction_enzyme5_id
 
         return field_dict
 
@@ -196,27 +196,27 @@ class AssemblySpecSharedFragmentsItem:
                 raise
             preferred_primer5_id = cast(Union[Unset, str], UNSET)
 
-        def get_restriction_enzyme3() -> Union[Unset, str]:
-            restriction_enzyme3 = d.pop("restrictionEnzyme3")
-            return restriction_enzyme3
+        def get_restriction_enzyme3_id() -> Union[Unset, str]:
+            restriction_enzyme3_id = d.pop("restrictionEnzyme3Id")
+            return restriction_enzyme3_id
 
         try:
-            restriction_enzyme3 = get_restriction_enzyme3()
+            restriction_enzyme3_id = get_restriction_enzyme3_id()
         except KeyError:
             if strict:
                 raise
-            restriction_enzyme3 = cast(Union[Unset, str], UNSET)
+            restriction_enzyme3_id = cast(Union[Unset, str], UNSET)
 
-        def get_restriction_enzyme5() -> Union[Unset, str]:
-            restriction_enzyme5 = d.pop("restrictionEnzyme5")
-            return restriction_enzyme5
+        def get_restriction_enzyme5_id() -> Union[Unset, str]:
+            restriction_enzyme5_id = d.pop("restrictionEnzyme5Id")
+            return restriction_enzyme5_id
 
         try:
-            restriction_enzyme5 = get_restriction_enzyme5()
+            restriction_enzyme5_id = get_restriction_enzyme5_id()
         except KeyError:
             if strict:
                 raise
-            restriction_enzyme5 = cast(Union[Unset, str], UNSET)
+            restriction_enzyme5_id = cast(Union[Unset, str], UNSET)
 
         assembly_spec_shared_fragments_item = cls(
             bin_id=bin_id,
@@ -227,8 +227,8 @@ class AssemblySpecSharedFragmentsItem:
             start=start,
             preferred_primer3_id=preferred_primer3_id,
             preferred_primer5_id=preferred_primer5_id,
-            restriction_enzyme3=restriction_enzyme3,
-            restriction_enzyme5=restriction_enzyme5,
+            restriction_enzyme3_id=restriction_enzyme3_id,
+            restriction_enzyme5_id=restriction_enzyme5_id,
         )
 
         assembly_spec_shared_fragments_item.additional_properties = d
@@ -348,31 +348,31 @@ class AssemblySpecSharedFragmentsItem:
         self._preferred_primer5_id = UNSET
 
     @property
-    def restriction_enzyme3(self) -> str:
+    def restriction_enzyme3_id(self) -> str:
         """ ID of enzyme used to digest fragment at 3' end """
-        if isinstance(self._restriction_enzyme3, Unset):
-            raise NotPresentError(self, "restriction_enzyme3")
-        return self._restriction_enzyme3
+        if isinstance(self._restriction_enzyme3_id, Unset):
+            raise NotPresentError(self, "restriction_enzyme3_id")
+        return self._restriction_enzyme3_id
 
-    @restriction_enzyme3.setter
-    def restriction_enzyme3(self, value: str) -> None:
-        self._restriction_enzyme3 = value
+    @restriction_enzyme3_id.setter
+    def restriction_enzyme3_id(self, value: str) -> None:
+        self._restriction_enzyme3_id = value
 
-    @restriction_enzyme3.deleter
-    def restriction_enzyme3(self) -> None:
-        self._restriction_enzyme3 = UNSET
+    @restriction_enzyme3_id.deleter
+    def restriction_enzyme3_id(self) -> None:
+        self._restriction_enzyme3_id = UNSET
 
     @property
-    def restriction_enzyme5(self) -> str:
+    def restriction_enzyme5_id(self) -> str:
         """ ID of enzyme used to digest fragment at 5' end """
-        if isinstance(self._restriction_enzyme5, Unset):
-            raise NotPresentError(self, "restriction_enzyme5")
-        return self._restriction_enzyme5
+        if isinstance(self._restriction_enzyme5_id, Unset):
+            raise NotPresentError(self, "restriction_enzyme5_id")
+        return self._restriction_enzyme5_id
 
-    @restriction_enzyme5.setter
-    def restriction_enzyme5(self, value: str) -> None:
-        self._restriction_enzyme5 = value
+    @restriction_enzyme5_id.setter
+    def restriction_enzyme5_id(self, value: str) -> None:
+        self._restriction_enzyme5_id = value
 
-    @restriction_enzyme5.deleter
-    def restriction_enzyme5(self) -> None:
-        self._restriction_enzyme5 = UNSET
+    @restriction_enzyme5_id.deleter
+    def restriction_enzyme5_id(self) -> None:
+        self._restriction_enzyme5_id = UNSET

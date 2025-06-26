@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.1.1
+# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.2.0
 
-This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform snowflake provider version
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.1.1)
+* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -137,10 +137,13 @@ __all__ = [
     "api_authentication_integration_with_jwt_bearer",
     "api_integration",
     "authentication_policy",
+    "compute_pool",
     "cortex_search_service",
+    "current_account",
     "data_snowflake_account_roles",
     "data_snowflake_accounts",
     "data_snowflake_alerts",
+    "data_snowflake_compute_pools",
     "data_snowflake_connections",
     "data_snowflake_cortex_search_services",
     "data_snowflake_current_account",
@@ -155,7 +158,9 @@ __all__ = [
     "data_snowflake_failover_groups",
     "data_snowflake_file_formats",
     "data_snowflake_functions",
+    "data_snowflake_git_repositories",
     "data_snowflake_grants",
+    "data_snowflake_image_repositories",
     "data_snowflake_masking_policies",
     "data_snowflake_materialized_views",
     "data_snowflake_network_policies",
@@ -168,6 +173,7 @@ __all__ = [
     "data_snowflake_secrets",
     "data_snowflake_security_integrations",
     "data_snowflake_sequences",
+    "data_snowflake_services",
     "data_snowflake_shares",
     "data_snowflake_stages",
     "data_snowflake_storage_integrations",
@@ -199,6 +205,7 @@ __all__ = [
     "function_python",
     "function_scala",
     "function_sql",
+    "git_repository",
     "grant_account_role",
     "grant_application_role",
     "grant_database_role",
@@ -206,6 +213,8 @@ __all__ = [
     "grant_privileges_to_account_role",
     "grant_privileges_to_database_role",
     "grant_privileges_to_share",
+    "image_repository",
+    "job_service",
     "legacy_service_user",
     "managed_account",
     "masking_policy",
@@ -238,6 +247,7 @@ __all__ = [
     "secret_with_client_credentials",
     "secret_with_generic_string",
     "sequence",
+    "service",
     "service_user",
     "share",
     "shared_database",
@@ -276,10 +286,13 @@ from . import api_authentication_integration_with_client_credentials
 from . import api_authentication_integration_with_jwt_bearer
 from . import api_integration
 from . import authentication_policy
+from . import compute_pool
 from . import cortex_search_service
+from . import current_account
 from . import data_snowflake_account_roles
 from . import data_snowflake_accounts
 from . import data_snowflake_alerts
+from . import data_snowflake_compute_pools
 from . import data_snowflake_connections
 from . import data_snowflake_cortex_search_services
 from . import data_snowflake_current_account
@@ -294,7 +307,9 @@ from . import data_snowflake_external_tables
 from . import data_snowflake_failover_groups
 from . import data_snowflake_file_formats
 from . import data_snowflake_functions
+from . import data_snowflake_git_repositories
 from . import data_snowflake_grants
+from . import data_snowflake_image_repositories
 from . import data_snowflake_masking_policies
 from . import data_snowflake_materialized_views
 from . import data_snowflake_network_policies
@@ -307,6 +322,7 @@ from . import data_snowflake_schemas
 from . import data_snowflake_secrets
 from . import data_snowflake_security_integrations
 from . import data_snowflake_sequences
+from . import data_snowflake_services
 from . import data_snowflake_shares
 from . import data_snowflake_stages
 from . import data_snowflake_storage_integrations
@@ -338,6 +354,7 @@ from . import function_javascript
 from . import function_python
 from . import function_scala
 from . import function_sql
+from . import git_repository
 from . import grant_account_role
 from . import grant_application_role
 from . import grant_database_role
@@ -345,6 +362,8 @@ from . import grant_ownership
 from . import grant_privileges_to_account_role
 from . import grant_privileges_to_database_role
 from . import grant_privileges_to_share
+from . import image_repository
+from . import job_service
 from . import legacy_service_user
 from . import managed_account
 from . import masking_policy
@@ -377,6 +396,7 @@ from . import secret_with_basic_authentication
 from . import secret_with_client_credentials
 from . import secret_with_generic_string
 from . import sequence
+from . import service
 from . import service_user
 from . import share
 from . import shared_database

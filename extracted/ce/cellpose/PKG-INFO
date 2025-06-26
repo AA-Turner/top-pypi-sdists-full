@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cellpose
-Version: 4.0.4
+Version: 4.0.5
 Summary: anatomical segmentation algorithm
 Home-page: https://github.com/MouseLand/cellpose
 Author: Marius Pachitariu and Carsen Stringer

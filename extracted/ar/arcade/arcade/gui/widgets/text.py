@@ -16,6 +16,7 @@ from arcade.gui.events import (
     UIMouseDragEvent,
     UIMouseEvent,
     UIMousePressEvent,
+    UIMouseReleaseEvent,
     UIMouseScrollEvent,
     UIOnChangeEvent,
     UIOnClickEvent,
@@ -544,7 +545,6 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
             **kwargs,
         )
 
-        self._active = False
         self._text_color = Color.from_iterable(text_color)
 
         self.doc: AbstractDocument = pyglet.text.decode_text(text)
@@ -574,9 +574,16 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
         bind(self, "pressed", self._apply_style)
         bind(self, "invalid", self._apply_style)
         bind(self, "disabled", self._apply_style)
+        bind(self, "_active", self._on_active_changed)
 
         # initial style application
         self._apply_style()
+
+    def _on_active_changed(self):
+        """Handle the active state change of the input
+        text field to care about loosing active state."""
+        if not self._active:
+            self.deactivate()
 
     def _apply_style(self):
         style = self.get_current_style()
@@ -630,12 +637,25 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
 
         Text input is only active when the user clicks on the input field."""
         # If active check to deactivate
-        if self._active and isinstance(event, UIMousePressEvent):
-            if self.rect.point_in_rect(event.pos):
-                x = int(event.x - self.left - self.LAYOUT_OFFSET)
-                y = int(event.y - self.bottom)
-                self.caret.on_mouse_press(x, y, event.button, event.modifiers)
-            else:
+        if self._active and isinstance(event, UIMouseEvent):
+            event_in_rect = self.rect.point_in_rect(event.pos)
+
+            # mouse press
+            if isinstance(event, UIMousePressEvent):
+                # inside the input field
+                if event_in_rect:
+                    x = int(event.x - self.left - self.LAYOUT_OFFSET)
+                    y = int(event.y - self.bottom)
+                    self.caret.on_mouse_press(x, y, event.button, event.modifiers)
+                else:
+                    # outside the input field
+                    self.deactivate()
+                    # return unhandled to allow other widgets to activate
+                    return EVENT_UNHANDLED
+
+            # mouse release outside the input field,
+            # which could be a click on another widget, which handles the press event
+            if isinstance(event, UIMouseReleaseEvent) and not event_in_rect:
                 self.deactivate()
                 # return unhandled to allow other widgets to activate
                 return EVENT_UNHANDLED
@@ -683,7 +703,7 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
         if self._active:
             return
 
-        self._active = True
+        self._grap_active()  # will set _active to True
         self.trigger_full_render()
         self.caret.on_activate()
         self.caret.position = len(self.doc.text)
@@ -691,10 +711,12 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
     def deactivate(self):
         """Programmatically deactivate the text input field."""
 
-        if not self._active:
-            return
+        if self._active:
+            print("Release active text input field")
+            self._release_active()  # will set _active to False
+        else:
+            print("Text input field is not active, cannot deactivate")
 
-        self._active = False
         self.trigger_full_render()
         self.caret.on_deactivate()
 

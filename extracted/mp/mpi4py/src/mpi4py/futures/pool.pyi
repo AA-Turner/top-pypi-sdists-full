@@ -1,19 +1,18 @@
 import sys
-from typing import Any
-from typing import Callable, Iterable, Iterator, Mapping, Sequence
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
+
 if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-    from typing import TypeAlias
+    from typing import ParamSpec, TypeAlias
 else:
-    from typing_extensions import ParamSpec
-    from typing_extensions import TypeAlias
+    from typing_extensions import ParamSpec, TypeAlias
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from ..MPI import Intracomm, COMM_WORLD
-from ._base import Executor, Future
+
+from ..MPI import COMM_WORLD, Intracomm
 from ..typing import T
+from ._base import Executor, Future
 
 _P = ParamSpec("_P")
 
@@ -28,7 +27,7 @@ class MPIPoolExecutor(Executor):
         python_exe: str = ...,
         python_args: Sequence[str] = ...,
         mpi_info: Mapping[str, str] | Iterable[tuple[str, str]] = ...,
-        globals: Mapping[str, str] | Iterable[tuple[str, str]] = ...,
+        globals: Mapping[str, str] | Iterable[tuple[str, str]] = ...,  # noqa: A002
         main: bool = True,
         path: Sequence[str] = ...,
         wdir: str = ...,
@@ -44,10 +43,12 @@ class MPIPoolExecutor(Executor):
     if sys.version_info >= (3, 9):
         def submit(
             self,
-            __fn: Callable[_P, T],
+            fn: Callable[_P, T],
+            /,
             *args: _P.args,
             **kwargs: _P.kwargs,
         ) -> Future[T]: ...
+
     else:
         def submit(
             self,
@@ -61,6 +62,7 @@ class MPIPoolExecutor(Executor):
         *iterables: Iterable[Any],
         timeout: float | None = None,
         chunksize: int = 1,
+        buffersize: int | None = None,
         unordered: bool = False,
     ) -> Iterator[T]: ...
     def starmap(
@@ -69,6 +71,7 @@ class MPIPoolExecutor(Executor):
         iterable: Iterable[Any],
         timeout: float | None = None,
         chunksize: int = 1,
+        buffersize: int | None = None,
         unordered: bool = False,
     ) -> Iterator[T]: ...
     def shutdown(

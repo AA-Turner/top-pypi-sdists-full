@@ -79,6 +79,8 @@ def _snapshot_defaults():
 def default_command(obj):
     if isinstance(obj, Send):
         return {"node": obj.node, "args": obj.arg}
+    if isinstance(obj, ProxyUser):
+        return obj.dict()
     raise TypeError
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "tombi"
-version = "0.4.13"  # We use git tags for versioning. This is just a placeholder.
+version = "0.4.14"  # We use git tags for versioning. This is just a placeholder.
 description = "🦅 TOML Toolkit 🦅 "
 readme = "python/tombi/README.md"
 requires-python = ">=3.10"
@@ -10,10 +10,7 @@ dependencies = []
 GitHub = "https://github.com/tombi-toml/tombi"
 
 [dependency-groups]
-dev = [
-  "pytest>=8.3.3",
-  "ruff>=0.7.4",
-]
+dev = ["pytest>=8.3.3", "ruff>=0.7.4"]
 
 [build-system]
 requires = ["maturin>=1.5,<2.0"]

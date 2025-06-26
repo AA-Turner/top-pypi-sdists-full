@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='aheadworks_deploy_manager',
-    version='1.7.3',
+    version='1.7.4',
     zip_safe=True,
     packages=[
         'aheadworks_composer_manager',

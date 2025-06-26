@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdmf_docutils
-Version: 0.4.8
+Version: 0.4.9
 Summary: Collection of CLIs, scripts and modules useful to generate the NWB documentation
 Project-URL: Homepage, https://github.com/hdmf-dev/hdmf-docutils
 Author-email: Oliver Ruebel <oruebel@lbl.gov>, Ryan Ly <rly@lbl.gov>
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Documentation :: Sphinx
 Requires-Python: >=3.8
-Requires-Dist: hdmf
+Requires-Dist: hdmf>=4.1.0
 Requires-Dist: matplotlib
 Requires-Dist: networkx
 Requires-Dist: pillow

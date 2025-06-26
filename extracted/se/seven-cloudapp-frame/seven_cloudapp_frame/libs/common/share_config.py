@@ -2,7 +2,7 @@
 """
 :Author: HuangJianYi
 :Date: 2023-02-09 18:29:31
-@LastEditTime: 2023-04-17 14:01:18
+@LastEditTime: 2025-06-25 15:25:44
 @LastEditors: HuangJianYi
 :Description: 全局share配置
 """
@@ -29,6 +29,23 @@ def init_config(path):
             json_str = f.read()
     global share_app_config
     share_app_config = json.loads(json_str)
+
+
+def init_config_from_nacos(config_file, config_content):
+    """
+    :Description: 初始化配置文件
+    :param config_file: 配置文件路径，可使用物理路径或url
+    :param config_content: 配置内容
+    :return: global app_config
+    :last_editors: HuangJianYi
+    """
+    print(f"成功获取nacos配置，并替换本地配置文件{config_file}")
+
+    global share_app_config
+
+    share_app_config = json.loads(config_content)
+    with open(config_file, "w", encoding="utf-8") as f:
+        f.write(json.dumps(share_app_config, indent=4, ensure_ascii=False))
 
 
 def set_value(key, value):

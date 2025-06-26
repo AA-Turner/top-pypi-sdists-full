@@ -59,9 +59,6 @@ def pytest_configure(config):
         "with_notifier: use the notifier thread")
     config.addinivalue_line(
         "markers",
-        "with_replica_thread: start the replica thread")
-    config.addinivalue_line(
-        "markers",
         "writetransaction: start with a write transaction")
 
 
@@ -313,8 +310,6 @@ def makexom(request, gen_path, httpget, monkeypatch, storage_args, storage_plugi
             fullopts = ["devpi-server"] + list(opts)
         else:
             fullopts = ["devpi-server", "--serverdir", serverdir] + list(opts)
-        if request.node.get_closest_marker("with_replica_thread"):
-            fullopts.append("--primary-url=http://localhost")
         if not request.node.get_closest_marker("no_storage_option"):
             fullopts.extend(storage_args(serverdir))
         fullopts = [str(x) for x in fullopts]
@@ -343,8 +338,6 @@ def makexom(request, gen_path, httpget, monkeypatch, storage_args, storage_plugi
         from devpi_server.main import init_default_indexes
         if not xom.config.primary_url:
             init_default_indexes(xom)
-        if xom.is_replica() and request.node.get_closest_marker("with_replica_thread"):
-            xom.thread_pool.start_one(xom.replica_thread)
         if request.node.get_closest_marker("start_threads"):
             xom.thread_pool.start()
         elif request.node.get_closest_marker("with_notifier"):
@@ -402,7 +395,6 @@ def httpget(pypiurls):
     class MockHTTPGet:
         def __init__(self):
             self.url2response = {}
-            self._md5 = hashlib.md5()  # noqa: S324
             self.call_log = []
 
         async def async_httpget(self, url, *, allow_redirects, timeout=None, extra_headers=None):
@@ -504,10 +496,6 @@ def httpget(pypiurls):
             kw.setdefault("url", URL(remoteurl).joinpath(name).asdir().url)
             self.mockresponse(text=text, **kw)
             return ret
-
-        def _getmd5digest(self, s):
-            self._md5.update(s.encode("utf8"))
-            return self._md5.hexdigest()
 
     return MockHTTPGet()
 
@@ -1398,15 +1386,11 @@ def gen():
 
 
 class Gen:
-    def __init__(self):
-        self._md5 = hashlib.md5()  # noqa: S324
-
-    def pypi_package_link(self, pkgname, md5=True):
+    def pypi_package_link(self, pkgname, *, md5=True):
         link = "https://pypi.org/package/some/%s" % pkgname
         if md5 is True:
-            self._md5.update(link.encode("utf8"))  # basically random
-            link += "#md5=%s" % self._md5.hexdigest()
-        elif md5:
+            md5 = hashlib.md5(link.encode()).hexdigest()  # noqa: S324
+        if md5:
             link += "#md5=%s" % md5
         return URL(link)
 
@@ -1471,3 +1455,15 @@ def _default_hash_type():
             assert ht not in filestore.DEFAULT_HASH_TYPES
             filestore.DEFAULT_HASH_TYPES += (ht,)
         warnings.warn(f"ADDITIONAL_HASH_TYPES {hash_types!r}", stacklevel=1)
+
+
+@pytest.fixture
+def sorted_serverdir():
+    def sorted_serverdir(path):
+        return sorted(
+            name
+            for x in Path(path).iterdir()
+            if not (name := x.name).endswith(("-shm", "-wal"))
+        )
+
+    return sorted_serverdir

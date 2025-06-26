@@ -1,6 +1,8 @@
+import inspect
 import sys
 import traceback
 from collections.abc import Callable
+from contextlib import contextmanager, suppress
 from typing import Any, Generic, TypeVar, cast
 from weakref import WeakKeyDictionary, ref
 
@@ -9,18 +11,64 @@ from typing_extensions import Self, overload, override
 P = TypeVar("P")
 
 
+NoArgListener = Callable[[], None]
+InstanceListener = Callable[[Any], None]
+InstanceValueListener = Callable[[Any, Any], None]
+InstanceNewOldListener = Callable[[Any, Any, Any], None]
+AnyListener = NoArgListener | InstanceListener | InstanceValueListener | InstanceNewOldListener
+
+
 class _Obs(Generic[P]):
     """
     Internal holder for Property value and change listeners
     """
 
-    __slots__ = ("value", "listeners")
+    __slots__ = ("value", "_listeners")
 
     def __init__(self, value: P):
         self.value = value
         # This will keep any added listener even if it is not referenced anymore
         # and would be garbage collected
-        self.listeners: set[Callable[[Any, P], Any] | Callable[[], Any]] = set()
+        self._listeners: dict[AnyListener, InstanceNewOldListener] = dict()
+
+    def add(
+        self,
+        callback: AnyListener,
+    ):
+        """Add a callback to the list of listeners"""
+        self._listeners[callback] = _Obs._normalize_callback(callback)
+
+    def remove(self, callback):
+        """Remove a callback from the list of listeners"""
+        if callback in self._listeners:
+            del self._listeners[callback]
+
+    @property
+    def listeners(self) -> list[InstanceNewOldListener]:
+        return list(self._listeners.values())
+
+    @staticmethod
+    def _normalize_callback(callback) -> InstanceNewOldListener:
+        """Normalizes the callback so every callback can be invoked with the same signature."""
+        signature = inspect.signature(callback)
+
+        with suppress(TypeError):
+            signature.bind(1, 1)
+            return lambda instance, new, old: callback(instance, new)
+
+        with suppress(TypeError):
+            signature.bind(1, 1, 1)
+            return lambda instance, new, old: callback(instance, new, old)
+
+        with suppress(TypeError):
+            signature.bind(1)
+            return lambda instance, new, old: callback(instance)
+
+        with suppress(TypeError):
+            signature.bind()
+            return lambda instance, new, old: callback()
+
+        raise TypeError("Callback is not callable")
 
 
 class Property(Generic[P]):
@@ -85,27 +133,23 @@ class Property(Generic[P]):
         """Set value for owner instance"""
         obs = self._get_obs(instance)
         if obs.value != value:
+            old = obs.value
             obs.value = value
-            self.dispatch(instance, value)
+            self.dispatch(instance, value, old)
 
-    def dispatch(self, instance, value):
+    def dispatch(self, instance, value, old_value):
         """Notifies every listener, which subscribed to the change event.
 
         Args:
             instance: Property instance
-            value: new value to set
+            value: new value set
+            old_value: previous value
 
         """
         obs = self._get_obs(instance)
         for listener in obs.listeners:
             try:
-                try:
-                    # FIXME if listener() raises an error, the invalid call will be
-                    #       also shown as an exception
-                    listener(instance, value)  # type: ignore
-                except TypeError:
-                    # If the listener does not accept arguments, we call it without it
-                    listener()  # type: ignore
+                listener(instance, value, old_value)
             except Exception:
                 print(
                     f"Change listener for {instance}.{self.name} = {value} raised an exception!",
@@ -126,7 +170,7 @@ class Property(Generic[P]):
         # Instance methods are bound methods, which can not be referenced by normal `ref()`
         # if listeners would be a WeakSet, we would have to add listeners as WeakMethod
         # ourselves into `WeakSet.data`.
-        obs.listeners.add(callback)
+        obs.add(callback)
 
     def unbind(self, instance, callback):
         """Unbinds a function from the change event of the property.
@@ -136,7 +180,7 @@ class Property(Generic[P]):
             callback: The callback to unbind.
         """
         obs = self._get_obs(instance)
-        obs.listeners.remove(callback)
+        obs.remove(callback)
 
     def __set_name__(self, owner, name):
         self.name = name
@@ -186,8 +230,10 @@ def bind(instance, property: str, callback):
     """
     t = type(instance)
     prop = getattr(t, property)
-    if isinstance(prop, Property):
-        prop.bind(instance, callback)
+    if not isinstance(prop, Property):
+        raise ValueError(f"{t.__name__}.{property} is not an arcade.gui.Property")
+
+    prop.bind(instance, callback)
 
 
 def unbind(instance, property: str, callback):
@@ -232,45 +278,49 @@ class _ObservableDict(dict):
         self.obj = ref(instance)
         super().__init__(*args)
 
-    def dispatch(self):
-        self.prop.dispatch(self.obj(), self)
+    @contextmanager
+    def _dispatch(self):
+        """This is a context manager which will dispatch the change event
+        when the context is exited.
+        """
+        old_value = self.copy()
+        yield
+        self.prop.dispatch(self.obj(), self, old_value)
 
     @override
     def __setitem__(self, key, value):
-        dict.__setitem__(self, key, value)
-        self.dispatch()
+        with self._dispatch():
+            dict.__setitem__(self, key, value)
 
     @override
     def __delitem__(self, key):
-        dict.__delitem__(self, key)
-        self.dispatch()
+        with self._dispatch():
+            dict.__delitem__(self, key)
 
     @override
     def clear(self):
-        dict.clear(self)
-        self.dispatch()
+        with self._dispatch():
+            dict.clear(self)
 
     @override
     def pop(self, *args):
-        result = dict.pop(self, *args)
-        self.dispatch()
-        return result
+        with self._dispatch():
+            return dict.pop(self, *args)
 
     @override
     def popitem(self):
-        result = dict.popitem(self)
-        self.dispatch()
-        return result
+        with self._dispatch():
+            return dict.popitem(self)
 
     @override
     def setdefault(self, *args):
-        dict.setdefault(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            return dict.setdefault(self, *args)
 
     @override
     def update(self, *args):
-        dict.update(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            dict.update(self, *args)
 
 
 K = TypeVar("K")
@@ -309,80 +359,86 @@ class _ObservableList(list):
         self.obj = ref(instance)
         super().__init__(*args)
 
-    def dispatch(self):
-        """Dispatches the change event."""
-        self.prop.dispatch(self.obj(), self)
+    @contextmanager
+    def _dispatch(self):
+        """Dispatches the change event.
+        This is a context manager which will dispatch the change event
+        when the context is exited.
+        """
+        old_value = self.copy()
+        yield
+        self.prop.dispatch(self.obj(), self, old_value)
 
     @override
     def __setitem__(self, key, value):
-        list.__setitem__(self, key, value)
-        self.dispatch()
+        with self._dispatch():
+            list.__setitem__(self, key, value)
 
     @override
     def __delitem__(self, key):
-        list.__delitem__(self, key)
-        self.dispatch()
+        with self._dispatch():
+            list.__delitem__(self, key)
 
     @override
     def __iadd__(self, *args):
-        list.__iadd__(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            list.__iadd__(self, *args)
         return self
 
     @override
     def __imul__(self, *args):
-        list.__imul__(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            list.__imul__(self, *args)
         return self
 
     @override
     def append(self, *args):
         """Proxy for list.append() which dispatches the change event."""
-        list.append(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            list.append(self, *args)
 
     @override
     def clear(self):
         """Proxy for list.clear() which dispatches the change event."""
-        list.clear(self)
-        self.dispatch()
+        with self._dispatch():
+            list.clear(self)
 
     @override
     def remove(self, *args):
         """Proxy for list.remove() which dispatches the change event."""
-        list.remove(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            list.remove(self, *args)
 
     @override
     def insert(self, *args):
         """Proxy for list.insert() which dispatches the change event."""
-        list.insert(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            list.insert(self, *args)
 
     @override
     def pop(self, *args):
         """Proxy for list.pop() which dispatches the change"""
-        result = list.pop(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            result = list.pop(self, *args)
         return result
 
     @override
     def extend(self, *args):
         """Proxy for list.extend() which dispatches the change event."""
-        list.extend(self, *args)
-        self.dispatch()
+        with self._dispatch():
+            list.extend(self, *args)
 
     @override
     def sort(self, **kwargs):
         """Proxy for list.sort() which dispatches the change event."""
-        list.sort(self, **kwargs)
-        self.dispatch()
+        with self._dispatch():
+            list.sort(self, **kwargs)
 
     @override
     def reverse(self):
         """Proxy for list.reverse() which dispatches the change event."""
-        list.reverse(self)
-        self.dispatch()
+        with self._dispatch():
+            list.reverse(self)
 
 
 class ListProperty(Property[list[P]], Generic[P]):

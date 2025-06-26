@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
     import argparse
 
 
@@ -224,30 +225,34 @@ def wsgi_run(xom, app):
     return 0
 
 
-def get_caller_location():
+def get_caller_location(stacklevel=2):
     frame = inspect.currentframe()
     if frame is None:
         return 'unknown (no current frame)'
-    caller_frame = frame.f_back.f_back
-    return "%s:%s::%s" % (
-        caller_frame.f_code.co_filename,
-        caller_frame.f_lineno,
-        caller_frame.f_code.co_name)
+    while frame and stacklevel:
+        frame = frame.f_back
+        stacklevel -= 1
+    if frame is None:
+        return f"unknown (stacklevel {stacklevel})"
+    return f"{frame.f_code.co_filename}:{frame.f_lineno}::{frame.f_code.co_name}"
 
 
-class AsyncioLoopThread(object):
+class AsyncioLoopThread:
+    _loop: asyncio.AbstractEventLoop
+    _started: threading.Event
+    xom: XOM
 
-    def __init__(self, xom):
+    def __init__(self, xom: XOM) -> None:
         self.xom = xom
-        self._started = mythread.threading.Event()
+        self._started = threading.Event()
 
     @property
-    def loop(self):
+    def loop(self) -> asyncio.AbstractEventLoop:
         if self._started.wait(2):
             return self._loop
         raise Fatal("Couldn't get async loop, was the thread not started?")
 
-    def thread_run(self):
+    def thread_run(self) -> None:
         thread_push_log("[ASYN]")
         threadlog.info("Starting asyncio event loop")
         self._loop = asyncio.new_event_loop()
@@ -255,13 +260,15 @@ class AsyncioLoopThread(object):
         while 1:
             try:
                 self.loop.run_forever()
-            except Exception:
+            except KeyboardInterrupt:
+                pass
+            except Exception:  # noqa: BLE001
                 threadlog.exception("Exception in asyncio event loop")
             finally:
                 threadlog.info("The asyncio event loop stopped")
             return
 
-    def thread_shutdown(self):
+    def thread_shutdown(self) -> None:
         loop = self.loop
         try:
             loop.call_soon_threadsafe(loop.stop)
@@ -307,11 +314,19 @@ class XOM:
                 self.replica_thread = ReplicaThread(self)
                 self.thread_pool.register(self.replica_thread)
 
-    def create_future(self):
+    def create_future(self) -> asyncio.Future:
         return self.async_thread.loop.create_future()
 
     async def _with_timeout(self, coroutine, timeout):
         return await asyncio.wait_for(asyncio.shield(coroutine), timeout)
+
+    async def _with_shield(self, coroutine):
+        return await asyncio.shield(coroutine)
+
+    def run_coroutine_in_background(self, coroutine):
+        return asyncio.run_coroutine_threadsafe(
+            self._with_shield(coroutine), loop=self.async_thread.loop
+        )
 
     def _run_coroutine_threadsafe(self, coroutine, timeout=None):
         if timeout is not None:
@@ -327,12 +342,21 @@ class XOM:
             raise exc
         return future.result()
 
-    def create_task(self, coroutine):
-        task = asyncio.ensure_future(coroutine, loop=self.async_thread.loop)
+    def create_task(self, coroutine: Coroutine) -> asyncio.Task:
+        task: asyncio.Task = asyncio.ensure_future(
+            coroutine, loop=self.async_thread.loop
+        )
         # keep a strong reference
         self.async_tasks.add(task)
         # automatically remove the reference when done
         task.add_done_callback(self.async_tasks.discard)
+        return task
+
+    async def _wait_for_task(self, task):
+        await task
+
+    def wait_for_task(self, task):
+        self.run_coroutine_threadsafe(self._wait_for_task(task))
 
     def get_singleton(self, indexpath, key):
         """ return a per-xom singleton for the given indexpath and key
@@ -757,7 +781,7 @@ def set_default_indexes(model):
             model.xom.config.root_passwd,
             pwhash=model.xom.config.root_passwd_hash)
         threadlog.info("created root user")
-    userconfig = root_user.key.get(readonly=False)
+    userconfig = root_user.key.get_mutable()
     indexes = userconfig["indexes"]
     if "pypi" not in indexes and not model.xom.config.no_root_pypi:
         indexes["pypi"] = _pypi_ixconfig_default.copy()

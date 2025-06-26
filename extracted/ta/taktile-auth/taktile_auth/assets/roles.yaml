@@ -79,6 +79,7 @@ fwd_viewer/org_id:
     - r:workspace_live_job_trigger/org_id,ws_id
     - r:workspace_review_case/org_id,ws_id
     - r:workspace_sandbox_job_trigger/org_id,ws_id
+    - r:workspace_test_job_trigger/org_id,ws_id
     - r:audit_logs/org_id
 oncall_group:
     - fwd_viewer/*
@@ -116,6 +117,7 @@ ws_editor/org_id,ws_id:
     - r:workspace_api_keys/org_id,ws_id
     - w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
+    - w:workspace_test_job_trigger/org_id,ws_id
     - r+w:workspace_file/org_id,ws_id,{env=sandbox}
     - r:workspace_file/org_id,ws_id,{env=live}
 ws_admin/org_id,ws_id:
@@ -138,6 +140,7 @@ api_key_job_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
+    - w:workspace_test_job_trigger/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
 api_key_history_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
@@ -153,6 +156,7 @@ api_key_sandbox/org_id,ws_id:
     - r:workspace_connection/org_id,ws_id
     - r+w+d:workspace_connection_tenant/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
+    - w:workspace_test_job_trigger/org_id,ws_id
     - w:workspace_connection_secret/org_id,ws_id
     - r+w:workspace_file/org_id,ws_id,{env=sandbox}
     - r:workspace_management/org_id,ws_id,{env=sandbox,type=*}

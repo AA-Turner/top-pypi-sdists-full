@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: grpcio-reflection
-Version: 1.73.0
+Version: 1.73.1
 Summary: Standard Protobuf Reflection Service for gRPC
 Home-page: https://grpc.io
 Author: The gRPC Authors
@@ -18,7 +18,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: protobuf<7.0.0,>=6.30.0
-Requires-Dist: grpcio>=1.73.0
+Requires-Dist: grpcio>=1.73.1
 
 gRPC Python Reflection package
 ==============================

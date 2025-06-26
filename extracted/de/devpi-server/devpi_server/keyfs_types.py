@@ -1,7 +1,35 @@
+from __future__ import annotations
+
+from .markers import Absent
+from .markers import Deleted
+from .readonly import ensure_deeply_readonly
 from attrs import define
-from typing import Any
+from attrs import frozen
+from typing import TYPE_CHECKING
 import contextlib
 import re
+import warnings
+
+
+if TYPE_CHECKING:
+    from typing import Any
+
+
+@frozen
+class Record:
+    key: PTypedKey | TypedKey
+    value: Any
+    back_serial: int
+    old_value: Any
+
+    def __attrs_post_init__(self):
+        if (
+            self.value is not None
+            and not isinstance(self.old_value, (Absent, Deleted, type(None)))
+            and not isinstance(ensure_deeply_readonly(self.value), type(self.old_value))
+        ):
+            msg = f"Mismatching types for value {self.value!r} and old_value {self.old_value!r}"
+            raise TypeError(msg)
 
 
 @define
@@ -69,8 +97,21 @@ class TypedKey:
     def __repr__(self):
         return f"<TypedKey {self.name} {self.type.__name__} {self.relpath}>"
 
-    def get(self, readonly=True):
-        return self.keyfs.tx.get(self, readonly=readonly)
+    def get(self, *, readonly=None):
+        if readonly is None:
+            readonly = True
+        else:
+            warnings.warn(
+                "The 'readonly' argument is deprecated. "
+                "You should either drop it or use the 'get_mutable' method.",
+                stacklevel=2,
+            )
+        if readonly:
+            return self.keyfs.tx.get(self)
+        return self.keyfs.tx.get_mutable(self)
+
+    def get_mutable(self):
+        return self.keyfs.tx.get_mutable(self)
 
     @property
     def last_serial(self):
@@ -84,7 +125,7 @@ class TypedKey:
 
     @contextlib.contextmanager
     def update(self):
-        val = self.keyfs.tx.get(self, readonly=False)
+        val = self.keyfs.tx.get_mutable(self)
         yield val
         # no exception, so we can set and thus mark dirty the object
         self.set(val)

@@ -247,6 +247,7 @@ ObjectOwnershipType = Literal["BucketOwnerEnforced", "BucketOwnerPreferred", "Ob
 ObjectStorageClassType = Literal[
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
+    "FSX_OPENZFS",
     "GLACIER",
     "GLACIER_IR",
     "INTELLIGENT_TIERING",
@@ -272,13 +273,14 @@ ReplicationTimeStatusType = Literal["Disabled", "Enabled"]
 RequestChargedType = Literal["requester"]
 RequestPayerType = Literal["requester"]
 RestoreRequestTypeType = Literal["SELECT"]
-ServerSideEncryptionType = Literal["AES256", "aws:kms", "aws:kms:dsse"]
+ServerSideEncryptionType = Literal["AES256", "aws:fsx", "aws:kms", "aws:kms:dsse"]
 SessionModeType = Literal["ReadOnly", "ReadWrite"]
 SseKmsEncryptedObjectsStatusType = Literal["Disabled", "Enabled"]
 StorageClassAnalysisSchemaVersionType = Literal["V_1"]
 StorageClassType = Literal[
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
+    "FSX_OPENZFS",
     "GLACIER",
     "GLACIER_IR",
     "INTELLIGENT_TIERING",
@@ -703,6 +705,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

@@ -104,7 +104,7 @@ class FrameBaseModel():
         score_fator = 1_000_000_000
         return int(score/score_fator)
 
-    def lottery_algorithm_chance(self, prize_list, field_name="chance", is_upset_prize=False):
+    def lottery_algorithm_chance(self, prize_list, field_name="chance", is_upset_prize=True):
         """
         :description: 抽奖算法（概率）
         :param prize_list:奖品列表
@@ -128,7 +128,7 @@ class FrameBaseModel():
             if (prize["start_probability"] <= prize_index and prize_index < prize["end_probability"]):
                 return prize
 
-    def lottery_algorithm_probability(self, prize_list, field_name="probability", is_upset_prize=False):
+    def lottery_algorithm_probability(self, prize_list, field_name="probability", is_upset_prize=True):
         """
         :description: 抽奖算法（权重）
         :param prize_list:奖品列表
@@ -151,7 +151,7 @@ class FrameBaseModel():
         for prize in probability_list:
             if (prize["start_probability"] <= prize_index and prize_index < prize["end_probability"]):
                 return prize
-    
+
     def lottery_algorithm_stock_probability(self, prize_list, field_name="probability", surplus_field_name="surplus", is_upset_prize=True):
         """
         :description: 抽奖算法（库存权重）
@@ -185,9 +185,9 @@ class FrameBaseModel():
         :return: number
         :last_editors: HuangJianYi
         """
-        
+
         import math
-        
+
         if number < 0.001:
             return 0
 
@@ -209,9 +209,9 @@ class FrameBaseModel():
             else:  # 第二位小数为奇数，则向上进位
                 decimal_part = math.ceil(decimal_part * 100) / 100
             rounded_number = int_part + decimal_part
-            
+
         return rounded_number
-    
+
     def rewards_status(self):
         """
         :description: 给予奖励的子订单状态
@@ -283,13 +283,13 @@ class FrameBaseModel():
         :last_editors: HuangJianYi
         """
         if not param_dict or not table_name:
-            return None    
+            return None
         sub_table_config = share_config.get_value("sub_table_config",{})
         table_config = sub_table_config.get(table_name, None)
         if not table_config:
             return None
         return SevenHelper.get_sub_table(param_dict.get("app_id", 0), table_config.get("sub_count", 10))
-        
+
     def process_malice_request(self, handler_name, user_id, ip="", user_request_limit_num=30, ip_request_limit_num=30, cycle_type=1, limit_request_time=24):
         """
         :description: 处理恶意请求
@@ -355,7 +355,7 @@ class FrameBaseModel():
                 else:
                     redis_init.expire(count_key, 24*60*60)
         return invoke_result_data
-    
+
     def check_act_info(self, act_id, check_release=True):
         """
         :description: 检验活动信息
@@ -434,7 +434,7 @@ class FrameBaseModel():
                     return invoke_result_data
             invoke_result_data.data = act_module_dict
         return invoke_result_data
-        
+
     def check_user_info(self, app_id, act_id, user_id, login_token, check_new_user, check_user_nick):
         """
         :description: 检验用户信息
@@ -486,7 +486,7 @@ class FrameBaseModel():
             return invoke_result_data
         invoke_result_data.data = user_info_dict
         return invoke_result_data
-    
+
     def check_request_queue(self, request_queue_name, request_limit_num, request_limit_time):
         """
         :description: 检验请求队列,用于流量削峰判断
@@ -505,7 +505,7 @@ class FrameBaseModel():
                 return invoke_result_data
 
         return invoke_result_data
-    
+
     def business_process_executing(self, app_id, act_id, module_id, user_id, login_token, handler_name, check_new_user=False, check_user_nick=True, continue_request_expire=0, acquire_lock_name="", request_limit_num=0, request_limit_time=1, source_object_id="",check_act_info=True,check_act_module=True,check_user_info=True,check_act_info_release=True,check_act_module_release=True,execute_lock_expire=90):
         """
         :description: 业务执行前事件,核心业务如抽奖、做任务需要调用当前方法
@@ -544,7 +544,7 @@ class FrameBaseModel():
             invoke_result_data.error_code = "param_error"
             invoke_result_data.error_message = "参数不能为空或等于0"
             return invoke_result_data
-        
+
         #请求锁，请求太频繁限制
         redis_config = SafeHelper.get_redis_config()
         if continue_request_expire > 0:
@@ -610,7 +610,7 @@ class FrameBaseModel():
                 return invoke_result_data
             user_info_dict = invoke_result_data.data
             invoke_result_data.data = None
-        
+
         #流量削峰
         request_queue_name = ""
         if request_limit_num > 0 and request_limit_time > 0:
@@ -618,7 +618,7 @@ class FrameBaseModel():
             invoke_result_data = self.check_request_queue(request_queue_name,request_limit_num,request_limit_time)
             if invoke_result_data.success == False:
                 return invoke_result_data
-            
+
         #分布式锁名称存在才进行校验
         identifier = ""
         if acquire_lock_name:
@@ -637,11 +637,11 @@ class FrameBaseModel():
         invoke_result_data.data["user_info_dict"] = user_info_dict
         invoke_result_data.data["identifier"] = identifier
         invoke_result_data.data["request_queue_name"] = request_queue_name
-        
+
         self.acquire_lock_name = acquire_lock_name
         self.identifier = identifier
         self.request_queue_name = request_queue_name
-        
+
         return invoke_result_data
 
     def business_process_executed(self, act_id=0, module_id=0, user_id=0, handler_name="", acquire_lock_name="", identifier="", request_queue_name="", source_object_id=""):
@@ -675,10 +675,8 @@ class FrameBaseModel():
         if not user_id:
             user_id = self.user_id
 
-        redis_config = SafeHelper.get_redis_config()     
+        redis_config = SafeHelper.get_redis_config()
         if hasattr(self,"execute_lock_key"):
             RedisExHelper.init(config_dict=redis_config).delete(self.execute_lock_key)
         if acquire_lock_name and identifier:
             RedisExHelper.release_lock(acquire_lock_name, identifier, config_dict=redis_config)
-
-

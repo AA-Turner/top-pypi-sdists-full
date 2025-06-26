@@ -633,6 +633,24 @@ class Text:
     def multiline(self, multiline: bool):
         self.label.multiline = multiline
 
+    @property
+    def visible(self) -> bool:
+        """
+        Whether the text is visible or not.
+
+        This is a property of the underlying pyglet.Label.
+        """
+        return self.label.visible
+
+    @visible.setter
+    def visible(self, visible: bool):
+        """
+        Set the visibility of the text.
+
+        This is a property of the underlying pyglet.Label.
+        """
+        self.label.visible = visible
+
     def draw(self) -> None:
         """
         Draw the label to the screen at its current ``x`` and ``y`` position.

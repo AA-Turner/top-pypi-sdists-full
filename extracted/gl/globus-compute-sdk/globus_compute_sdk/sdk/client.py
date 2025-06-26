@@ -574,7 +574,11 @@ class Client:
 
         # Send the data to Globus Compute
         with self._request_lock:
-            return self._compute_web_client.v3.submit(endpoint_id, batch.prepare()).data
+            r = self._compute_web_client.v3.submit(endpoint_id, batch.prepare())
+
+        self._raise_ha_warning(r.data)
+
+        return r.data
 
     @_client_gares_handler
     def register_endpoint(
@@ -670,9 +674,26 @@ class Client:
             stacklevel=2,
         )
 
+    def _raise_ha_warning(self, response_data: t.Any):
+        ha_warning = response_data.get("ha_warning")
+        if not ha_warning:
+            return
+
+        og_fmt = warnings.formatwarning
+        # for this warning only, just display the message
+        warnings.formatwarning = lambda msg, *args, **kwargs: str(msg) + "\n"
+        warnings.warn(ha_warning, UserWarning)
+        warnings.formatwarning = og_fmt
+
     @_client_gares_handler
     def get_container(self, container_uuid, container_type):
-        """Get the details of a container for staging it locally.
+        """
+        .. warning::
+
+            Deprecated since version 3.8.0. Container functionality has moved to
+            the endpoint configuration.
+
+        Get the details of a container for staging it locally.
 
         Parameters
         ----------
@@ -817,6 +838,9 @@ class Client:
 
         with self._request_lock:
             r = self._compute_web_client.v3.register_function(data.to_dict())
+
+        self._raise_ha_warning(r.data)
+
         return r.data["function_uuid"]
 
     @_client_gares_handler
@@ -839,7 +863,13 @@ class Client:
 
     @_client_gares_handler
     def register_container(self, location, container_type, name="", description=""):
-        """Register a container with the Globus Compute service.
+        """
+        .. warning::
+
+            Deprecated since version 3.8.0. Container functionality has moved to
+            the endpoint configuration.
+
+        Register a container with the Globus Compute service.
 
         Parameters
         ----------
@@ -874,6 +904,11 @@ class Client:
     @_client_gares_handler
     def build_container(self, container_spec):
         """
+        .. warning::
+
+            Deprecated since version 3.8.0. Container functionality has moved to
+            the endpoint configuration.
+
         Submit a request to build a docker image based on a container spec. This
         container build service is based on repo2docker, so the spec reflects features
         supported by it.
@@ -906,6 +941,24 @@ class Client:
 
     @_client_gares_handler
     def get_container_build_status(self, container_id):
+        """
+        .. warning::
+
+            Deprecated since version 3.8.0. Container functionality has moved to
+            the endpoint configuration.
+
+        Get the status of a container build.
+
+        Parameters
+        ----------
+        container_id : str
+            UUID of the container in question
+
+        Returns
+        -------
+        str
+            The status of the container build
+        """
         self._raise_container_deprecation_warning("get_container_build_status")
         with self._request_lock:
             r = self._compute_web_client.v2.get(f"/v2/containers/build/{container_id}")

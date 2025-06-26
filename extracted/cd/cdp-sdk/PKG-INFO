@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cdp-sdk
-Version: 1.15.0
+Version: 1.16.0
 Summary: CDP SDK
 License: MIT
 Requires-Python: >=3.10

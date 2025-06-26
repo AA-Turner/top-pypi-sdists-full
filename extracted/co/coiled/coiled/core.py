@@ -134,6 +134,7 @@ from .utils import (
     parse_identifier,
     parse_requested_memory,
     rich_console,
+    session_certifi_ssl,
     verify_aws_credentials_with_retry,
 )
 from .websockets import ConfigureBackendConnector
@@ -511,6 +512,7 @@ class Cloud(Generic[IsAsynchronous]):
                 "Client-Version": COILED_VERSION,
                 "coiled-session-id": COILED_SESSION_ID,
             },
+            **session_certifi_ssl(),
         )
         self.accounts = {d["account"]["slug"]: {**d["account"], "admin": d["is_admin"]} for d in memberships}
 

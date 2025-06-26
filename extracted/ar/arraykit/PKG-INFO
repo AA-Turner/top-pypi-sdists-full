@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arraykit
-Version: 1.0.9
+Version: 1.1.0
 Summary: Array utilities for StaticFrame
 Home-page: https://github.com/static-frame/arraykit
 Author: Christopher Ariza, Brandt Bucher, Charles Burkland
@@ -54,6 +54,17 @@ ArrayKit requires the following:
 
 What is New in ArrayKit
 -------------------------
+
+
+1.1.0
+............
+
+Now building free-threaded compatible wheels for Python 3.13.
+
+Added ``is_objectable()`` and ``is_objectable_dt64()``.
+
+Added ``astype_array()``.
+
 
 1.0.9
 ............

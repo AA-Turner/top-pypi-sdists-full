@@ -65,5 +65,5 @@ def ibtrapz(x, y, x0, x1, iaout=False):
     yi[-1] = y1
 
     if iaout:
-        return scinteg.trapz(yi, xi), xi, yi
-    return scinteg.trapz(yi, xi)
+        return scinteg.trapezoid(yi, xi), xi, yi
+    return scinteg.trapezoid(yi, xi)

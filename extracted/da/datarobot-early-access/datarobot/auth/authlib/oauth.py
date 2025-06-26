@@ -13,18 +13,20 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from types import TracebackType
 from typing import Any, Callable, Mapping, TypedDict
 
 from pydantic import BaseModel
 
 from datarobot.auth.exceptions import OAuthFlowError, OAuthProviderNotFound, OAuthValidationErr
 from datarobot.auth.oauth import (
-    OAuthComponent,
+    AsyncOAuthComponent,
     OAuthData,
     OAuthFlowSession,
     OAuthProvider,
     OAuthToken,
     Profile,
+    SyncOAuthComponent,
 )
 from datarobot.auth.utils import syncify
 
@@ -122,7 +124,7 @@ class OAuthProviderConfig(BaseModel):
         }
 
 
-class AsyncOAuth(OAuthComponent):
+class AsyncOAuth(AsyncOAuthComponent):
     """
     Asyncio OAuth2 component implementation using Authlib.
     """
@@ -146,7 +148,32 @@ class AsyncOAuth(OAuthComponent):
                 **config.to_authlib_config(),
             )
 
-    async def get_providers(  # pylint: disable=invalid-overridden-method
+    async def __aenter__(self) -> "AsyncOAuthComponent":
+        """
+        No-op implementation for the async context manager.
+        Authlib implementation doesn't require any setup
+        """
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        """
+        No-op implementation for the async context manager.
+        Authlib implementation doesn't require any shutdown or cleanup
+        """
+
+    async def close(self) -> None:
+        """
+        Close the HTTP client connection.
+        This is an alias for __aexit__ to maintain compatibility with the OAuthComponent interface.
+        Authlib implementation doesn't require any shutdown or cleanup
+        """
+
+    async def get_providers(
         self,
     ) -> list[OAuthProvider]:
         providers = []
@@ -192,7 +219,7 @@ class AsyncOAuth(OAuthComponent):
 
         return provider
 
-    async def get_authorization_url(  # pylint: disable=invalid-overridden-method
+    async def get_authorization_url(
         self,
         *,
         provider_id: str,
@@ -225,7 +252,7 @@ class AsyncOAuth(OAuthComponent):
             code_verifier=authz_data.get("code_verifier"),
         )
 
-    async def exchange_code(  # pylint: disable=invalid-overridden-method
+    async def exchange_code(
         self,
         *,
         provider_id: str,
@@ -297,7 +324,7 @@ class AsyncOAuth(OAuthComponent):
             user_profile=user_profile,
         )
 
-    async def refresh_access_token(  # pylint: disable=invalid-overridden-method
+    async def refresh_access_token(
         self,
         provider_id: str | None = None,
         identity_id: str | None = None,
@@ -333,7 +360,7 @@ class AsyncOAuth(OAuthComponent):
 
         return OAuthToken.from_dict(token_data)
 
-    async def get_user_info(  # pylint: disable=invalid-overridden-method
+    async def get_user_info(
         self,
         provider_id: str | None = None,
         identity_id: str | None = None,
@@ -373,7 +400,7 @@ class AsyncOAuth(OAuthComponent):
         return Profile(**user_data)
 
 
-class SyncOAuth(OAuthComponent):
+class SyncOAuth(SyncOAuthComponent):
     """
     Synchronous OAuth client for managing OAuth providers and flows via Authlib.
     """
@@ -383,6 +410,31 @@ class SyncOAuth(OAuthComponent):
         provider_config: Sequence[OAuthProviderConfig] = (),
     ) -> None:
         self._async = AsyncOAuth(provider_config=provider_config)
+
+    def __enter__(self) -> "SyncOAuthComponent":
+        """
+        No-op implementation for the synchronous context manager.
+        Authlib implementation doesn't require any setup
+        """
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        """
+        No-op implementation for the synchronous context manager.
+        Authlib implementation doesn't require any shutdown or cleanup
+        """
+
+    def close(self) -> None:
+        """
+        Close the HTTP client connection.
+        This is an alias for __exit__ to maintain compatibility with the OAuthComponent interface.
+        Authlib implementation doesn't require any shutdown or cleanup
+        """
 
     def get_providers(self) -> list[OAuthProvider]:
         """

@@ -1,25 +1,29 @@
-import os
-import sys
-import time
-import random
-import warnings
 import functools
+import os
+import random
+import sys
 import threading
+import time
 import unittest
-
-from mpi4py import MPI
-from mpi4py import futures
+import warnings
 from concurrent.futures._base import (
-    PENDING,
-    RUNNING,
     CANCELLED,
     CANCELLED_AND_NOTIFIED,
-    FINISHED
+    FINISHED,
+    PENDING,
+    RUNNING,
 )
+from pathlib import Path
 
+sys.path.append(
+    os.fspath(Path(__file__).resolve().parent.parent.parent / "test")
+)
+import mpitestutil as testutil
+
+from mpi4py import MPI, futures
 
 SHARED_POOL = futures._core.SharedPool is not None
-WORLD_SIZE  = MPI.COMM_WORLD.Get_size()
+WORLD_SIZE = MPI.COMM_WORLD.Get_size()
 
 
 def create_future(state=PENDING, exception=None, result=None):
@@ -38,17 +42,17 @@ EXCEPTION_FUTURE = create_future(state=FINISHED, exception=OSError())
 SUCCESSFUL_FUTURE = create_future(state=FINISHED, result=42)
 
 
-def mul(x, y):
+def mul(x, y):  # noqa: FURB118
     return x * y
 
 
 def sleep_and_raise(t):
     time.sleep(t)
-    raise Exception('this is an exception')
+    raise RuntimeError("this is an exception")
 
 
 def check_global_var(x):
-    return global_var == x
+    return global_var == x  # noqa: F821
 
 
 def check_run_name(name):
@@ -78,13 +82,15 @@ class ExecutorMixin:
     def tearDown(self):
         self.executor.shutdown(wait=True)
         dt = time.time() - self.t1
-        self.assertLess(dt, 60, 'synchronization issue: test lasted too long')
+        self.assertLess(dt, 60, "synchronization issue: test lasted too long")
 
     def _prime_executor(self):
         # Make sure that the executor is ready to do work before running the
         # tests. This should reduce the probability of timeouts in the tests.
-        futures = [self.executor.submit(time.sleep, 0)
-                   for _ in range(self.worker_count)]
+        futures = [
+            self.executor.submit(time.sleep, 0)
+            for _ in range(self.worker_count)
+        ]
         for f in futures:
             f.result()
 
@@ -92,14 +98,16 @@ class ExecutorMixin:
 class ProcessPoolMixin(ExecutorMixin):
     executor_type = futures.MPIPoolExecutor
 
-    if 'coverage' in sys.modules:
-        executor_type = staticmethod(functools.partial(
-            executor_type,
-            python_args='-m coverage run'.split(),
-            ))
+    if "coverage" in sys.modules:
+        executor_type = staticmethod(
+            functools.partial(
+                executor_type,
+                python_args="-m coverage run".split(),
+            )
+        )
 
 
-@unittest.skipIf(not SHARED_POOL, 'not-shared-pool')
+@unittest.skipIf(not SHARED_POOL, "not-shared-pool")
 class SharedPoolInitTest(unittest.TestCase):
     executor_type = futures.MPIPoolExecutor
 
@@ -142,23 +150,26 @@ class SharedPoolInitTest(unittest.TestCase):
         executor.shutdown()
 
     def test_initializer_4(self):
+        rnd = random.random
+
         def test(tid):
             with self.executor_type(
                 initializer=time.sleep,
-                initargs=(random.random()/100,),
+                initargs=(rnd() / 100,),
             ) as executor:
                 futures.as_completed([
-                    executor.submit(time.sleep, random.random()/100)
+                    executor.submit(time.sleep, rnd() / 100)
                     for _ in range(executor.num_workers + tid)
                 ])
+
         ts = [threading.Thread(target=test, args=(i,)) for i in range(5)]
-        for t in ts: t.start()
-        for t in ts: t.join()
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
 
 
-class ProcessPoolInitTest(ProcessPoolMixin,
-                          unittest.TestCase):
-
+class ProcessPoolInitTest(ProcessPoolMixin, unittest.TestCase):
     def setUp(self):
         pass
 
@@ -178,46 +189,44 @@ class ProcessPoolInitTest(ProcessPoolMixin,
         executor = self.executor_type(
             python_exe=sys.executable,
             max_workers=None,
-            mpi_info=dict(soft="0:1"),
+            mpi_info={"soft": "0:1"},
             globals=None,
             main=False,
             path=[],
-            wdir=os.getcwd(),
+            wdir=Path.cwd(),
             env={},
             use_pkl5=None,
             backoff=0.001,
-            )
-        futures = [executor.submit(time.sleep, 0)
-                   for _ in range(self.worker_count)]
+        )
+        futures = [
+            executor.submit(time.sleep, 0) for _ in range(self.worker_count)
+        ]
         for f in futures:
             f.result()
         executor.shutdown()
 
     def test_init_pyargs(self):
         executor_type = futures.MPIPoolExecutor
-        executor = executor_type(python_args=['-B', '-Wi'])
+        executor = executor_type(python_args=["-B", "-Wi"])
         executor.submit(time.sleep, 0).result()
         executor.shutdown()
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_init_sys_flags(self):
         executor_type = futures.MPIPoolExecutor
         sys_flags = [
-            ('debug', '-d', True),
-            ('optimize', '-O', 1),
-            ('optimize', '-OO', 2),
-            ('dont_write_bytecode', '-B', True),
+            ("debug", "-d", True),
+            ("optimize", "-O", 1),
+            ("optimize", "-OO", 2),
+            ("dont_write_bytecode", "-B", True),
+            ("dev_mode", "-Xdev", True),
+            ("utf8_mode", "-Xutf8", True),
         ]
-        if sys.version_info >= (3, 7):
-            sys_flags.extend([
-                ('dev_mode', '-Xdev', True),
-                ('utf8_mode', '-Xutf8', True),
-            ])
         if sys.version_info >= (3, 11):
             sys_flags.extend([
-                ('safe_path', '-P', True),
+                ("safe_path", "-P", True),
             ])
-        for (name, flag, value) in sys_flags:
+        for name, flag, value in sys_flags:
             if not isinstance(value, bool):
                 if isinstance(value, int):
                     value += getattr(sys.flags, name)
@@ -227,23 +236,23 @@ class ProcessPoolInitTest(ProcessPoolMixin,
                 result = bool(result)
             self.assertEqual(value, result, f"sys.flags.{name}")
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_init_globals(self):
-        executor = self.executor_type(globals=dict(global_var=42))
+        executor = self.executor_type(globals={"global_var": 42})
         future1 = executor.submit(check_global_var, 42)
         future2 = executor.submit(check_global_var, 24)
         self.assertTrue(future1.result())
         self.assertFalse(future2.result())
         executor.shutdown()
 
-    @unittest.skipIf(SHARED_POOL and WORLD_SIZE == 1, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL and WORLD_SIZE == 1, "shared-pool")
     def test_run_name(self):
         executor = self.executor_type()
         run_name = futures._core.MAIN_RUN_NAME
         future = executor.submit(check_run_name, run_name)
         self.assertTrue(future.result())
 
-    @unittest.skipIf(SHARED_POOL and WORLD_SIZE > 2, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL and WORLD_SIZE > 2, "shared-pool")
     def test_max_workers(self):
         executor = self.executor_type(max_workers=1)
         self.assertEqual(executor.num_workers, 1)
@@ -252,10 +261,10 @@ class ProcessPoolInitTest(ProcessPoolMixin,
         self.assertEqual(executor.num_workers, 0)
         self.assertEqual(executor.num_workers, executor._max_workers)
 
-    @unittest.skipIf(SHARED_POOL and WORLD_SIZE > 2, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL and WORLD_SIZE > 2, "shared-pool")
     def test_max_workers_environ(self):
-        save = os.environ.get('MPI4PY_FUTURES_MAX_WORKERS')
-        os.environ['MPI4PY_FUTURES_MAX_WORKERS'] = '1'
+        save = os.environ.get("MPI4PY_FUTURES_MAX_WORKERS")
+        os.environ["MPI4PY_FUTURES_MAX_WORKERS"] = "1"
         try:
             executor = self.executor_type()
             executor.submit(time.sleep, 0).result()
@@ -265,9 +274,9 @@ class ProcessPoolInitTest(ProcessPoolMixin,
             executor.shutdown()
             self.assertEqual(executor.num_workers, 0)
         finally:
-            del os.environ['MPI4PY_FUTURES_MAX_WORKERS']
+            del os.environ["MPI4PY_FUTURES_MAX_WORKERS"]
             if save is not None:
-                os.environ['MPI4PY_FUTURES_MAX_WORKERS'] = save
+                os.environ["MPI4PY_FUTURES_MAX_WORKERS"] = save
 
     def test_max_workers_negative(self):
         for number in (0, -1):
@@ -277,38 +286,38 @@ class ProcessPoolInitTest(ProcessPoolMixin,
     def test_get_comm_workers(self):
         executor = self.executor_type()
         num_workers = executor.submit(check_comm_workers).result()
-        self.assertTrue(executor.num_workers, num_workers)
+        self.assertEqual(executor.num_workers, num_workers)
         self.assertRaises(RuntimeError, check_comm_workers)
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_use_pkl5_kwarg(self):
         executor = self.executor_type(use_pkl5=True)
         executor.submit(time.sleep, 0).result()
         executor.shutdown()
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_use_pkl5_environ(self):
-        save = os.environ.get('MPI4PY_FUTURES_USE_PKL5')
+        save = os.environ.get("MPI4PY_FUTURES_USE_PKL5")
         try:
-            for value in ('false', 'true'):
-                os.environ['MPI4PY_FUTURES_USE_PKL5'] = value
+            for value in ("false", "true"):
+                os.environ["MPI4PY_FUTURES_USE_PKL5"] = value
                 executor = self.executor_type()
                 executor.submit(time.sleep, 0).result()
                 executor.shutdown()
             with warnings.catch_warnings(record=True) as wlist:
-                warnings.simplefilter('always')
-                os.environ['MPI4PY_FUTURES_USE_PKL5'] = 'foobar'
+                warnings.simplefilter("always")
+                os.environ["MPI4PY_FUTURES_USE_PKL5"] = "foobar"
                 executor = self.executor_type()
                 executor.submit(time.sleep, 0).result()
                 executor.shutdown()
             self.assertTrue(wlist)
             msg = wlist[0].message
             self.assertIsInstance(msg, RuntimeWarning)
-            self.assertIn('foobar', msg.args[0])
+            self.assertIn("foobar", msg.args[0])
         finally:
-            del os.environ['MPI4PY_FUTURES_USE_PKL5']
+            del os.environ["MPI4PY_FUTURES_USE_PKL5"]
             if save is not None:
-                os.environ['MPI4PY_FUTURES_USE_PKL5'] = save
+                os.environ["MPI4PY_FUTURES_USE_PKL5"] = save
 
     def test_initializer(self):
         executor = self.executor_type(
@@ -354,9 +363,7 @@ class ProcessPoolInitTest(ProcessPoolMixin,
         del executor
 
 
-class ProcessPoolBootupTest(ProcessPoolMixin,
-                            unittest.TestCase):
-
+class ProcessPoolBootupTest(ProcessPoolMixin, unittest.TestCase):
     def _prime_executor(self):
         pass
 
@@ -403,7 +410,6 @@ class ProcessPoolBootupTest(ProcessPoolMixin,
 
 
 class ExecutorShutdownTestMixin:
-
     def test_run_after_shutdown(self):
         self.executor.shutdown()
         with self.assertRaises(RuntimeError):
@@ -416,10 +422,9 @@ class ExecutorShutdownTestMixin:
             f.result()
 
 
-class ProcessPoolShutdownTest(ProcessPoolMixin,
-                              ExecutorShutdownTestMixin,
-                              unittest.TestCase):
-
+class ProcessPoolShutdownTest(
+    ProcessPoolMixin, ExecutorShutdownTestMixin, unittest.TestCase
+):
     def _prime_executor(self):
         pass
 
@@ -443,7 +448,7 @@ class ProcessPoolShutdownTest(ProcessPoolMixin,
         executor = self.executor_type(max_workers=1)
         executor.bootup()
         num_workers = executor.num_workers
-        for _ in range(num_workers*100):
+        for _ in range(num_workers * 100):
             executor.submit(time.sleep, 0.1)
         fut = executor.submit(time.sleep, 0)
         executor.shutdown(wait=False, cancel_futures=False)
@@ -456,13 +461,13 @@ class ProcessPoolShutdownTest(ProcessPoolMixin,
         executor.bootup()
         num_workers = executor.num_workers
         fut1 = executor.submit(time.sleep, 0.1)
-        for _ in range(num_workers*100):
+        for _ in range(num_workers * 100):
             executor.submit(time.sleep, 0.1)
         fut2 = executor.submit(time.sleep, 0)
         fut3 = executor.submit(time.sleep, 0)
         time.sleep(0.2)
         executor.shutdown(wait=False, cancel_futures=True)
-        done, not_done = futures.wait({fut1, fut2, fut3})
+        _done, not_done = futures.wait({fut1, fut2, fut3})
         self.assertEqual(len(not_done), 0)
         self.assertFalse(fut1.cancelled())
         self.assertTrue(fut2.cancelled())
@@ -477,8 +482,8 @@ class ProcessPoolShutdownTest(ProcessPoolMixin,
         executor.shutdown(wait=False, cancel_futures=False)
         executor.shutdown(wait=False, cancel_futures=True)
         executor.shutdown(wait=False, cancel_futures=True)
-        executor.shutdown(wait=True,  cancel_futures=True)
-        executor.shutdown(wait=True,  cancel_futures=True)
+        executor.shutdown(wait=True, cancel_futures=True)
+        executor.shutdown(wait=True, cancel_futures=True)
 
     def test_init_bootup_shutdown(self):
         executor = self.executor_type(max_workers=1)
@@ -493,8 +498,9 @@ class ProcessPoolShutdownTest(ProcessPoolMixin,
 
     def test_context_manager_shutdown(self):
         with self.executor_type(max_workers=1) as e:
-            self.assertEqual(list(e.map(abs, range(-5, 5))),
-                             [5, 4, 3, 2, 1, 0, 1, 2, 3, 4])
+            self.assertEqual(
+                list(e.map(abs, range(-5, 5))), [5, 4, 3, 2, 1, 0, 1, 2, 3, 4]
+            )
             threads = [e._pool.thread]
             queues = [e._pool.queue]
             events = [e._pool.event]
@@ -513,7 +519,7 @@ class ProcessPoolShutdownTest(ProcessPoolMixin,
         threads = [executor._pool.thread]
         queues = [executor._pool.queue]
         events = [executor._pool.event]
-        if hasattr(sys, 'pypy_version_info'):
+        if hasattr(sys, "pypy_version_info"):
             executor.shutdown(False)
         else:
             del executor
@@ -528,14 +534,14 @@ class ProcessPoolShutdownTest(ProcessPoolMixin,
 
 
 class WaitTestMixin:
-
     def test_first_completed(self):
         future1 = self.executor.submit(mul, 21, 2)
         future2 = self.executor.submit(time.sleep, 0.25)
 
         done, not_done = futures.wait(
-                [CANCELLED_FUTURE, future1, future2],
-                return_when=futures.FIRST_COMPLETED)
+            [CANCELLED_FUTURE, future1, future2],
+            return_when=futures.FIRST_COMPLETED,
+        )
 
         self.assertEqual({future1}, done)
         self.assertEqual({CANCELLED_FUTURE, future2}, not_done)
@@ -544,13 +550,13 @@ class WaitTestMixin:
         future1 = self.executor.submit(time.sleep, 0.5)
 
         finished, pending = futures.wait(
-                 [CANCELLED_AND_NOTIFIED_FUTURE, SUCCESSFUL_FUTURE, future1],
-                 return_when=futures.FIRST_COMPLETED)
+            [CANCELLED_AND_NOTIFIED_FUTURE, SUCCESSFUL_FUTURE, future1],
+            return_when=futures.FIRST_COMPLETED,
+        )
 
-        self.assertEqual({
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            SUCCESSFUL_FUTURE},
-            finished)
+        self.assertEqual(
+            {CANCELLED_AND_NOTIFIED_FUTURE, SUCCESSFUL_FUTURE}, finished
+        )
         self.assertEqual({future1}, pending)
 
     def test_first_exception(self):
@@ -559,8 +565,8 @@ class WaitTestMixin:
         future3 = self.executor.submit(time.sleep, 0.5)
 
         finished, pending = futures.wait(
-                [future1, future2, future3],
-                return_when=futures.FIRST_EXCEPTION)
+            [future1, future2, future3], return_when=futures.FIRST_EXCEPTION
+        )
 
         self.assertEqual({future1, future2}, finished)
         self.assertEqual({future3}, pending)
@@ -570,28 +576,28 @@ class WaitTestMixin:
         future2 = self.executor.submit(time.sleep, 0.5)
 
         finished, pending = futures.wait(
-                [SUCCESSFUL_FUTURE,
-                 CANCELLED_FUTURE,
-                 CANCELLED_AND_NOTIFIED_FUTURE,
-                 future1, future2],
-                return_when=futures.FIRST_EXCEPTION)
+            [
+                SUCCESSFUL_FUTURE,
+                CANCELLED_FUTURE,
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                future1,
+                future2,
+            ],
+            return_when=futures.FIRST_EXCEPTION,
+        )
 
-        self.assertEqual({
-            SUCCESSFUL_FUTURE,
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            future1},
-            finished)
-        self.assertEqual({
-            CANCELLED_FUTURE,
-            future2},
-            pending)
+        self.assertEqual(
+            {SUCCESSFUL_FUTURE, CANCELLED_AND_NOTIFIED_FUTURE, future1},
+            finished,
+        )
+        self.assertEqual({CANCELLED_FUTURE, future2}, pending)
 
     def test_first_exception_one_already_failed(self):
         future1 = self.executor.submit(time.sleep, 0.25)
 
         finished, pending = futures.wait(
-            [EXCEPTION_FUTURE, future1],
-            return_when=futures.FIRST_EXCEPTION)
+            [EXCEPTION_FUTURE, future1], return_when=futures.FIRST_EXCEPTION
+        )
 
         self.assertEqual({EXCEPTION_FUTURE}, finished)
         self.assertEqual({future1}, pending)
@@ -601,20 +607,26 @@ class WaitTestMixin:
         future2 = self.executor.submit(mul, 2, 21)
 
         finished, pending = futures.wait(
-                [SUCCESSFUL_FUTURE,
-                 CANCELLED_AND_NOTIFIED_FUTURE,
-                 EXCEPTION_FUTURE,
-                 future1,
-                 future2],
-                return_when=futures.ALL_COMPLETED)
+            [
+                SUCCESSFUL_FUTURE,
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                future1,
+                future2,
+            ],
+            return_when=futures.ALL_COMPLETED,
+        )
 
-        self.assertEqual({
-            SUCCESSFUL_FUTURE,
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            EXCEPTION_FUTURE,
-            future1,
-            future2},
-            finished)
+        self.assertEqual(
+            {
+                SUCCESSFUL_FUTURE,
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                future1,
+                future2,
+            },
+            finished,
+        )
         self.assertEqual(set(), pending)
 
     def test_timeout(self):
@@ -622,104 +634,129 @@ class WaitTestMixin:
         future2 = self.executor.submit(time.sleep, 0.75)
 
         finished, pending = futures.wait(
-                [CANCELLED_AND_NOTIFIED_FUTURE,
-                 EXCEPTION_FUTURE,
-                 SUCCESSFUL_FUTURE,
-                 future1, future2],
-                timeout=0.5,
-                return_when=futures.ALL_COMPLETED)
+            [
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                SUCCESSFUL_FUTURE,
+                future1,
+                future2,
+            ],
+            timeout=0.5,
+            return_when=futures.ALL_COMPLETED,
+        )
 
-        self.assertEqual({
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            EXCEPTION_FUTURE,
-            SUCCESSFUL_FUTURE,
-            future1},
-            finished)
+        self.assertEqual(
+            {
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                SUCCESSFUL_FUTURE,
+                future1,
+            },
+            finished,
+        )
         self.assertEqual({future2}, pending)
 
 
-class ProcessPoolWaitTest(ProcessPoolMixin,
-                          WaitTestMixin,
-                          unittest.TestCase):
+class ProcessPoolWaitTest(ProcessPoolMixin, WaitTestMixin, unittest.TestCase):
     pass
 
 
 class AsCompletedTestMixin:
-
     def test_no_timeout(self):
         future1 = self.executor.submit(mul, 2, 21)
         future2 = self.executor.submit(mul, 7, 6)
 
-        completed = set(futures.as_completed(
-                [CANCELLED_AND_NOTIFIED_FUTURE,
-                 EXCEPTION_FUTURE,
-                 SUCCESSFUL_FUTURE,
-                 future1, future2]))
-        self.assertEqual({
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            EXCEPTION_FUTURE,
-            SUCCESSFUL_FUTURE,
-            future1, future2},
-            completed)
+        completed = set(
+            futures.as_completed([
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                SUCCESSFUL_FUTURE,
+                future1,
+                future2,
+            ])
+        )
+        self.assertEqual(
+            {
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                SUCCESSFUL_FUTURE,
+                future1,
+                future2,
+            },
+            completed,
+        )
 
     def test_zero_timeout(self):
         future1 = self.executor.submit(time.sleep, 0.5)
         completed_futures = set()
         try:
-            for future in futures.as_completed(
-                    [CANCELLED_AND_NOTIFIED_FUTURE,
-                     EXCEPTION_FUTURE,
-                     SUCCESSFUL_FUTURE,
-                     future1],
-                    timeout=0):
-                completed_futures.add(future)
+            completed_futures.update(
+                futures.as_completed(
+                    [
+                        CANCELLED_AND_NOTIFIED_FUTURE,
+                        EXCEPTION_FUTURE,
+                        SUCCESSFUL_FUTURE,
+                        future1,
+                    ],
+                    timeout=0,
+                )
+            )
         except futures.TimeoutError:
             pass
 
-        self.assertEqual({
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            EXCEPTION_FUTURE,
-            SUCCESSFUL_FUTURE},
-            completed_futures)
+        self.assertEqual(
+            {
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                SUCCESSFUL_FUTURE,
+            },
+            completed_futures,
+        )
 
     def test_nonzero_timeout(self):
         future1 = self.executor.submit(time.sleep, 0.0)
-        future2 = self.executor.submit(time.sleep, 0.5)
+        self.executor.submit(time.sleep, 0.5)
         completed_futures = set()
         try:
-            for future in futures.as_completed(
-                    [CANCELLED_AND_NOTIFIED_FUTURE,
-                     EXCEPTION_FUTURE,
-                     SUCCESSFUL_FUTURE,
-                     future1],
-                    timeout=0.2):
-                completed_futures.add(future)
+            completed_futures.update(
+                futures.as_completed(
+                    [
+                        CANCELLED_AND_NOTIFIED_FUTURE,
+                        EXCEPTION_FUTURE,
+                        SUCCESSFUL_FUTURE,
+                        future1,
+                    ],
+                    timeout=0.2,
+                )
+            )
         except futures.TimeoutError:
             pass
 
-        self.assertEqual({
-            CANCELLED_AND_NOTIFIED_FUTURE,
-            EXCEPTION_FUTURE,
-            SUCCESSFUL_FUTURE,
-            future1},
-            completed_futures)
+        self.assertEqual(
+            {
+                CANCELLED_AND_NOTIFIED_FUTURE,
+                EXCEPTION_FUTURE,
+                SUCCESSFUL_FUTURE,
+                future1,
+            },
+            completed_futures,
+        )
 
     def test_duplicate_futures(self):
         # Issue 20367. Duplicate futures should not raise exceptions or give
         # duplicate responses.
         future1 = self.executor.submit(time.sleep, 0.1)
-        completed = [f for f in futures.as_completed([future1, future1])]
+        completed = list(futures.as_completed([future1, future1]))
         self.assertEqual(len(completed), 1)
 
 
-class ProcessPoolAsCompletedTest(ProcessPoolMixin,
-                                 AsCompletedTestMixin,
-                                 unittest.TestCase):
+class ProcessPoolAsCompletedTest(
+    ProcessPoolMixin, AsCompletedTestMixin, unittest.TestCase
+):
     pass
 
 
 class ExecutorTestMixin:
-
     def test_submit(self):
         future = self.executor.submit(pow, 2, 8)
         self.assertEqual(256, future.result())
@@ -733,7 +770,7 @@ class ExecutorTestMixin:
     def test_submit_cancel(self):
         fs = []
         num_workers = self.executor.num_workers
-        for _ in range(num_workers*100):
+        for _ in range(num_workers * 100):
             f = self.executor.submit(time.sleep, 0.1)
             fs.append(f)
         future = self.executor.submit(time.sleep, 0)
@@ -744,17 +781,20 @@ class ExecutorTestMixin:
 
     def test_map(self):
         self.assertEqual(
-                list(self.executor.map(pow, range(10), range(10))),
-                list(map(pow, range(10), range(10))))
+            list(self.executor.map(pow, range(10), range(10))),
+            list(map(pow, range(10), range(10))),
+        )
 
     def test_starmap(self):
-        sequence = [(a,a) for a in range(10)]
+        sequence = [(a, a) for a in range(10)]
         self.assertEqual(
-                list(self.executor.starmap(pow, sequence)),
-                list(map(pow, range(10), range(10))))
+            list(self.executor.starmap(pow, sequence)),
+            list(map(pow, range(10), range(10))),
+        )
         self.assertEqual(
-                list(self.executor.starmap(pow, iter(sequence))),
-                list(map(pow, range(10), range(10))))
+            list(self.executor.starmap(pow, iter(sequence))),
+            list(map(pow, range(10), range(10))),
+        )
 
     def test_map_exception(self):
         i = self.executor.map(divmod, [1, 1, 1, 1], [2, 3, 0, 5])
@@ -771,7 +811,7 @@ class ExecutorTestMixin:
         except futures.TimeoutError:
             pass
         else:
-            self.fail('expected TimeoutError')
+            self.fail("expected TimeoutError")
 
         self.assertEqual([None, None], results)
 
@@ -782,21 +822,23 @@ class ExecutorTestMixin:
         self.assertEqual([None, None, None], results)
 
 
-class ProcessPoolExecutorTest(ProcessPoolMixin,
-                              ExecutorTestMixin,
-                              unittest.TestCase):
-
+class ProcessPoolExecutorTest(
+    ProcessPoolMixin, ExecutorTestMixin, unittest.TestCase
+):
     def test_map_chunksize(self):
         ref = list(map(pow, range(40), range(40)))
         self.assertEqual(
             list(self.executor.map(pow, range(40), range(40), chunksize=6)),
-            ref)
+            ref,
+        )
         self.assertEqual(
             list(self.executor.map(pow, range(40), range(40), chunksize=50)),
-            ref)
+            ref,
+        )
         self.assertEqual(
             list(self.executor.map(pow, range(40), range(40), chunksize=40)),
-            ref)
+            ref,
+        )
         with self.assertRaises(ValueError):
             list(self.executor.map(pow, range(40), range(40), chunksize=-1))
 
@@ -804,47 +846,87 @@ class ProcessPoolExecutorTest(ProcessPoolMixin,
         ref = list(map(pow, range(40), range(40)))
         sequence = [(a, a) for a in range(40)]
         self.assertEqual(
-            list(self.executor.starmap(pow, sequence, chunksize=6)),
-            ref)
+            list(self.executor.starmap(pow, sequence, chunksize=6)), ref
+        )
         self.assertEqual(
-            list(self.executor.starmap(pow, sequence, chunksize=50)),
-            ref)
+            list(self.executor.starmap(pow, sequence, chunksize=50)), ref
+        )
         self.assertEqual(
-            list(self.executor.starmap(pow, sequence, chunksize=40)),
-            ref)
+            list(self.executor.starmap(pow, sequence, chunksize=40)), ref
+        )
         self.assertEqual(
-            list(self.executor.starmap(pow, iter(sequence), chunksize=6)),
-            ref)
+            list(self.executor.starmap(pow, iter(sequence), chunksize=6)), ref
+        )
         self.assertEqual(
-            list(self.executor.starmap(pow, iter(sequence), chunksize=50)),
-            ref)
+            list(self.executor.starmap(pow, iter(sequence), chunksize=50)), ref
+        )
         self.assertEqual(
-            list(self.executor.starmap(pow, iter(sequence), chunksize=40)),
-            ref)
+            list(self.executor.starmap(pow, iter(sequence), chunksize=40)), ref
+        )
 
         with self.assertRaises(ValueError):
             list(self.executor.starmap(pow, sequence, chunksize=-1))
 
+    def test_map_buffersize(self):
+        ref = list(map(pow, range(10), range(10)))
+        for bs in (1, 2, 9, 10, 11):
+            for cs in (1, 2, 9, 10, 11):
+                self.assertEqual(
+                    list(
+                        self.executor.map(
+                            pow,
+                            range(10),
+                            range(10),
+                            chunksize=cs,
+                            buffersize=bs,
+                        )
+                    ),
+                    ref,
+                )
+        with self.assertRaises(TypeError):
+            self.executor.map(
+                pow,
+                range(10),
+                range(10),
+                buffersize=str(1),
+            )
+        with self.assertRaises(ValueError):
+            self.executor.map(
+                pow,
+                range(10),
+                range(10),
+                buffersize=-1,
+            )
+        with self.assertRaises(ValueError):
+            self.executor.map(
+                pow,
+                range(10),
+                range(10),
+                buffersize=1,
+                unordered=True,
+            )
+
     def test_map_unordered(self):
         map_unordered = functools.partial(self.executor.map, unordered=True)
         self.assertEqual(
-                set(map_unordered(pow, range(10), range(10))),
-                set(map(pow, range(10), range(10))))
+            set(map_unordered(pow, range(10), range(10))),
+            set(map(pow, range(10), range(10))),
+        )
 
     def test_map_unordered_timeout(self):
         map_unordered = functools.partial(self.executor.map, unordered=True)
         num_workers = self.executor.num_workers
         results = []
         try:
-            args = [1] + [0]*(num_workers-1)
+            args = [1] + [0] * (num_workers - 1)
             for i in map_unordered(time.sleep, args, timeout=0.25):
                 results.append(i)
         except futures.TimeoutError:
             pass
         else:
-            self.fail('expected TimeoutError')
+            self.fail("expected TimeoutError")
 
-        self.assertEqual([None]*(num_workers-1), results)
+        self.assertEqual([None] * (num_workers - 1), results)
 
     def test_map_unordered_timeout_one(self):
         map_unordered = functools.partial(self.executor.map, unordered=True)
@@ -865,21 +947,20 @@ class ProcessPoolExecutorTest(ProcessPoolMixin,
         map_unordered = functools.partial(self.executor.map, unordered=True)
         ref = set(map(pow, range(40), range(40)))
         self.assertEqual(
-            set(map_unordered(pow, range(40), range(40), chunksize=6)),
-            ref)
+            set(map_unordered(pow, range(40), range(40), chunksize=6)), ref
+        )
         self.assertEqual(
-            set(map_unordered(pow, range(40), range(40), chunksize=50)),
-            ref)
+            set(map_unordered(pow, range(40), range(40), chunksize=50)), ref
+        )
         self.assertEqual(
-            set(map_unordered(pow, range(40), range(40), chunksize=40)),
-            ref)
+            set(map_unordered(pow, range(40), range(40), chunksize=40)), ref
+        )
         with self.assertRaises(ValueError):
             set(map_unordered(pow, range(40), range(40), chunksize=-1))
 
 
 class ProcessPoolSubmitTest(unittest.TestCase):
-
-    @unittest.skipIf(MPI.get_vendor()[0] == 'Microsoft MPI', 'msmpi')
+    @unittest.skipIf(MPI.get_vendor()[0] == "Microsoft MPI", "msmpi")
     def test_multiple_executors(self):
         executor1 = futures.MPIPoolExecutor(1).bootup(wait=True)
         executor2 = futures.MPIPoolExecutor(1).bootup(wait=True)
@@ -887,7 +968,7 @@ class ProcessPoolSubmitTest(unittest.TestCase):
         fs1 = [executor1.submit(abs, i) for i in range(100, 200)]
         fs2 = [executor2.submit(abs, i) for i in range(200, 300)]
         fs3 = [executor3.submit(abs, i) for i in range(300, 400)]
-        futures.wait(fs3+fs2+fs1)
+        futures.wait(fs3 + fs2 + fs1)
         for i, f in enumerate(fs1):
             self.assertEqual(f.result(), i + 100)
         for i, f in enumerate(fs2):
@@ -918,15 +999,15 @@ class ProcessPoolSubmitTest(unittest.TestCase):
             serialized.lock = lock_save
 
     def test_shared_executors(self):
-        if not SHARED_POOL: return
+        if not SHARED_POOL:
+            return
         executors = [futures.MPIPoolExecutor() for _ in range(16)]
         fs = []
         for i in range(128):
             fs.extend(
-                e.submit(abs, i*16+j)
-                for j, e in enumerate(executors)
+                e.submit(abs, i * 16 + j) for j, e in enumerate(executors)
             )
-        self.assertEqual(sorted(f.result() for f in fs), list(range(16*128)))
+        self.assertEqual(sorted(f.result() for f in fs), list(range(16 * 128)))
         world_size = MPI.COMM_WORLD.Get_size()
         num_workers = max(1, world_size - 1)
         for e in executors:
@@ -939,7 +1020,6 @@ def inout(arg):
 
 
 class GoodPickle:
-
     def __init__(self, value=0):
         self.value = value
         self.pickled = False
@@ -955,20 +1035,18 @@ class GoodPickle:
 
 
 class BadPickle:
-
     def __init__(self):
         self.pickled = False
 
     def __getstate__(self):
         self.pickled = True
-        1/0
+        _ = 1 / 0
 
     def __setstate__(self, state):
         pass
 
 
 class BadUnpickle:
-
     def __init__(self):
         self.pickled = False
 
@@ -979,12 +1057,11 @@ class BadUnpickle:
     def __setstate__(self, state):
         if state[0] is not None:
             raise ValueError
-        1/0
+        _ = 1 / 0
 
 
-@unittest.skipIf(SHARED_POOL and WORLD_SIZE == 1, 'shared-pool')
+@unittest.skipIf(SHARED_POOL and WORLD_SIZE == 1, "shared-pool")
 class ProcessPoolPickleTest(unittest.TestCase):
-
     def setUp(self):
         self.executor = futures.MPIPoolExecutor(1)
 
@@ -1050,7 +1127,6 @@ class ProcessPoolPickleTest(unittest.TestCase):
 
 
 class MPICommExecutorTest(unittest.TestCase):
-
     MPICommExecutor = futures.MPICommExecutor
 
     def test_default(self):
@@ -1070,9 +1146,9 @@ class MPICommExecutorTest(unittest.TestCase):
             self.assertIsNone(future.exception())
 
             future = executor.submit(sleep_and_raise, 0)
-            with self.assertRaises(Exception):
+            with self.assertRaises(RuntimeError):
                 future.result()
-            self.assertEqual(Exception, type(future.exception()))
+            self.assertEqual(RuntimeError, type(future.exception()))
 
             list(executor.map(time.sleep, [0, 0]))
             list(executor.map(time.sleep, [0, 0], timeout=1))
@@ -1092,7 +1168,7 @@ class MPICommExecutorTest(unittest.TestCase):
         with self.MPICommExecutor(comm=MPI.COMM_SELF, root=0) as executor:
             self.assertIsNotNone(executor)
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_arg_root(self):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -1108,7 +1184,7 @@ class MPICommExecutorTest(unittest.TestCase):
                 else:
                     self.assertIsNone(executor)
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_arg_bad_root(self):
         size = MPI.COMM_WORLD.Get_size()
         with self.assertRaises(ValueError):
@@ -1118,9 +1194,10 @@ class MPICommExecutorTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.MPICommExecutor(root=+size)
 
-    @unittest.skipIf(SHARED_POOL, 'shared-pool')
+    @unittest.skipIf(SHARED_POOL, "shared-pool")
     def test_arg_bad_comm(self):
-        if MPI.COMM_WORLD.Get_size() == 1: return
+        if MPI.COMM_WORLD.Get_size() == 1:
+            return
         intercomm, intracomm = futures._core.comm_split(MPI.COMM_WORLD, 0)
         try:
             with self.assertRaises(ValueError):
@@ -1132,14 +1209,14 @@ class MPICommExecutorTest(unittest.TestCase):
 
     def test_with_bad(self):
         mpicommexecutor = self.MPICommExecutor(MPI.COMM_SELF)
-        with mpicommexecutor as executor:
+        with mpicommexecutor:
             try:
                 with mpicommexecutor:
                     pass
             except RuntimeError:
                 pass
             else:
-                self.fail('expected RuntimeError')
+                self.fail("expected RuntimeError")
 
     def test_initializer(self):
         mpicommexecutor = self.MPICommExecutor(
@@ -1190,10 +1267,10 @@ class MPICommExecutorTest(unittest.TestCase):
                 del executor
 
     def test_get_comm_workers(self):
-        for comm in (MPI.COMM_SELF, MPI.COMM_WORLD):
+        for _comm in (MPI.COMM_SELF, MPI.COMM_WORLD):
             with self.MPICommExecutor(MPI.COMM_SELF) as executor:
                 num_workers = executor.submit(check_comm_workers).result()
-                self.assertTrue(executor.num_workers, num_workers)
+                self.assertEqual(executor.num_workers, num_workers)
         self.assertRaises(RuntimeError, check_comm_workers)
 
 
@@ -1201,25 +1278,26 @@ class ThreadPoolMixin(ExecutorMixin):
     executor_type = futures.ThreadPoolExecutor
 
 
-class ThreadPoolTest(ThreadPoolMixin,
-                     ExecutorTestMixin,
-                     ExecutorShutdownTestMixin,
-                     unittest.TestCase):
+class ThreadPoolTest(
+    ThreadPoolMixin,
+    ExecutorTestMixin,
+    ExecutorShutdownTestMixin,
+    unittest.TestCase,
+):
     pass
 
 
-from mpi4py.futures.aplus import ThenableFuture
+from mpi4py.futures.aplus import ThenableFuture  # noqa: E402
+
 
 class ThenTest(unittest.TestCase):
-
     assert_ = unittest.TestCase.assertTrue
 
     def test_cancel_base(self):
-
         base_f = ThenableFuture()
         new_f = base_f.then()
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
@@ -1231,11 +1309,10 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(new_f.cancelled())
 
     def test_cancel_new(self):
-
         base_f = ThenableFuture()
         new_f = base_f.then()
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
@@ -1248,21 +1325,20 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(new_f.cancelled())
 
     def test_then_multiple(self):
-
         base_f = ThenableFuture()
         new_f1 = base_f.then()
         new_f2 = base_f.then()
         new_f3 = base_f.then()
 
-        self.assertTrue(base_f is not new_f1)
-        self.assertTrue(base_f is not new_f2)
-        self.assertTrue(base_f is not new_f3)
+        self.assertIsNot(base_f, new_f1)
+        self.assertIsNot(base_f, new_f2)
+        self.assertIsNot(base_f, new_f3)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f1.done())
         self.assertTrue(not new_f2.done())
         self.assertTrue(not new_f3.done())
 
-        base_f.set_result('done')
+        base_f.set_result("done")
         self.assertTrue(base_f.done())
         self.assertTrue(new_f1.done())
         self.assertTrue(new_f2.done())
@@ -1271,65 +1347,61 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(not new_f1.exception())
         self.assertTrue(not new_f2.exception())
         self.assertTrue(not new_f3.exception())
-        self.assertTrue(new_f1.result() == 'done')
-        self.assertTrue(new_f2.result() == 'done')
-        self.assertTrue(new_f3.result() == 'done')
+        self.assertEqual(new_f1.result(), "done")
+        self.assertEqual(new_f2.result(), "done")
+        self.assertEqual(new_f3.result(), "done")
 
     def test_no_callbacks_and_success(self):
-
         base_f = ThenableFuture()
         new_f = base_f.then()
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_result('done')
+        base_f.set_result("done")
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(not new_f.exception())
-        self.assertTrue(new_f.result() == 'done')
+        self.assertEqual(new_f.result(), "done")
 
     def test_no_callbacks_and_failure(self):
-
         class MyException(Exception):
             pass
 
         base_f = ThenableFuture()
         new_f = base_f.then()
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_exception(MyException('sad'))
+        base_f.set_exception(MyException("sad"))
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(new_f.exception())
         with self.assertRaises(MyException) as catcher:
             new_f.result()
-        self.assertTrue(catcher.exception.args[0] == 'sad')
+        self.assertEqual(catcher.exception.args[0], "sad")
 
     def test_success_callback_and_success(self):
-
         base_f = ThenableFuture()
-        new_f = base_f.then(lambda result: result + ' manipulated')
+        new_f = base_f.then(lambda result: result + " manipulated")
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_result('done')
+        base_f.set_result("done")
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(not new_f.exception())
-        self.assertTrue(new_f.result() == 'done manipulated')
+        self.assertEqual(new_f.result(), "done manipulated")
 
     def test_err_callback_and_failure_repackage(self):
-
         class MyException(Exception):
             pass
 
@@ -1341,28 +1413,27 @@ class ThenTest(unittest.TestCase):
 
         def on_failure(ex):
             if isinstance(ex, MyException):
-                return MyRepackagedException(ex.args[0] + ' repackaged')
+                return MyRepackagedException(ex.args[0] + " repackaged")
             else:
-                return NotMatched('?')
+                return NotMatched("?")
 
         base_f = ThenableFuture()
         new_f = base_f.then(None, on_failure)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_exception(MyException('sad'))
+        base_f.set_exception(MyException("sad"))
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(new_f.exception())
         with self.assertRaises(MyRepackagedException) as catcher:
             new_f.result()
-        self.assertTrue(catcher.exception.args[0] == 'sad repackaged')
+        self.assertEqual(catcher.exception.args[0], "sad repackaged")
 
     def test_err_callback_and_failure_raised(self):
-
         class MyException(Exception):
             pass
 
@@ -1370,26 +1441,25 @@ class ThenTest(unittest.TestCase):
             pass
 
         def raise_something_else(ex):
-            raise MyRepackagedException(ex.args[0] + ' repackaged')
+            raise MyRepackagedException(ex.args[0] + " repackaged")
 
         base_f = ThenableFuture()
         new_f = base_f.then(None, raise_something_else)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_exception(MyException('sad'))
+        base_f.set_exception(MyException("sad"))
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(new_f.exception())
         with self.assertRaises(MyRepackagedException) as catcher:
             new_f.result()
-        self.assertTrue(catcher.exception.args[0] == 'sad repackaged')
+        self.assertEqual(catcher.exception.args[0], "sad repackaged")
 
     def test_err_callback_convert_to_success(self):
-
         class MyException(Exception):
             pass
 
@@ -1398,70 +1468,67 @@ class ThenTest(unittest.TestCase):
 
         def on_failure(ex):
             if isinstance(ex, MyException):
-                return ex.args[0] + ' repackaged'
+                return ex.args[0] + " repackaged"
             else:
-                return NotMatched('?')
+                return NotMatched("?")
 
         base_f = ThenableFuture()
         new_f = base_f.catch(on_failure)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_exception(MyException('sad'))
+        base_f.set_exception(MyException("sad"))
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(not new_f.exception())
-        self.assertTrue(new_f.result() == 'sad repackaged')
+        self.assertEqual(new_f.result(), "sad repackaged")
 
     def test_err_catch_ignore(self):
-
         base_f = ThenableFuture()
         new_f = base_f.catch()
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_exception(Exception('sad'))
+        base_f.set_exception(Exception("sad"))
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
-        self.assertTrue(new_f.exception() is None)
-        self.assertTrue(new_f.result() is None)
+        self.assertIsNone(new_f.exception())
+        self.assertIsNone(new_f.result())
 
     def test_success_callback_and_failure_raised(self):
-
         class MyException(Exception):
             pass
 
         def raise_something_else(value):
-            raise MyException(value + ' repackaged')
+            raise MyException(value + " repackaged")
 
         base_f = ThenableFuture()
         new_f = base_f.then(raise_something_else)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
-        base_f.set_result('sad')
+        base_f.set_result("sad")
         self.assertTrue(base_f.done())
         self.assertTrue(new_f.done())
 
         self.assertTrue(new_f.exception())
         with self.assertRaises(MyException) as catcher:
             new_f.result()
-        assert catcher.exception.args[0] == 'sad repackaged'
+        assert catcher.exception.args[0] == "sad repackaged"
 
     def test_chained_success_callback_and_success(self):
-
         def transform(value):
             f = ThenableFuture()
             if value < 5:
-                f.set_result(transform(value+1))
+                f.set_result(transform(value + 1))
             else:
                 f.set_result(value)
             return f
@@ -1469,7 +1536,7 @@ class ThenTest(unittest.TestCase):
         base_f = ThenableFuture()
         new_f = base_f.then(transform)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
@@ -1478,10 +1545,9 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(new_f.done())
 
         self.assertTrue(not new_f.exception())
-        self.assertTrue(new_f.result() == 5)
+        self.assertEqual(new_f.result(), 5)
 
     def test_chained_failure_callback_and_success(self):
-
         def transform(exc):
             self.assertIsInstance(exc, RuntimeError)
             f = ThenableFuture()
@@ -1491,7 +1557,7 @@ class ThenTest(unittest.TestCase):
         base_f = ThenableFuture()
         new_f = base_f.catch(transform)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
@@ -1500,10 +1566,9 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(new_f.done())
 
         self.assertTrue(not new_f.exception())
-        self.assertTrue(new_f.result() == 5)
+        self.assertEqual(new_f.result(), 5)
 
     def test_detect_cycle_chain(self):
-
         f1 = ThenableFuture()
         f2 = ThenableFuture()
         chain = [f1, f2, f1]
@@ -1514,14 +1579,15 @@ class ThenTest(unittest.TestCase):
                 r = transform(a)
                 f.__init__()
                 f.set_result(r)
-                return f
             except IndexError:
                 return 42
+            else:
+                return f
 
         base_f = ThenableFuture()
         new_f = base_f.then(transform)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
@@ -1532,17 +1598,16 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(new_f.exception())
         with self.assertRaises(RuntimeError) as catcher:
             new_f.result()
-        self.assertTrue(
-            'chain cycle detected'
-            in catcher.exception.args[0],
+        self.assertIn(
+            "chain cycle detected",
+            catcher.exception.args[0],
         )
 
     def test_detect_self_chain(self):
-
         base_f = ThenableFuture()
-        new_f = base_f.then(lambda arg: new_f)
+        new_f = base_f.then(lambda _: new_f)
 
-        self.assertTrue(base_f is not new_f)
+        self.assertIsNot(base_f, new_f)
         self.assertTrue(not base_f.done())
         self.assertTrue(not new_f.done())
 
@@ -1553,14 +1618,13 @@ class ThenTest(unittest.TestCase):
         self.assertTrue(new_f.exception())
         with self.assertRaises(RuntimeError) as catcher:
             new_f.result()
-        self.assertTrue(
-            'chain cycle detected'
-            in catcher.exception.args[0],
+        self.assertIn(
+            "chain cycle detected",
+            catcher.exception.args[0],
         )
 
 
 class CollectTest(unittest.TestCase):
-
     def test_empty(self):
         future = futures.collect([])
         self.assertFalse(future.cancelled())
@@ -1591,7 +1655,7 @@ class CollectTest(unittest.TestCase):
         self.assertFalse(future.running())
         self.assertTrue(future.done())
         self.assertIsInstance(future.exception(), RuntimeError)
-        for i in range(0, 2):
+        for i in range(2):
             self.assertTrue(fs[i].cancelled())
         for i in range(2, 4):
             self.assertFalse(fs[i].cancelled())
@@ -1616,7 +1680,7 @@ class CollectTest(unittest.TestCase):
         self.assertTrue(future.cancelled())
         self.assertFalse(future.running())
         self.assertTrue(future.done())
-        for i in range(0, 2):
+        for i in range(2):
             self.assertTrue(fs[i].cancelled())
         for i in range(2, 4):
             self.assertFalse(fs[i].cancelled())
@@ -1633,6 +1697,7 @@ class CollectTest(unittest.TestCase):
         class MyFuture(futures.Future):
             def cancel(self):
                 pass
+
         fs = [MyFuture() for _ in range(5)]
         future = futures.collect(fs)
         self.assertIs(type(future), MyFuture)
@@ -1643,7 +1708,6 @@ class CollectTest(unittest.TestCase):
 
 
 class ComposeTest(unittest.TestCase):
-
     def test_result(self):
         base = futures.Future()
         future = futures.compose(base)
@@ -1686,12 +1750,12 @@ class ComposeTest(unittest.TestCase):
     def test_result_hook(self):
         base = futures.Future()
         future = futures.compose(base, int)
-        base.set_result('42')
+        base.set_result("42")
         self.assertEqual(future.result(), 42)
 
     def test_result_hook_failure(self):
         base = futures.Future()
-        future = futures.compose(base, resulthook=lambda x: 1/0)
+        future = futures.compose(base, resulthook=lambda _: 1 / 0)
         base.set_result(42)
         self.assertIs(type(future.exception()), ZeroDivisionError)
 
@@ -1712,73 +1776,12 @@ class ComposeTest(unittest.TestCase):
 
     def test_except_hook_failure(self):
         base = futures.Future()
-        future = futures.compose(base, excepthook=lambda exc: 1/0)
+        future = futures.compose(base, excepthook=lambda _: 1 / 0)
         base.set_exception(ValueError(42))
         self.assertIs(type(future.exception()), ZeroDivisionError)
 
 
-def skip_spawn():
-    return (
-        os.environ.get('MPI4PY_TEST_SPAWN')
-        in (None, '0', 'no', 'off', 'false')
-    )
-
-SKIP_POOL_TEST = False
-name, version = MPI.get_vendor()
-if name == 'Open MPI':
-    if version < (3,0,0):
-        SKIP_POOL_TEST = True
-    if version == (4,0,0):
-        SKIP_POOL_TEST = True
-    if version == (4,0,1) and sys.platform=='darwin':
-        SKIP_POOL_TEST = True
-    if version == (4,0,2) and sys.platform=='darwin':
-        SKIP_POOL_TEST = True
-    if version == (4,1,2) and sys.platform=='linux':
-        azure = (os.environ.get('TF_BUILD') == 'True')
-        github = (os.environ.get('GITHUB_ACTIONS') == 'true')
-        SKIP_POOL_TEST = azure or github
-    if version >= (5,0,0) and version < (5,0,7):
-        SKIP_POOL_TEST = skip_spawn()
-if name == 'MPICH':
-    if sys.platform == 'darwin':
-        if version >= (3, 4) and version < (4, 0):
-            SKIP_POOL_TEST = True
-    if version < (4, 1):
-        if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-            SKIP_POOL_TEST = True
-    if version < (4, 3):
-        try:
-            port = MPI.Open_port()
-            MPI.Close_port(port)
-        except:
-            port = ""
-        if port == "":
-            SKIP_POOL_TEST = True
-        del port
-if name == 'Intel MPI':
-    import mpi4py
-    if mpi4py.rc.recv_mprobe:
-        SKIP_POOL_TEST = True
-if name == 'Microsoft MPI':
-    if version < (8,1,0):
-        SKIP_POOL_TEST = True
-    if skip_spawn():
-        SKIP_POOL_TEST = True
-    if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-        SKIP_POOL_TEST = True
-    if os.environ.get("PMI_APPNUM") is None:
-        SKIP_POOL_TEST = True
-if name == 'MVAPICH':
-    SKIP_POOL_TEST = True
-if name == 'MPICH2':
-    if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-        SKIP_POOL_TEST = True
-if name == 'MVAPICH2':
-    SKIP_POOL_TEST = True
-if MPI.Get_version() < (2,0):
-    SKIP_POOL_TEST = True
-
+SKIP_POOL_TEST = testutil.disable_mpi_spawn()
 
 if SHARED_POOL:
     del ProcessPoolInitTest.test_init_sys_flags
@@ -1808,5 +1811,5 @@ if not SHARED_POOL:
     del SharedPoolInitTest
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

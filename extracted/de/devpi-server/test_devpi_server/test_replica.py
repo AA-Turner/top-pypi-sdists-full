@@ -743,7 +743,7 @@ class TestFileReplication:
             assert not r_entry.file_exists()
 
     @pytest.mark.usefixtures("reqmock")
-    def test_fetch_later_deleted(self, gen, xom, replica_xom):
+    def test_fetch_later_deleted(self, caplog, gen, patch_reqsessionmock, xom, replica_xom):
         replay(xom, replica_xom)
         content1 = b'hello'
         md5 = hashlib.md5(content1).hexdigest()
@@ -766,10 +766,15 @@ class TestFileReplication:
         assert not xom.config.server_path.joinpath(entry._storepath).exists()
 
         # and simulate what the primary will respond
-        xom.httpget.mockresponse(primary_file_path, status_code=410)
+        (frthread,) = replica_xom.replica_thread.file_replication_threads
+        frt_reqmock = patch_reqsessionmock(frthread.session)
+        frt_reqmock.mockresponse(primary_file_path, code=410)
 
         # and then we try to see if we can replicate the create and del changes
+        caplog.clear()
         replay(xom, replica_xom)
+        (rec,) = caplog.getrecords("ignoring because of later deletion")
+        assert rec.args == (entry.relpath,)
 
         with replica_xom.keyfs.read_transaction():
             r_entry = replica_xom.filestore.get_file_entry(entry.relpath)
@@ -786,14 +791,14 @@ class TestFileReplication:
         with xom.keyfs.write_transaction():
             entry = xom.filestore.maplink(link, "root", "pypi", "some")
             assert not entry.file_exists()
-            assert not entry.hash_spec
+            assert entry.best_available_hash_spec is None
 
         replay(xom, replica_xom)
         with replica_xom.keyfs.read_transaction():
             r_entry = replica_xom.filestore.get_file_entry(entry.relpath)
             assert not r_entry.file_exists()
             assert r_entry.meta
-            assert not r_entry.hash_spec
+            assert r_entry.best_available_hash_spec is None
 
         with xom.keyfs.write_transaction():
             entry.file_set_content(content1)
@@ -841,7 +846,7 @@ class TestFileReplication:
         with xom.keyfs.write_transaction():
             link = gen.pypi_package_link("pytest-1.8.zip", md5=True)
             entry = xom.filestore.maplink(link, "root", "pypi", "pytest")
-            assert entry.hash_spec
+            assert entry.best_available_hash_value is not None
             assert not entry.file_exists()
         replay(xom, replica_xom)
         with replica_xom.keyfs.read_transaction():
@@ -866,7 +871,7 @@ class TestFileReplication:
             link = gen.pypi_package_link(
                 "pytest-1.8.zip", md5=md5.hexdigest())
             entry = xom.filestore.maplink(link, "root", "pypi", "pytest")
-            assert entry.hash_spec
+            assert entry.best_available_hash_value is not None
             assert not entry.file_exists()
         replay(xom, replica_xom)
         with replica_xom.keyfs.read_transaction():

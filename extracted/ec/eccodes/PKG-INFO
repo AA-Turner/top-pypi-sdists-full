@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eccodes
-Version: 2.41.0
+Version: 2.42.0
 Summary: Python interface to the ecCodes GRIB and BUFR decoder/encoder
 Home-page: https://github.com/ecmwf/eccodes-python
 Author: European Centre for Medium-Range Weather Forecasts (ECMWF)
@@ -10,7 +10,6 @@ Keywords: ecCodes GRIB BUFR
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -210,6 +209,14 @@ does it submit to any jurisdiction.
 
 Changelog for eccodes-python
 ============================
+
+2.42.0 (2025-06-25)
+--------------------
+
+- ECC-2081: Allow memoryview as input to codes_new_from_message
+- ECC-2086: GRIB: getting the bitmap using up all the memory
+- ECC-2072: high-level 'get' function should return default value if key is not implemented
+
 
 2.41.0 (2025-04-10)
 --------------------

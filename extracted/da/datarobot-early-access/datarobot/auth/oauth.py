@@ -13,11 +13,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping, Protocol
+from types import TracebackType
+from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing_extensions import Protocol
 
-from datarobot.auth.typing import Metadata, SyncOrAsync
+from datarobot.auth.typing import Metadata
 
 
 class OAuthProvider(BaseModel):
@@ -165,7 +167,7 @@ class OAuthToken(BaseModel):
         if expires_at:
             # let's make sure it's timezoned timestamp, otherwise we will get an error e.g.
             # TypeError: can't compare offset-naive and offset-aware datetimes
-            expires_at = datetime.fromtimestamp(expires_at).replace(tzinfo=timezone.utc)
+            expires_at = datetime.fromtimestamp(expires_at, timezone.utc)
 
         if expires_in and not expires_at:
             expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
@@ -187,12 +189,140 @@ class OAuthData(BaseModel):
     user_profile: Profile | None = None
 
 
-class OAuthComponent(Protocol):
+class AsyncOAuthComponent(Protocol):
     """
-    The OAuth2 component interface. All implementations must fullfill this interface.
+    Async OAuth2 component interface. All async implementations must fulfill this interface.
     """
 
-    def get_providers(self) -> SyncOrAsync[list[OAuthProvider]]:
+    async def get_providers(self) -> list[OAuthProvider]:
+        """
+        Get the list of OAuth2 providers.
+        """
+
+    async def get_authorization_url(
+        self,
+        *,
+        provider_id: str,
+        redirect_uri: str,
+        state: str | None = None,
+        code_verifier: str | None = None,
+        **kwargs: Any,
+    ) -> OAuthFlowSession:
+        """
+        Get the authorization URL for the specified OAuth2 provider.
+        Optionally, you can control the state and code_verifier parameters
+        if the underlying OAuth implementation supports overriding them.
+
+        Args:
+            provider_id: The ID of the OAuth2 provider.
+            redirect_uri: The redirect URI to use after authorization.
+            state: Optional state parameter to maintain state between request and callback.
+            code_verifier: Optional code verifier for PKCE flow.
+            **kwargs: Additional parameters that may be required by the specific OAuth2 provider.
+
+        Returns:
+            An OAuthFlowSession object containing the authorization URL and OAuth2 state.
+        """
+
+    async def exchange_code(
+        self,
+        *,
+        provider_id: str,
+        sess: OAuthFlowSession,
+        params: Mapping[str, Any],
+        # TODO: we can probably do a better job informing users what kwargs & claims_options could be in typing
+        **kwargs: Any,
+    ) -> OAuthData:
+        """
+        Exchange the OAuth2 authorization code for an access token and user profile.
+
+        Args:
+            provider_id: The ID of the OAuth2 provider.
+            sess: The OAuthFlowSession object containing the state of the OAuth flow.
+            params: Additional parameters to pass to the token endpoint.
+            **kwargs: Additional parameters that may be required by the specific OAuth2 provider.
+
+        Returns:
+            An OAuthData object containing the access token, user profile, and provider information.
+        """
+
+    async def refresh_access_token(
+        self,
+        provider_id: str | None = None,
+        identity_id: str | None = None,
+        scope: str | None = None,
+        refresh_token: str | None = None,
+    ) -> OAuthToken:
+        """
+        Refresh the OAuth2 access token for the specified provider and identity.
+
+        Depending on the implementation, you may have to provide
+        either `identity_id` or `refresh_token`
+        (if your implementation doesn't manage tokens for you just like authlib).
+
+        Args:
+            provider_id: The ID of the OAuth2 provider.
+            identity_id: The ID of the identity to refresh the token for.
+            scope: Optional scope to request during the refresh.
+            refresh_token: The refresh token to use for refreshing the access token.
+
+        Returns:
+            An OAuthToken object containing the refreshed access token and other token details.
+        """
+
+    async def get_user_info(
+        self,
+        provider_id: str | None = None,
+        identity_id: str | None = None,
+        access_token: str | None = None,
+    ) -> Profile:
+        """
+        Get the user profile for the specified provider and identity.
+
+        Depending on the implementation, you may have to provide
+        either `identity_id` or `access_token`
+        (if your implementation doesn't manage tokens for you just like authlib).
+
+        Args:
+            provider_id: The ID of the OAuth2 provider.
+            identity_id: The ID of the identity to get the user profile for.
+            access_token: The access token to use for retrieving the user profile.
+
+        Returns:
+            A Profile object containing the user's profile information.
+        """
+
+    async def __aenter__(self) -> "AsyncOAuthComponent":
+        """
+        Asynchronous context manager entry method.
+        This method should be implemented if you need any initialization for your OAuth implementation.
+        """
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        """
+        Asynchronous context manager exit method.
+        This method should be implemented if you need any cleanup for your OAuth implementation.
+        """
+
+    async def close(self) -> None:
+        """
+        Close the OAuth component.
+        This method should be implemented if you need to release any resources or connections.
+        It is called automatically when the component is used as an asynchronous context manager.
+        """
+
+
+class SyncOAuthComponent(Protocol):
+    """
+    Sync OAuth2 component interface. All sync implementations must fulfill this interface.
+    """
+
+    def get_providers(self) -> list[OAuthProvider]:
         """
         Get the list of OAuth2 providers.
         """
@@ -205,7 +335,7 @@ class OAuthComponent(Protocol):
         state: str | None = None,
         code_verifier: str | None = None,
         **kwargs: Any,
-    ) -> SyncOrAsync[OAuthFlowSession]:
+    ) -> OAuthFlowSession:
         """
         Get the authorization URL for the specified OAuth2 provider.
         Optionally, you can control the state and code_verifier parameters
@@ -230,7 +360,7 @@ class OAuthComponent(Protocol):
         params: Mapping[str, Any],
         # TODO: we can probably do a better job informing users what kwargs & claims_options could be in typing
         **kwargs: Any,
-    ) -> SyncOrAsync[OAuthData]:
+    ) -> OAuthData:
         """
         Exchange the OAuth2 authorization code for an access token and user profile.
 
@@ -250,7 +380,7 @@ class OAuthComponent(Protocol):
         identity_id: str | None = None,
         scope: str | None = None,
         refresh_token: str | None = None,
-    ) -> SyncOrAsync[OAuthToken]:
+    ) -> OAuthToken:
         """
         Refresh the OAuth2 access token for the specified provider and identity.
 
@@ -273,7 +403,7 @@ class OAuthComponent(Protocol):
         provider_id: str | None = None,
         identity_id: str | None = None,
         access_token: str | None = None,
-    ) -> SyncOrAsync[Profile]:
+    ) -> Profile:
         """
         Get the user profile for the specified provider and identity.
 
@@ -288,4 +418,28 @@ class OAuthComponent(Protocol):
 
         Returns:
             A Profile object containing the user's profile information.
+        """
+
+    def __enter__(self) -> "SyncOAuthComponent":
+        """
+        Synchronous Context manager entry method.
+        This method should be implemented if you need any initialization for your OAuth implementation.
+        """
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        """
+        Synchronous context manager exit method.
+        This method should be implemented if you need any cleanup for your OAuth implementation.
+        """
+
+    def close(self) -> None:
+        """
+        Close the OAuth component.
+        This method should be implemented if you need to release any resources or connections.
+        It is called automatically when the component is used as a synchronous context manager.
         """

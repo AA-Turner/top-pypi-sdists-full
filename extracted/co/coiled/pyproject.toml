@@ -7,6 +7,7 @@ dependencies = [
     "aiohttp",
     "backoff",
     "boto3",
+    "certifi",
     "click>=7.1",
     "dask>=2022.02.1",
     "distributed>=2022.02.1",

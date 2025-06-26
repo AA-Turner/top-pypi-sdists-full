@@ -1,22 +1,30 @@
-from mpi4py import MPI
-import mpi4py.util.pool as pool
 import concurrent.futures as cf
-import itertools
 import functools
-import warnings
-import unittest
-import time
-import sys
+import itertools
 import os
+import pathlib
+import sys
+import time
+import unittest
+import warnings
+
+import mpi4py.util.pool as pool
+from mpi4py import MPI
+
+try:
+    import mpitestutil as testutil
+except ImportError:
+    sys.path.append(os.fspath(pathlib.Path(__file__).resolve().parent))
+    import mpitestutil as testutil
 
 
 def sqr(x, wait=0.0):
     time.sleep(wait)
-    return x*x
+    return x * x
 
 
-def mul(x, y):
-    return x*y
+def mul(x, y):  # noqa: FURB118
+    return x * y
 
 
 def identity(x):
@@ -32,7 +40,7 @@ TIMEOUT2 = 0.2
 
 
 class TimingWrapper:
-
+    #
     def __init__(self, func):
         self.func = func
         self.elapsed = None
@@ -46,13 +54,13 @@ class TimingWrapper:
 
 
 class BaseTestPool:
-
+    #
     PoolType = None
 
     @classmethod
     def Pool(cls, *args, **kwargs):
-        if 'coverage' in sys.modules:
-            kwargs['python_args'] = '-m coverage run'.split()
+        if "coverage" in sys.modules:
+            kwargs["python_args"] = "-m coverage run".split()
         Pool = cls.PoolType
         return Pool(*args, **kwargs)
 
@@ -71,65 +79,64 @@ class BaseTestPool:
     def test_apply(self):
         papply = self.pool.apply
         self.assertEqual(papply(sqr, (5,)), sqr(5))
-        self.assertEqual(papply(sqr, (), {'x':3}), sqr(x=3))
+        self.assertEqual(papply(sqr, (), {"x": 3}), sqr(x=3))
 
     def test_map(self):
         self.assertEqual(
-            self.pool.map(sqr, range(10)),
-            list(map(sqr, list(range(10))))
+            self.pool.map(sqr, range(10)), list(map(sqr, list(range(10))))
         )
         self.assertEqual(
             self.pool.map(sqr, (i for i in range(10))),
-            list(map(sqr, list(range(10))))
+            list(map(sqr, list(range(10)))),
         )
         self.assertEqual(
             self.pool.map(sqr, list(range(10))),
-            list(map(sqr, list(range(10))))
+            list(map(sqr, list(range(10)))),
         )
 
         self.assertEqual(
             self.pool.map(sqr, range(100), chunksize=20),
-            list(map(sqr, list(range(100))))
+            list(map(sqr, list(range(100)))),
         )
         self.assertEqual(
             self.pool.map(sqr, (i for i in range(100)), chunksize=20),
-            list(map(sqr, list(range(100))))
+            list(map(sqr, list(range(100)))),
         )
         self.assertEqual(
             self.pool.map(sqr, list(range(100)), chunksize=20),
-            list(map(sqr, list(range(100))))
+            list(map(sqr, list(range(100)))),
         )
 
     def test_imap(self):
         self.assertEqual(
             list(self.pool.imap(sqr, range(10))),
-            list(map(sqr, list(range(10))))
+            list(map(sqr, list(range(10)))),
         )
         self.assertEqual(
             list(self.pool.imap(sqr, (i for i in range(10)))),
-            list(map(sqr, list(range(10))))
+            list(map(sqr, list(range(10)))),
         )
         self.assertEqual(
             list(self.pool.imap(sqr, list(range(10)))),
-            list(map(sqr, list(range(10))))
+            list(map(sqr, list(range(10)))),
         )
 
         it = self.pool.imap(sqr, range(10))
         for i in range(10):
-            self.assertEqual(next(it), i*i)
+            self.assertEqual(next(it), i * i)
         self.assertRaises(StopIteration, next, it)
         it = self.pool.imap(sqr, list(range(10)))
         for i in range(10):
-            self.assertEqual(next(it), i*i)
+            self.assertEqual(next(it), i * i)
         self.assertRaises(StopIteration, next, it)
 
         it = self.pool.imap(sqr, range(100), chunksize=20)
         for i in range(100):
-            self.assertEqual(next(it), i*i)
+            self.assertEqual(next(it), i * i)
         self.assertRaises(StopIteration, next, it)
         it = self.pool.imap(sqr, list(range(100)), chunksize=20)
         for i in range(100):
-            self.assertEqual(next(it), i*i)
+            self.assertEqual(next(it), i * i)
         self.assertRaises(StopIteration, next, it)
 
     def test_imap_unordered(self):
@@ -155,12 +162,12 @@ class BaseTestPool:
         tuples = list(zip(range(10), range(9, -1, -1)))
         self.assertEqual(
             self.pool.starmap(mul, tuples),
-            list(itertools.starmap(mul, tuples))
+            list(itertools.starmap(mul, tuples)),
         )
         tuples = list(zip(range(100), range(99, -1, -1)))
         self.assertEqual(
             self.pool.starmap(mul, tuples, chunksize=20),
-            list(itertools.starmap(mul, tuples))
+            list(itertools.starmap(mul, tuples)),
         )
 
     def test_istarmap(self):
@@ -175,13 +182,13 @@ class BaseTestPool:
         tuples = list(zip(range(10), range(9, -1, -1)))
         it = self.pool.istarmap(mul, tuples)
         for i, j in tuples:
-            self.assertEqual(next(it), i*j)
+            self.assertEqual(next(it), i * j)
         self.assertRaises(StopIteration, next, it)
 
         tuples = list(zip(range(100), range(99, -1, -1)))
         it = self.pool.istarmap(mul, tuples, chunksize=20)
         for i, j in tuples:
-            self.assertEqual(next(it), i*j)
+            self.assertEqual(next(it), i * j)
         self.assertRaises(StopIteration, next, it)
 
     def test_istarmap_unordered(self):
@@ -202,20 +209,20 @@ class BaseTestPool:
         res = self.pool.apply_async(sqr, (7,))
         self.assertEqual(res.get(), 49)
 
-        res = self.pool.apply_async(sqr, (7, TIMEOUT2,))
+        res = self.pool.apply_async(sqr, (7, TIMEOUT2))
         get = TimingWrapper(res.get)
         self.assertEqual(get(), 49)
-        self.assertLess(get.elapsed, TIMEOUT2*10)
-        self.assertGreater(get.elapsed, TIMEOUT2/10)
+        self.assertLess(get.elapsed, TIMEOUT2 * 10)
+        self.assertGreater(get.elapsed, TIMEOUT2 / 10)
 
     def test_apply_async_timeout(self):
-        res = self.pool.apply_async(sqr, (7, TIMEOUT2,))
+        res = self.pool.apply_async(sqr, (7, TIMEOUT2))
         self.assertFalse(res.ready())
         self.assertRaises(ValueError, res.successful)
-        res.wait(TIMEOUT2/100)
+        res.wait(TIMEOUT2 / 100)
         self.assertFalse(res.ready())
         self.assertRaises(ValueError, res.successful)
-        self.assertRaises(TimeoutError, res.get, TIMEOUT2/100)
+        self.assertRaises(TimeoutError, res.get, TIMEOUT2 / 100)
         res.wait()
         self.assertTrue(res.ready())
         self.assertTrue(res.successful())
@@ -224,30 +231,31 @@ class BaseTestPool:
     def test_map_async(self):
         args = list(range(10))
         self.assertEqual(
-            self.pool.map_async(sqr, args).get(),
-            list(map(sqr, args))
+            self.pool.map_async(sqr, args).get(), list(map(sqr, args))
         )
         args = list(range(100))
         self.assertEqual(
             self.pool.map_async(sqr, args, chunksize=20).get(),
-            list(map(sqr, args))
+            list(map(sqr, args)),
         )
 
     def test_map_async_callbacks(self):
         call_args = []
         result = self.pool.map_async(
-            int, ['1', '2'],
+            int,
+            ["1", "2"],
             callback=call_args.append,
-            error_callback=call_args.append
+            error_callback=call_args.append,
         )
         result.wait()
         self.assertTrue(result.successful())
         self.assertEqual(len(call_args), 1)
         self.assertEqual(call_args[0], [1, 2])
         result = self.pool.map_async(
-            int, ['a'],
+            int,
+            ["a"],
             callback=call_args.append,
-            error_callback=call_args.append
+            error_callback=call_args.append,
         )
         result.wait()
         self.assertFalse(result.successful())
@@ -258,12 +266,12 @@ class BaseTestPool:
         tuples = list(zip(range(10), range(9, -1, -1)))
         self.assertEqual(
             self.pool.starmap_async(mul, tuples).get(),
-            list(itertools.starmap(mul, tuples))
+            list(itertools.starmap(mul, tuples)),
         )
         tuples = list(zip(range(1000), range(999, -1, -1)))
         self.assertEqual(
             self.pool.starmap_async(mul, tuples, chunksize=100).get(),
-            list(itertools.starmap(mul, tuples))
+            list(itertools.starmap(mul, tuples)),
         )
 
     # ---
@@ -325,8 +333,10 @@ class BaseTestPool:
     def test_async_error_callback(self):
         p = self.Pool(1)
         scratchpad = [None]
+
         def errback(exc):
             scratchpad[0] = exc
+
         res = p.apply_async(raising, error_callback=errback)
         p.close()
         p.join()
@@ -341,7 +351,7 @@ class BaseTestPool:
             results.append(p.apply_async(sqr, (i, TIMEOUT1)))
         p.close()
         p.join()
-        for (j, res) in enumerate(results):
+        for j, res in enumerate(results):
             self.assertEqual(res.get(), sqr(j))
 
     # ---
@@ -353,7 +363,7 @@ class BaseTestPool:
             self.Pool(0)
 
     def test_arg_initializer(self):
-        p = self.Pool(1, initializer=identity, initargs=(123,))
+        self.Pool(1, initializer=identity, initargs=(123,))
         with self.assertRaises(TypeError):
             self.Pool(initializer=123)
 
@@ -370,81 +380,16 @@ class BaseTestPool:
 
 # ---
 
-def broken_mpi_spawn():
-    darwin = (sys.platform == 'darwin')
-    windows = (sys.platform == 'win32')
-    azure = (os.environ.get('TF_BUILD') == 'True')
-    github = (os.environ.get('GITHUB_ACTIONS') == 'true')
-    skip_spawn = (
-        os.environ.get('MPI4PY_TEST_SPAWN')
-        in (None, '0', 'no', 'off', 'false')
-    )
-    name, version = MPI.get_vendor()
-    if name == 'Open MPI':
-        if version < (3,0,0):
-            return True
-        if version == (4,0,0):
-            return True
-        if version == (4,0,1) and darwin:
-            return True
-        if version == (4,0,2) and darwin:
-            return True
-        if version >= (4,1,0) and version < (4,2,0):
-            if azure or github:
-                return True
-        if version >= (5,0,0) and version < (5,0,7):
-            if skip_spawn:
-                return True
-    if name == 'MPICH':
-        if version >= (3, 4) and version < (4, 0) and darwin:
-            return True
-        if version < (4, 1):
-            if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-                return True
-        if version < (4, 3):
-            try:
-                port = MPI.Open_port()
-                MPI.Close_port(port)
-            except:
-                return True
-    if name == 'Intel MPI':
-        import mpi4py
-        if mpi4py.rc.recv_mprobe:
-            return True
-        if MPI.COMM_WORLD.Get_size() > 1 and windows:
-            return True
-    if name == 'Microsoft MPI':
-        if version < (8,1,0):
-            return True
-        if skip_spawn:
-            return True
-        if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-            return True
-        if os.environ.get("PMI_APPNUM") is None:
-            return True
-    if name == 'MVAPICH':
-        if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-            return True
-        if version < (3,0,0):
-            return True
-    if name == 'MPICH2':
-        if MPI.COMM_WORLD.Get_attr(MPI.APPNUM) is None:
-            return True
-    if MPI.Get_version() < (2,0):
-        return True
-    if any(map(sys.modules.get, ('cupy', 'numba'))):
-        return True
-    #
-    return False
 
-
-@unittest.skipIf(broken_mpi_spawn(), 'mpi-spawn')
-@unittest.skipIf(MPI.COMM_WORLD.Get_size() > 1, 'mpi-world-size>1')
+@unittest.skipIf(testutil.disable_mpi_spawn(), "mpi-spawn")
+@unittest.skipIf(MPI.COMM_WORLD.Get_size() > 1, "mpi-world-size>1")
 class TestProcessPool(BaseTestPool, unittest.TestCase):
+    #
     PoolType = pool.Pool
 
 
 class TestThreadPool(BaseTestPool, unittest.TestCase):
+    #
     PoolType = pool.ThreadPool
 
 
@@ -452,28 +397,36 @@ class TestThreadPool(BaseTestPool, unittest.TestCase):
 
 
 class ExtraExecutorMixing:
-
+    #
     def map(
-        self, fn, iterable,
-        timeout=None, chunksize=1,
+        self,
+        fn,
+        iterable,
+        timeout=None,
+        chunksize=1,
         unordered=False,
     ):
         del unordered  # ignored, unused
         return super().map(
-            fn, iterable,
+            fn,
+            iterable,
             timeout=timeout,
             chunksize=chunksize,
         )
 
     def starmap(
-        self, fn, iterable,
-        timeout=None, chunksize=1,
+        self,
+        fn,
+        iterable,
+        timeout=None,
+        chunksize=1,
         unordered=False,
     ):
         del unordered  # ignored, unused
         fn = functools.partial(self._apply_args, fn)
         return super().map(
-            fn, iterable,
+            fn,
+            iterable,
             timeout=timeout,
             chunksize=chunksize,
         )
@@ -484,15 +437,19 @@ class ExtraExecutorMixing:
 
 
 class ExtraExecutor(ExtraExecutorMixing, cf.ThreadPoolExecutor):
+    #
     pass
 
 
 class ExtraPool(pool.Pool):
+    #
     Executor = ExtraExecutor
 
 
 class TestExtraPool(BaseTestPool, unittest.TestCase):
+    #
     PoolType = ExtraPool
+
     @classmethod
     def Pool(cls, *args, **kwargs):
         return cls.PoolType(*args, **kwargs)
@@ -503,5 +460,5 @@ del TestExtraPool
 
 # ---
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

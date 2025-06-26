@@ -3,7 +3,7 @@ __all__ = (
     'ExceptionGroup', 'BaseExceptionGroup', 'InvalidStateError', 'Cancelled',
 
     # core
-    'Aw_or_Task', 'start', 'Task', 'TaskState', 'disable_cancellation', 'open_cancel_scope',
+    'Aw_or_Task', 'start', 'Task', 'TaskState',
     'dummy_task', 'current_task', '_current_task', 'sleep_forever', '_sleep_forever',
 
     # structured concurrency
@@ -21,7 +21,7 @@ import sys
 import itertools
 from functools import cached_property, partial
 import enum
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 
 # -----------------------------------------------------------------------------
 # Core
@@ -103,7 +103,7 @@ _next_Task_uid = itertools.count().__next__
 
 class Task:
     __slots__ = (
-        '_uid', '_root_coro', '_state', '_result', '_on_end',
+        '_uid', '_root_coro', '_root_coro_send', '_state', '_result', '_on_end',
         '_exc_caught', '_suppresses_exc',
         '_cancel_disabled', '_current_depth', '_requested_cancel_level',
     )
@@ -112,8 +112,9 @@ class Task:
         if not isawaitable(aw):
             raise ValueError(str(aw) + " is not awaitable.")
         self._uid = _next_Task_uid()
-        self._cancel_disabled = 0
+        self._cancel_disabled = False
         self._root_coro = self._wrapper(aw)
+        self._root_coro_send = self._root_coro.send
         self._state = TaskState.CREATED
         self._on_end = None
         self._current_depth = 0
@@ -147,7 +148,7 @@ class Task:
 
     @property
     def finished(self) -> bool:
-        '''Whether the task has been completed.'''
+        '''Whether the task has completed execution.'''
         return self._state is TaskState.FINISHED
 
     @property
@@ -212,7 +213,7 @@ class Task:
             self._cancel_if_needed()
 
     close = cancel
-    '''An alias for :meth:`cancel`.'''
+    '''An alias of :meth:`cancel`.'''
 
     @property
     def _cancel_requested(self) -> bool:
@@ -228,11 +229,8 @@ class Task:
             self._actual_cancel()
 
     def _step(self, *args, **kwargs):
-        coro = self._root_coro
-        if getcoroutinestate(coro) is not CORO_SUSPENDED:
-            return
         try:
-            coro.send((args, kwargs, ))(self)
+            self._root_coro_send((args, kwargs, ))(self)
         except StopIteration:
             pass
         else:
@@ -249,6 +247,48 @@ class Task:
             pass
         else:
             self._cancel_if_needed()
+
+    class CancelScope:
+        __slots__ = ('_task', '_depth', 'cancel_called', )
+
+        def __init__(self, task, depth):
+            self._task = task
+            self._depth = depth
+            self.cancel_called = False
+
+        @property
+        def closed(self) -> bool:
+            return self._task is None
+
+        def cancel(self):
+            if self.cancel_called:
+                return
+            self.cancel_called = True
+            if (t := self._task) is not None:
+                t.cancel(self._depth)
+
+    @contextmanager
+    def _open_cancel_scope(self, CancelScope=CancelScope):
+        self._current_depth = depth = self._current_depth + 1
+        scope = CancelScope(self, depth)
+        try:
+            yield scope
+        except _Cancelled as exc:
+            level = exc.level
+            if level != depth:
+                assert level < depth, potential_bug_msg
+                raise
+        finally:
+            req_level = self._requested_cancel_level
+            scope._task = None
+            self._current_depth -= 1
+            if req_level is not None:
+                if req_level == depth:
+                    self._requested_cancel_level = None
+                else:
+                    assert req_level < depth, potential_bug_msg
+
+    del CancelScope
 
 
 Aw_or_Task = T.Union[T.Awaitable, Task]
@@ -277,91 +317,13 @@ def start(aw: Aw_or_Task, /) -> Task:
         raise ValueError("Argument must be either a Task or an awaitable.")
 
     try:
-        task._root_coro.send(None)(task)
+        task._root_coro_send(None)(task)
     except StopIteration:
         pass
     else:
         task._cancel_if_needed()
 
     return task
-
-
-class CancelScope:
-    '''
-    (internal)
-    An equivalence of :class:`trio.CancelScope`.
-    You should not directly instantiate this, use :func:`open_cancel_scope`.
-    '''
-    __slots__ = ('_task', '_depth', 'cancelled_caught', 'cancel_called', )
-
-    def __init__(self, task: Task, /):
-        self._task = task
-        self.cancelled_caught = False  #: Whether the scope caught a corresponding :class:`Cancelled` instance.
-        self.cancel_called = False  #: Whether the :meth:`cancel` has been called.
-
-    def __enter__(self) -> 'CancelScope':
-        task = self._task
-        task._current_depth = self._depth = task._current_depth + 1
-        return self
-
-    def __exit__(self, exc_type, exc, __):
-        # LOAD_FAST
-        task = self._task
-        req_level = task._requested_cancel_level
-        depth = self._depth
-
-        self._task = None
-        task._current_depth -= 1
-        if req_level is not None:
-            if req_level == depth:
-                task._requested_cancel_level = None
-            else:
-                assert req_level < depth, potential_bug_msg
-        if exc_type is not _Cancelled:
-            return
-        level = exc.level
-        if level == depth:
-            self.cancelled_caught = True
-            return True
-        else:
-            assert level < depth, potential_bug_msg
-
-    @property
-    def closed(self) -> bool:
-        '''
-        Whether this scope has been closed.
-        The cause of the closure of the scope can be either an exception occurred or the scope exited gracefully,
-        '''
-        return self._task is None
-
-    def cancel(self):
-        '''Cancel the execution inside this scope as soon as possible. '''
-        if self.cancel_called:
-            return
-        self.cancel_called = True
-        if not self.closed:
-            self._task.cancel(self._depth)
-
-
-class open_cancel_scope:
-    '''
-    Same as :class:`trio.CancelScope` except this one returns an async context manager.
-
-    .. code-block::
-
-        async with open_cancel_scope() as scope:
-            ...
-
-    .. deprecated:: 0.8.0
-    '''
-    __slots__ = ('_scope', )
-
-    async def __aenter__(self) -> T.Awaitable[CancelScope]:
-        self._scope = CancelScope(await current_task())
-        return self._scope.__enter__()
-
-    async def __aexit__(self, *args):
-        return self._scope.__exit__(*args)
 
 
 def _current_task(task):
@@ -377,29 +339,6 @@ def current_task(_f=_current_task) -> T.Awaitable[Task]:
         task = await current_task()
     '''
     return (yield _f)[0][0]
-
-
-class disable_cancellation:
-    '''
-    Return an async context manager that protects its code-block from cancellation.
-
-    .. code-block::
-
-        async with disable_cancellation():
-            await something  # <- never gets cancelled
-
-    .. deprecated:: 0.8.0
-        Disabling cancellation hinders clean-up, so avoid using this API unless absolutely necessary.
-    '''
-
-    __slots__ = ('_task', )
-
-    async def __aenter__(self):
-        self._task = task = await current_task()
-        task._cancel_disabled += 1
-
-    async def __aexit__(self, *__):
-        self._task._cancel_disabled -= 1
 
 
 def _sleep_forever(task):
@@ -546,7 +485,7 @@ class Event:
 
 StatelessEvent = Event
 '''
-An alias for :class:`Event`.
+An alias of :class:`Event`.
 
 .. versionadded:: 0.7.2
 '''
@@ -556,6 +495,16 @@ class StatefulEvent:
     '''
     The closest thing to :class:`asyncio.Event` in this library.
 
+    .. csv-table::
+        :header-rows: 1
+
+        StatefulEvent, asyncio.Event
+        .fire(), .set()
+        .wait(), .wait()
+        .clear(), .clear()
+        .is_fired, .is_set()
+        .params, --
+
     .. code-block::
 
         async def async_fn(e):
@@ -564,29 +513,15 @@ class StatefulEvent:
             assert kwargs == {'crow': 'raven', }
 
         e = StatefulEvent()
-        assert not e.is_fired
-        e.fire(1, crow='raven')
-        assert e.is_fired
-
-        # This task will end immediately because the event is in a "fired" state.
-        task = start(async_fn(e))
-        assert task.finished
-
-        # The event is still in the "fired" state, so this task will end immediately as well.
-        task = start(async_fn(e))
-        assert task.finished
-
-        e.clear()
-        assert not e.is_fired
-        # Now the event is not in the "fired" state, so this task will wait until it fires.
         task = start(async_fn(e))
         assert not task.finished
-
-        # Fire the event, which will cause the task to end.
         e.fire(1, crow='raven')
         assert task.finished
 
     .. versionadded:: 0.7.2
+
+    .. versionchanged:: 0.9.0
+        The ``.refire()`` and ``.fire_or_refire()`` methods have been removed.
     '''
     __slots__ = ('_params', '_waiting_tasks', )
 
@@ -599,17 +534,9 @@ class StatefulEvent:
         return self._params is not None
 
     def fire(self, *args, **kwargs):
-        '''Fires the event if :attr:`is_fired` is False.'''
-        if self._params is None:
-            self.fire_or_refire(*args, **kwargs)
-
-    def refire(self, *args, **kwargs):
-        '''Fires the event if :attr:`is_fired` is True.'''
+        '''Fires the event if it's not in a fired state.'''
         if self._params is not None:
-            self.fire_or_refire(*args, **kwargs)
-
-    def fire_or_refire(self, *args, **kwargs):
-        '''Fires the event regardless of the value of :attr:`is_fired`.'''
+            return
         self._params = (args, kwargs, )
         tasks = self._waiting_tasks
         self._waiting_tasks = []
@@ -647,7 +574,8 @@ class StatefulEvent:
             assert args == (1, )
             assert kwargs == {'crow': 'raven', }
 
-            e.refire(2, parasol='umbrella')
+            e.clear()
+            e.fire(2, parasol='umbrella')
             args, kwargs = e.params
             assert args == (2, )
             assert kwargs == {'parasol': 'umbrella', }
@@ -708,7 +636,7 @@ async def _wait_xxx(debug_msg, on_child_end, *aws: T.Iterable[Aw_or_Task]) -> T.
     parent = await current_task()
 
     try:
-        with CancelScope(parent) as scope:
+        with parent._open_cancel_scope() as scope:
             on_child_end = partial(on_child_end, scope, counter)
             for c in children:
                 c._suppresses_exc = True
@@ -721,10 +649,10 @@ async def _wait_xxx(debug_msg, on_child_end, *aws: T.Iterable[Aw_or_Task]) -> T.
                 c.cancel()
             if counter:
                 try:
-                    parent._cancel_disabled += 1
+                    parent._cancel_disabled = True
                     await counter.to_be_zero()
                 finally:
-                    parent._cancel_disabled -= 1
+                    parent._cancel_disabled = False
         exceptions = tuple(e for c in children if (e := c._exc_caught) is not None)
         if exceptions:
             raise ExceptionGroup(debug_msg, exceptions)
@@ -780,7 +708,7 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
     exc = None
 
     try:
-        with CancelScope(fg_task) as scope:
+        with fg_task._open_cancel_scope() as scope:
             bg_task._on_end = partial(on_child_end, scope, counter)
             bg_task._suppresses_exc = True
             yield start(bg_task)
@@ -792,10 +720,10 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
         bg_task.cancel()
         if counter:
             try:
-                fg_task._cancel_disabled += 1
+                fg_task._cancel_disabled = True
                 await counter.to_be_zero()
             finally:
-                fg_task._cancel_disabled -= 1
+                fg_task._cancel_disabled = False
         excs = tuple(
             e for e in (exc, bg_task._exc_caught, )
             if e is not None
@@ -917,7 +845,7 @@ async def open_nursery(*, _gc_in_every=1000) -> T.AsyncContextManager[Nursery]:
     daemon_counter = TaskCounter()
 
     try:
-        with CancelScope(parent) as scope:
+        with parent._open_cancel_scope() as scope:
             nursery = Nursery(scope, counter, daemon_counter, _gc_in_every)
             yield nursery
             await counter.to_be_zero()
@@ -929,11 +857,11 @@ async def open_nursery(*, _gc_in_every=1000) -> T.AsyncContextManager[Nursery]:
         for c in children:
             c.cancel()
         try:
-            parent._cancel_disabled += 1
+            parent._cancel_disabled = True
             await daemon_counter.to_be_zero()
             await counter.to_be_zero()
         finally:
-            parent._cancel_disabled -= 1
+            parent._cancel_disabled = False
         excs = tuple(
             e for e in itertools.chain((exc, ), (c._exc_caught for c in children))
             if e is not None
@@ -948,4 +876,8 @@ async def open_nursery(*, _gc_in_every=1000) -> T.AsyncContextManager[Nursery]:
 # -----------------------------------------------------------------------------
 # Aliases
 # -----------------------------------------------------------------------------
-move_on_when = wait_any_cm  #: An alias for :func:`wait_any_cm`.
+
+move_on_when = wait_any_cm
+'''
+An alias of :func:`wait_any_cm`, which is equivalent to :func:`trio_util.move_on_when`.
+'''

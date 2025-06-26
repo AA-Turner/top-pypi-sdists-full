@@ -10,7 +10,7 @@ from devpi_server.config import hookimpl
 from devpi_server.filestore import get_hashes
 from devpi_server.model import InvalidIndexconfig
 from devpi_server.model import PrivateStage
-from devpi_server.model import Unknown
+from devpi_server.model import unknown
 from devpi_server.model import ensure_boolean
 from devpi_server.model import ensure_acl_list
 from devpi_server.model import ensure_list
@@ -96,8 +96,8 @@ def test_get_mirror_whitelist_info(model, pypistage):
         blocked_by_mirror_whitelist=None)
     register_and_store(stage2, "pytest-1.1.tar.gz")
     assert stage2.get_mirror_whitelist_info("pytest") == dict(
-        has_mirror_base=Unknown,
-        blocked_by_mirror_whitelist='root/pypi')
+        has_mirror_base=unknown, blocked_by_mirror_whitelist="root/pypi"
+    )
     # now add to whitelist
     ixconfig = stage2.ixconfig.copy()
     ixconfig["mirror_whitelist"] = ["pytest"]
@@ -110,8 +110,8 @@ def test_get_mirror_whitelist_info(model, pypistage):
     ixconfig["mirror_whitelist"] = []
     stage2.modify(**ixconfig)
     assert stage2.get_mirror_whitelist_info("pytest") == dict(
-        has_mirror_base=Unknown,
-        blocked_by_mirror_whitelist='root/pypi')
+        has_mirror_base=unknown, blocked_by_mirror_whitelist="root/pypi"
+    )
     # and try "*"
     ixconfig = stage2.ixconfig.copy()
     ixconfig["mirror_whitelist"] = ["*"]
@@ -134,7 +134,7 @@ def test_get_mirror_whitelist_info_private_package(mapp, monkeypatch, testapp):
             m.setattr(mapp.xom, 'httpget', None)
             stage = mapp.xom.model.getstage(api.stagename)
             info = stage.get_mirror_whitelist_info("pkg1")
-            assert info['has_mirror_base'] is Unknown
+            assert info["has_mirror_base"] is unknown
             assert info['blocked_by_mirror_whitelist'] == "root/pypi"
     mapp.use("root/pypi")
     mapp.xom.httpget.mockresponse(
@@ -152,7 +152,7 @@ def test_get_mirror_whitelist_info_private_package(mapp, monkeypatch, testapp):
             # now we check that we get correct info without fetching data
             stage = mapp.xom.model.getstage(api.stagename)
             info = stage.get_mirror_whitelist_info("pkg1")
-            assert info['has_mirror_base'] is Unknown
+            assert info["has_mirror_base"] is unknown
             assert info['blocked_by_mirror_whitelist'] == "root/pypi"
     # now we whitelist the package
     testapp.patch_json("/" + api.stagename, ["mirror_whitelist+=pkg1"])
@@ -353,7 +353,7 @@ class TestStage:
         register_and_store(stage, "someproject-1.0.zip", b"123")
         links = stage.get_releaselinks("someproject")
         assert len(links) == 1
-        assert links[0].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.0.zip")
 
     def test_inheritance_error_are_nop(self, pypistage, stage):
         stage.modify(bases=("root/pypi",), mirror_whitelist=['someproject'])
@@ -380,11 +380,11 @@ class TestStage:
         content = b"123"
         link = register_and_store(stage, "some-1.0.zip", content)
         entry = link.entry
-        assert entry.hash_spec
+        assert entry.best_available_hash_spec is not None
         assert entry.last_modified is not None
         entries = stage.get_releaselinks("some")
         assert len(entries) == 1
-        assert entries[0].hash_spec == entry.hash_spec
+        assert entries[0].best_available_hash_spec == entry.best_available_hash_spec
         assert stage.list_projects_perstage() == set(["some"])
         verdata = stage.get_versiondata("some", "1.0")
         links = verdata["+elinks"]
@@ -406,8 +406,7 @@ class TestStage:
 
     def test_project_versiondata_shadowed(self, pypistage, stage):
         stage.modify(bases=("root/pypi",), mirror_whitelist=['someproject'])
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.0.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.0.zip" />')
         content = b"123"
         register_and_store(stage, "someproject-1.0.zip", content)
         verdata = stage.get_versiondata("someproject", "1.0")
@@ -417,26 +416,24 @@ class TestStage:
 
     def test_project_whitelist(self, pypistage, stage):
         stage.modify(bases=("root/pypi",))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         register_and_store(stage, "someproject-1.0.zip", b"123")
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we only get
         # our upload
         assert len(links) == 1
-        assert links[0].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.0.zip")
         # if we add the project to the whitelist, we also get the release
         # from pypi
         stage.modify(mirror_whitelist=['someproject'])
         links = stage.get_releaselinks("someproject")
         assert len(links) == 2
-        assert links[0].entrypath.endswith("someproject-1.1.zip")
-        assert links[1].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.1.zip")
+        assert links[1].relpath.endswith("someproject-1.0.zip")
 
     def test_project_whitelist_empty_project(self, pypistage, stage):
         stage.modify(bases=("root/pypi",))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         stage.set_versiondata(udict(name="someproject", version="1.0"))
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we get
@@ -445,8 +442,7 @@ class TestStage:
 
     def test_project_whitelist_nothing_in_stage(self, pypistage, stage):
         stage.modify(bases=("root/pypi",))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we get
         # no releases, because we only registered, but didn't upload
@@ -459,39 +455,37 @@ class TestStage:
         stage.modify(
             mirror_whitelist_inheritance="union",
             bases=(stage_dev2.name,))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         register_and_store(stage, "someproject-1.0.zip", b"123")
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we only get
         # our upload
         assert len(links) == 1
-        assert links[0].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.0.zip")
         # if we add the project to the whitelist of the inherited index, we
         # also get the release from pypi
         stage_dev2.modify(mirror_whitelist=['someproject'])
         links = stage.get_releaselinks("someproject")
         assert len(links) == 2
-        assert links[0].entrypath.endswith("someproject-1.1.zip")
-        assert links[1].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.1.zip")
+        assert links[1].relpath.endswith("someproject-1.0.zip")
 
     def test_project_whitelist_all(self, pypistage, stage):
         stage.modify(bases=("root/pypi",))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         register_and_store(stage, "someproject-1.0.zip", b"123")
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we only get
         # our upload
         assert len(links) == 1
-        assert links[0].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.0.zip")
         # if we allow all projects in the whitelist, we also get the release
         # from pypi
         stage.modify(mirror_whitelist=['*'])
         links = stage.get_releaselinks("someproject")
         assert len(links) == 2
-        assert links[0].entrypath.endswith("someproject-1.1.zip")
-        assert links[1].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.1.zip")
+        assert links[1].relpath.endswith("someproject-1.0.zip")
 
     def test_project_whitelist_all_inheritance(self, pypistage, stage, user):
         user.create_stage(index="dev2", bases=("root/pypi",))
@@ -499,41 +493,39 @@ class TestStage:
         stage.modify(
             mirror_whitelist_inheritance="union",
             bases=(stage_dev2.name,))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         register_and_store(stage, "someproject-1.0.zip", b"123")
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we only get
         # our upload
         assert len(links) == 1
-        assert links[0].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.0.zip")
         # if we add all projects to the whitelist of the inherited index, we
         # also get the release from pypi
         stage_dev2.modify(mirror_whitelist=['*'])
         links = stage.get_releaselinks("someproject")
         assert len(links) == 2
-        assert links[0].entrypath.endswith("someproject-1.1.zip")
-        assert links[1].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.1.zip")
+        assert links[1].relpath.endswith("someproject-1.0.zip")
 
     def test_project_whitelist_inheritance_all(self, pypistage, stage, user):
         user.create_stage(index="dev2", bases=("root/pypi",))
         stage_dev2 = user.getstage("dev2")
         stage.modify(bases=(stage_dev2.name,))
-        pypistage.mock_simple("someproject",
-            "<a href='someproject-1.1.zip' /a>")
+        pypistage.mock_simple("someproject", '<a href="someproject-1.1.zip" />')
         register_and_store(stage, "someproject-1.0.zip", b"123")
         links = stage.get_releaselinks("someproject")
         # because the whitelist doesn't include "someproject" we only get
         # our upload
         assert len(links) == 1
-        assert links[0].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.0.zip")
         # if we add all projects to the whitelist of the inheriting index, we
         # also get the release from pypi
         stage.modify(mirror_whitelist=['*'])
         links = stage.get_releaselinks("someproject")
         assert len(links) == 2
-        assert links[0].entrypath.endswith("someproject-1.1.zip")
-        assert links[1].entrypath.endswith("someproject-1.0.zip")
+        assert links[0].relpath.endswith("someproject-1.1.zip")
+        assert links[1].relpath.endswith("someproject-1.0.zip")
 
     @pytest.mark.parametrize("setting, expected", [
         ('someproject', ['someproject']),
@@ -870,7 +862,7 @@ class TestStage:
         # the problem. Then again server<2.3.2 allowed the store_doczip
         # method to construct doczip filenames which differ only in
         # casing)
-        linkstore = stage.get_linkstore_perstage("Pkg1", "1.0", readonly=False)
+        linkstore = stage.get_mutable_linkstore_perstage("Pkg1", "1.0")
         content = zip_dict({"index.html": "<html/>"})
         linkstore.create_linked_entry(
             rel="doczip",
@@ -1059,7 +1051,7 @@ class TestStage:
             assert link.entry.file_get_content() == content
         # delete, which shouldn't trigger devpiserver_on_upload
         with stage.xom.keyfs.write_transaction():
-            linkstore = stage.get_linkstore_perstage("pkg1", "1.0", readonly=False)
+            linkstore = stage.get_mutable_linkstore_perstage("pkg1", "1.0")
             linkstore.remove_links()
 
         # now write again and check that we get something from the queue
@@ -1099,7 +1091,7 @@ class TestStage:
 
         # remove, should trigger devpiserver_on_remove_file
         with stage.xom.keyfs.write_transaction():
-            linkstore = stage.get_linkstore_perstage("pkg2", "1.0", readonly=False)
+            linkstore = stage.get_mutable_linkstore_perstage("pkg2", "1.0")
             linkstore.remove_links()
         nstage, relpath = queue.get()
         assert relpath.startswith('hello/world/+')
@@ -1351,7 +1343,7 @@ class TestLinkStore:
     @pytest.fixture
     def linkstore(self, stage):
         stage.set_versiondata(udict(name="proj1", version="1.0"))
-        return stage.get_linkstore_perstage("proj1", "1.0", readonly=False)
+        return stage.get_mutable_linkstore_perstage("proj1", "1.0")
 
     def test_store_file(self, linkstore):
         linkstore.create_linked_entry(
@@ -1361,7 +1353,7 @@ class TestLinkStore:
             rel="doczip", basename="proj1-1.0.doc.zip",
             content_or_file=b'123')
         link, = linkstore.get_links(rel="releasefile")
-        assert link.entrypath.endswith("proj1-1.0.zip")
+        assert link.relpath.endswith("proj1-1.0.zip")
 
     def test_toxresult_create_remove(self, linkstore):
         linkstore.create_linked_entry(
@@ -1371,7 +1363,7 @@ class TestLinkStore:
             rel="releasefile", basename="proj1-1.1.zip",
             content_or_file=b'456')
         (link1, link2) = linkstore.get_links(rel="releasefile")
-        assert link1.entrypath.endswith("proj1-1.0.zip")
+        assert link1.relpath.endswith("proj1-1.0.zip")
 
         tox_content1 = b'tox123'
         hash_spec1 = get_hashes(tox_content1).get_default_spec()
@@ -1380,11 +1372,11 @@ class TestLinkStore:
         hash_spec2 = get_hashes(tox_content2).get_default_spec()
         linkstore.new_reflink(rel="toxresult", content_or_file=tox_content2, for_entrypath=link2)
         rlink, = linkstore.get_links(rel="toxresult", for_entrypath=link1)
-        assert rlink.hash_spec == hash_spec1
-        assert rlink.for_entrypath == link1.entrypath
+        assert rlink.best_available_hash_spec == hash_spec1
+        assert rlink.for_entrypath == link1.relpath
         rlink, = linkstore.get_links(rel="toxresult", for_entrypath=link2)
-        assert rlink.hash_spec == hash_spec2
-        assert rlink.for_entrypath == link2.entrypath
+        assert rlink.best_available_hash_spec == hash_spec2
+        assert rlink.for_entrypath == link2.relpath
 
         link1_entry = link1.entry  # queried below
 
@@ -1395,8 +1387,8 @@ class TestLinkStore:
         assert len(links) == 2
         assert links[0].rel == "releasefile"
         assert links[1].rel == "toxresult"
-        assert links[1].for_entrypath == links[0].entrypath
-        assert links[0].entrypath.endswith("proj1-1.1.zip")
+        assert links[1].for_entrypath == links[0].relpath
+        assert links[0].relpath.endswith("proj1-1.1.zip")
         assert not link1_entry.key.exists()
 
 

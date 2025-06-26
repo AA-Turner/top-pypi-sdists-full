@@ -31,12 +31,13 @@ from datarobot.auth.datarobot.exceptions import (
 )
 from datarobot.auth.exceptions import OAuthFlowError, OAuthValidationErr
 from datarobot.auth.oauth import (
-    OAuthComponent,
+    AsyncOAuthComponent,
     OAuthData,
     OAuthFlowSession,
     OAuthProvider,
     OAuthToken,
     Profile,
+    SyncOAuthComponent,
 )
 from datarobot.auth.typing import Metadata
 from datarobot.auth.utils import syncify
@@ -192,7 +193,7 @@ class _DROAuthData(_DRSchema):
     user_info: _DROAuthUserProfile
 
 
-class AsyncOAuth(OAuthComponent):
+class AsyncOAuth(AsyncOAuthComponent):
     """
     Asyncio OAuth2 implementation based on the DataRobot API.
     """
@@ -295,7 +296,7 @@ class AsyncOAuth(OAuthComponent):
         """
         await self._http_client.aclose()
 
-    async def get_providers(  # pylint: disable=invalid-overridden-method
+    async def get_providers(
         self,
     ) -> list[OAuthProvider]:
         """
@@ -325,7 +326,7 @@ class AsyncOAuth(OAuthComponent):
 
         return [provider.to_data() for provider in providers_data]
 
-    async def get_authorization_url(  # pylint: disable=invalid-overridden-method
+    async def get_authorization_url(
         self,
         *,
         provider_id: str,
@@ -375,7 +376,7 @@ class AsyncOAuth(OAuthComponent):
             authorization_url=redirect_data.redirect_url,
         )
 
-    async def exchange_code(  # pylint: disable=invalid-overridden-method
+    async def exchange_code(
         self,
         *,
         provider_id: str,
@@ -432,7 +433,7 @@ class AsyncOAuth(OAuthComponent):
             user_profile=oauth_data.user_info.to_data(),
         )
 
-    async def refresh_access_token(  # pylint: disable=invalid-overridden-method
+    async def refresh_access_token(
         self,
         provider_id: str | None = None,
         identity_id: str | None = None,
@@ -483,7 +484,7 @@ class AsyncOAuth(OAuthComponent):
 
         return token_data.to_data()
 
-    async def get_user_info(  # pylint: disable=invalid-overridden-method
+    async def get_user_info(
         self,
         provider_id: str | None = None,
         identity_id: str | None = None,
@@ -533,7 +534,7 @@ class AsyncOAuth(OAuthComponent):
         return user_info.to_data()
 
 
-class SyncOAuth(OAuthComponent):
+class SyncOAuth(SyncOAuthComponent):
     """
     Synchronous OAuth client for DataRobot OAuth Providers Service API.
     """

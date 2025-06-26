@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xformers
-Version: 0.0.30
+Version: 0.0.31
 Summary: XFormers: A collection of composable Transformer building blocks.
 Home-page: https://facebookresearch.github.io/xformers/
 Author: Facebook AI Research

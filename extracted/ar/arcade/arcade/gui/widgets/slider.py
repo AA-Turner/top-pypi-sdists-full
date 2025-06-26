@@ -115,8 +115,6 @@ class UIBaseSlider(UIInteractiveWidget, metaclass=ABCMeta):
         return value
 
     def _set_value(self, value: float):
-        # TODO changing the value itself should trigger `on_change` event
-        # current problem is, that the property does not pass the old value to listeners
         if value < self.min_value:
             value = self.min_value
         elif value > self.max_value:

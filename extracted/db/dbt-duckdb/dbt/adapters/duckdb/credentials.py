@@ -27,8 +27,14 @@ class Attachment(dbtClassMixin):
     # An optional alias for the attached database
     alias: Optional[str] = None
 
+    # An optional reference to a secret name from the secret manager
+    secret: Optional[str] = None
+
     # Whether the attached database is read-only or read/write
     read_only: bool = False
+
+    # Arbitrary key-value pairs for additional ATTACH options
+    options: Optional[Dict[str, Any]] = None
 
     def to_sql(self) -> str:
         # remove query parameters (not supported in ATTACH)
@@ -37,13 +43,69 @@ class Attachment(dbtClassMixin):
         base = f"ATTACH '{path}'"
         if self.alias:
             base += f" AS {self.alias}"
-        options = []
+
+        # Check for conflicts between legacy fields and options dict
+        if self.options:
+            conflicts = []
+            if self.type and "type" in self.options:
+                conflicts.append("type")
+            if self.secret and "secret" in self.options:
+                conflicts.append("secret")
+            if self.read_only and "read_only" in self.options:
+                conflicts.append("read_only")
+
+            if conflicts:
+                raise DbtRuntimeError(
+                    f"Attachment option(s) {conflicts} specified in both direct fields and options dict. "
+                    f"Please specify each option in only one location."
+                )
+
+        # Collect all options, prioritizing direct fields over options dict
+        all_options = []
+
+        # Add legacy options for backward compatibility
         if self.type:
-            options.append(f"TYPE {self.type}")
+            all_options.append(f"TYPE {self.type}")
+        elif self.options and "type" in self.options:
+            all_options.append(f"TYPE {self.options['type']}")
+
+        if self.secret:
+            all_options.append(f"SECRET {self.secret}")
+        elif self.options and "secret" in self.options:
+            all_options.append(f"SECRET {self.options['secret']}")
+
         if self.read_only:
-            options.append("READ_ONLY")
-        if options:
-            joined = ", ".join(options)
+            all_options.append("READ_ONLY")
+        elif self.options and "read_only" in self.options and self.options["read_only"]:
+            all_options.append("READ_ONLY")
+
+        # Add arbitrary options from the options dict (excluding handled ones)
+        if self.options:
+            handled_keys = {"type", "secret", "read_only"}
+            for key, value in self.options.items():
+                if key in handled_keys:
+                    continue
+
+                # Format the option appropriately
+                if isinstance(value, bool):
+                    if value:  # Only add boolean options if they're True
+                        all_options.append(key.upper())
+                elif value is not None:
+                    # Quote string values for DuckDB SQL compatibility
+                    if isinstance(value, str):
+                        # Only quote if not already quoted (single or double quotes)
+                        stripped_value = value.strip()
+                        if (stripped_value.startswith("'") and stripped_value.endswith("'")) or (
+                            stripped_value.startswith('"') and stripped_value.endswith('"')
+                        ):
+                            all_options.append(f"{key.upper()} {value}")
+                        else:
+                            all_options.append(f"{key.upper()} '{value}'")
+                    else:
+                        all_options.append(f"{key.upper()} {value}")
+
+        if all_options:
+            joined = ", ".join(all_options)
             base += f" ({joined})"
         return base
 
@@ -163,6 +225,19 @@ class DuckDBCredentials(Credentials):
         self.secrets = self.secrets or []
         self._secrets = []
 
+        # Build set of ducklake database names for efficient lookup
+        self._ducklake_dbs = set()
+        if self.attach:
+            for attachment in self.attach:
+                if (
+                    hasattr(attachment, "alias")
+                    and attachment.alias
+                    and hasattr(attachment, "path")
+                    and attachment.path
+                    and "ducklake:" in attachment.path
+                ):
+                    self._ducklake_dbs.add(attachment.alias)
+
         # Add MotherDuck plugin if the path is a MotherDuck database
         # and plugin was not specified in profile.yml
         if self.is_motherduck:
@@ -232,10 +307,21 @@ class DuckDBCredentials(Credentials):
                 if path_db == "":
                     path_db = "my_db"
 
+        # Check if the database field matches any attach alias
+        attach_aliases = []
+        if data.get("attach"):
+            for attach_data in data["attach"]:
+                if isinstance(attach_data, dict) and attach_data.get("alias"):
+                    attach_aliases.append(attach_data["alias"])
+
+        database_from_data = data.get("database")
+        database_matches_attach_alias = database_from_data in attach_aliases
+
         if path_db and "database" not in data:
             data["database"] = path_db
         elif path_db and data["database"] != path_db:
-            if not data.get("remote"):
+            # Allow database name to differ from path_db if it matches an attach alias
+            if not data.get("remote") and not database_matches_attach_alias:
                 raise DbtRuntimeError(
                     "Inconsistency detected between 'path' and 'database' fields in profile; "
                     f"the 'database' property must be set to '{path_db}' to match the 'path'"

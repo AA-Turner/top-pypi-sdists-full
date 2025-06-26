@@ -103,6 +103,8 @@ cdef extern from "<mpi.h>" nogil:
     MPI_Datatype MPI_UINT16_T              #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_UINT32_T              #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_UINT64_T              #:= MPI_DATATYPE_NULL
+    MPI_Datatype MPI_FLOAT16_T             #:= MPI_DATATYPE_NULL
+    MPI_Datatype MPI_BFLOAT16_T            #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_C_COMPLEX             #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_C_FLOAT_COMPLEX       #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_C_DOUBLE_COMPLEX      #:= MPI_DATATYPE_NULL
@@ -132,6 +134,7 @@ cdef extern from "<mpi.h>" nogil:
     MPI_Datatype MPI_LOGICAL2  #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_LOGICAL4  #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_LOGICAL8  #:= MPI_DATATYPE_NULL
+    MPI_Datatype MPI_LOGICAL16 #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_INTEGER1  #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_INTEGER2  #:= MPI_DATATYPE_NULL
     MPI_Datatype MPI_INTEGER4  #:= MPI_DATATYPE_NULL
@@ -179,6 +182,7 @@ cdef extern from "<mpi.h>" nogil:
     int MPI_Type_create_f90_integer(int, MPI_Datatype*)
     int MPI_Type_create_f90_real(int, int, MPI_Datatype*)
     int MPI_Type_create_f90_complex(int, int, MPI_Datatype*)
+    enum: MPI_TYPECLASS_LOGICAL  #:= MPI_UNDEFINED
     enum: MPI_TYPECLASS_INTEGER  #:= MPI_UNDEFINED
     enum: MPI_TYPECLASS_REAL     #:= MPI_UNDEFINED
     enum: MPI_TYPECLASS_COMPLEX  #:= MPI_UNDEFINED
@@ -1040,6 +1044,8 @@ cdef extern from "<mpi.h>" nogil:
     # no errors
     enum: MPI_SUCCESS                    #:= 0
     enum: MPI_ERR_LASTCODE               #:= 1
+    # ABI
+    enum: MPI_ERR_ABI                    #:= MPI_ERR_LASTCODE
     # object handles
     enum: MPI_ERR_TYPE                   #:= MPI_ERR_LASTCODE
     enum: MPI_ERR_REQUEST                #:= MPI_ERR_LASTCODE
@@ -1143,6 +1149,10 @@ cdef extern from "<mpi.h>" nogil:
     enum: MPI_MAX_LIBRARY_VERSION_STRING #:= 1
     int MPI_Get_library_version(char[], int*)
 
+    int MPI_Abi_get_version(int*, int*)
+    int MPI_Abi_get_info(MPI_Info*)
+    int MPI_Abi_get_fortran_info(MPI_Info*)
+
     enum: MPI_MAX_PROCESSOR_NAME #:= 1
     int MPI_Get_processor_name(char[], int*)
     int MPI_Get_hw_resource_info(MPI_Info*)
@@ -1201,6 +1211,34 @@ cdef extern from "<mpi.h>" nogil:
     ## int MPI_Status_f082c(MPI_F08_status*, MPI_Status*)
     ## int MPI_Status_f2f08(MPI_Fint*, MPI_F08_status*)
     ## int MPI_Status_f082f(MPI_F08_status*, MPI_Fint*)
+
+    #-----------------------------------------------------------------
+
+    # handle -> int
+    int MPI_Comm_toint       (MPI_Comm)
+    int MPI_Errhandler_toint (MPI_Errhandler)
+    int MPI_File_toint       (MPI_File)
+    int MPI_Group_toint      (MPI_Group)
+    int MPI_Info_toint       (MPI_Info)
+    int MPI_Message_toint    (MPI_Message)
+    int MPI_Op_toint         (MPI_Op)
+    int MPI_Request_toint    (MPI_Request)
+    int MPI_Session_toint    (MPI_Session)
+    int MPI_Type_toint       (MPI_Datatype)
+    int MPI_Win_toint        (MPI_Win)
+
+    # int -> handle
+    MPI_Comm       MPI_Comm_fromint       (int)
+    MPI_Errhandler MPI_Errhandler_fromint (int)
+    MPI_File       MPI_File_fromint       (int)
+    MPI_Group      MPI_Group_fromint      (int)
+    MPI_Info       MPI_Info_fromint       (int)
+    MPI_Message    MPI_Message_fromint    (int)
+    MPI_Op         MPI_Op_fromint         (int)
+    MPI_Request    MPI_Request_fromint    (int)
+    MPI_Session    MPI_Session_fromint    (int)
+    MPI_Datatype   MPI_Type_fromint       (int)
+    MPI_Win        MPI_Win_fromint        (int)
 
     #-----------------------------------------------------------------
 

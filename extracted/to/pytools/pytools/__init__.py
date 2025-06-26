@@ -250,7 +250,9 @@ Type Variables Used
 # {{{ type variables
 
 T = TypeVar("T")
-R = TypeVar("R")
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
+R = TypeVar("R", covariant=True)
 F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 K = TypeVar("K")
@@ -1057,7 +1059,7 @@ def len_iterable(iterable):
     return sum(1 for i in iterable)
 
 
-def flatten(iterable):
+def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
     """For an iterable of sub-iterables, generate each member of each
     sub-iterable in turn, i.e. a flattened version of that super-iterable.
 
@@ -1490,9 +1492,6 @@ def generate_all_integer_tuples_below(
     ) -> Iterator[tuple[int, ...]]:
     return _pos_and_neg_adaptor(generate_nonnegative_integer_tuples_below(
         n, length, least_abs))
-
-
-T_co = TypeVar("T_co", covariant=True)
 
 
 class _ConcatenableSequence(Generic[T_co], Protocol):

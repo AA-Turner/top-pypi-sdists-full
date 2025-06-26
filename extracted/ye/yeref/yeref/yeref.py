@@ -16769,6 +16769,32 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
 
                     # clip = mp.VideoFileClip(input_file)
                     # width, height = clip.size
+                    
+                    import tempfile
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mp4')
+                    os.close(tmp_fd)
+                    cap = cv2.VideoCapture(input_file)
+                    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    print(f"{total=}")
+                    out = cv2.VideoWriter(tmp_path, fourcc, fps, (width, height))
+                    count = 0
+                    while True:
+                        try:
+                            ret, frame = cap.read()
+                            if not ret: break
+                            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                            output_ = remove(img)
+                            frame2 = cv2.cvtColor(np.array(output_), cv2.COLOR_RGB2BGR)
+                            out.write(frame2)
+                            print(f"Frame {count}/{total}" if total > 0 else f"Frame {count}")
+                        except Exception as e:
+                            logger.info(log_ % str(e))
+                            await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+                    cap.release()
+                    out.release()
+                    os.replace(tmp_path, input_file)
 
                     if width % 2 != 0: width -= 1
                     if height % 2 != 0: height -= 1

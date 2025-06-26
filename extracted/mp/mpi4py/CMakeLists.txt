@@ -1,22 +1,39 @@
 # Author:  Lisandro Dalcin
 # Contact: dalcinl@gmail.com
 cmake_minimum_required(VERSION 3.15...3.26)
-
 project(mpi4py LANGUAGES C)
+
+set(
+  MPIABI $ENV{MPI4PY_BUILD_MPIABI} CACHE BOOL
+  "Use MPI ABI (standard or legacy)"
+)
+set(
+  PYSABI $ENV{MPI4PY_BUILD_PYSABI} CACHE STRING
+  "Use Python Stable ABI"
+)
+
+if (PYSABI)
+  if (NOT SKBUILD_SABI_COMPONENT)
+    set(SKBUILD_SABI_COMPONENT Development.SABIModule)
+  endif()
+  if (NOT SKBUILD_SABI_VERSION)
+    set(SKBUILD_SABI_VERSION ${PYSABI})
+  endif()
+endif()
+if (SKBUILD_SABI_VERSION)
+  set(WITH_SABI USE_SABI ${SKBUILD_SABI_VERSION})
+endif()
 
 find_package(
   Python REQUIRED
   COMPONENTS Interpreter
-  COMPONENTS Development.Module
+  COMPONENTS Development.Module ${SKBUILD_SABI_COMPONENT}
   OPTIONAL_COMPONENTS Development.Embed
 )
 
 find_package(MPI REQUIRED)
 separate_arguments(MPI_C_COMPILE_OPTIONS NATIVE_COMMAND)
 separate_arguments(MPI_C_LINK_FLAGS NATIVE_COMMAND)
-
-set(CIBUILDWHEEL $<BOOL:$ENV{CIBUILDWHEEL}>)
-add_compile_definitions($<${CIBUILDWHEEL}:CIBUILDWHEEL=1>)
 
 include(CheckSymbolExists)
 set(CMAKE_REQUIRED_INCLUDES ${MPI_C_INCLUDE_DIRS})
@@ -57,8 +74,9 @@ install(FILES ${MPI.h} DESTINATION mpi4py)
 
 
 # mpi4py.MPI
-python_add_library(mpi4py.MPI MODULE ${MPI.c} WITH_SOABI)
+python_add_library(mpi4py.MPI MODULE ${MPI.c} WITH_SOABI ${WITH_SABI})
 set_target_properties(mpi4py.MPI PROPERTIES OUTPUT_NAME "MPI" PREFIX "")
+target_compile_definitions(mpi4py.MPI PRIVATE $<$<BOOL:${MPIABI}>:PYMPIABI=1>)
 target_include_directories(mpi4py.MPI PRIVATE ${SRCDIR})
 target_include_directories(mpi4py.MPI PRIVATE ${MPI_C_INCLUDE_DIRS})
 target_compile_definitions(mpi4py.MPI PRIVATE ${MPI_C_COMPILE_DEFINITIONS})
@@ -100,7 +118,7 @@ file(
   ${SRCDIR}/mpi4py/include/mpi4py/*.[hi]
   ${SRCDIR}/mpi4py/include/mpi4py/*.px[di]
 )
-if (Python_VERSION VERSION_GREATER_EQUAL 3.11)
+if (TRUE)
   list(APPEND mpi4py_HEADERS mpi4py/py.typed)
   list(APPEND mpi4py_HEADERS mpi4py/MPI.pyi)
   foreach(file ${mpi4py_SOURCES})
@@ -113,7 +131,7 @@ foreach(file ${mpi4py_SOURCES} ${mpi4py_HEADERS})
 endforeach()
 
 if (WIN32)
-  set(mpidllpath mpi.pth)
+  set(mpidllpath _mpi_dll_path.py mpi.pth)
   foreach(file ${mpidllpath})
     if (EXISTS ${SRCDIR}/${file})
       install(FILES ${SRCDIR}/${file} DESTINATION .)

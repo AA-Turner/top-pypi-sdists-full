@@ -23,6 +23,8 @@ from common_setup import common_setup_kwargs, DESCRIPTION_TEMPLATE, version
 version = version.replace("rc", "b")
 version = version.split("b")[0]
 version += datetime.today().strftime(".%Y.%m.%d")
+# Add a build number based on the current time to ensure uniqueness for multiple releases in a day
+version += datetime.today().strftime(".%H%M%S")
 
 python_versions = ">= 3.7"
 

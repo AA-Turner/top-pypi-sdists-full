@@ -47,6 +47,7 @@ except ImportError:  # scipy < 1.8
     from scipy.io.matlab.mio5 import MatlabFunction
     from scipy.io.matlab.mio5_params import MatlabOpaque
 
+from scipy.sparse import csc_array, spmatrix
 
 standard_matlab_classes = (
     'char',
@@ -73,7 +74,7 @@ def _import_h5py() -> h5py:
     try:
         import h5py
     except Exception as exc:
-        raise ImportError('h5py is required to read MATLAB files >= v7.3 ' f'({exc})')
+        raise ImportError(f'h5py is required to read MATLAB files >= v7.3 ({exc})')
     return h5py
 
 
@@ -136,6 +137,16 @@ def _handle_hdf5_list(
 def _handle_hdf5_group(
     hdf5_object: h5py.Dataset, variable_names: Iterable | None = None, ignore_fields: Iterable | None = None
 ) -> dict:
+    # Special case: sparse matrices have [data, ir, jc] members
+    if 'MATLAB_sparse' in hdf5_object.attrs:
+        data = hdf5_object.get('data', [])
+        ir = hdf5_object.get('ir', [])
+        jc = hdf5_object.get('jc', [])
+        M = int(hdf5_object.attrs['MATLAB_sparse'])  # noqa: N806
+        N = len(jc) - 1  # noqa: N806
+
+        return csc_array((data, ir, jc), shape=(M, N))
+
     all_keys = set(hdf5_object.keys())
     if ignore_fields:
         all_keys = all_keys - set(ignore_fields)
@@ -237,7 +248,7 @@ def _handle_hdf5_strings(values: np.ndarray) -> str | np.ndarray | list[str | np
     elif values.ndim == 2:  # noqa PLR2004
         return [_convert_string_hdf5(cur_val) for cur_val in values]
     else:
-        raise RuntimeError('String arrays with more than 2 dimensions' 'are not supported at the moment.')
+        raise RuntimeError('String arrays with more than 2 dimensionsare not supported at the moment.')
 
 
 def _parse_scipy_mat_dict(data: dict) -> dict:
@@ -254,13 +265,15 @@ def _parse_scipy_mat_dict(data: dict) -> dict:
     dict
         parsed data
     """
-    for key in data:
+    for key in data:  # noqa PLC0206
         data[key] = _check_for_scipy_mat_struct(data[key])
 
     return data
 
 
-def _check_for_scipy_mat_struct(data: dict | np.ndarray | MatlabOpaque) -> dict | np.ndarray | list | None:
+def _check_for_scipy_mat_struct(
+    data: dict | np.ndarray | spmatrix | MatlabOpaque
+) -> dict | np.ndarray | csc_array | list | None:
     """
     Check all entries of data for occurrences of scipy.io.matlab.mio5_params.mat_struct and convert them.
 
@@ -296,6 +309,10 @@ def _check_for_scipy_mat_struct(data: dict | np.ndarray | MatlabOpaque) -> dict 
 
     if isinstance(data, np.ndarray):
         return _handle_scipy_ndarray(data)
+
+    # Convert sparse matrices to csc_array
+    if isinstance(data, spmatrix):
+        return csc_array(data)
 
     return data
 

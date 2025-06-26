@@ -37,6 +37,8 @@ __all__ = (
     "DeleteOpenZFSVolumeOptionType",
     "DescribeBackupsPaginatorName",
     "DescribeFileSystemsPaginatorName",
+    "DescribeS3AccessPointAttachmentsPaginatorName",
+    "DescribeSnapshotsPaginatorName",
     "DescribeStorageVirtualMachinesPaginatorName",
     "DescribeVolumesPaginatorName",
     "DiskIopsConfigurationModeType",
@@ -63,6 +65,7 @@ __all__ = (
     "OpenZFSCopyStrategyType",
     "OpenZFSDataCompressionTypeType",
     "OpenZFSDeploymentTypeType",
+    "OpenZFSFileSystemUserTypeType",
     "OpenZFSQuotaTypeType",
     "OpenZFSReadCacheSizingModeType",
     "PaginatorName",
@@ -74,6 +77,9 @@ __all__ = (
     "ResourceTypeType",
     "RestoreOpenZFSVolumeOptionType",
     "RetentionPeriodTypeType",
+    "S3AccessPointAttachmentLifecycleType",
+    "S3AccessPointAttachmentTypeType",
+    "S3AccessPointAttachmentsFilterNameType",
     "SecurityStyleType",
     "ServiceName",
     "SnaplockTypeType",
@@ -140,6 +146,8 @@ DeleteFileSystemOpenZFSOptionType = Literal["DELETE_CHILD_VOLUMES_AND_SNAPSHOTS"
 DeleteOpenZFSVolumeOptionType = Literal["DELETE_CHILD_VOLUMES_AND_SNAPSHOTS"]
 DescribeBackupsPaginatorName = Literal["describe_backups"]
 DescribeFileSystemsPaginatorName = Literal["describe_file_systems"]
+DescribeS3AccessPointAttachmentsPaginatorName = Literal["describe_s3_access_point_attachments"]
+DescribeSnapshotsPaginatorName = Literal["describe_snapshots"]
 DescribeStorageVirtualMachinesPaginatorName = Literal["describe_storage_virtual_machines"]
 DescribeVolumesPaginatorName = Literal["describe_volumes"]
 DiskIopsConfigurationModeType = Literal["AUTOMATIC", "USER_PROVISIONED"]
@@ -185,6 +193,7 @@ OpenZFSDataCompressionTypeType = Literal["LZ4", "NONE", "ZSTD"]
 OpenZFSDeploymentTypeType = Literal[
     "MULTI_AZ_1", "SINGLE_AZ_1", "SINGLE_AZ_2", "SINGLE_AZ_HA_1", "SINGLE_AZ_HA_2"
 ]
+OpenZFSFileSystemUserTypeType = Literal["POSIX"]
 OpenZFSQuotaTypeType = Literal["GROUP", "USER"]
 OpenZFSReadCacheSizingModeType = Literal[
     "NO_CACHE", "PROPORTIONAL_TO_THROUGHPUT_CAPACITY", "USER_PROVISIONED"
@@ -197,6 +206,11 @@ RestoreOpenZFSVolumeOptionType = Literal["DELETE_CLONED_VOLUMES", "DELETE_INTERM
 RetentionPeriodTypeType = Literal[
     "DAYS", "HOURS", "INFINITE", "MINUTES", "MONTHS", "SECONDS", "UNSPECIFIED", "YEARS"
 ]
+S3AccessPointAttachmentLifecycleType = Literal[
+    "AVAILABLE", "CREATING", "DELETING", "FAILED", "UPDATING"
+]
+S3AccessPointAttachmentTypeType = Literal["OPENZFS"]
+S3AccessPointAttachmentsFilterNameType = Literal["file-system-id", "type", "volume-id"]
 SecurityStyleType = Literal["MIXED", "NTFS", "UNIX"]
 SnaplockTypeType = Literal["COMPLIANCE", "ENTERPRISE"]
 SnapshotFilterNameType = Literal["file-system-id", "volume-id"]
@@ -234,6 +248,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -374,6 +389,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -486,6 +502,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -630,6 +647,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -649,6 +667,8 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_backups",
     "describe_file_systems",
+    "describe_s3_access_point_attachments",
+    "describe_snapshots",
     "describe_storage_virtual_machines",
     "describe_volumes",
     "list_tags_for_resource",

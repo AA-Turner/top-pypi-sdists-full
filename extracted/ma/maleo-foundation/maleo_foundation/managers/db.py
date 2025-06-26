@@ -1,7 +1,7 @@
 import os
 from contextlib import contextmanager
 from pydantic import BaseModel, Field
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, text
 from sqlalchemy.engine import Engine, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.declarative import DeclarativeMeta
@@ -123,6 +123,21 @@ class DatabaseManager:
     @property
     def session(self) -> SessionManager:
         return self._session
+
+    def check_connection(self) -> bool:
+        """Check database connectivity by executing a simple query."""
+        self._logger.info("Checking database connectivity...")
+        try:
+            with self._session.get() as session:
+                session.execute(text("SELECT 1"))
+            self._logger.info("Database connectivity check successful.")
+            return True
+        except SQLAlchemyError as se:
+            self._logger.error(f"Database connectivity check failed: {se}", exc_info=True)
+            return False
+        except Exception as e:
+            self._logger.error(f"Unexpected error during connectivity check: {e}", exc_info=True)
+            return False
 
     def dispose(self) -> None:
         #* Dispose session

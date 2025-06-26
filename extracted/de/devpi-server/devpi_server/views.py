@@ -716,8 +716,10 @@ class PyPIView:
 
     def _simple_list_project(self, stage, project, result, embed_form, blocked_index):
         title = "%s: links for %s" % (stage.name, project)
-        yield ("<!DOCTYPE html><html><head><title>%s</title></head><body><h1>%s</h1>\n" %
-               (title, title)).encode("utf-8")
+        yield (
+            '<!DOCTYPE html><html lang="en"><head><title>%s</title></head><body><h1>%s</h1>\n'
+            % (title, title)
+        ).encode("utf-8")
 
         if embed_form:
             yield self._index_refresh_form(stage, project).encode("utf-8")
@@ -739,8 +741,7 @@ class PyPIView:
                 yanked = "" if link.yanked is True else link.yanked
                 attribs += ' data-yanked="%s"' % escape(yanked)
             data = dict(stage=stage, attribs=attribs, key=link.key)
-            yield '{stage} <a {attribs}>{key}</a><br/>\n'.format(
-                **data).encode('utf-8')
+            yield "{stage} <a {attribs}>{key}</a><br>\n".format(**data).encode("utf-8")
 
         yield "</body></html>".encode("utf-8")
 
@@ -775,7 +776,7 @@ class PyPIView:
             user=self.context.username, index=self.context.index,
             project=project)
         title = "Refresh" if stage.ixconfig["type"] == "mirror" else "Refresh mirror links"
-        submit = '<input name="refresh" type="submit" value="%s"/>' % title
+        submit = '<input name="refresh" type="submit" value="%s">' % title
         return '<form action="%s" method="post">%s</form>' % (url, submit)
 
     @view_config(route_name="/{user}/{index}/+simple")
@@ -824,7 +825,7 @@ class PyPIView:
 
     def _simple_list_all(self, stage_name, stage_results):
         title = f"{stage_name}: simple list (including inherited indices)"
-        yield f"<!DOCTYPE html><html><head><title>{title}</title></head><body><h1>{title}</h1>".encode("utf-8")
+        yield f'<!DOCTYPE html><html lang="en"><head><title>{title}</title></head><body><h1>{title}</h1>'.encode()
         last_index = len(stage_results) - 1
         seen = set()
         for index, (stage, names) in enumerate(stage_results):
@@ -835,13 +836,13 @@ class PyPIView:
             yield f"<h2>{h2}</h2>".encode("utf-8")
             for name in sorted(names):
                 if name not in seen:
-                    yield f'<a href="{name}/">{name}</a><br/>\n'.encode("utf-8")
+                    yield f'<a href="{name}/">{name}</a><br>\n'.encode()
                     if index != last_index:
                         seen.add(name)
         yield "</body></html>".encode("utf-8")
 
     def _simple_list_all_installer(self, stage_results):
-        yield "<!DOCTYPE html><html><body>".encode("utf-8")
+        yield b'<!DOCTYPE html><html lang="en"><body>'
         last_index = len(stage_results) - 1
         seen = set()
         for index, (stage, names) in enumerate(stage_results):
@@ -1079,7 +1080,6 @@ class PyPIView:
             pypiauth = (username, password)
             # prepare metadata for submission
             metadata[":action"] = "submit"
-            metadata["metadata_version"] = "2.1"
             session = new_requests_session(agent=("server", server_version))
             with contextlib.closing(session):
                 ok_codes = {HTTPStatus.OK, HTTPStatus.CREATED}
@@ -1188,7 +1188,7 @@ class PyPIView:
                         self.request.authenticated_userid,
                         src=self.context.stage.name,
                         dst=target_stage.name)
-                    yield (200, "store_toxresult", tlink.entrypath)
+                    yield (200, "store_toxresult", tlink.relpath)
         for link in links.get("doczip", ()):
             with link.entry.file_open_read() as doczip:
                 new_link = target_stage.store_doczip(
@@ -1458,12 +1458,7 @@ class PyPIView:
         # getting the stage from context will cause 404 if stage is deleted
         stage = self.context.stage
 
-        # we need to add auth back to the url, as aiohttp doesn't include it
-        # in the response url, unlike requests did.
-        # we do it in _pkgserv now to avoid storing the credentials
-        # in the database and avoid changes in the db when mirror_url changes.
-        mirror_url_auth = getattr(stage, "mirror_url_auth", {})
-        url = URL(entry.url).replace(**mirror_url_auth)
+        url = URL(entry.url)
 
         file_exists = entry.file_exists()
         if entry.last_modified is None or not file_exists:
@@ -1472,7 +1467,13 @@ class PyPIView:
             if stage.use_external_url:
                 # The file is in a mirror and either deleted or not
                 # yet downloaded. Redirect to external url
-                return HTTPFound(location=URL(url).url)
+                # we need to add auth back to the url, as httpx doesn't include it
+                # in the response url
+                # we do it in _pkgserv now to avoid storing the credentials
+                # in the database and avoid changes in the db when mirror_url changes.
+                mirror_url_auth = getattr(stage, "mirror_url_auth", {})
+                url = url.replace(**mirror_url_auth)
+                return HTTPFound(location=url.url)
             if stage.ixconfig['type'] != "mirror" and not file_exists and not self.xom.is_replica():
                 # return error when private file is missing and not in
                 # replica mode, otherwise fall through to fetch file
@@ -1745,8 +1746,7 @@ def iter_cache_remote_file(stage, entry, url):
 
     with contextlib.ExitStack() as cstack:
         cstack.callback(r.close)
-        f = cstack.enter_context(
-            entry.tx.conn.io_file_new_open(entry._storepath))
+        f = cstack.enter_context(entry.file_new_open())
         file_streamer = FileStreamer(f, entry, r)
         threadlog.info("reading remote: %r, target %s", URL(r.url), entry.relpath)
 
@@ -1756,20 +1756,10 @@ def iter_cache_remote_file(stage, entry, url):
             threadlog.error(str(err))
             raise
 
-        try:
-            # when pushing from a mirror to an index, we are still in a
-            # transaction
-            tx = entry.tx
-        except AttributeError:
-            # when streaming we won't be in a transaction anymore, so we need
-            # to open a new one below
-            tx = None
-
         if not entry.has_existing_metadata():
             with xom.keyfs.write_transaction(allow_restart=True):
                 if entry.readonly:
-                    entry = xom.filestore.get_file_entry(
-                        entry.relpath, readonly=False)
+                    entry = xom.filestore.get_file_entry_from_key(entry.key)
                 entry.file_set_content(
                     f,
                     last_modified=r.headers.get("last-modified", None),
@@ -1783,25 +1773,16 @@ def iter_cache_remote_file(stage, entry, url):
                 # on Windows we need to close the file
                 # before the transaction closes
                 f.close()
-        else:  # noqa: PLR5501
+        else:
             # the file was downloaded before but locally removed, so put
             # it back in place without creating a new serial
-            # we need a direct write connection to use the io_file_* methods
-            if tx is not None:
-                if not tx.write:
-                    xom.keyfs.restart_as_write_transaction()
-                tx.conn.io_file_set(entry._storepath, f)
+            with xom.keyfs.filestore_transaction():
+                entry.file_set_content_no_meta(f, hashes=file_streamer.hashes)
                 threadlog.debug(
                     "put missing file back into place: %s", entry._storepath)
-            else:
-                with xom.keyfs.get_connection(write=True, timeout=300) as conn:
-                    conn.io_file_set(entry._storepath, f)
-                    # on Windows we need to close the file
-                    # before the transaction closes
-                    f.close()
-                    threadlog.debug(
-                        "put missing file back into place: %s", entry._storepath)
-                    conn.commit_files_without_increasing_serial()
+                # on Windows we need to close the file
+                # before the transaction closes
+                f.close()
 
 
 def iter_remote_file_replica(stage, entry, url):
@@ -1840,8 +1821,7 @@ def iter_remote_file_replica(stage, entry, url):
 
     with contextlib.ExitStack() as cstack:
         cstack.callback(r.close)
-        f = cstack.enter_context(
-            entry.tx.conn.io_file_new_open(entry._storepath))
+        f = cstack.enter_context(entry.file_new_open())
         file_streamer = FileStreamer(f, entry, r)
 
         try:
@@ -1850,26 +1830,12 @@ def iter_remote_file_replica(stage, entry, url):
             # the file we got is different, so we fail
             raise BadGateway(str(err)) from err
 
-        try:
-            # there is no code path that still has a transaction at this point,
-            # but we handle that case just to be safe
-            tx = entry.tx
-        except AttributeError:
-            # when streaming we won't be in a transaction anymore, so we need
-            # to open a new one below
-            tx = None
-        if tx is not None and tx.write:
-            entry.tx.conn.io_file_set(entry._storepath, f)
-        else:
-            # we need a direct write connection to use the io_file_* methods
-            with xom.keyfs.get_connection(write=True, timeout=300) as conn:
-                conn.io_file_set(entry._storepath, f)
-                # on Windows we need to close the file
-                # before the transaction closes
-                f.close()
-                threadlog.debug(
-                    "put missing file back into place: %s", entry._storepath)
-                conn.commit_files_without_increasing_serial()
+        with xom.keyfs.filestore_transaction():
+            entry.file_set_content_no_meta(f, hashes=file_streamer.hashes)
+            # on Windows we need to close the file
+            # before the transaction closes
+            f.close()
+            threadlog.debug("put missing file back into place: %s", entry._storepath)
         # in case there were errors before, we can now remove them
         replication_errors.remove(entry)
 
@@ -1882,7 +1848,8 @@ def iter_fetch_remote_file(stage, entry, url):
 
 
 def url_for_entrypath(request, entrypath):
-    parts = entrypath.split("/")
+    path = entrypath.split("#", 1)[0]
+    parts = path.split("/")
     user, index = parts[:2]
     assert parts[2] in ("+f", "+e")
     route_name = "/{user}/{index}/%s/{relpath:.*}" % parts[2]

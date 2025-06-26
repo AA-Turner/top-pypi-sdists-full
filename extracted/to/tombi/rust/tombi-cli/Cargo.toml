@@ -14,15 +14,16 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 clap-verbosity-flag.workspace = true
-glob.workspace = true
 itertools.workspace = true
 nu-ansi-term.workspace = true
+rayon.workspace = true
 serde_tombi.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tombi-config.workspace = true
 tombi-diagnostic.workspace = true
 tombi-formatter.workspace = true
+tombi-glob.workspace = true
 tombi-linter.workspace = true
 tombi-lsp.workspace = true
 tombi-schema-store.workspace = true

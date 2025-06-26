@@ -51,6 +51,8 @@ async def set_auth_ctx_for_run(
         user = run_kwargs["config"]["configurable"]["langgraph_auth_user"]
         permissions = run_kwargs["config"]["configurable"]["langgraph_auth_permissions"]
         user = normalize_user(user)
+        # Reapply normalization to the kwargs
+        run_kwargs["config"]["configurable"]["langgraph_auth_user"] = user
     except Exception:
         user = SimpleUser(user_id) if user_id is not None else None
         permissions = None

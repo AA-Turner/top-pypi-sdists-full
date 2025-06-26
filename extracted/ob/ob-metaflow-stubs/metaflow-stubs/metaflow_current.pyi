@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-25T00:26:31.630392                                                            #
+# Generated on 2025-06-25T20:19:31.363406                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import metaflow.events
-    import metaflow.metaflow_current
-    import metaflow.plugins.cards.component_serializer
     import typing
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.metaflow_current
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import metaflow
 
 
@@ -228,32 +228,133 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
+    def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
-        (only in the presence of the @parallel decorator)
+        (only in the presence of the @huggingface_hub decorator)
         
-        Returns a namedtuple with relevant information about the parallel task.
+        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar
+        over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
+        [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
+        The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
+        `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
         
-        Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
+        
+        Usage:
+        ------
+        
+        **Usage: creating references of models from huggingface that may be loaded in downstream steps**
+        ```python
+            @huggingface_hub
+            @step
+            def pull_model_from_huggingface(self):
+                # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
+                # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
+                # with the same `repo_id` in the backend storage, it will not download the model again. The return
+                # value of the function is a reference to the model in the backend storage.
+                # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
+        
+                self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
+                self.llama_model = current.huggingface_hub.snapshot_download(
+                    repo_id=self.model_id,
+                    allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
+                )
+                self.next(self.train)
+        ```
+        
+        **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
+        ```python
+            @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
+            @step
+            def pull_model_from_huggingface(self):
+                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+        ```
+        
+        ```python
+            @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
+            @step
+            def finetune_model(self):
+                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+                # path_to_model will be /my-directory
+        ```
+        
+        ```python
+            # Takes all the arguments passed to `snapshot_download`
+            # except for `local_dir`
+            @huggingface_hub(load=[
+                {
+                    "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
+                },
+                {
+                    "repo_id": "myorg/mistral-lora",
+                    "repo_type": "model",
+                },
+            ])
+            @step
+            def finetune_model(self):
+                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+                # path_to_model will be /my-directory
+        ```
         """
         ...
     @property
-    def is_parallel(self) -> bool:
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
-        (only in the presence of the @parallel decorator)
+        (only in the presence of the @model decorator)
         
-        True if the current step is a @parallel step.
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
+        
+        Usage (Saving a model):
+        -------
+        
+        ```
+        @model
+        @step
+        def train(self):
+            # current.model.save returns a dictionary reference to the model saved
+            self.my_model = current.model.save(
+                path_to_my_model,
+                label="my_model",
+                metadata={
+                    "epochs": 10,
+                    "batch-size": 32,
+                    "learning-rate": 0.001,
+                }
+            )
+            self.next(self.test)
+        
+        @model(load="my_model")
+        @step
+        def test(self):
+            # `current.model.loaded` returns a dictionary of the loaded models
+            # where the key is the name of the artifact and the value is the path to the model
+            print(os.listdir(current.model.loaded["my_model"]))
+            self.next(self.end)
+        ```
+        
+        Usage (Loading models):
+        -------
+        
+        ```
+        @step
+        def train(self):
+            # current.model.load returns the path to the model loaded
+            checkpoint_path = current.model.load(
+                self.checkpoint_key,
+            )
+            model_path = current.model.load(
+                self.model,
+            )
+            self.next(self.test)
+        ```
+        
+        
+        Returns
+        -------
+        ModelSerializer
+            The object used for loading / saving models.
         """
         ...
     @property
@@ -336,133 +437,32 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
-        (only in the presence of the @model decorator)
+        (only in the presence of the @parallel decorator)
         
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
-        
-        Usage (Saving a model):
-        -------
-        
-        ```
-        @model
-        @step
-        def train(self):
-            # current.model.save returns a dictionary reference to the model saved
-            self.my_model = current.model.save(
-                path_to_my_model,
-                label="my_model",
-                metadata={
-                    "epochs": 10,
-                    "batch-size": 32,
-                    "learning-rate": 0.001,
-                }
-            )
-            self.next(self.test)
-        
-        @model(load="my_model")
-        @step
-        def test(self):
-            # `current.model.loaded` returns a dictionary of the loaded models
-            # where the key is the name of the artifact and the value is the path to the model
-            print(os.listdir(current.model.loaded["my_model"]))
-            self.next(self.end)
-        ```
-        
-        Usage (Loading models):
-        -------
-        
-        ```
-        @step
-        def train(self):
-            # current.model.load returns the path to the model loaded
-            checkpoint_path = current.model.load(
-                self.checkpoint_key,
-            )
-            model_path = current.model.load(
-                self.model,
-            )
-            self.next(self.test)
-        ```
-        
+        Returns a namedtuple with relevant information about the parallel task.
         
         Returns
         -------
-        ModelSerializer
-            The object used for loading / saving models.
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
         """
         ...
     @property
-    def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
+    def is_parallel(self) -> bool:
         """
-        (only in the presence of the @huggingface_hub decorator)
+        (only in the presence of the @parallel decorator)
         
-        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar
-        over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
-        [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
-        The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
-        `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
-        
-        
-        Usage:
-        ------
-        
-        **Usage: creating references of models from huggingface that may be loaded in downstream steps**
-        ```python
-            @huggingface_hub
-            @step
-            def pull_model_from_huggingface(self):
-                # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
-                # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
-                # with the same `repo_id` in the backend storage, it will not download the model again. The return
-                # value of the function is a reference to the model in the backend storage.
-                # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
-        
-                self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
-                self.llama_model = current.huggingface_hub.snapshot_download(
-                    repo_id=self.model_id,
-                    allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
-                )
-                self.next(self.train)
-        ```
-        
-        **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
-        ```python
-            @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
-            @step
-            def pull_model_from_huggingface(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-        ```
-        
-        ```python
-            @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
-        
-        ```python
-            # Takes all the arguments passed to `snapshot_download`
-            # except for `local_dir`
-            @huggingface_hub(load=[
-                {
-                    "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
-                },
-                {
-                    "repo_id": "myorg/mistral-lora",
-                    "repo_type": "model",
-                },
-            ])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
+        True if the current step is a @parallel step.
         """
         ...
     @property

@@ -55,7 +55,7 @@ start:
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \
 	N_JOBS_PER_WORKER=2 \
 	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
-	LANGSERVE_GRAPHS='{"agent": "./tests/graphs/agent.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph"}' \
+	LANGSERVE_GRAPHS='{"agent": "./tests/graphs/agent.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph"}' \
 	LANGGRAPH_STORE='$(STORE_CONFIG)' \
 	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
 	LANGSMITH_LANGGRAPH_API_VARIANT=test \

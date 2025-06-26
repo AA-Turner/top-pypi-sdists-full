@@ -893,6 +893,8 @@ class ListAccessPointsRequestTypeDef(TypedDict):
     Bucket: NotRequired[str]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    DataSourceId: NotRequired[str]
+    DataSourceType: NotRequired[str]
 
 class ListCallerAccessGrantsEntryTypeDef(TypedDict):
     Permission: NotRequired[PermissionType]
@@ -1088,6 +1090,8 @@ class AccessPointTypeDef(TypedDict):
     AccessPointArn: NotRequired[str]
     Alias: NotRequired[str]
     BucketAccountId: NotRequired[str]
+    DataSourceId: NotRequired[str]
+    DataSourceType: NotRequired[str]
 
 class DeleteMultiRegionAccessPointRequestTypeDef(TypedDict):
     AccountId: str
@@ -1317,6 +1321,8 @@ class GetAccessPointResultTypeDef(TypedDict):
     AccessPointArn: str
     Endpoints: Dict[str, str]
     BucketAccountId: str
+    DataSourceId: str
+    DataSourceType: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPublicAccessBlockOutputTypeDef(TypedDict):

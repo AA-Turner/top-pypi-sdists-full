@@ -357,6 +357,7 @@ class Operations(_api_module.BaseModule):
     return_value = types.GenerateVideosOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -414,6 +415,7 @@ class Operations(_api_module.BaseModule):
     return_value = types.GenerateVideosOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -519,6 +521,7 @@ class AsyncOperations(_api_module.BaseModule):
     return_value = types.GenerateVideosOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 
@@ -576,6 +579,7 @@ class AsyncOperations(_api_module.BaseModule):
     return_value = types.GenerateVideosOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
+
     self._api_client._verify_response(return_value)
     return return_value
 

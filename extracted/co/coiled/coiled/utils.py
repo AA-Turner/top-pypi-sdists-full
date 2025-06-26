@@ -40,12 +40,13 @@ from typing_extensions import TypeVar
 from coiled.context import get_datadog_trace_link, track_context
 
 if sys.version_info >= (3, 8):
-    from typing import Literal, Type, TypedDict
+    from typing import Any, Literal, Type, TypedDict
 else:
-    from typing_extensions import Literal, Type, TypedDict
+    from typing_extensions import Any, Literal, Type, TypedDict
 
 import aiohttp
 import boto3
+import certifi
 import click
 import dask.config
 import dask.utils
@@ -123,6 +124,16 @@ class VmType(TypedDict):
     memory: int
     backend_type: str
     coiled_credits: float
+
+
+def session_certifi_ssl() -> dict[str, Any]:
+    try:
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        return {"connector": aiohttp.TCPConnector(ssl=ssl_context)}
+    except Exception:
+        pass
+
+    return {}
 
 
 # TODO: copied from distributed, introduced in 2021.12.0.
@@ -480,7 +491,8 @@ async def handle_credentials(
         headers={
             "Authorization": get_auth_header_value(token),
             "Client-Version": COILED_VERSION,
-        }
+        },
+        **session_certifi_ssl(),
     ) as session:
         try:
             user_dict = await _fetch_data(

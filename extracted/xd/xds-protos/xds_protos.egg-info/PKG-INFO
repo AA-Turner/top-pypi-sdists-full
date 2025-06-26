@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: xds-protos
-Version: 1.73.0
+Version: 1.73.1
 Summary: Generated Python code from envoyproxy/data-plane-api
 Home-page: https://grpc.io
 Author: The gRPC Authors

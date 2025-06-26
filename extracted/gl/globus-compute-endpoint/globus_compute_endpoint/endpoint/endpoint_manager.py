@@ -22,7 +22,6 @@ import typing as t
 import uuid
 from concurrent.futures import Future
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 
@@ -34,6 +33,7 @@ from globus_compute_common.messagepack import pack
 from globus_compute_common.messagepack.message_types import EPStatusReport
 from globus_compute_common.pydantic_v1 import BaseModel
 from globus_compute_endpoint import __version__
+from globus_compute_endpoint.auth import get_globus_app_with_scopes
 from globus_compute_endpoint.endpoint.config import ManagerEndpointConfig
 from globus_compute_endpoint.endpoint.config.config import MINIMUM_HEARTBEAT
 from globus_compute_endpoint.endpoint.config.utils import (
@@ -43,7 +43,10 @@ from globus_compute_endpoint.endpoint.config.utils import (
     serialize_config,
 )
 from globus_compute_endpoint.endpoint.endpoint import Endpoint
-from globus_compute_endpoint.endpoint.identity_mapper import PosixIdentityMapper
+from globus_compute_endpoint.endpoint.identity_mapper import (
+    MappedPosixIdentity,
+    PosixIdentityMapper,
+)
 from globus_compute_endpoint.endpoint.rabbit_mq import (
     CommandQueueSubscriber,
     ResultPublisher,
@@ -105,22 +108,6 @@ class UserEndpointRecord(BaseModel):
     @property
     def uname(self) -> str:
         return self.local_user_info.pw_name if self.local_user_info else ""
-
-
-@dataclass
-class MappedPosixIdentity:
-    local_user_record: pwd.struct_passwd
-
-    # Example structure:
-    # In this example data,
-    #  - the first mapper found no identities or failed
-    #  - the second mapper mapped uuid1 to both alice and bob and additionally mapped
-    #    uuid2 to charlie.
-    #  - the third mapper mapped uuid1 to darla
-    # [[], [{"uuid1": ["alice", "bob"], "uuid2": ["charlie"]}], [{"uuid1": ["darla"]}]]
-    globus_identity_candidates: list[list[dict[str, list[str]]]]
-
-    matched_identity: uuid.UUID | str | None
 
 
 T_CMD_START_ARGS = t.Tuple[
@@ -209,6 +196,7 @@ class EndpointManager:
                 gcc = GC.Client(
                     local_compute_services=config.local_compute_services,
                     environment=config.environment,
+                    app=get_globus_app_with_scopes(),
                 )
                 reg_info = gcc.register_endpoint(
                     name=conf_dir.name,
@@ -636,6 +624,7 @@ class EndpointManager:
             client_options = {
                 "local_compute_services": self._config.local_compute_services,
                 "environment": self._config.environment,
+                "app": get_globus_app_with_scopes(),
             }
             log.debug("Ascertaining user identity set (%s)", client_options)
 
@@ -1236,6 +1225,7 @@ class EndpointManager:
                 self._config,
                 template_str,
                 self.user_config_template_path,
+                ident,
                 user_config_schema,
                 user_opts,
                 user_runtime,

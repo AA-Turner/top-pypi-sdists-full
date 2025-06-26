@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 from bokeh.models import (
     CategoricalColorMapper,
     DatetimeAxis,
@@ -282,7 +283,7 @@ class TestBarPlot(TestBokehPlot):
         colors = ['blue', 'red']
         overlay = NdOverlay({color: Bars(np.arange(i+2)) for i, color in enumerate(colors)}, 'Color').opts('Bars', fill_color='Color')
         plot = bokeh_renderer.get_plot(overlay)
-        for subplot, color in zip(plot.subplots.values(),  colors):
+        for subplot, color in zip(plot.subplots.values(),  colors, strict=None):
             self.assertEqual(subplot.handles['glyph'].fill_color, color)
 
     def test_bars_color_index_color_clash(self):
@@ -419,3 +420,24 @@ class TestBarPlot(TestBokehPlot):
         bars = Bars(dic, kdims=["ratio"], vdims=["count"])
         plot = bokeh_renderer.get_plot(bars)
         assert np.isclose(plot.handles["glyph"].width, 0.232)
+
+
+@pytest.mark.parametrize("stacked", [True, False])
+def test_grouped_bars_color(stacked):
+    # Test for https://github.com/holoviz/holoviews/issues/6580
+    data = {
+        "A": ["A1", "A1", "A1", "A1", "A2", "A2", "A2", "A2", "A3", "A3", "A3", "A3"],
+        "B": ["B1", "B2", "B3", "B4", "B1", "B2", "B3", "B4", "B1", "B2", "B3", "B4"],
+        "count": [100, 50, 25, 10, 80, 60, 30, 15, 90, 45, 20, 5],
+    }
+
+    df = pd.DataFrame(data)
+    bar = Bars(df, kdims=["A", "B"], vdims=["count"]).opts(
+        stacked=stacked,
+        cmap="Category10",
+        color="B",
+    )
+
+    output = bokeh_renderer.get_plot(bar).handles["cds"].data["color"]
+    expected = sorted(data["B"])
+    assert output == expected

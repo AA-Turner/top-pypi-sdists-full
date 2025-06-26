@@ -2,17 +2,16 @@
 # Contact: dalcinl@gmail.com
 """Implements MPIPoolExecutor."""
 
-import sys
-import time
+import collections
 import functools
 import itertools
+import sys
 import threading
-
-from ._base import Future
-from ._base import Executor
-from ._base import as_completed
+import time
+import weakref
 
 from . import _core
+from ._base import Executor, Future, as_completed
 
 
 class MPIPoolExecutor(Executor):
@@ -20,8 +19,9 @@ class MPIPoolExecutor(Executor):
 
     Future = Future
 
-    def __init__(self, max_workers=None,
-                 initializer=None, initargs=(), **kwargs):
+    def __init__(
+        self, max_workers=None, initializer=None, initargs=(), **kwargs
+    ):
         """Initialize a new MPIPoolExecutor instance.
 
         Args:
@@ -42,19 +42,19 @@ class MPIPoolExecutor(Executor):
             path: List of paths to append to ``sys.path`` in workers.
             wdir: Path to set current working directory in workers.
             env: Environment variables to update ``os.environ`` in workers.
-            use_pkl5: If ``True``, use pickle5 out-of-band for communication.
+            use_pkl5: If ``True``, use out-of-band pickle for communication.
 
         """
         if max_workers is not None:
             max_workers = int(max_workers)
             if max_workers <= 0:
                 raise ValueError("max_workers must be greater than 0")
-            kwargs['max_workers'] = max_workers
+            kwargs["max_workers"] = max_workers
         if initializer is not None:
             if not callable(initializer):
                 raise TypeError("initializer must be a callable")
-            kwargs['initializer'] = initializer
-            kwargs['initargs'] = tuple(initargs)
+            kwargs["initializer"] = initializer
+            kwargs["initargs"] = tuple(initargs)
 
         self._options = kwargs
         self._shutdown = False
@@ -100,7 +100,7 @@ class MPIPoolExecutor(Executor):
                 self._pool.wait()
             return self
 
-    def submit(self, fn, *args, **kwargs):
+    def submit(self, fn, /, *args, **kwargs):
         """Submit a callable to be executed with the given arguments.
 
         Schedule the callable to be executed as ``fn(*args, **kwargs)`` and
@@ -110,7 +110,6 @@ class MPIPoolExecutor(Executor):
             A `Future` representing the given call.
 
         """
-        # pylint: disable=arguments-differ
         with self._lock:
             if self._broken:
                 raise _core.BrokenExecutor(self._broken)
@@ -121,11 +120,16 @@ class MPIPoolExecutor(Executor):
             task = (fn, args, kwargs)
             self._pool.push((future, task))
             return future
-    if sys.version_info >= (3, 8):  # pragma: no branch
-        submit.__text_signature__ = '($self, fn, /, *args, **kwargs)'
 
-    def map(self, fn, *iterables,
-            timeout=None, chunksize=1, unordered=False):
+    def map(
+        self,
+        fn,
+        *iterables,
+        timeout=None,
+        chunksize=1,
+        buffersize=None,
+        unordered=False,
+    ):
         """Return an iterator equivalent to ``map(fn, *iterables)``.
 
         Args:
@@ -137,6 +141,8 @@ class MPIPoolExecutor(Executor):
                 there is no limit on the wait time.
             chunksize: The size of the chunks the iterable will be broken into
                 before being passed to a worker process.
+            buffersize: If not ``None``, limit the number of submitted
+                tasks whose results have not yet been yielded.
             unordered: If ``True``, yield results out-of-order, as completed.
 
         Returns:
@@ -149,10 +155,20 @@ class MPIPoolExecutor(Executor):
             Exception: If ``fn(*args)`` raises for any values.
 
         """
-        return self.starmap(fn, zip(*iterables), timeout, chunksize, unordered)
+        # pylint: disable=too-many-arguments
+        return self.starmap(
+            fn, zip(*iterables), timeout, chunksize, buffersize, unordered
+        )
 
-    def starmap(self, fn, iterable,
-                timeout=None, chunksize=1, unordered=False):
+    def starmap(
+        self,
+        fn,
+        iterable,
+        timeout=None,
+        chunksize=1,
+        buffersize=None,
+        unordered=False,
+    ):
         """Return an iterator equivalent to ``itertools.starmap(...)``.
 
         Args:
@@ -163,6 +179,8 @@ class MPIPoolExecutor(Executor):
                 there is no limit on the wait time.
             chunksize: The size of the chunks the iterable will be broken into
                 before being passed to a worker process.
+            buffersize: If not ``None``, limit the number of submitted
+                tasks whose results have not yet been yielded.
             unordered: If ``True``, yield results out-of-order, as completed.
 
         Returns:
@@ -178,12 +196,32 @@ class MPIPoolExecutor(Executor):
         # pylint: disable=too-many-arguments,too-many-positional-arguments
         if chunksize < 1:
             raise ValueError("chunksize must be >= 1.")
+        if buffersize is not None:
+            if not isinstance(buffersize, int):
+                raise TypeError("buffersize must be an integer or None")
+            if buffersize < 1:
+                raise ValueError("buffersize must be None or > 0")
+            if unordered:
+                raise ValueError("buffersize must be None if unordered")
         if chunksize == 1:
-            return _starmap_helper(self.submit, fn, iterable,
-                                   timeout, unordered)
+            return _starmap_helper(
+                self,
+                fn,
+                iterable,
+                timeout,
+                buffersize,
+                unordered,
+            )
         else:
-            return _starmap_chunks(self.submit, fn, iterable,
-                                   timeout, unordered, chunksize)
+            return _starmap_chunks(
+                self,
+                fn,
+                iterable,
+                timeout,
+                chunksize,
+                buffersize,
+                unordered,
+            )
 
     def shutdown(self, wait=True, *, cancel_futures=False):
         """Clean-up the resources associated with the executor.
@@ -216,17 +254,32 @@ class MPIPoolExecutor(Executor):
             pool.join()
 
 
-def _starmap_helper(submit, function, iterable, timeout, unordered):
+def _starmap_helper(
+    executor, function, iterable, timeout, buffersize, unordered
+):
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     timer = time.monotonic
     end_time = sys.float_info.max
     if timeout is not None:
         end_time = timeout + timer()
 
-    futures = [submit(function, *args) for args in iterable]
-    if unordered:
-        futures = set(futures)
+    if buffersize is not None:
+        fs = collections.deque(
+            executor.submit(function, *args)
+            for args in itertools.islice(iterable, buffersize)
+        )
+        unordered = False
+    else:
+        fs = collections.deque(
+            executor.submit(function, *args) for args in iterable
+        )
+        if unordered:
+            fs = set(fs)
 
-    def result(future, timeout=None):
+    executor_weakref = weakref.ref(executor)
+    del executor
+
+    def resolve(future, timeout=None):
         try:
             try:
                 return future.result(timeout)
@@ -236,35 +289,45 @@ def _starmap_helper(submit, function, iterable, timeout, unordered):
             del future
 
     def result_iterator():
+        future = collections.deque()
+        result = collections.deque()
         try:
             if unordered:
                 if timeout is None:
-                    iterator = as_completed(futures)
+                    iterator = as_completed(fs)
                 else:
-                    iterator = as_completed(futures, end_time - timer())
-                for future in iterator:
-                    futures.remove(future)
-                    future = [future]
-                    yield result(future.pop())
+                    iterator = as_completed(fs, end_time - timer())
+                for _ in map(future.append, iterator):
+                    fs.remove(future[0])
+                    yield resolve(future.pop())
             else:
-                futures.reverse()
-                if timeout is None:
-                    while futures:
-                        yield result(futures.pop())
-                else:
-                    while futures:
-                        yield result(futures.pop(), end_time - timer())
+                fs.reverse()
+                while fs:
+                    if timeout is None:
+                        result.append(resolve(fs.pop()))
+                    else:
+                        result.append(resolve(fs.pop(), end_time - timer()))
+                    if (
+                        buffersize is not None
+                        and (executor := executor_weakref())
+                        and (args := next(iterable, None))
+                    ):
+                        fs.appendleft(executor.submit(function, *args))
+                    yield result.pop()
         finally:
-            while futures:
-                futures.pop().cancel()
+            del future
+            del result
+            while fs:
+                fs.pop().cancel()
+
     return result_iterator()
 
 
 def _apply_chunks(function, chunk):
-    return [function(*args) for args in chunk]
+    return list(itertools.starmap(function, chunk))
 
 
-def _build_chunks(chunksize, iterable):
+def _build_chunks(iterable, chunksize):
     iterable = iter(iterable)
     while True:
         chunk = tuple(itertools.islice(iterable, chunksize))
@@ -280,13 +343,15 @@ def _chain_from_iterable_of_lists(iterable):
             yield item.pop()
 
 
-def _starmap_chunks(submit, function, iterable,
-                    timeout, unordered, chunksize):
+def _starmap_chunks(
+    executor, function, iterable, timeout, chunksize, buffersize, unordered
+):
     # pylint: disable=too-many-arguments,too-many-positional-arguments
     function = functools.partial(_apply_chunks, function)
-    iterable = _build_chunks(chunksize, iterable)
-    result = _starmap_helper(submit, function, iterable,
-                             timeout, unordered)
+    iterable = _build_chunks(iterable, chunksize)
+    result = _starmap_helper(
+        executor, function, iterable, timeout, buffersize, unordered
+    )
     return _chain_from_iterable_of_lists(result)
 
 
@@ -302,7 +367,7 @@ class MPICommExecutor:
     Example::
 
         with MPICommExecutor(MPI.COMM_WORLD, root=0) as executor:
-            if executor is not None: # master process
+            if executor is not None:  # master process
                 executor.submit(...)
                 executor.map(...)
     """

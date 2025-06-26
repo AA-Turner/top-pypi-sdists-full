@@ -52,10 +52,12 @@ def sumDayV0001(d, verbosity ):
                 continue
             if 'topUrl' in dtmp['v0001']['days'][k]['user']:
                 c = 0
-                for t, u in sorted(dtmp['v0001']['days'][k]['user']['topUrl'].items(), key=itemgetter(1), reverse=True):
+                for t, u in sorted(dtmp['v0001']['days'][k]['user']['topUrl'].items(), key=lambda x: x[1], reverse=True):
                     c = c + 1
-                    if c > 140:
-                         del d['v0001']['days'][k]['user']['topUrl'][t]
-                         #print("sumDayV0001: " +  str(c) + " del: " + str(k) + " " + str(t) + " count: " + str(u) )
+                    if c > 40:
+                         try:
+                           del d['v0001']['days'][k]['user']['topUrl'][t]
+                         except KeyError:
+                           print("sumDayV0001 key error: " +  str(t) +  " day:" + str(k) + " count: " + str(u) )
                 
     return d
