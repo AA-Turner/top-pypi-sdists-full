@@ -548,14 +548,19 @@ async def search_crons(request: ApiRequest):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
     async with connect() as conn:
-        crons_iter = await Crons.search(
+        crons_iter, total = await Crons.search(
             conn,
             assistant_id=assistant_id,
             thread_id=thread_id,
             limit=int(payload.get("limit", 10)),
             offset=int(payload.get("offset", 0)),
+            sort_by=payload.get("sort_by"),
+            sort_order=payload.get("sort_order"),
         )
-    return ApiResponse([cron async for cron in crons_iter])
+    return ApiResponse(
+        [cron async for cron in crons_iter],
+        headers={"X-Pagination-Total": str(total)},
+    )
 
 
 runs_routes = [

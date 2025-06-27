@@ -4101,6 +4101,7 @@ class CreateRouteRequestRouteTableCreateRouteTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     DestinationCidrBlock: NotRequired[str]
     GatewayId: NotRequired[str]
@@ -4120,6 +4121,7 @@ class CreateRouteRequestTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     DestinationCidrBlock: NotRequired[str]
     GatewayId: NotRequired[str]
@@ -7843,6 +7845,7 @@ class ReplaceRouteRequestRouteReplaceTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     GatewayId: NotRequired[str]
     DestinationIpv6CidrBlock: NotRequired[str]
@@ -7862,6 +7865,7 @@ class ReplaceRouteRequestTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     DestinationCidrBlock: NotRequired[str]
     GatewayId: NotRequired[str]
@@ -8065,6 +8069,7 @@ class RouteTypeDef(TypedDict):
     State: NotRequired[RouteStateType]
     VpcPeeringConnectionId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
 
 
 class S3StorageOutputTypeDef(TypedDict):

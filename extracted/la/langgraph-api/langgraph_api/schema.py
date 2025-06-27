@@ -170,6 +170,8 @@ class Cron(TypedDict):
 
     cron_id: UUID
     """The ID of the cron."""
+    assistant_id: UUID
+    """The ID of the assistant."""
     thread_id: UUID | None
     """The ID of the thread."""
     end_time: datetime | None
@@ -180,8 +182,14 @@ class Cron(TypedDict):
     """The time the cron was created."""
     updated_at: datetime
     """The last time the cron was updated."""
+    user_id: UUID | None
+    """The ID of the user."""
     payload: Fragment
     """The run payload to use for creating new run."""
+    next_run_date: datetime
+    """The next run date of the cron."""
+    metadata: Fragment
+    """The cron metadata."""
 
 
 class ThreadUpdateResponse(TypedDict):

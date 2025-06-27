@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.38.44
-Summary: Type annotations for boto3 1.38.44 generated with mypy-boto3-builder 8.11.0
+Version: 1.38.45
+Summary: Type annotations for boto3 1.38.45 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.39.0,>=1.38.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.38.44; extra == "boto3"
+Requires-Dist: boto3==1.38.45; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.39.0,>=1.38.0; extra == "all"
@@ -241,6 +241,7 @@ Requires-Dist: mypy-boto3-kafkaconnect<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-kendra<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-kendra-ranking<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-keyspaces<1.39.0,>=1.38.0; extra == "all"
+Requires-Dist: mypy-boto3-keyspacesstreams<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-kinesis<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-kinesis-video-archived-media<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-kinesis-video-media<1.39.0,>=1.38.0; extra == "all"
@@ -859,6 +860,8 @@ Provides-Extra: kendra-ranking
 Requires-Dist: mypy-boto3-kendra-ranking<1.39.0,>=1.38.0; extra == "kendra-ranking"
 Provides-Extra: keyspaces
 Requires-Dist: mypy-boto3-keyspaces<1.39.0,>=1.38.0; extra == "keyspaces"
+Provides-Extra: keyspacesstreams
+Requires-Dist: mypy-boto3-keyspacesstreams<1.39.0,>=1.38.0; extra == "keyspacesstreams"
 Provides-Extra: kinesis
 Requires-Dist: mypy-boto3-kinesis<1.39.0,>=1.38.0; extra == "kinesis"
 Provides-Extra: kinesis-video-archived-media
@@ -1293,7 +1296,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.38.44](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.38.45](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1352,7 +1355,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.44' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.45' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1704,9 +1707,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 407 services in one package
+- `boto3-stubs[full]` - Type annotations for all 408 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 407 services in separate
+- `boto3-stubs[all]` - Type annotations for all 408 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2305,6 +2308,9 @@ repository.
   service.
 - `boto3-stubs[keyspaces]` - Type annotations for
   [Keyspaces](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/)
+  service.
+- `boto3-stubs[keyspacesstreams]` - Type annotations for
+  [KeyspacesStreams](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspacesstreams/)
   service.
 - `boto3-stubs[kinesis]` - Type annotations for
   [Kinesis](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/)

@@ -35,6 +35,7 @@ from libc.stdint cimport int8_t, int16_t, int32_t, int64_t
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from libc.stdlib cimport abs
 from cpython cimport array
+cimport cpython.datetime as cydatetime
 
 ctypedef unsigned char char_type
 
@@ -185,18 +186,13 @@ cpdef enum:
     VECTOR_FORMAT_FLOAT64 = 3
     VECTOR_FORMAT_INT8 = 4
 
-cdef type PY_TYPE_ASYNC_CURSOR
 cdef type PY_TYPE_ASYNC_LOB
-cdef type PY_TYPE_BOOL
-cdef type PY_TYPE_CURSOR
 cdef type PY_TYPE_DATE
 cdef type PY_TYPE_DATETIME
-cdef type PY_TYPE_DECIMAL
 cdef type PY_TYPE_DB_OBJECT
-cdef type PY_TYPE_DB_OBJECT_TYPE
-cdef type PY_TYPE_FETCHINFO
-cdef type PY_TYPE_JSON_ID
+cdef type PY_TYPE_DECIMAL
 cdef type PY_TYPE_INTERVAL_YM
+cdef type PY_TYPE_JSON_ID
 cdef type PY_TYPE_LOB
 cdef type PY_TYPE_MESSAGE
 cdef type PY_TYPE_MESSAGE_QUERY
@@ -204,7 +200,6 @@ cdef type PY_TYPE_MESSAGE_ROW
 cdef type PY_TYPE_MESSAGE_TABLE
 cdef type PY_TYPE_SPARSE_VECTOR
 cdef type PY_TYPE_TIMEDELTA
-cdef type PY_TYPE_VAR
 
 cdef str DRIVER_NAME
 cdef str DRIVER_VERSION
@@ -508,6 +503,7 @@ cdef class Description(ConnectParamsNode):
         public str cclass
         public str connection_id_prefix
         public str pool_boundary
+        public str pool_name
         public uint32_t purity
         public bint ssl_server_dn_match
         public bint use_tcp_fast_open
@@ -586,6 +582,7 @@ cdef class ConnectParamsImpl:
     cdef str _get_token(self)
     cdef object _get_public_instance(self)
     cdef object _get_token_expires(self, str token)
+    cdef bint _get_uses_drcp(self)
     cdef str _get_wallet_password(self)
     cdef int _parse_connect_string(self, str connect_string) except -1
     cdef int _set_access_token(self, object val, int error_num) except -1
@@ -981,7 +978,9 @@ cdef object convert_oracle_data_to_python(OracleMetadata from_metadata,
                                           OracleData* data,
                                           const char* encoding_errors,
                                           bint from_dbobject)
-cdef object convert_date_to_python(OracleDataBuffer *buffer)
+cdef int convert_vector_to_arrow(OracleArrowArray arrow_array,
+                                 object vector) except -1
+cdef cydatetime.datetime convert_date_to_python(OracleDataBuffer *buffer)
 cdef uint16_t decode_uint16be(const char_type *buf)
 cdef uint32_t decode_uint32be(const char_type *buf)
 cdef uint16_t decode_uint16le(const char_type *buf)

@@ -35,21 +35,21 @@ TESTS_REQUIRE = [
 
 setup(
     name='zope.browserpage',
-    version='5.0',
+    version='5.1',
     url='https://github.com/zopefoundation/zope.browserpage',
     author='Zope Foundation and Contributors',
-    author_email='zope-dev@zope.org',
+    author_email='zope-dev@zope.dev',
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Zope Public License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Operating System :: OS Independent',
@@ -58,11 +58,11 @@ setup(
     ],
     description='ZCML directives for configuring browser views for Zope.',
     long_description=long_description,
-    license='ZPL 2.1',
+    license='ZPL-2.1',
     packages=find_packages('src'),
     package_dir={'': 'src'},
     namespace_packages=['zope'],
-    python_requires='>=3.7',
+    python_requires='>=3.9',
     install_requires=[
         'setuptools',
         'zope.tal >= 4.2.0',
@@ -74,7 +74,7 @@ setup(
         'zope.schema',
         'zope.security',
         'zope.traversing',
-        ],
+    ],
     extras_require={
         'menu': [
             'zope.browsermenu',

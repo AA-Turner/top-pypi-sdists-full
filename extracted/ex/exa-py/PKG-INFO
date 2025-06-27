@@ -1,27 +1,28 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: exa-py
-Version: 1.14.12
+Version: 1.14.13
 Summary: Python SDK for Exa API.
-Home-page: https://github.com/exa-labs/exa-py
-Author: Exa
-Author-email: Exa AI <hello@exa.ai>
 License: MIT
+Author: Exa AI
+Author-email: hello@exa.ai
 Requires-Python: >=3.9
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: httpx (>=0.28.1)
+Requires-Dist: openai (>=1.48)
+Requires-Dist: pydantic (>=2.10.6)
+Requires-Dist: requests (>=2.32.3)
+Requires-Dist: typing-extensions (>=4.12.2)
 Description-Content-Type: text/markdown
-Requires-Dist: requests>=2.32.3
-Requires-Dist: typing-extensions>=4.12.2
-Requires-Dist: openai>=1.48
-Requires-Dist: pydantic>=2.10.6
-Requires-Dist: httpx>=0.28.1
-Dynamic: author
-Dynamic: home-page
 
 # Exa
 
-Exa (formerly Metaphor) API in Python
-
-Note: This API is basically the same as `metaphor-python` but reflects new
-features associated with Metaphor's rename to Exa. New site is https://exa.ai
+Exa API in Python
 
 ## Installation
 
@@ -126,3 +127,4 @@ exa = Exa(api_key="your-api-key")
       output_schema=OUTPUT_SCHEMA,
   )
 ```
+

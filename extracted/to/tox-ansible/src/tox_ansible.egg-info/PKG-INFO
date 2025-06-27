@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-ansible
-Version: 25.5.0
+Version: 25.5.2
 Summary: A radical approach to testing ansible content
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -48,6 +48,7 @@ Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: ruff; extra == "test"
 Requires-Dist: toml-sort; extra == "test"
 Requires-Dist: tox; extra == "test"
+Requires-Dist: tox-extra>=2.2.0; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Dynamic: license-file
 

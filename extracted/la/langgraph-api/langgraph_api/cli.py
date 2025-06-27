@@ -354,7 +354,6 @@ For production use, please use LangGraph Cloud.
             threading.Thread(target=_open_browser, daemon=True).start()
         nvc = os.getenv("LANGGRAPH_NO_VERSION_CHECK")
         if nvc is None or nvc.lower() not in ("true", "1"):
-            print("Checking for newer version...")
             threading.Thread(
                 target=_check_newer_version, args=("langgraph-api",), daemon=True
             ).start()

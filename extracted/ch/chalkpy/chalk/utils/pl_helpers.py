@@ -442,6 +442,8 @@ def pl_is_uniquable_on(dtype: pl.PolarsDataType) -> bool:
         return all(pl_is_uniquable_on(f.dtype) for f in dtype.fields)
     if isinstance(dtype, pl.List):
         return False
+    if isinstance(dtype, pl.Array):
+        return False
     return True
 
 

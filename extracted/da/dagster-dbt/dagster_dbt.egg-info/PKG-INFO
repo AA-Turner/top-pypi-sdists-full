@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-dbt
-Version: 0.26.21
+Version: 0.27.0
 Summary: A Dagster integration for dbt
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dbt
 Author: Dagster Labs
@@ -14,8 +14,8 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
-Requires-Dist: dagster==1.10.21
-Requires-Dist: dbt-core<1.10,>=1.7
+Requires-Dist: dagster==1.11.0
+Requires-Dist: dbt-core<1.11,>=1.7
 Requires-Dist: Jinja2
 Requires-Dist: networkx
 Requires-Dist: orjson

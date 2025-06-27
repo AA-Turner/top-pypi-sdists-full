@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioboto3
-Version: 14.3.0
+Version: 15.0.0
 Summary: Async boto3 wrapper
 Author-email: Terri Cain <terri@dolphincorp.co.uk>
 License: Apache-2.0
@@ -13,14 +13,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: <4.0,>=3.8
+Requires-Python: <4.0,>=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: aiobotocore[boto3]==2.22.0
+Requires-Dist: aiobotocore[boto3]==2.23.0
 Requires-Dist: aiofiles>=23.2.1
 Provides-Extra: s3cse
 Requires-Dist: cryptography>=44.0.1; extra == "s3cse"

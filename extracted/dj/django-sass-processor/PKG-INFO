@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-sass-processor
-Version: 1.4.1
+Version: 1.4.2
 Summary: SASS processor to compile SCSS files into *.css, while rendering, or offline.
 Home-page: https://github.com/jrief/django-sass-processor
 Author: Jacob Rief
@@ -20,13 +20,17 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/markdown
 License-File: LICENSE-MIT
 Provides-Extra: management-command
 Requires-Dist: django-compressor>=2.4; extra == "management-command"
+Dynamic: license-file
 
 # django-sass-processor
 

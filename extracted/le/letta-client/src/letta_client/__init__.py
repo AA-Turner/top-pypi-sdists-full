@@ -198,6 +198,7 @@ from .types import (
     SseServerConfig,
     StdioServerConfig,
     Step,
+    StepFeedback,
     StopReasonType,
     StreamableHttpServerConfig,
     SupervisorManager,
@@ -283,9 +284,11 @@ from . import (
 )
 from .agents import (
     AgentsSearchRequestSearchItem,
+    AgentsSearchRequestSearchItemField,
+    AgentsSearchRequestSearchItemFieldOperator,
     AgentsSearchRequestSearchItemOne,
     AgentsSearchRequestSearchItemOneOperator,
-    AgentsSearchRequestSearchItemOperator,
+    AgentsSearchRequestSearchItemThree,
     AgentsSearchRequestSearchItemTwo,
     AgentsSearchRequestSearchItemZero,
     AgentsSearchRequestSortBy,
@@ -307,12 +310,14 @@ from .client_side_access_tokens import (
 from .environment import LettaEnvironment
 from .groups import GroupCreateManagerConfig, GroupUpdateManagerConfig
 from .projects import ProjectsListResponse, ProjectsListResponseProjectsItem
+from .steps import AddFeedbackRequestFeedback, StepsListRequestFeedback
 from .templates import TemplatesListResponse, TemplatesListResponseTemplatesItem
 from .tools import (
     AddMcpServerRequest,
     AddMcpServerResponseItem,
     DeleteMcpServerResponseItem,
     ListMcpServersResponseValue,
+    TestMcpServerRequest,
     UpdateMcpServerRequest,
     UpdateMcpServerResponse,
 )
@@ -322,6 +327,7 @@ __all__ = [
     "ActionModel",
     "ActionParametersModel",
     "ActionResponseModel",
+    "AddFeedbackRequestFeedback",
     "AddMcpServerRequest",
     "AddMcpServerResponseItem",
     "AgentEnvironmentVariable",
@@ -332,9 +338,11 @@ __all__ = [
     "AgentStateToolRulesItem",
     "AgentType",
     "AgentsSearchRequestSearchItem",
+    "AgentsSearchRequestSearchItemField",
+    "AgentsSearchRequestSearchItemFieldOperator",
     "AgentsSearchRequestSearchItemOne",
     "AgentsSearchRequestSearchItemOneOperator",
-    "AgentsSearchRequestSearchItemOperator",
+    "AgentsSearchRequestSearchItemThree",
     "AgentsSearchRequestSearchItemTwo",
     "AgentsSearchRequestSearchItemZero",
     "AgentsSearchRequestSortBy",
@@ -548,6 +556,8 @@ __all__ = [
     "SseServerConfig",
     "StdioServerConfig",
     "Step",
+    "StepFeedback",
+    "StepsListRequestFeedback",
     "StopReasonType",
     "StreamableHttpServerConfig",
     "SupervisorManager",
@@ -557,6 +567,7 @@ __all__ = [
     "TemplatesListResponse",
     "TemplatesListResponseTemplatesItem",
     "TerminalToolRule",
+    "TestMcpServerRequest",
     "TextContent",
     "TextResponseFormat",
     "Tool",

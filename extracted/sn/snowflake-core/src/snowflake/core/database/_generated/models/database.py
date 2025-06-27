@@ -35,7 +35,7 @@ class Database(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     created_on : datetime, optional
         Date and time the database was created.
     kind : str,  default 'PERMANENT'
@@ -314,7 +314,7 @@ class DatabaseModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         created_on : datetime, optional
             Date and time the database was created.
         kind : str,  default 'PERMANENT'

@@ -26,10 +26,14 @@ from snowflake.core.cortex.search_service._generated.models.numeric_boost import
 from snowflake.core.cortex.search_service._generated.models.query_request import QueryRequest
 from snowflake.core.cortex.search_service._generated.models.query_response import QueryResponse
 from snowflake.core.cortex.search_service._generated.models.query_similarity_boost import QuerySimilarityBoost
+from snowflake.core.cortex.search_service._generated.models.result_row import ResultRow
 from snowflake.core.cortex.search_service._generated.models.scheduling_state import SchedulingState
 from snowflake.core.cortex.search_service._generated.models.scoring_config import ScoringConfig
 from snowflake.core.cortex.search_service._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.cortex.search_service._generated.models.success_response import SuccessResponse
+from snowflake.core.cortex.search_service._generated.models.suggest_query_request import SuggestQueryRequest
+from snowflake.core.cortex.search_service._generated.models.suggest_query_response import SuggestQueryResponse
+from snowflake.core.cortex.search_service._generated.models.suggest_result import SuggestResult
 from snowflake.core.cortex.search_service._generated.models.target_lag import TargetLag
 from snowflake.core.cortex.search_service._generated.models.text_boost import TextBoost
 from snowflake.core.cortex.search_service._generated.models.time_decay import TimeDecay
@@ -48,10 +52,14 @@ __all__ = [
     'QueryRequest',
     'QueryResponse',
     'QuerySimilarityBoost',
+    'ResultRow',
     'SchedulingState',
     'ScoringConfig',
     'SuccessAcceptedResponse',
     'SuccessResponse',
+    'SuggestQueryRequest',
+    'SuggestQueryResponse',
+    'SuggestResult',
     'TargetLag',
     'TextBoost',
     'TimeDecay',

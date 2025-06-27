@@ -50,3 +50,9 @@ class UserInterrupt(Exception):
 class UserRollback(UserInterrupt):
     def __init__(self):
         super().__init__("User requested rollback of the run")
+
+
+class UserTimeout(Exception):
+    def __init__(self, timeout_error: TimeoutError):
+        super().__init__(timeout_error)
+        self.timeout_error = timeout_error

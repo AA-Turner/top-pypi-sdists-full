@@ -46,7 +46,8 @@ from .widgets.base import WidgetBase  # noqa
 if TYPE_CHECKING:
     from bokeh.document import Document
     from bokeh.events import Event
-    from bokeh.model import Model, UIElement
+    from bokeh.model import Model
+    from bokeh.models import UIElement
     from pyviz_comms import Comm
 
     ExportSpec = dict[str, list[str | tuple[str, ...]]]
@@ -403,8 +404,23 @@ class ReactiveESM(ReactiveCustomBase, metaclass=ReactiveESMMetaclass):
     async def _watch_esm(self):
         import watchfiles
         path = self._esm_path(compiled=False)
-        async for _ in watchfiles.awatch(path, stop_event=self._watching_esm):
-            self._update_esm()
+        async for changes in watchfiles.awatch(path, stop_event=self._watching_esm):
+            update = False
+            for (change, path) in changes:
+                if change != watchfiles.Change.modified:
+                    continue
+                # Ensure that the file exists (in case filesystem write is not atomic)
+                retries = 0
+                while not os.path.exists(path):
+                    await asyncio.sleep(0.1)
+                    retries += 1
+                    if retries == 5:
+                        break
+                # Ignore change if file is not written within 0.5 seconds
+                if retries != 5:
+                    update = True
+            if update:
+                self._update_esm()
 
     def _update_esm(self):
         for ref, (model, _) in self._models.copy().items():
@@ -431,7 +447,8 @@ class ReactiveESM(ReactiveCustomBase, metaclass=ReactiveESMMetaclass):
         ignored = [
             p for p in Reactive.param
             if not issubclass(cls.param[p].owner, ReactiveESM) or
-            (p in Viewable.param and p != 'name' and type(Reactive.param[p]) is type(cls.param[p]))
+            (p in Viewable.param and p not in ('name', 'use_shadow_dom')
+             and type(Reactive.param[p]) is type(cls.param[p]))
         ]
         for k, v in self.param.values().items():
             p = self.param[k]
@@ -774,6 +791,13 @@ class ReactComponent(ReactiveESM):
         CounterButton().servable()
     '''
 
+    use_shadow_dom = param.Boolean(default=True, constant=True, doc="""
+        Whether to render component into a shadow root.
+        This may optionally be disabled but will only take
+        effect if the parent is also a React component.
+        If disabled the component will be rendered into
+        the parent's React DOM tree.""")
+
     __abstract = True
 
     _bokeh_model = _BkReactComponent
@@ -836,6 +860,11 @@ class ReactComponent(ReactiveESM):
             'scopes': cls._importmap.get('scopes', {})
         }
 
+    def _get_properties(self, doc: Document | None) -> dict[str, Any]:
+        props = super()._get_properties(doc)
+        props['use_shadow_dom'] = self.use_shadow_dom
+        return props
+
 
 class AnyWidgetComponent(ReactComponent):
     '''
@@ -892,3 +921,8 @@ class AnyWidgetComponent(ReactComponent):
         msg: dict
         """
         self._send_msg(msg)
+
+    def _get_properties(self, doc: Document | None) -> dict[str, Any]:
+        props = super()._get_properties(doc)
+        del props['use_shadow_dom']
+        return props

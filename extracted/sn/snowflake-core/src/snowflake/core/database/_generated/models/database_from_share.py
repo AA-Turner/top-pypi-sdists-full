@@ -33,7 +33,7 @@ class DatabaseFromShare(BaseModel):
     Parameters
     __________
     name : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     """
 
     name: Optional[Annotated[str, Field(strict=True)]] = None
@@ -124,7 +124,7 @@ class DatabaseFromShareModel():
         Parameters
         __________
         name : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         """
 
         self.name = name

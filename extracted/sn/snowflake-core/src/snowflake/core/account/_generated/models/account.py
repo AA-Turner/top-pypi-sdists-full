@@ -35,7 +35,7 @@ class Account(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     edition : str
         Snowflake Edition of the account.
     admin_name : str
@@ -463,7 +463,7 @@ class AccountModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         edition : str
             Snowflake Edition of the account.
         admin_name : str

@@ -1188,12 +1188,15 @@ def format_support_request_as_text(ctx, info):
     columns = [
         metadata_column("id"),
         metadata_column("created"),
+        metadata_column("updated"),
         spec_column("supporting_user_email"),
         spec_column("org_id"),
         spec_column("supporting_user_org_id"),
         spec_column("expiry"),
+        spec_column("admin_state"),
         status_column("supporting_user_id"),
         status_column("support_request_group"),
+        status_column("acknowledgements"),
     ]
 
     return format_table(ctx, info, columns)
@@ -1271,3 +1274,65 @@ def create_support_request_message(
         **input_helpers.strip_none(kwargs),
     )
     return apiclient.user_api.create_support_request_message(body)
+
+
+def format_support_request_acknowledgement_as_text(ctx, info):
+    columns = [
+        metadata_column("id"),
+        metadata_column("created"),
+        metadata_column("updated"),
+        spec_column("supporting_user_id"),
+        spec_column("support_request_id"),
+        spec_column("org_id"),
+    ]
+    return format_table(ctx, info, columns)
+
+
+def _get_support_request_acknowledgement(
+    apiclient, acknowledgement_id, org_id=None, **kwargs
+):
+    return apiclient.user_api.get_support_request_acknowledgement(
+        acknowledgement_id, org_id=org_id
+    )
+
+
+def list_support_request_acknowledgements(ctx, **kwargs):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
+    input_helpers.pop_item_if_none(kwargs)
+    query_results = apiclient.user_api.list_support_request_acknowledgements(**kwargs)
+    return query_results.support_request_acknowledgements
+
+
+def create_support_request_acknowledgement(
+    ctx, org_id=None, supporting_user_id=None, support_request_id=None, **kwargs
+):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    org_id = get_org_from_input_or_ctx(ctx, org_id)
+    spec = agilicus.SupportRequestAcknowledgementSpec(
+        org_id=org_id,
+        supporting_user_id=supporting_user_id,
+        support_request_id=support_request_id,
+        **input_helpers.strip_none(kwargs),
+    )
+    model = agilicus.SupportRequestAcknowledgement(spec=spec)
+    return apiclient.user_api.create_support_request_acknowledgement(model).to_dict()
+
+
+def show_support_request_acknowledgement(
+    ctx, support_request_acknowledgement_id, **kwargs
+):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
+    return _get_support_request_acknowledgement(
+        apiclient, support_request_acknowledgement_id, **kwargs
+    ).to_dict()
+
+
+def delete_support_request_acknowledgement(
+    ctx, support_request_acknowledgement_id, **kwargs
+):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    return apiclient.user_api.delete_support_request_acknowledgement(
+        support_request_acknowledgement_id, **kwargs
+    )

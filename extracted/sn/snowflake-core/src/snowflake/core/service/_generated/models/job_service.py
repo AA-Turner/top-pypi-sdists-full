@@ -35,7 +35,7 @@ class JobService(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     compute_pool : str
         Specifies the name of the compute pool in your account on which to run the service.
     spec : ServiceSpec
@@ -45,7 +45,7 @@ class JobService(BaseModel):
     external_access_integrations : List[str], optional
         Specifies the names of the external access integrations that allow your service to access external sites.
     query_warehouse : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     comment : str, optional
         Specifies a comment for the service.
     is_async_job : bool, optional
@@ -197,7 +197,7 @@ class JobServiceModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         compute_pool : str
             Specifies the name of the compute pool in your account on which to run the service.
         spec : ServiceSpec
@@ -207,7 +207,7 @@ class JobServiceModel():
         external_access_integrations : List[str], optional
             Specifies the names of the external access integrations that allow your service to access external sites.
         query_warehouse : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         comment : str, optional
             Specifies a comment for the service.
         is_async_job : bool, optional

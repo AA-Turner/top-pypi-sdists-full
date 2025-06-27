@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import onnxscript.ir as ir
 import onnxscript.ir.passes.common as common_passes
+import onnxscript.rewriter.ort_fusions.fused_matmul_rule_sets as fused_matmul_rule_sets
 import onnxscript.rewriter.ort_fusions.shape_optimization as shape_optimization
 from onnxscript.optimizer import optimize
-from onnxscript.rewriter import rewrite
+from onnxscript.rewriter import gemm_to_matmul_add, rewrite
 from onnxscript.rewriter.ort_fusions import (
-    # group_normalization_merge_silu,
     instance_to_group_normalization,
     softmax,
 )
@@ -37,9 +37,7 @@ ORT_PATTERN_REWRITE_RULES = [
     *instance_to_group_normalization.rules.rules,
     # NOTE: group normalization merge silu should be applied after instance to group normalization
     # *group_normalization_merge_silu.rules.rules,
-    # NOTE: The rules below are broken:
-    # https://github.com/microsoft/onnxscript/pull/2317#issuecomment-2896058483
-    # *fused_matmul_rule_sets.fused_matmul_rule_sets(),
+    *fused_matmul_rule_sets.fused_matmul_rule_sets(),
 ]
 
 
@@ -74,33 +72,32 @@ def fuse_xformers(model: ir.Model, debug: bool = False) -> tuple[ir.Model, dict[
 
     model = _pre_optimize(model)
 
-    def fuse(func, apply_shape_inference: bool = False):
-        return func(model, debug=debug, apply_shape_inference=apply_shape_inference)
+    def fuse(func, **kwargs):
+        return func(model, debug=debug, **kwargs)
 
     fusion_count["erf_gelu"] = fuse(fuse_erfgelu)
     fusion_count["rms_normalization"] = fuse(fuse_rms_normalization)
     fusion_count["skip_layer_normalization"] = fuse(fuse_skip_layer_normalization)
     fusion_count["skip_rms_normalization"] = fuse(fuse_skip_rms_normalization)
     fusion_count["rotary_embedding"] = fuse(fuse_rotary_embedding)
-    fusion_count["partial_rotary_embedding"] = fuse(fuse_partial_rotary_embedding)
     fusion_count["cos_sin_cache"] = fuse(fuse_cos_sin_cache)
+    fusion_count["partial_rotary_embedding"] = fuse(fuse_partial_rotary_embedding)
+
     # We apply shape inference after the SDPA fusion as new nodes are added
     # in the rewrite rule for certain patterns of SDPA.
     fusion_count["sdpa"] = fuse(fuse_sdpa, apply_shape_inference=True)
-    # Optimize to avoid trying multiple attention-based fusions
+
+    fusion_count["gqa"] = fuse(fuse_gqa)
+    fusion_count["packed_qkv_for_gqa"] = fuse(fuse_qkv_gqa)
+
     fusion_count["mha1"] = fuse(fuse_mha1)
     fusion_count["mha2"] = fuse(fuse_mha2)
     if (fusion_count["mha1"] == 0) and (fusion_count["mha2"] == 0):
-        # If no MHA fusion was applied, we can try the GQA fusion.
-        # and avoid trying the attention fusion.
-        fusion_count["gqa"] = fuse(fuse_gqa)
-        fusion_count["packed_qkv_for_gqa"] = fuse(fuse_qkv_gqa)
         fusion_count["mha_bias"] = 0
         fusion_count["attention"] = 0
     else:
         fusion_count["mha_bias"] = fuse(fuse_mha_bias)
         fusion_count["attention"] = fuse(fuse_attention)
-        fusion_count["gqa"] = 0
     fusion_count["gelu"] = fuse(fuse_gelu)
     fusion_count["bias_gelu"] = fuse(fuse_bias_gelu)
     # Finally: inline any intermediate fusion functions introduced that were not
@@ -133,7 +130,7 @@ def optimize_for_ort(
         - The optimized `ir.Model` after applying transformer-specific fusions.
         - A dictionary with a count of each of the fusions applied.
     """
-
+    rewrite(model, [gemm_to_matmul_add.rule])
     model, fusion_count = fuse_xformers(
         model,
         debug=debug,

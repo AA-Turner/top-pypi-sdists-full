@@ -2039,6 +2039,15 @@ def simulation_zone_item_remove(
     :type undo: bool | None
     """
 
+def sockets_sync(
+    execution_context: int | str | None = None, undo: bool | None = None
+) -> None:
+    """Update sockets to match what is actually used
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
 def translate_attach(
     execution_context: int | str | None = None,
     undo: bool | None = None,

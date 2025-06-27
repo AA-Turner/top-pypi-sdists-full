@@ -74,6 +74,7 @@ cdef class BaseThinQueueImpl(BaseQueueImpl):
         message = self._conn_impl._create_message(AqDeqMessage)
         message.queue_impl = self
         message.deq_options_impl = self.deq_options_impl
+        props_impl.delivery_mode = message.deq_options_impl.delivery_mode
         message.props_impl = props_impl
         return message
 
@@ -505,8 +506,6 @@ cdef class ThinMsgPropsImpl(BaseMsgPropsImpl):
         """
         Internal method for setting the payload from an object.
         """
-        if not isinstance(value, ThinDbObjectImpl):
-            raise TypeError("Expected ThinDbObjectImpl instance.")
         self.payload_obj = value
 
     def set_payload_json(self, object json_val):

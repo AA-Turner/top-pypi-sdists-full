@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-25T20:19:31.216382                                                            #
+# Generated on 2025-06-26T22:38:03.039827                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -11,12 +11,13 @@ import typing
 from ...metaflow_current import current as current
 
 class TorchTune(object, metaclass=type):
-    def __init__(self, use_multi_node_config: bool = False):
+    def __init__(self, use_multi_node_config: bool = False, config_overrides: typing.Optional[typing.Dict] = None):
         """
         Initialize the Tune launcher.
         
         :param use_multi_node_config: If True, attempt to build a distributed configuration
                                       from current.torch.torchrun_args.
+        :param config_overrides: Optional dictionary of config overrides for tune run.
         """
         ...
     def run(self, recipe: str, config_dict: typing.Dict, additional_cli_options: typing.Optional[typing.List[str]] = None):

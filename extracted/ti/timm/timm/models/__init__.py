@@ -20,6 +20,7 @@ from .efficientnet import *
 from .efficientvit_mit import *
 from .efficientvit_msra import *
 from .eva import *
+from .fasternet import *
 from .fastvit import *
 from .focalnet import *
 from .gcvit import *
@@ -39,8 +40,10 @@ from .mambaout import *
 from .metaformer import *
 from .mlp_mixer import *
 from .mobilenetv3 import *
+from .mobilenetv5 import *
 from .mobilevit import *
 from .mvitv2 import *
+from .naflexvit import *
 from .nasnet import *
 from .nest import *
 from .nextvit import *
@@ -60,7 +63,10 @@ from .rexnet import *
 from .selecsls import *
 from .senet import *
 from .sequencer import *
+from .shvit import *
 from .sknet import *
+from .starnet import *
+from .swiftformer import *
 from .swin_transformer import *
 from .swin_transformer_v2 import *
 from .swin_transformer_v2_cr import *
@@ -124,6 +130,7 @@ from ._hub import (
     load_model_config_from_hf as load_model_config_from_hf,
     load_state_dict_from_hf as load_state_dict_from_hf,
     push_to_hf_hub as push_to_hf_hub,
+    save_for_hf as save_for_hf,
 )
 from ._manipulate import (
     model_parameters as model_parameters,

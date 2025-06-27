@@ -6,10 +6,6 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any, Generic, TypeVar, cast
 
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.prompts import PromptTemplate
-
-# from lmnr.sdk.laminar import Laminar
 from pydantic import BaseModel
 
 from browser_use.agent.views import ActionModel, ActionResult
@@ -32,6 +28,8 @@ from browser_use.controller.views import (
 	SwitchTabAction,
 )
 from browser_use.filesystem.file_system import FileSystem
+from browser_use.llm.base import BaseChatModel
+from browser_use.llm.messages import UserMessage
 from browser_use.utils import time_execution_sync
 
 logger = logging.getLogger(__name__)
@@ -121,19 +119,12 @@ class Controller(Generic[Context]):
 
 				attachments = []
 				if params.files_to_display:
-					file_msg = ''
 					for file_name in params.files_to_display:
 						if file_name == 'todo.md':
 							continue
 						file_content = file_system.display_file(file_name)
 						if file_content:
-							file_msg += f'\n\n{file_name}:\n{file_content}'
 							attachments.append(file_name)
-					if file_msg:
-						user_message += '\n\nAttachments:'
-						user_message += file_msg
-					else:
-						logger.warning('Agent wanted to display files but none were found')
 
 				attachments = [str(file_system.get_dir() / file_name) for file_name in attachments]
 
@@ -174,9 +165,10 @@ class Controller(Generic[Context]):
 				# SECURITY FIX: Use browser_session.navigate_to() instead of direct page.goto()
 				# This ensures URL validation against allowed_domains is performed
 				await browser_session.navigate_to(params.url)
-				msg = f'🔗  Navigated to {params.url}'
+				memory = f'Navigated to {params.url}'
+				msg = f'🔗 {memory}'
 				logger.info(msg)
-				return ActionResult(extracted_content=msg, include_in_memory=True)
+				return ActionResult(extracted_content=msg, include_in_memory=True, long_term_memory=memory)
 			except Exception as e:
 				error_msg = str(e)
 				# Check for network-related errors
@@ -200,7 +192,7 @@ class Controller(Generic[Context]):
 					raise
 
 		@self.registry.action('Go back', param_model=NoParamsAction)
-		async def go_back(params: NoParamsAction, browser_session: BrowserSession):
+		async def go_back(_: NoParamsAction, browser_session: BrowserSession):
 			await browser_session.go_back()
 			msg = '🔙  Navigated back'
 			logger.info(msg)
@@ -239,7 +231,8 @@ class Controller(Generic[Context]):
 			initial_pages = len(browser_session.tabs)
 
 			# if element has file uploader then dont click
-			if await browser_session.find_file_upload_element_by_index(params.index) is not None:
+			# Check if element is actually a file input (not just contains file-related keywords)
+			if element_node is not None and browser_session.is_file_input(element_node):
 				msg = f'Index {params.index} - has an element which opens file upload dialog. To upload files please use a specific function to upload files '
 				logger.info(msg)
 				return ActionResult(extracted_content=msg, include_in_memory=True, success=False, long_term_memory=msg)
@@ -250,20 +243,21 @@ class Controller(Generic[Context]):
 				assert element_node is not None, f'Element with index {params.index} does not exist'
 				download_path = await browser_session._click_element_node(element_node)
 				if download_path:
-					msg = f'💾  Downloaded file to {download_path}'
+					emoji = '💾'
+					msg = f'Downloaded file to {download_path}'
 				else:
-					msg = f'🖱️  Clicked button with index {params.index}: {element_node.get_all_text_till_next_clickable_element(max_depth=2)}'
+					emoji = '🖱️'
+					msg = f'Clicked button with index {params.index}: {element_node.get_all_text_till_next_clickable_element(max_depth=2)}'
 
-				logger.info(msg)
+				logger.info(f'{emoji} {msg}')
 				logger.debug(f'Element xpath: {element_node.xpath}')
 				if len(browser_session.tabs) > initial_pages:
 					new_tab_msg = 'New tab opened - switching to it'
 					msg += f' - {new_tab_msg}'
-					logger.info(new_tab_msg)
+					emoji = '🔗'
+					logger.info(f'{emoji} {new_tab_msg}')
 					await browser_session.switch_to_tab(-1)
-				return ActionResult(
-					extracted_content=msg, include_in_memory=True, long_term_memory=f'Clicked element {params.index}'
-				)
+				return ActionResult(extracted_content=msg, include_in_memory=True, long_term_memory=msg)
 			except Exception as e:
 				error_msg = str(e)
 				if 'Execution context was destroyed' in error_msg or 'Cannot find context with specified id' in error_msg:
@@ -278,7 +272,7 @@ class Controller(Generic[Context]):
 					return ActionResult(error=error_msg, success=False)
 
 		@self.registry.action(
-			'Input text into a input interactive element',
+			'Click and input text into a input interactive element',
 			param_model=InputTextAction,
 		)
 		async def input_text(params: InputTextAction, browser_session: BrowserSession, has_sensitive_data: bool = False):
@@ -287,7 +281,12 @@ class Controller(Generic[Context]):
 
 			element_node = await browser_session.get_dom_element_by_index(params.index)
 			assert element_node is not None, f'Element with index {params.index} does not exist'
-			await browser_session._input_text_element_node(element_node, params.text)
+			try:
+				await browser_session._input_text_element_node(element_node, params.text)
+			except Exception:
+				msg = f'Failed to input text into element {params.index}.'
+				return ActionResult(error=msg)
+
 			if not has_sensitive_data:
 				msg = f'⌨️  Input {params.text} into index {params.index}'
 			else:
@@ -367,6 +366,7 @@ Only use this for extracting info from a single product/article page, not for en
 			query: str,
 			page: Page,
 			page_extraction_llm: BaseChatModel,
+			file_system: FileSystem,
 		):
 			from functools import partial
 
@@ -429,18 +429,30 @@ Only use this for extracting info from a single product/article page, not for en
 3. Some/all of the information is not available
 
 Explain the content of the page and that the requested information is not available in the page. Respond in JSON format.\nQuery: {query}\n Website:\n{page}"""
-			template = PromptTemplate(input_variables=['query', 'page'], template=prompt)
 			try:
-				output = await page_extraction_llm.ainvoke(template.format(query=query, page=content))
-				output_text = output.content
-				extracted_content = f'Page Link: {page.url}\nQuery: {query}\nExtracted Content:\n{output_text}'
+				formatted_prompt = prompt.format(query=query, page=content)
+				response = await page_extraction_llm.ainvoke([UserMessage(content=formatted_prompt)])
+
+				extracted_content = f'Page Link: {page.url}\nQuery: {query}\nExtracted Content:\n{response.completion}'
 
 				# if content is small include it to memory
-				if len(extracted_content) < 1000:
+				MAX_MEMORY_SIZE = 600
+				if len(extracted_content) < MAX_MEMORY_SIZE:
 					memory = extracted_content
 					include_extracted_content_only_once = False
 				else:
-					memory = f'Extracted content from {page.url} for query "{query}"'
+					# find lines until MAX_MEMORY_SIZE
+					lines = extracted_content.splitlines()
+					display = ''
+					display_lines_count = 0
+					for line in lines:
+						if len(display) + len(line) < MAX_MEMORY_SIZE:
+							display += line + '\n'
+							display_lines_count += 1
+						else:
+							break
+					save_result = await file_system.save_extracted_content(extracted_content)
+					memory = f'Extracted content from {page.url}\n<query>{query}\n</query>\n<extracted_content>\n{display}{len(lines) - display_lines_count} more lines...\n</extracted_content>\n<file_system>{save_result}</file_system>'
 					include_extracted_content_only_once = True
 				logger.info(f'📄 {memory}')
 				return ActionResult(
@@ -614,6 +626,53 @@ Explain the content of the page and that the requested information is not availa
 				msg = f"Failed to scroll to text '{text}': {str(e)}"
 				logger.error(msg)
 				return ActionResult(error=msg, include_in_memory=True)
+
+		# File System Actions
+		@self.registry.action('Write content to file_name in file system, use only .md or .txt extensions.')
+		async def write_file(file_name: str, content: str, file_system: FileSystem):
+			result = await file_system.write_file(file_name, content)
+			logger.info(f'💾 {result}')
+			return ActionResult(extracted_content=result, include_in_memory=True, long_term_memory=result)
+
+		@self.registry.action('Append content to file_name in file system')
+		async def append_file(file_name: str, content: str, file_system: FileSystem):
+			result = await file_system.append_file(file_name, content)
+			logger.info(f'💾 {result}')
+			return ActionResult(extracted_content=result, include_in_memory=True, long_term_memory=result)
+
+		@self.registry.action('Read file_name from file system')
+		async def read_file(file_name: str, available_file_paths: list[str], file_system: FileSystem):
+			if available_file_paths and file_name in available_file_paths:
+				import anyio
+
+				async with await anyio.open_file(file_name, 'r') as f:
+					content = await f.read()
+					result = f'Read from file {file_name}.\n<content>\n{content}\n</content>'
+			else:
+				result = file_system.read_file(file_name)
+
+			MAX_MEMORY_SIZE = 1000
+			if len(result) > MAX_MEMORY_SIZE:
+				lines = result.splitlines()
+				display = ''
+				lines_count = 0
+				for line in lines:
+					if len(display) + len(line) < MAX_MEMORY_SIZE:
+						display += line + '\n'
+						lines_count += 1
+					else:
+						break
+				remaining_lines = len(lines) - lines_count
+				memory = f'{display}{remaining_lines} more lines...' if remaining_lines > 0 else display
+			else:
+				memory = result
+			logger.info(f'💾 {memory}')
+			return ActionResult(
+				extracted_content=result,
+				include_in_memory=True,
+				long_term_memory=memory,
+				include_extracted_content_only_once=True,
+			)
 
 		@self.registry.action(
 			description='Get all options from a native dropdown',

@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import click
-import httpx
 from packaging import version
 
 from reflex_cli import constants
@@ -115,6 +114,8 @@ def deploy(
         Exit: If the command fails.
 
     """
+    import httpx
+
     from reflex_cli.utils import hosting
 
     authenticated_client = hosting.get_authenticated_client(

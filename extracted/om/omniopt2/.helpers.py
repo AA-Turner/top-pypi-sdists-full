@@ -5,6 +5,7 @@ try:
     from typing import Union, Tuple, Any, Optional
     from datetime import datetime
     from itertools import combinations
+    from pprint import pprint
     import math
     import difflib
     import logging
@@ -12,7 +13,6 @@ try:
     import platform
     import re
     import traceback
-    from pprint import pprint
     import numpy as np
     import pandas as pd
     import matplotlib
@@ -25,6 +25,13 @@ except OSError as e:
 all_columns_to_remove = ['trial_index', 'arm_name', 'trial_status', 'generation_method', 'generation_node']
 val_if_nothing_found = 99999999999999999999999999999999999999999999999999999999999
 NO_RESULT = "{:.0e}".format(val_if_nothing_found)
+
+def dier(*args: Any, exit: Union[bool, int] = False) -> None:
+    for msg in args:
+        pprint(msg)
+    if exit is False or exit == 0:
+        return
+    sys.exit(exit if isinstance(exit, int) else 1)
 
 def check_environment_variable(variable_name: str) -> bool:
     try:
@@ -97,10 +104,6 @@ def to_int_when_possible(val: Any) -> Union[None, int, float, str]:
         return val
     except Exception:
         return val
-
-def dier(msg: Any) -> None:
-    pprint(msg)
-    sys.exit(1)
 
 def flatten_extend(matrix: list) -> list:
     flat_list = []

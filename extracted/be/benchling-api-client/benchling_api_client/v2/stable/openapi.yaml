@@ -23350,6 +23350,17 @@ components:
             - v2-beta.automationInputGenerator.completed
             type: string
         type: object
+    AutomationInputGeneratorCompletedV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationInputGenerator:
+            $ref: '#/components/schemas/AutomationFile'
+          eventType:
+            enum:
+            - v2.automationInputGenerator.completed
+            type: string
+        type: object
     AutomationInputGeneratorUpdate:
       additionalProperties: false
       properties:
@@ -23430,6 +23441,17 @@ components:
             - v2-beta.automationOutputProcessor.completed
             type: string
         type: object
+    AutomationOutputProcessorCompletedV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationOutputProcessor:
+            $ref: '#/components/schemas/AutomationFile'
+          eventType:
+            enum:
+            - v2.automationOutputProcessor.completed
+            type: string
+        type: object
     AutomationOutputProcessorCreate:
       additionalProperties: false
       properties:
@@ -23472,6 +23494,17 @@ components:
           eventType:
             enum:
             - v2-beta.automationOutputProcessor.uploaded
+            type: string
+        type: object
+    AutomationOutputProcessorUploadedV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationOutputProcessor:
+            $ref: '#/components/schemas/AutomationFile'
+          eventType:
+            enum:
+            - v2.automationOutputProcessor.uploaded
             type: string
         type: object
     AutomationOutputProcessorsArchive:
@@ -27888,6 +27921,9 @@ components:
           v2.automationFileTransform.updated.status.pending: '#/components/schemas/AutomationTransformStatusPendingEventV2Event'
           v2.automationFileTransform.updated.status.running: '#/components/schemas/AutomationTransformStatusRunningEventV2Event'
           v2.automationFileTransform.updated.status.succeeded: '#/components/schemas/AutomationTransformStatusSucceededEventV2Event'
+          v2.automationInputGenerator.completed: '#/components/schemas/AutomationInputGeneratorCompletedV2Event'
+          v2.automationOutputProcessor.completed: '#/components/schemas/AutomationOutputProcessorCompletedV2Event'
+          v2.automationOutputProcessor.uploaded: '#/components/schemas/AutomationOutputProcessorUploadedV2Event'
           v2.entity.registered: '#/components/schemas/EntityRegisteredEvent'
           v2.entry.created: '#/components/schemas/EntryCreatedEvent'
           v2.entry.updated.fields: '#/components/schemas/EntryUpdatedFieldsEvent'
@@ -27921,6 +27957,9 @@ components:
       - $ref: '#/components/schemas/AutomationInputGeneratorCompletedV2BetaEvent'
       - $ref: '#/components/schemas/AutomationOutputProcessorCompletedV2BetaEvent'
       - $ref: '#/components/schemas/AutomationOutputProcessorUploadedV2BetaEvent'
+      - $ref: '#/components/schemas/AutomationInputGeneratorCompletedV2Event'
+      - $ref: '#/components/schemas/AutomationOutputProcessorCompletedV2Event'
+      - $ref: '#/components/schemas/AutomationOutputProcessorUploadedV2Event'
       - $ref: '#/components/schemas/AutomationTransformStatusPendingEventV2Event'
       - $ref: '#/components/schemas/AutomationTransformStatusRunningEventV2Event'
       - $ref: '#/components/schemas/AutomationTransformStatusSucceededEventV2Event'

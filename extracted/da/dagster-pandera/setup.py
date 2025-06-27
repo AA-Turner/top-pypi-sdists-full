@@ -34,9 +34,9 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.13",
     install_requires=[
-        "dagster==1.10.21",
+        "dagster==1.11.0",
         "pandas",
-        "pandera>=0.15.0,<0.24.0",
+        "pandera>=0.24.0",
     ],
     extras_require={
         "polars": ["polars>=1"],

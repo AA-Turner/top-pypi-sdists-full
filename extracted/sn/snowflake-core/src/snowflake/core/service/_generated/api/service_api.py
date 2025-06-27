@@ -1748,7 +1748,7 @@ class ServiceApi(object):
                Future[FetchServiceStatus200Response]]:  # noqa: E501
         """Fetch_service_status  # noqa: E501.
 
-        Fetch the status for a given service.  # noqa: E501
+        Fetch the status for a given service. Deprecated - use listServiceContainers instead.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1815,7 +1815,7 @@ class ServiceApi(object):
             **kwargs):  # noqa: E501
         """Fetch_service_status  # noqa: E501.
 
-        Fetch the status for a given service.  # noqa: E501
+        Fetch the status for a given service. Deprecated - use listServiceContainers instead.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True

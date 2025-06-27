@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.3.2
+Version: 0.3.3
 Summary: Make websites accessible for AI agents
 Project-URL: Repository, https://github.com/browser-use/browser-use
 Author: Gregor Zunic
@@ -10,20 +10,17 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <4.0,>=3.11
 Requires-Dist: aiofiles>=24.1.0
+Requires-Dist: anthropic>=0.54.0
 Requires-Dist: anyio>=4.9.0
 Requires-Dist: authlib>=1.6.0
-Requires-Dist: bubus>=1.1.2
+Requires-Dist: bubus>=1.2.2
 Requires-Dist: google-api-core>=2.25.0
+Requires-Dist: google-genai>=1.21.1
+Requires-Dist: groq>=0.28.0
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: langchain-anthropic==0.3.15
-Requires-Dist: langchain-core==0.3.64
-Requires-Dist: langchain-deepseek>=0.1.3
-Requires-Dist: langchain-google-genai==2.1.5
-Requires-Dist: langchain-ollama==0.3.3
-Requires-Dist: langchain-openai==0.3.21
-Requires-Dist: langchain>=0.3.25
 Requires-Dist: markdownify==1.1.0
 Requires-Dist: mem0ai>=0.1.106
+Requires-Dist: openai>=1.81.0
 Requires-Dist: patchright>=1.52.5
 Requires-Dist: playwright>=1.52.0
 Requires-Dist: posthog>=3.7.0
@@ -40,7 +37,7 @@ Provides-Extra: all
 Requires-Dist: botocore>=1.37.23; extra == 'all'
 Requires-Dist: browserbase>=0.4.0; extra == 'all'
 Requires-Dist: click>=8.1.8; extra == 'all'
-Requires-Dist: faiss-cpu>=1.11.0; extra == 'all'
+Requires-Dist: faiss-cpu>=1.10.0; extra == 'all'
 Requires-Dist: imgcat>=0.6.0; extra == 'all'
 Requires-Dist: rich>=14.0.0; extra == 'all'
 Requires-Dist: sentence-transformers>=4.0.2; extra == 'all'
@@ -51,14 +48,17 @@ Requires-Dist: click>=8.1.8; extra == 'cli'
 Requires-Dist: rich>=14.0.0; extra == 'cli'
 Requires-Dist: textual>=3.2.0; extra == 'cli'
 Provides-Extra: eval
+Requires-Dist: anyio>=4.9.0; extra == 'eval'
 Requires-Dist: lmnr[all]>=0.6.11; extra == 'eval'
+Requires-Dist: pillow>=11.2.1; extra == 'eval'
+Requires-Dist: psutil>=7.0.0; extra == 'eval'
 Provides-Extra: examples
 Requires-Dist: botocore>=1.37.23; extra == 'examples'
 Requires-Dist: browserbase>=0.4.0; extra == 'examples'
 Requires-Dist: imgcat>=0.6.0; extra == 'examples'
 Requires-Dist: stagehand-py>=0.3.6; extra == 'examples'
 Provides-Extra: memory
-Requires-Dist: faiss-cpu>=1.11.0; extra == 'memory'
+Requires-Dist: faiss-cpu>=1.10.0; extra == 'memory'
 Requires-Dist: sentence-transformers>=4.0.2; extra == 'memory'
 Description-Content-Type: text/markdown
 
@@ -92,13 +92,14 @@ With pip (Python>=3.11):
 pip install browser-use
 ```
 
-For memory functionality (requires Python<3.13 due to PyTorch compatibility):  
+For memory functionality (requires Python<3.13 due to PyTorch compatibility):
 
 ```bash
 pip install "browser-use[memory]"
 ```
 
 Install the browser:
+
 ```bash
 playwright install chromium --with-deps --no-shell
 ```
@@ -110,7 +111,7 @@ import asyncio
 from dotenv import load_dotenv
 load_dotenv()
 from browser_use import Agent
-from langchain_openai import ChatOpenAI
+from browser_use.llm import ChatOpenAI
 
 async def main():
     agent = Agent(
@@ -146,7 +147,7 @@ You can test browser-use using its [Web UI](https://github.com/browser-use/web-u
 You can also use our `browser-use` interactive CLI (similar to `claude` code):
 
 ```bash
-pip install browser-use[cli]
+pip install "browser-use[cli]"
 browser-use
 ```
 
@@ -220,11 +221,9 @@ Tell your computer what to do, and it gets it done.
 
 - [ ] Human work is sequential. The real power of a browser agent comes into reality if we can parallelize similar tasks. For example, if you want to find contact information for 100 companies, this can all be done in parallel and reported back to a main agent, which processes the results and kicks off parallel subtasks again.
 
-
 ## Contributing
 
 We love contributions! Feel free to open issues for bugs or feature requests. To contribute to the docs, check out the `/docs` folder.
-
 
 ## 🧪 How to make your agents robust?
 
@@ -236,7 +235,6 @@ We offer to run your tasks in our CI—automatically, on every update!
 ## Local Setup
 
 To learn more about the library, check out the [local setup 📕](https://docs.browser-use.com/development/local-setup).
-
 
 `main` is the primary development branch with frequent changes. For production use, install a stable [versioned release](https://github.com/browser-use/browser-use/releases) instead.
 

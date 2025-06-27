@@ -69,6 +69,9 @@ cdef class AqArrayMessage(AqBaseMessage):
                     props_impl.msgid = msgid[j * 16:(j + 1) * 16]
             else:
                 props_impl.msgid = msgid
+                props_impl.delivery_mode = (
+                    self.deq_options_impl.delivery_mode
+                )
             buf.read_ub2(&temp16)               # extensions len
             if temp16 > 0:
                 errors._raise_err(errors.ERR_NOT_IMPLEMENTED)
@@ -159,7 +162,11 @@ cdef class AqArrayMessage(AqBaseMessage):
             buf.write_uint8(TNS_MSG_TYPE_ROW_DATA)
             buf.write_ub4(flags)                    # aqi flags
             self._write_msg_props(buf, props_impl)
-            buf.write_ub4(0)                        # num recipients
+            if props_impl.recipients is None:
+                buf.write_ub4(0)                    # num recipients
+            else:
+                buf.write_ub4(3 * len(props_impl.recipients))
+                self._write_recipients(buf, props_impl)
             buf.write_sb4(self.enq_options_impl.visibility)
             buf.write_ub4(0)                        # relative msg id
             buf.write_sb4(0)                        # seq deviation

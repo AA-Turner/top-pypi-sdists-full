@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scrapegraphai
-Version: 1.59.0
+Version: 1.60.0
 Summary: A web scraping library based on LangChain which uses LLM and direct graph logic to create scraping pipelines.
 Author-email: Marco Vinciguerra <mvincig11@gmail.com>, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
 Keywords: ai,artificial intelligence,gpt,graph,langchain,llm,machine learning,natural language processing,nlp,openai,rag,scrapegraph,scrapegraphai,scraping,web scraping,web scraping library,web scraping tool,webscraping
@@ -250,7 +250,6 @@ If you have used our library for research purposes please quote us with the foll
     note = {A Python library for scraping leveraging large language models}
   }
 ```
-
 ## Authors
 
 |                    | Contact Info         |

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 
+from django.apps import apps
 from django.conf import global_settings  # noqa
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -82,13 +83,10 @@ MIDDLEWARE = (
 )
 
 
-# We add a custom context processor to make our application name
-# and certain other variables available in all our templates
-def resolver_context_processor(request):
+# We add a custom context processor to make installed_apps available in templates
+def installed_apps_context_processor(_request):
     return {
-        "app_name": request.resolver_match.app_name,
-        "namespace": request.resolver_match.namespace,
-        "url_name": request.resolver_match.url_name,
+        "installed_apps": tuple(app.name for app in apps.get_app_configs()),
     }
 
 
@@ -108,7 +106,7 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
-                "server.settings.resolver_context_processor",
+                "server.settings.installed_apps_context_processor",
             ],
             "debug": True,
         },

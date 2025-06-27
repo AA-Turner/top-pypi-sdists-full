@@ -37,7 +37,7 @@ class Service(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     compute_pool : str
         Specifies the name of the compute pool in your account on which to run the service.
     spec : ServiceSpec
@@ -47,7 +47,7 @@ class Service(BaseModel):
     external_access_integrations : List[str], optional
         Specifies the names of the external access integrations that allow your service to access external sites.
     query_warehouse : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     comment : str, optional
         Specifies a comment for the service.
     is_async_job : bool, optional
@@ -65,9 +65,9 @@ class Service(BaseModel):
     max_instances : int, optional
         Specifies the maximum number of service instances to run.
     database_name : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     schema_name : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     owner : str, optional
         Role that owns the service.
     dns_name : str, optional
@@ -388,7 +388,7 @@ class ServiceModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         compute_pool : str
             Specifies the name of the compute pool in your account on which to run the service.
         spec : ServiceSpec
@@ -398,7 +398,7 @@ class ServiceModel():
         external_access_integrations : List[str], optional
             Specifies the names of the external access integrations that allow your service to access external sites.
         query_warehouse : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         comment : str, optional
             Specifies a comment for the service.
         is_async_job : bool, optional
@@ -416,9 +416,9 @@ class ServiceModel():
         max_instances : int, optional
             Specifies the maximum number of service instances to run.
         database_name : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         schema_name : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         owner : str, optional
             Role that owns the service.
         dns_name : str, optional

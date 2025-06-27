@@ -28,6 +28,7 @@ export declare class CommManager extends Model {
     _event_buffer: DocumentChangedEvent[];
     _timeout: number;
     _blocked: boolean;
+    _reconnect: boolean;
     constructor(attrs?: Partial<CommManager.Attrs>);
     initialize(): void;
     protected _document_listener: (event: DocumentChangedEvent) => void;

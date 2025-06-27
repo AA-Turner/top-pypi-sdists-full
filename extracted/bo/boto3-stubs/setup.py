@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs",
-    version="1.38.44",
+    version="1.38.45",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.38.44 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.38.45 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.38.0, <1.39.0"],
-        "boto3": ["boto3==1.38.44"],
+        "boto3": ["boto3==1.38.45"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.38.0, <1.39.0",
             "mypy-boto3-account>=1.38.0, <1.39.0",
@@ -260,6 +260,7 @@ setup(
             "mypy-boto3-kendra>=1.38.0, <1.39.0",
             "mypy-boto3-kendra-ranking>=1.38.0, <1.39.0",
             "mypy-boto3-keyspaces>=1.38.0, <1.39.0",
+            "mypy-boto3-keyspacesstreams>=1.38.0, <1.39.0",
             "mypy-boto3-kinesis>=1.38.0, <1.39.0",
             "mypy-boto3-kinesis-video-archived-media>=1.38.0, <1.39.0",
             "mypy-boto3-kinesis-video-media>=1.38.0, <1.39.0",
@@ -679,6 +680,7 @@ setup(
         "kendra": ["mypy-boto3-kendra>=1.38.0, <1.39.0"],
         "kendra-ranking": ["mypy-boto3-kendra-ranking>=1.38.0, <1.39.0"],
         "keyspaces": ["mypy-boto3-keyspaces>=1.38.0, <1.39.0"],
+        "keyspacesstreams": ["mypy-boto3-keyspacesstreams>=1.38.0, <1.39.0"],
         "kinesis": ["mypy-boto3-kinesis>=1.38.0, <1.39.0"],
         "kinesis-video-archived-media": [
             "mypy-boto3-kinesis-video-archived-media>=1.38.0, <1.39.0"

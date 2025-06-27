@@ -12,12 +12,18 @@ class AlertEventWrapper:
 
     interface_id: int = 0
 
+    session_id: int = 0
+    """
+    The id of the connection session.
+    """
+
     alert: AlertEvent = field(default_factory=AlertEvent.zero_values)
 
     @staticmethod
     def zero_values() -> 'AlertEventWrapper':
         return AlertEventWrapper(
             interface_id=0,
+            session_id=0,
             alert=AlertEvent.zero_values(),
         )
 
@@ -35,6 +41,7 @@ class AlertEventWrapper:
     def to_dict(self) -> Dict[str, Any]:
         return {
             'interfaceId': int(self.interface_id),
+            'sessionId': int(self.session_id),
             'alert': self.alert.to_dict(),
         }
 
@@ -42,6 +49,7 @@ class AlertEventWrapper:
     def from_dict(data: Dict[str, Any]) -> 'AlertEventWrapper':
         return AlertEventWrapper(
             interface_id=data.get('interfaceId'),  # type: ignore
+            session_id=data.get('sessionId'),  # type: ignore
             alert=AlertEvent.from_dict(data.get('alert')),  # type: ignore
         )
 
@@ -55,6 +63,15 @@ class AlertEventWrapper:
 
         if int(self.interface_id) != self.interface_id:
             raise ValueError(f'Property "InterfaceId" of "AlertEventWrapper" is not integer value.')
+
+        if self.session_id is None:
+            raise ValueError(f'Property "SessionId" of "AlertEventWrapper" is None.')
+
+        if not isinstance(self.session_id, (int, float, decimal.Decimal)):
+            raise ValueError(f'Property "SessionId" of "AlertEventWrapper" is not a number.')
+
+        if int(self.session_id) != self.session_id:
+            raise ValueError(f'Property "SessionId" of "AlertEventWrapper" is not integer value.')
 
         if self.alert is None:
             raise ValueError(f'Property "Alert" of "AlertEventWrapper" is None.')

@@ -196,7 +196,7 @@ class EMSys:
                                 # Check Alterar Trib. Manual
                                 pyautogui.click(1177, 740)
                                 # pyautogui.moveTo(1177, 740)
-
+                                
                                 # Click Alterar
                                 await worker_sleep(1)
                                 pyautogui.click(1180, 776)
@@ -219,17 +219,35 @@ class EMSys:
                     console.print(
                         "Item não é isqueiro. Continuando para o próximo...\n"
                     )
-                    #Seleciona o IPI 0%
-                    ipi_combobox = main_window.child_window(
-                        class_name="TDBIComboBox", found_index=4
-                    )
-                    ipi_combobox.select("IPI 0%")
+                    # Caminho da imagem
+                    caminho_imagem = "assets\\ipi_0.png"
+                    # Verifica se o arquivo existe
+                    if os.path.exists(caminho_imagem):
+                        print("Imagem já existe. Clicando em 'Cancelar'...")
+                                            
+                        # Conectando à janela do app 
+                        app = Application().connect(class_name="TFrmAlteraItemNFE", timeout=60)
+                        janela_cancelar = app["TFrmAlteraItemNFE"]
 
-                    # Click Alterar
-                    await worker_sleep(1)
-                    pyautogui.click(1180, 776)
-                    await worker_sleep(1)
-                    await self.click_itens_da_nota()
+                        # Encontra o botão pelo texto
+                        try:
+                            cancelar_btn = janela_cancelar.child_window(class_name ="TDBIBitBtn", found_index=2)
+                            cancelar_btn.click_input()
+                            print("Clicou em 'Cancelar'.")
+                        except Exception as e:
+                            print(f"Erro ao clicar no botão: {e}")
+                    else:    
+                        #Seleciona o IPI 0%
+                        ipi_combobox = main_window.child_window(
+                            class_name="TDBIComboBox", found_index=4
+                        )
+                        ipi_combobox.select("IPI 0%")
+
+                        # Click Alterar
+                        await worker_sleep(1)
+                        pyautogui.click(1180, 776)
+                        await worker_sleep(1)
+                        await self.click_itens_da_nota()
 
                     # Fecha a janela de alteração de item
                     # try:

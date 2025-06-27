@@ -96,6 +96,7 @@ class Dialects(str, Enum):
     TERADATA = "teradata"
     TRINO = "trino"
     TSQL = "tsql"
+    EXASOL = "exasol"
 
 
 class NormalizationStrategy(str, AutoName):
@@ -699,6 +700,9 @@ class Dialect(metaclass=_Dialect):
             exp.Time,
             exp.TimeAdd,
             exp.TimeSub,
+        },
+        exp.DataType.Type.TIMESTAMPTZ: {
+            exp.CurrentTimestampLTZ,
         },
         exp.DataType.Type.TIMESTAMP: {
             exp.CurrentTimestamp,
@@ -1906,21 +1910,23 @@ def groupconcat_sql(
 
 
 def build_timetostr_or_tochar(args: t.List, dialect: Dialect) -> exp.TimeToStr | exp.ToChar:
-    this = seq_get(args, 0)
-    format = seq_get(args, 1)
-
-    if this:
+    if len(args) == 2:
+        this = args[0]
         if not this.type:
             from sqlglot.optimizer.annotate_types import annotate_types
 
             annotate_types(this, dialect=dialect)
 
-        from sqlglot.dialects import Snowflake
-
-        if this.is_type(*exp.DataType.TEMPORAL_TYPES) or (
-            isinstance(format, exp.Literal) and format.name in Snowflake.TIME_MAPPING
-        ):
+        if this.is_type(*exp.DataType.TEMPORAL_TYPES):
             dialect_name = dialect.__class__.__name__.lower()
             return build_formatted_time(exp.TimeToStr, dialect_name, default=True)(args)
 
     return exp.ToChar.from_arg_list(args)
+
+
+def build_replace_with_optional_replacement(args: t.List) -> exp.Replace:
+    return exp.Replace(
+        this=seq_get(args, 0),
+        expression=seq_get(args, 1),
+        replacement=seq_get(args, 2) or exp.Literal.string(""),
+    )

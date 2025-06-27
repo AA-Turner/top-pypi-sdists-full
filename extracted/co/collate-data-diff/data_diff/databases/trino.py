@@ -1,6 +1,7 @@
 from typing import Any, ClassVar, Type
 
 import attrs
+from requests import Session
 
 from data_diff.abcs.database_types import TemporalType, ColType_UUID
 from data_diff.databases import presto
@@ -47,4 +48,30 @@ class Trino(presto.Presto):
         if kw.get("schema"):
             self.default_schema = kw.get("schema")
 
+        if kw.get("http_session"):
+            session = Session()
+            session.proxies = kw.get("http_session", {}).get("proxies")
+
+            kw["http_session"] = session
+
+        auth = kw.get("auth")
+
+        if auth:
+            if auth.get("authType") == "basic":
+                kw["auth"] = trino.auth.BasicAuthentication(
+                    auth.get("username"),
+                    auth.get("password")
+                )
+                kw["http_scheme"] = "https"
+
+            elif auth.get("authType") == "jwt":
+                kw["auth"] = trino.auth.JWTAuthentication(
+                    auth.get("jwt")
+                )
+                kw["http_scheme"] = "https"
+
+            elif auth.get("authType") == "oauth2":
+                kw["auth"] = trino.auth.OAuth2Authentication()
+                kw["http_scheme"] = "https"
+                
         self._conn = trino.dbapi.connect(**kw)

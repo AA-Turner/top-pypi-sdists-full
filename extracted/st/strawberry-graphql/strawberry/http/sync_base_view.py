@@ -116,8 +116,6 @@ class SyncBaseHTTPView(
         if not self.allow_queries_via_get and request_adapter.method == "GET":
             allowed_operation_types = allowed_operation_types - {OperationType.QUERY}
 
-        assert self.schema
-
         return self.schema.execute_sync(
             request_data.query,
             root_value=root_value,
@@ -161,9 +159,16 @@ class SyncBaseHTTPView(
                 "The GraphQL operation's `query` must be a string or null, if provided.",
             )
 
+        variables = data.get("variables")
+        if not isinstance(variables, (dict, type(None))):
+            raise HTTPException(
+                400,
+                "The GraphQL operation's `variables` must be an object or null, if provided.",
+            )
+
         return GraphQLRequestData(
             query=query,
-            variables=data.get("variables"),
+            variables=variables,
             operation_name=data.get("operationName"),
             extensions=data.get("extensions"),
         )

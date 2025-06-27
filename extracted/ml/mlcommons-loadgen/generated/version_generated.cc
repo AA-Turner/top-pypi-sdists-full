@@ -5,27 +5,27 @@
 namespace mlperf {
 
 const std::string& LoadgenVersion() {
-  static const std::string str = "5.0.22";
+  static const std::string str = "5.1.0";
   return str;
 }
 
 const std::string& LoadgenBuildDateLocal() {
-  static const std::string str = "2025-06-17T23:10:00.413161";
+  static const std::string str = "2025-06-26T22:44:53.466582";
   return str;
 }
 
 const std::string& LoadgenBuildDateUtc() {
-  static const std::string str = "2025-06-17T23:10:00.413181";
+  static const std::string str = "2025-06-26T22:44:53.466598";
   return str;
 }
 
 const std::string& LoadgenGitRevision() {
-  static const std::string str = "5c282545dc";
+  static const std::string str = "3cebd5ee48";
   return str;
 }
 
 const std::string& LoadgenGitCommitDate() {
-  static const std::string str = "2025-06-17T23:09:38Z";
+  static const std::string str = "2025-06-26T23:44:28+01:00";
   return str;
 }
 
@@ -35,7 +35,7 @@ const std::string& LoadgenGitStatus() {
 }
 
 const std::string& LoadgenGitLog() {
-  static const std::string str = R"LGVG_RSLD(5c282545dc12f6cbb4b4ceae745c2ae8a63de7c2 Increment version to 5.0.22)LGVG_RSLD";
+  static const std::string str = R"LGVG_RSLD(3cebd5ee483aba49005be504acb0c625de97877d Update VERSION.txt)LGVG_RSLD";
   return str;
 }
 
@@ -46,7 +46,7 @@ ddeb472d62edf2920db1f8fa3beebe3e831557f1 /MANIFEST.in
 e850133bdbbfa62c84bc05a7358114d8996e0530 /README.md
 5f6c6a784e9cd6995db47f9b9f70b1769909c9d8 /README_BUILD.md
 01f9ae9887f50bc030dc6107e740f40c43ca388f /README_FAQ.md
-a8fef7428b524de012164e8328c9992a446a8313 /VERSION.txt
+204887433f1f70007f566f5bd6bbacbb68b15a6d /VERSION.txt
 d013101621ef06a0ddc5e7d9ce511918a8b2ebe6 /__init__.py
 14d178b64c7fc45d090e038c08d9b78ca943c383 /bindings/c_api.cc
 23d9f99e00b2d196e095fae0bb453a391c18d601 /bindings/c_api.h

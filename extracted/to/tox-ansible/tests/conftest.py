@@ -143,12 +143,13 @@ def pytest_generate_tests(metafunc: Metafunc) -> None:
         try:
             cmd = (
                 f"{sys.executable} -m tox config --ansible "
-                f"--root {basic_dir} --conf tox-ansible.ini"
+                f"--root {basic_dir} --conf tox-ansible.ini -qq"
             )
             env = os.environ
             env.pop("TOX_ENV_DIR", None)
             env.pop("TOX_ENV_NAME", None)
             env.pop("TOX_WORK_DIR", None)
+            env["NO_COLOR"] = "1"
 
             proc = run(
                 args=cmd,

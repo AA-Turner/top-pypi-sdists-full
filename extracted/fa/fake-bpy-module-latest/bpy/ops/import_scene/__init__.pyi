@@ -135,6 +135,7 @@ def gltf(
     import_select_created_objects: bool | None = True,
     import_scene_extras: bool | None = True,
     import_scene_as_collection: bool | None = True,
+    import_merge_material_slots: bool | None = True,
 ) -> None:
     """Load a glTF 2.0 file
 
@@ -192,4 +193,6 @@ def gltf(
         :type import_scene_extras: bool | None
         :param import_scene_as_collection: Import Scene as Collection, Import the scene as a collection
         :type import_scene_as_collection: bool | None
+        :param import_merge_material_slots: Merge Material Slot when possible, Merge material slots when possible
+        :type import_merge_material_slots: bool | None
     """

@@ -16,7 +16,6 @@ class IMAGE_OT_convert_to_mesh_plane(
     bl_options: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
-    t: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
@@ -74,7 +73,6 @@ class IMAGE_OT_import_as_mesh_planes(
     bl_options: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
-    t: typing.Any
 
     def align_plane(self, context, plane) -> None:
         """
@@ -192,8 +190,6 @@ class MaterialProperties_MixIn:
         """
 
 class TextureProperties_MixIn:
-    t: typing.Any
-
     def draw_texture_config(self, context) -> None:
         """
 

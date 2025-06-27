@@ -179,6 +179,7 @@ from types_aiobotocore_frauddetector.client import FraudDetectorClient
 from types_aiobotocore_freetier.client import FreeTierClient
 from types_aiobotocore_fsx.client import FSxClient
 from types_aiobotocore_gamelift.client import GameLiftClient
+from types_aiobotocore_gameliftstreams.client import GameLiftStreamsClient
 from types_aiobotocore_geo_maps.client import LocationServiceMapsV2Client
 from types_aiobotocore_geo_places.client import LocationServicePlacesV2Client
 from types_aiobotocore_geo_routes.client import LocationServiceRoutesV2Client
@@ -206,6 +207,9 @@ from types_aiobotocore_invoicing.client import InvoicingClient
 from types_aiobotocore_iot.client import IoTClient
 from types_aiobotocore_iot_data.client import IoTDataPlaneClient
 from types_aiobotocore_iot_jobs_data.client import IoTJobsDataPlaneClient
+from types_aiobotocore_iot_managed_integrations.client import (
+    ManagedintegrationsforIoTDeviceManagementClient,
+)
 from types_aiobotocore_iotanalytics.client import IoTAnalyticsClient
 from types_aiobotocore_iotdeviceadvisor.client import IoTDeviceAdvisorClient
 from types_aiobotocore_iotevents.client import IoTEventsClient
@@ -325,7 +329,6 @@ from types_aiobotocore_pinpoint_sms_voice_v2.client import PinpointSMSVoiceV2Cli
 from types_aiobotocore_pipes.client import EventBridgePipesClient
 from types_aiobotocore_polly.client import PollyClient
 from types_aiobotocore_pricing.client import PricingClient
-from types_aiobotocore_privatenetworks.client import Private5GClient
 from types_aiobotocore_proton.client import ProtonClient
 from types_aiobotocore_qapps.client import QAppsClient
 from types_aiobotocore_qbusiness.client import QBusinessClient
@@ -400,6 +403,7 @@ from types_aiobotocore_sqs.client import SQSClient
 from types_aiobotocore_sqs.service_resource import SQSServiceResource
 from types_aiobotocore_ssm.client import SSMClient
 from types_aiobotocore_ssm_contacts.client import SSMContactsClient
+from types_aiobotocore_ssm_guiconnect.client import SSMGUIConnectClient
 from types_aiobotocore_ssm_incidents.client import SSMIncidentsClient
 from types_aiobotocore_ssm_quicksetup.client import SystemsManagerQuickSetupClient
 from types_aiobotocore_ssm_sap.client import SsmSapClient
@@ -3414,6 +3418,25 @@ class Session(Boto3Session):
     @overload  # type: ignore[override]
     def client(  # type: ignore[override]
         self,
+        service_name: Literal["gameliftstreams"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[GameLiftStreamsClient]:
+        """
+        Create client for GameLiftStreams service.
+        """
+
+    @overload  # type: ignore[override]
+    def client(  # type: ignore[override]
+        self,
         service_name: Literal["geo-maps"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -3884,6 +3907,25 @@ class Session(Boto3Session):
     ) -> ClientCreatorContext[IoTJobsDataPlaneClient]:
         """
         Create client for IoTJobsDataPlane service.
+        """
+
+    @overload  # type: ignore[override]
+    def client(  # type: ignore[override]
+        self,
+        service_name: Literal["iot-managed-integrations"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[ManagedintegrationsforIoTDeviceManagementClient]:
+        """
+        Create client for ManagedintegrationsforIoTDeviceManagement service.
         """
 
     @overload  # type: ignore[override]
@@ -6055,25 +6097,6 @@ class Session(Boto3Session):
     @overload  # type: ignore[override]
     def client(  # type: ignore[override]
         self,
-        service_name: Literal["privatenetworks"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[Private5GClient]:
-        """
-        Create client for Private5G service.
-        """
-
-    @overload  # type: ignore[override]
-    def client(  # type: ignore[override]
-        self,
         service_name: Literal["proton"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -7342,6 +7365,25 @@ class Session(Boto3Session):
     ) -> ClientCreatorContext[SSMContactsClient]:
         """
         Create client for SSMContacts service.
+        """
+
+    @overload  # type: ignore[override]
+    def client(  # type: ignore[override]
+        self,
+        service_name: Literal["ssm-guiconnect"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SSMGUIConnectClient]:
+        """
+        Create client for SSMGUIConnect service.
         """
 
     @overload  # type: ignore[override]

@@ -6,12 +6,15 @@ from ..models.assay_run_updated_fields_event import AssayRunUpdatedFieldsEvent
 from ..models.automation_input_generator_completed_v2_beta_event import (
     AutomationInputGeneratorCompletedV2BetaEvent,
 )
+from ..models.automation_input_generator_completed_v2_event import AutomationInputGeneratorCompletedV2Event
 from ..models.automation_output_processor_completed_v2_beta_event import (
     AutomationOutputProcessorCompletedV2BetaEvent,
 )
+from ..models.automation_output_processor_completed_v2_event import AutomationOutputProcessorCompletedV2Event
 from ..models.automation_output_processor_uploaded_v2_beta_event import (
     AutomationOutputProcessorUploadedV2BetaEvent,
 )
+from ..models.automation_output_processor_uploaded_v2_event import AutomationOutputProcessorUploadedV2Event
 from ..models.automation_transform_status_failed_event_v2_event import (
     AutomationTransformStatusFailedEventV2Event,
 )
@@ -61,6 +64,9 @@ Event = Union[
     AutomationInputGeneratorCompletedV2BetaEvent,
     AutomationOutputProcessorCompletedV2BetaEvent,
     AutomationOutputProcessorUploadedV2BetaEvent,
+    AutomationInputGeneratorCompletedV2Event,
+    AutomationOutputProcessorCompletedV2Event,
+    AutomationOutputProcessorUploadedV2Event,
     AutomationTransformStatusPendingEventV2Event,
     AutomationTransformStatusRunningEventV2Event,
     AutomationTransformStatusSucceededEventV2Event,

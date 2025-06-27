@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "cmsis-pack",
+    "cmsis-cffi",
+    "cmsis-cli"
+]
+
+[profile.release]
+debug = false
+opt-level = "z"
+lto = true
+codegen-units = 1

@@ -1,19 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cylp
-Version: 0.92.3
+Version: 0.93.0
 Summary: A Python interface for CLP, CBC, and CGL
-Home-page: https://github.com/coin-or/cylp
-Author: Mehdi Towhidi (mehdi.towhidi@gerad.ca), Dominique Orban (dominique.orban@gerad.ca)
-Author-email: mehdi.towhidi@gerad.ca
-Maintainer: Ted Ralphs
-Maintainer-email: ted@lehigh.edu
-License: Eclipse Public License
+Author-email: Mehdi Towhidi <mehdi.towhidi@gerad.ca>, Dominique Orban <dominique.orban@gerad.ca>, Ted Ralphs <ted@lehigh.edu>
+License-Expression: EPL-2.0
+Project-URL: Home Page, https://github.com/coin-or/CyLP
+Project-URL: Documentation, https://coin-or.github.io/CyLP
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: numpy<2.0.0,>=1.5.0
-Requires-Dist: scipy>=0.10.0
-Requires-Dist: hypothesis
+Dynamic: license-file
 
 CyLP
 ====

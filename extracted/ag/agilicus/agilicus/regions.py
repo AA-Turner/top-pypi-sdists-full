@@ -154,7 +154,7 @@ def format_point_of_presences_as_text(ctx, tags):
         metadata_column("id"),
         spec_column("name"),
         spec_column("tags"),
-        spec_column("routing.domains", "domains"),
+        spec_column("routing", "routing"),
         spec_column("master_cluster_id"),
         status_column("clusters"),
     ]

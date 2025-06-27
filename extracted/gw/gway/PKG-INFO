@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.3.40
+Version: 0.4.2
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -9,7 +9,7 @@ Project-URL: Homepage, https://arthexis.com
 Project-URL: Sponsor, https://www.gelectriic.com/
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.7
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 Requires-Dist: toml
@@ -40,6 +40,7 @@ Requires-Dist: duckdb
 Requires-Dist: pywin32; platform_system == "Windows"
 Requires-Dist: selenium
 Requires-Dist: webdriver-manager
+Requires-Dist: bs4
 Dynamic: license-file
 
 GWAY

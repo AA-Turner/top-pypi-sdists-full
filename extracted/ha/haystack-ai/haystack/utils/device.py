@@ -28,6 +28,7 @@ class DeviceType(Enum):
     GPU = "cuda"
     DISK = "disk"
     MPS = "mps"
+    XPU = "xpu"
 
     def __str__(self):
         return self.value
@@ -127,6 +128,16 @@ class Device:
         return Device(DeviceType.MPS)
 
     @staticmethod
+    def xpu() -> "Device":
+        """
+        Create a generic Intel GPU Optimization device.
+
+        :returns:
+            The XPU device.
+        """
+        return Device(DeviceType.XPU)
+
+    @staticmethod
     def from_str(string: str) -> "Device":
         """
         Create a generic device from a string.
@@ -156,7 +167,7 @@ class DeviceMap:
     def __getitem__(self, key: str) -> Device:
         return self.mapping[key]
 
-    def __setitem__(self, key: str, value: Device):
+    def __setitem__(self, key: str, value: Device) -> None:
         self.mapping[key] = value
 
     def __contains__(self, key: str) -> bool:
@@ -482,7 +493,7 @@ def _get_default_device() -> Device:
     Return the default device for Haystack.
 
     Precedence:
-        GPU > MPS > CPU. If PyTorch is not installed, only CPU is available.
+        GPU > XPU > MPS > CPU. If PyTorch is not installed, only CPU is available.
 
     :returns:
         The default device.
@@ -496,12 +507,21 @@ def _get_default_device() -> Device:
             and os.getenv("HAYSTACK_MPS_ENABLED", "true") != "false"
         )
         has_cuda = torch.cuda.is_available()
+        has_xpu = (
+            hasattr(torch, "xpu")
+            and hasattr(torch.xpu, "is_available")
+            and torch.xpu.is_available()
+            and os.getenv("HAYSTACK_XPU_ENABLED", "true") != "false"
+        )
     except ImportError:
         has_mps = False
         has_cuda = False
+        has_xpu = False
 
     if has_cuda:
         return Device.gpu()
+    elif has_xpu:
+        return Device.xpu()
     elif has_mps:
         return Device.mps()
     else:

@@ -1,0 +1,125 @@
+name: Test SDK
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+env:
+  INTEGRATION_TEST_PYTHON_VERSION_3_11: 3.11.13
+  INTEGRATION_TEST_REPORT_PYTHON_3_11: integration-test-report-python3_11.xml
+  INTEGRATION_TESTS_PRIVATE_KEY: ${{ secrets.SDK_TESTS_PRIVATE_KEY }}
+  INTEGRATION_TESTS_PRIVATE_KEY_SERVICE_ACCOUNT: ${{ secrets.SDK_TESTS_PRIVATE_KEY_SERVICE_ACCOUNT }}
+  INTEGRATION_TESTS_PRIVATE_KEY_NON_ORG: ${{ secrets.SDK_TESTS_PRIVATE_KEY_NON_ORG }}
+
+  BACKEND_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+  BACKEND_REPO: cord-team/cord-backend
+
+
+concurrency:
+  group: cord-client-${{ github.ref }}-test
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit Tests (Python ${{ matrix.python.major_minor }}, Pydantic ${{ matrix.pydantic.version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - { version: '3.8.18',  major_minor: '3.8', major_minor_test_report: '3_8' }
+          - { version: '3.9.23',  major_minor: '3.9', major_minor_test_report: '3_9' }
+          - { version: '3.10.18', major_minor: '3.10', major_minor_test_report: '3_10' }
+          - { version: '3.11.13', major_minor: '3.11', major_minor_test_report: '3_11' }
+          - { version: '3.12.11', major_minor: '3.12', major_minor_test_report: '3_12' }
+
+        pydantic:
+          - { version: '1.10.22', suffix: 'p1' }
+          - { version: '2.10.6', suffix: 'p2' } # Latest Pydantic v2x that supports Python 3.8
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        uses: ./.github/actions/run-unit-tests
+        with:
+          python-version: ${{ matrix.python.version }}
+          pydantic-version: ${{ matrix.pydantic.version }}
+          test-report-file: unit-test-report-python${{ matrix.python.major_minor_test_report }}_${{ matrix.pydantic.suffix }}.xml
+
+      - name: Download unit test report
+        uses: actions/download-artifact@v4
+        with:
+          name: unit-test-report-python${{ matrix.python.major_minor_test_report }}_${{ matrix.pydantic.suffix }}.xml
+          path: unit-test-report-python${{ matrix.python.major_minor_test_report }}_${{ matrix.pydantic.suffix }}
+
+      - name: Publish unit test report
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: unit-test-report-python${{ matrix.python.major_minor_test_report }}_${{ matrix.pydantic.suffix }}/*.xml
+          check_name: Unit test report
+
+
+  integration-tests-python-3-11:
+    name: Run integration tests for Python 3.11
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Checkout backend repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKEND_REPO }}
+          token: ${{ env.BACKEND_ACCESS_TOKEN }}
+          path: encord-backend
+
+      - name: Run integration tests for Python 3.11
+        uses: ./.github/actions/run-integration-tests
+        with:
+          python-version: ${{ env.INTEGRATION_TEST_PYTHON_VERSION_3_11 }}
+          integration-tests-location: ./encord-backend/projects/sdk-integration-tests
+          test-report-file: ${{ env.INTEGRATION_TEST_REPORT_PYTHON_3_11 }}
+          private-key: ${{ env.INTEGRATION_TESTS_PRIVATE_KEY }}
+          private-key-service-account: ${{ env.INTEGRATION_TESTS_PRIVATE_KEY_SERVICE_ACCOUNT }}
+          private-key-non-org: ${{ env.INTEGRATION_TESTS_PRIVATE_KEY_NON_ORG }}
+          sdk-repository-url: https://github.com/encord-team/encord-client-python@${{ github.sha }}
+
+      - name: Download integration test report Python 3.11
+        uses: actions/download-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.INTEGRATION_TEST_REPORT_PYTHON_3_11 }}
+          path: ${{ env.INTEGRATION_TEST_REPORT_PYTHON_3_11 }}
+
+      - name: Publish integration test report Python 3.11
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: ${{ env.INTEGRATION_TEST_REPORT_PYTHON_3_11 }}/*.xml
+          check_name: SDK integration test report
+
+
+  send-slack-notification:
+    name: Send notification
+    runs-on: ubuntu-24.04
+    needs: [ unit-tests, integration-tests-python-3-11 ]
+    if: always()
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get workflow status
+        uses: technote-space/workflow-conclusion-action@v2
+
+      - name: Send Slack notification
+        uses: ./.github/actions/send-slack-notification
+        with:
+          success-parameter: ${{ env.WORKFLOW_CONCLUSION }}
+          failure-channel: ${{ secrets.SLACK_FAILURE_CHANNEL_ID }}
+          failure-message: This pipeline has failed!

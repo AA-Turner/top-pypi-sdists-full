@@ -411,7 +411,7 @@ def convex_hull(
 def customdata_custom_splitnormals_add(
     execution_context: int | str | None = None, undo: bool | None = None
 ) -> None:
-    """Add a custom split normals layer, if none exists yet
+    """Add a custom normals layer, if none exists yet
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -420,7 +420,7 @@ def customdata_custom_splitnormals_add(
 def customdata_custom_splitnormals_clear(
     execution_context: int | str | None = None, undo: bool | None = None
 ) -> None:
-    """Remove the custom split normals layer, if it exists
+    """Remove the custom normals layer, if it exists
 
     :type execution_context: int | str | None
     :type undo: bool | None

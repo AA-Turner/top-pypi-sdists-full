@@ -42,21 +42,28 @@ from libc.stdlib cimport atoi, atof
 from libc.string cimport memcpy
 from cpython cimport array
 
+from .constants import VECTOR_META_FLAG_SPARSE_VECTOR
+
 from .interchange.nanoarrow_bridge cimport (
     NANOARROW_TIME_UNIT_SECOND,
     NANOARROW_TIME_UNIT_MILLI,
     NANOARROW_TIME_UNIT_MICRO,
     NANOARROW_TIME_UNIT_NANO,
+    NANOARROW_TYPE_NA,
     NANOARROW_TYPE_BOOL,
     NANOARROW_TYPE_BINARY,
     NANOARROW_TYPE_DECIMAL128,
     NANOARROW_TYPE_DOUBLE,
     NANOARROW_TYPE_FLOAT,
+    NANOARROW_TYPE_INT8,
     NANOARROW_TYPE_INT64,
+    NANOARROW_TYPE_LIST,
     NANOARROW_TYPE_LARGE_BINARY,
     NANOARROW_TYPE_LARGE_STRING,
     NANOARROW_TYPE_STRING,
+    NANOARROW_TYPE_STRUCT,
     NANOARROW_TYPE_TIMESTAMP,
+    NANOARROW_TYPE_UINT8,
 )
 
 import array
@@ -88,9 +95,10 @@ cdef type PY_TYPE_CURSOR
 cdef object PY_TYPE_DATAFRAME
 cdef type PY_TYPE_DATE = datetime.date
 cdef type PY_TYPE_DATETIME = datetime.datetime
-cdef type PY_TYPE_DECIMAL = decimal.Decimal
 cdef type PY_TYPE_DB_OBJECT
+cdef type PY_TYPE_DECIMAL = decimal.Decimal
 cdef type PY_TYPE_DB_OBJECT_TYPE
+cdef type PY_TYPE_FETCHINFO
 cdef type PY_TYPE_JSON_ID
 cdef type PY_TYPE_INTERVAL_YM
 cdef type PY_TYPE_LOB
@@ -101,7 +109,6 @@ cdef type PY_TYPE_MESSAGE_TABLE
 cdef type PY_TYPE_SPARSE_VECTOR
 cdef type PY_TYPE_TIMEDELTA = datetime.timedelta
 cdef type PY_TYPE_VAR
-cdef type PY_TYPE_FETCHINFO
 
 # enumerations used by the driver in connect parameters
 cdef object ENUM_AUTH_MODE
@@ -115,6 +122,9 @@ cdef const char* DRIVER_INSTALLATION_URL = \
         "latest/user_guide/initialization.html"
 cdef const char* ENCODING_UTF8 = "UTF-8"
 cdef const char* ENCODING_UTF16 = "UTF-16BE"
+
+# variables needed for dates when using pyarrow
+cdef cydatetime.datetime EPOCH_DATE = datetime.datetime(1970, 1, 1)
 
 # protocols registered with the library
 REGISTERED_PROTOCOLS = {}

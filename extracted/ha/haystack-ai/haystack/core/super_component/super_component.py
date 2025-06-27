@@ -5,7 +5,7 @@
 import functools
 from pathlib import Path
 from types import new_class
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from haystack import logging
 from haystack.core.component.component import component
@@ -16,6 +16,8 @@ from haystack.core.serialization import default_from_dict, default_to_dict, gene
 from haystack.core.super_component.utils import _delegate_default, _is_compatible
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class InvalidMappingTypeError(Exception):
@@ -365,11 +367,13 @@ class _SuperComponent:
         :return: Dictionary containing serialized SuperComponent data
         """
         serialized_pipeline = self.pipeline.to_dict()
+        is_pipeline_async = isinstance(self.pipeline, AsyncPipeline)
         serialized = default_to_dict(
             self,
             pipeline=serialized_pipeline,
             input_mapping=self._original_input_mapping,
             output_mapping=self._original_output_mapping,
+            is_pipeline_async=is_pipeline_async,
         )
         serialized["type"] = generate_qualified_class_name(SuperComponent)
         return serialized
@@ -460,7 +464,9 @@ class SuperComponent(_SuperComponent):
         :returns:
             The deserialized SuperComponent.
         """
-        pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
+        is_pipeline_async = data["init_parameters"].pop("is_pipeline_async", False)
+        pipeline_class = AsyncPipeline if is_pipeline_async else Pipeline
+        pipeline = pipeline_class.from_dict(data["init_parameters"]["pipeline"])
         data["init_parameters"]["pipeline"] = pipeline
         return default_from_dict(cls, data)
 
@@ -535,7 +541,7 @@ class SuperComponent(_SuperComponent):
         self.pipeline.draw(path=path, server_url=server_url, params=params, timeout=timeout)
 
 
-def super_component(cls: Any):
+def super_component(cls: Type[T]) -> Type[T]:
     """
     Decorator that converts a class into a SuperComponent.
 

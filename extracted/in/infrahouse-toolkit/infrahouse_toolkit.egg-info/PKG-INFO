@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: infrahouse-toolkit
-Version: 2.54.2
+Version: 2.55.0
 Summary: A collection of tools for building infrastructure.
 Home-page: https://github.com/infrahouse/infrahouse-toolkit
 Author: Oleksandr Kuzminskyi
@@ -18,23 +18,23 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.8
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: GitPython>=3.1.30,~=3.1
-Requires-Dist: PyGithub~=2.4
 Requires-Dist: boto3~=1.26
 Requires-Dist: botocore~=1.29
 Requires-Dist: cached-property~=2.0
-Requires-Dist: certbot~=2.9
-Requires-Dist: certbot-dns-route53~=2.9
+Requires-Dist: certbot~=4.1
+Requires-Dist: certbot-dns-route53~=4.1
 Requires-Dist: click~=8.1
-Requires-Dist: cryptography>=44.0.1,~=44.0
+Requires-Dist: cryptography>=45.0.4,~=45.0
 Requires-Dist: diskcache~=5.6
 Requires-Dist: ec2-metadata~=2.13
 Requires-Dist: elastic-transport~=8.12.0
 Requires-Dist: elasticsearch~=8.12.0
-Requires-Dist: infrahouse-core~=0.10
+Requires-Dist: GitPython>=3.1.30,~=3.1
+Requires-Dist: infrahouse-core~=0.17
+Requires-Dist: PyGithub~=2.4
 Requires-Dist: pyhcl~=0.4
 Requires-Dist: pyjwt~=2.9
-Requires-Dist: requests~=2.32
+Requires-Dist: requests>=2.32.4,~=2.32
 Requires-Dist: tabulate~=0.9
 Requires-Dist: wcwidth~=0.2
 Dynamic: author
@@ -93,10 +93,10 @@ The command prints the credentials in a format that you can copy&paste for diffe
 .. code-block:: bash
 
     $ ih-aws credentials
-    AWS_ACCESS_KEY_ID=ASIAXFXZRL24LGX6JZ5A
+    AWS_ACCESS_KEY_ID=ASIA***************A
     AWS_SECRET_ACCESS_KEY=ILA***********************************GR
     AWS_DEFAULT_REGION=us-west-1
-    AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEMr...F2Dooyg9dJ0hnVsphfLkA==
+    AWS_SESSION_TOKEN=IQoJb*************************************A==
 
 
 With a ``-e`` option, the tool adds the ``export`` keyword in case you want a child process to have access to the credentials
@@ -104,10 +104,10 @@ With a ``-e`` option, the tool adds the ``export`` keyword in case you want a ch
 .. code-block:: bash
 
     $ ih-aws credentials -e
-    export AWS_ACCESS_KEY_ID=ASIAXFXZRL24LGX6JZ5A
+    export AWS_ACCESS_KEY_ID=ASIA***************A
     export AWS_SECRET_ACCESS_KEY=ILA***********************************GR
     export AWS_DEFAULT_REGION=us-west-1
-    export AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEMr...F2Dooyg9dJ0hnVsphfLkA==
+    export AWS_SESSION_TOKEN=IQoJb*************************************A==
 
 If you want to pass the AWS credentials to a docker, the ``--docker`` option will generate a command line options to
 the ``docker`` command.

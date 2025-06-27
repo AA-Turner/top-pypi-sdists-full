@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
+from typing import Any, ContextManager, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
 
@@ -104,7 +104,7 @@ class PipelineBase:  # noqa: PLW1641
         self._max_runs_per_component = max_runs_per_component
         self._connection_type_validation = connection_type_validation
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Pipeline equality is defined by their type and the equality of their serialized form.
 
@@ -113,6 +113,7 @@ class PipelineBase:  # noqa: PLW1641
         """
         if not isinstance(self, type(other)):
             return False
+        assert isinstance(other, PipelineBase)
         return self.to_dict() == other.to_dict()
 
     def __repr__(self) -> str:
@@ -165,7 +166,7 @@ class PipelineBase:  # noqa: PLW1641
 
     @classmethod
     def from_dict(
-        cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs
+        cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs: Any
     ) -> T:
         """
         Deserializes the pipeline from a dictionary.
@@ -254,7 +255,7 @@ class PipelineBase:  # noqa: PLW1641
         """
         return marshaller.marshal(self.to_dict())
 
-    def dump(self, fp: TextIO, marshaller: Marshaller = DEFAULT_MARSHALLER):
+    def dump(self, fp: TextIO, marshaller: Marshaller = DEFAULT_MARSHALLER) -> None:
         """
         Writes the string representation of this pipeline to the file-like object passed in the `fp` argument.
 
@@ -365,6 +366,7 @@ class PipelineBase:  # noqa: PLW1641
             raise PipelineError(msg)
 
         setattr(instance, "__haystack_added_to_pipeline__", self)
+        setattr(instance, "__component_name__", name)
 
         # Add component to the graph, disconnected
         logger.debug("Adding component '{component_name}' ({component})", component_name=name, component=instance)
@@ -857,7 +859,7 @@ class PipelineBase:  # noqa: PLW1641
         for component_name, instance in self.graph.nodes(data="instance"):  # type: ignore # type is wrong in networkx
             yield component_name, instance
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """
         Make sure all nodes are warm.
 
@@ -872,7 +874,7 @@ class PipelineBase:  # noqa: PLW1641
     @staticmethod
     def _create_component_span(
         component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
-    ):
+    ) -> ContextManager[tracing.Span]:
         return tracing.tracer.trace(
             "haystack.component.run",
             tags={
@@ -897,7 +899,7 @@ class PipelineBase:  # noqa: PLW1641
             parent_span=parent_span,
         )
 
-    def _validate_input(self, data: Dict[str, Any]):
+    def validate_input(self, data: Dict[str, Any]) -> None:
         """
         Validates pipeline input data.
 
@@ -1189,7 +1191,9 @@ class PipelineBase:  # noqa: PLW1641
         return None
 
     @staticmethod
-    def _add_missing_input_defaults(component_inputs: Dict[str, Any], component_input_sockets: Dict[str, InputSocket]):
+    def _add_missing_input_defaults(
+        component_inputs: Dict[str, Any], component_input_sockets: Dict[str, InputSocket]
+    ) -> Dict[str, Any]:
         """
         Updates the inputs with the default values for the inputs that are missing
 
@@ -1211,7 +1215,7 @@ class PipelineBase:  # noqa: PLW1641
         priority: ComponentPriority,
         priority_queue: FIFOPriorityQueue,
         topological_sort: Union[Dict[str, int], None],
-    ):
+    ) -> Tuple[str, Union[Dict[str, int], None]]:
         """
         Decides which component to run when multiple components are waiting for inputs with the same priority.
 

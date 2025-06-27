@@ -610,6 +610,7 @@ class Connection(BaseConnection):
         """
 
         super().__init__()
+        self._pool = pool
 
         # determine if thin mode is being used
         with driver_mode.get_manager() as mode_mgr:
@@ -664,8 +665,7 @@ class Connection(BaseConnection):
 
     def __del__(self):
         if self._impl is not None:
-            self._impl.close(in_del=True)
-            self._impl = None
+            self._close(in_del=True)
 
     def __enter__(self):
         self._verify_connected()
@@ -673,8 +673,21 @@ class Connection(BaseConnection):
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         if self._impl is not None:
-            self._impl.close(in_del=True)
-            self._impl = None
+            self._close()
+
+    def _close(self, in_del=False):
+        """
+        Closes the connection and makes it unusable for further operations. An
+        Error exception will be raised if any operation is attempted with this
+        connection after this method completes successfully.
+        """
+        if self._pool is not None:
+            pool_impl = self._pool._impl
+            if pool_impl is not None:
+                pool_impl.return_connection(self._impl, in_del)
+        else:
+            self._impl.close(in_del)
+        self._impl = None
 
     def _create_queue(self, impl):
         """
@@ -743,8 +756,7 @@ class Connection(BaseConnection):
         connection after this method completes successfully.
         """
         self._verify_connected()
-        self._impl.close()
-        self._impl = None
+        self._close()
 
     def commit(self) -> None:
         """
@@ -1325,6 +1337,7 @@ def connect(
     use_sni: Optional[bool] = None,
     thick_mode_dsn_passthrough: Optional[bool] = None,
     extra_auth_params: Optional[dict] = None,
+    pool_name: Optional[str] = None,
     handle: Optional[int] = None,
 ) -> Connection:
     """
@@ -1552,6 +1565,9 @@ def connect(
       necessary for Oracle Database authentication using plugins, such as the
       Azure and OCI cloud-native authentication plugins (default: None)
 
+    - pool_name: the name of the DRCP pool when using multi-pool DRCP with
+      Oracle Database 23.4 or higher (default: None)
+
     - handle: an integer representing a pointer to a valid service context
       handle. This value is only used in thick mode. It should be used with
       extreme caution (default: 0)
@@ -1574,6 +1590,7 @@ class AsyncConnection(BaseConnection):
         directly but only indirectly through async_connect().
         """
         super().__init__()
+        self._pool = pool
         self._connect_coroutine = self._connect(dsn, pool, params, kwargs)
 
     def __await__(self):
@@ -1590,8 +1607,21 @@ class AsyncConnection(BaseConnection):
 
     async def __aexit__(self, *exc_info):
         if self._impl is not None:
-            await self._impl.close()
-            self._impl = None
+            await self._close()
+
+    async def _close(self, in_del=False):
+        """
+        Closes the connection and makes it unusable for further operations. An
+        Error exception will be raised if any operation is attempted with this
+        connection after this method completes successfully.
+        """
+        if self._pool is not None:
+            pool_impl = self._pool._impl
+            if pool_impl is not None:
+                await pool_impl.return_connection(self._impl, in_del)
+        else:
+            await self._impl.close(in_del)
+        self._impl = None
 
     async def _connect(self, dsn, pool, params, kwargs):
         """
@@ -1718,8 +1748,7 @@ class AsyncConnection(BaseConnection):
         Closes the connection.
         """
         self._verify_connected()
-        await self._impl.close()
-        self._impl = None
+        await self._close()
 
     async def commit(self) -> None:
         """
@@ -2161,6 +2190,7 @@ def connect_async(
     use_sni: Optional[bool] = None,
     thick_mode_dsn_passthrough: Optional[bool] = None,
     extra_auth_params: Optional[dict] = None,
+    pool_name: Optional[str] = None,
     handle: Optional[int] = None,
 ) -> AsyncConnection:
     """
@@ -2387,6 +2417,9 @@ def connect_async(
     - extra_auth_params: a dictionary containing configuration parameters
       necessary for Oracle Database authentication using plugins, such as the
       Azure and OCI cloud-native authentication plugins (default: None)
+
+    - pool_name: the name of the DRCP pool when using multi-pool DRCP with
+      Oracle Database 23.4 or higher (default: None)
 
     - handle: an integer representing a pointer to a valid service context
       handle. This value is only used in thick mode. It should be used with

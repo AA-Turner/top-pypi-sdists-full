@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: txaio
-Version: 23.6.1
+Version: 25.6.1
 Summary: Compatibility API between asyncio/Twisted/Trollius
-Home-page: https://github.com/crossbario/txaio
+Home-page: https://txaio.readthedocs.io/
 Author: typedef int GmbH
-Author-email: autobahnws@googlegroups.com
+Author-email: contact@typedefint.eu
 License: MIT License
+Project-URL: Source, https://github.com/crossbario/txaio
 Keywords: asyncio twisted trollius coroutine
 Platform: Any
 Classifier: License :: OSI Approved :: MIT License
@@ -16,7 +17,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,12 +24,12 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: twisted
 Requires-Dist: zope.interface>=5.2.0; extra == "twisted"
-Requires-Dist: twisted>=20.3.0; extra == "twisted"
+Requires-Dist: twisted>=22.10.0; extra == "twisted"
 Provides-Extra: asyncio
 Provides-Extra: dev
 Requires-Dist: wheel; extra == "dev"
@@ -49,7 +49,7 @@ Requires-Dist: twine>=1.6.5; extra == "dev"
 Requires-Dist: tox-gh-actions>=2.2.0; extra == "dev"
 Provides-Extra: all
 Requires-Dist: zope.interface>=5.2.0; extra == "all"
-Requires-Dist: twisted>=20.3.0; extra == "all"
+Requires-Dist: twisted>=22.10.0; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -60,6 +60,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: platform
+Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary

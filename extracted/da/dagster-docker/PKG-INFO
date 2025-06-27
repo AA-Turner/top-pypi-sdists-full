@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-docker
-Version: 0.26.21
+Version: 0.27.0
 Summary: A Dagster integration for docker
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-docker
 Author: Dagster Labs
@@ -14,11 +14,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
-Requires-Dist: dagster==1.10.21
+Requires-Dist: dagster==1.11.0
 Requires-Dist: docker
 Requires-Dist: docker-image-py
 Provides-Extra: test
 Requires-Dist: flaky; extra == "test"
+Requires-Dist: botocore>=1.21.49; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

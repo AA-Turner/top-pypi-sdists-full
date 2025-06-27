@@ -114,9 +114,17 @@ class Connection:
         """
         self.__change_checksum_enabled(value)
 
+    @property
+    def is_open(self) -> bool:
+        """
+        Returns whether the connection is open.
+        Does not guarantee that subsequent requests will succeed.
+        """
+        return self.__retrieve_is_open()
+
     def __init__(self, interface_id: int):
         self._interface_id = interface_id
-        self.__setup_events()
+        self.__setup_events(0)
 
     @staticmethod
     def open_serial_port(
@@ -401,6 +409,40 @@ class Connection:
             connection_name=connection_name,
         )
         return AsyncConnectionOpener(request)
+
+    def reopen(
+            self
+    ) -> None:
+        """
+        Reopens the connection.
+        To continue using events on the connection, you must resubscribe to event observables.
+        Throws an exception if the connection is already open.
+        """
+        request = dto.InterfaceEmptyRequest(
+            interface_id=self.interface_id,
+        )
+        response = call(
+            "interface/reopen",
+            request,
+            dto.IntResponse.from_binary)
+        self.__setup_events(response.value)
+
+    async def reopen_async(
+            self
+    ) -> None:
+        """
+        Reopens the connection.
+        To continue using events on the connection, you must resubscribe to event observables.
+        Throws an exception if the connection is already open.
+        """
+        request = dto.InterfaceEmptyRequest(
+            interface_id=self.interface_id,
+        )
+        response = await call_async(
+            "interface/reopen",
+            request,
+            dto.IntResponse.from_binary)
+        self.__setup_events(response.value)
 
     def generic_command(
             self,
@@ -1007,6 +1049,24 @@ class Connection:
         )
         call_sync("interface/set_checksum_enabled", request)
 
+    def __retrieve_is_open(
+            self
+    ) -> bool:
+        """
+        Returns is open.
+
+        Returns:
+            Is open.
+        """
+        request = dto.InterfaceEmptyRequest(
+            interface_id=self.interface_id,
+        )
+        response = call_sync(
+            "interface/get_is_open",
+            request,
+            dto.BoolResponse.from_binary)
+        return response.value
+
     @staticmethod
     def __free(
             interface_id: int
@@ -1030,11 +1090,11 @@ class Connection:
         """ __exit__ """
         self.close()
 
-    def __setup_events(self) -> None:
+    def __setup_events(self, session_id: int) -> None:
         def filter_connection_event(
             data: TConnectionEvents,
         ) -> bool:
-            return data.interface_id == self._interface_id
+            return data.interface_id == self._interface_id and data.session_id == session_id
 
         self._disconnected = ReplaySubject[MotionLibException]()  # terminates all the events
 

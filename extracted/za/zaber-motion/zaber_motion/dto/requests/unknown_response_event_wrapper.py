@@ -12,12 +12,18 @@ class UnknownResponseEventWrapper:
 
     interface_id: int = 0
 
+    session_id: int = 0
+    """
+    The id of the connection session.
+    """
+
     unknown_response: UnknownResponseEvent = field(default_factory=UnknownResponseEvent.zero_values)
 
     @staticmethod
     def zero_values() -> 'UnknownResponseEventWrapper':
         return UnknownResponseEventWrapper(
             interface_id=0,
+            session_id=0,
             unknown_response=UnknownResponseEvent.zero_values(),
         )
 
@@ -35,6 +41,7 @@ class UnknownResponseEventWrapper:
     def to_dict(self) -> Dict[str, Any]:
         return {
             'interfaceId': int(self.interface_id),
+            'sessionId': int(self.session_id),
             'unknownResponse': self.unknown_response.to_dict(),
         }
 
@@ -42,6 +49,7 @@ class UnknownResponseEventWrapper:
     def from_dict(data: Dict[str, Any]) -> 'UnknownResponseEventWrapper':
         return UnknownResponseEventWrapper(
             interface_id=data.get('interfaceId'),  # type: ignore
+            session_id=data.get('sessionId'),  # type: ignore
             unknown_response=UnknownResponseEvent.from_dict(data.get('unknownResponse')),  # type: ignore
         )
 
@@ -55,6 +63,15 @@ class UnknownResponseEventWrapper:
 
         if int(self.interface_id) != self.interface_id:
             raise ValueError(f'Property "InterfaceId" of "UnknownResponseEventWrapper" is not integer value.')
+
+        if self.session_id is None:
+            raise ValueError(f'Property "SessionId" of "UnknownResponseEventWrapper" is None.')
+
+        if not isinstance(self.session_id, (int, float, decimal.Decimal)):
+            raise ValueError(f'Property "SessionId" of "UnknownResponseEventWrapper" is not a number.')
+
+        if int(self.session_id) != self.session_id:
+            raise ValueError(f'Property "SessionId" of "UnknownResponseEventWrapper" is not integer value.')
 
         if self.unknown_response is None:
             raise ValueError(f'Property "UnknownResponse" of "UnknownResponseEventWrapper" is None.')

@@ -2,12 +2,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import copy
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from haystack import logging
-from haystack.dataclasses import ChatMessage, StreamingChunk
+from haystack.dataclasses import (
+    AsyncStreamingCallbackT,
+    ChatMessage,
+    ComponentInfo,
+    StreamingChunk,
+    SyncStreamingCallbackT,
+)
 from haystack.lazy_imports import LazyImport
 from haystack.utils.auth import Secret
 from haystack.utils.device import ComponentDevice
@@ -94,7 +101,7 @@ class HFModelType(Enum):
     GENERATION = 2
 
 
-def serialize_hf_model_kwargs(kwargs: Dict[str, Any]):
+def serialize_hf_model_kwargs(kwargs: Dict[str, Any]) -> None:
     """
     Recursively serialize HuggingFace specific model keyword arguments in-place to make them JSON serializable.
 
@@ -111,7 +118,7 @@ def serialize_hf_model_kwargs(kwargs: Dict[str, Any]):
             serialize_hf_model_kwargs(v)
 
 
-def deserialize_hf_model_kwargs(kwargs: Dict[str, Any]):
+def deserialize_hf_model_kwargs(kwargs: Dict[str, Any]) -> None:
     """
     Recursively deserialize HuggingFace specific model keyword arguments in-place to make them JSON serializable.
 
@@ -234,7 +241,7 @@ def check_valid_model(model_id: str, model_type: HFModelType, token: Optional[Se
         allowed_model = model_info.pipeline_tag in ["sentence-similarity", "feature-extraction"]
         error_msg = f"Model {model_id} is not a embedding model. Please provide a embedding model."
     elif model_type == HFModelType.GENERATION:
-        allowed_model = model_info.pipeline_tag in ["text-generation", "text2text-generation"]
+        allowed_model = model_info.pipeline_tag in ["text-generation", "text2text-generation", "image-text-to-text"]
         error_msg = f"Model {model_id} is not a text generation model. Please provide a text generation model."
     else:
         allowed_model = False
@@ -323,7 +330,7 @@ with LazyImport(message="Run 'pip install \"transformers[torch]\"'") as transfor
             encoded_stop_words = tokenizer(stop_words, add_special_tokens=False, padding=True, return_tensors="pt")
             self.stop_ids = encoded_stop_words.input_ids.to(device)
 
-        def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+        def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs: Any) -> bool:
             """Check if any of the stop words are generated in the current text generation step."""
             for stop_id in self.stop_ids:
                 found_stop_word = self.is_stop_word_found(input_ids, stop_id)
@@ -349,7 +356,7 @@ with LazyImport(message="Run 'pip install \"transformers[torch]\"'") as transfor
         Streaming handler for HuggingFaceLocalGenerator and HuggingFaceLocalChatGenerator.
 
         Note: This is a helper class for HuggingFaceLocalGenerator & HuggingFaceLocalChatGenerator enabling streaming
-        of generated text via Haystack Callable[StreamingChunk, None] callbacks.
+        of generated text via Haystack SyncStreamingCallbackT callbacks.
 
         Do not use this class directly.
         """
@@ -357,15 +364,62 @@ with LazyImport(message="Run 'pip install \"transformers[torch]\"'") as transfor
         def __init__(
             self,
             tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
-            stream_handler: Callable[[StreamingChunk], None],
+            stream_handler: SyncStreamingCallbackT,
             stop_words: Optional[List[str]] = None,
+            component_info: Optional[ComponentInfo] = None,
         ):
             super().__init__(tokenizer=tokenizer, skip_prompt=True)  # type: ignore
             self.token_handler = stream_handler
             self.stop_words = stop_words or []
+            self.component_info = component_info
+            self._call_counter = 0
 
-        def on_finalized_text(self, word: str, stream_end: bool = False):
+        def on_finalized_text(self, word: str, stream_end: bool = False) -> None:
             """Callback function for handling the generated text."""
+            self._call_counter += 1
             word_to_send = word + "\n" if stream_end else word
             if word_to_send.strip() not in self.stop_words:
-                self.token_handler(StreamingChunk(content=word_to_send))
+                self.token_handler(
+                    StreamingChunk(
+                        content=word_to_send, index=0, start=self._call_counter == 1, component_info=self.component_info
+                    )
+                )
+
+    class AsyncHFTokenStreamingHandler(TextStreamer):
+        """
+        Async streaming handler for HuggingFaceLocalGenerator and HuggingFaceLocalChatGenerator.
+
+        Note: This is a helper class for HuggingFaceLocalGenerator & HuggingFaceLocalChatGenerator enabling
+        async streaming of generated text via Haystack Callable[StreamingChunk, Awaitable[None]] callbacks.
+
+        Do not use this class directly.
+        """
+
+        def __init__(
+            self,
+            tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+            stream_handler: AsyncStreamingCallbackT,
+            stop_words: Optional[List[str]] = None,
+            component_info: Optional[ComponentInfo] = None,
+        ):
+            super().__init__(tokenizer=tokenizer, skip_prompt=True)  # type: ignore
+            self.token_handler = stream_handler
+            self.stop_words = stop_words or []
+            self.component_info = component_info
+            self._queue: asyncio.Queue[StreamingChunk] = asyncio.Queue()
+
+        def on_finalized_text(self, word: str, stream_end: bool = False) -> None:
+            """Synchronous callback that puts chunks in a queue."""
+            word_to_send = word + "\n" if stream_end else word
+            if word_to_send.strip() not in self.stop_words:
+                self._queue.put_nowait(StreamingChunk(content=word_to_send, component_info=self.component_info))
+
+        async def process_queue(self) -> None:
+            """Process the queue of streaming chunks."""
+            while True:
+                try:
+                    chunk = await self._queue.get()
+                    await self.token_handler(chunk)
+                    self._queue.task_done()
+                except asyncio.CancelledError:
+                    break

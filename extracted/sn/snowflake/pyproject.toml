@@ -36,10 +36,10 @@ classifiers = [
 ]
 # The version for the `snowflake` namespace package must be defined
 # statically, since there's no actual code to a namespace package.
-version = '1.5.1'
+version = '1.6.0'
 
 dependencies = [
-    'snowflake.core == 1.5.1',
+    'snowflake.core == 1.6.0',
     'snowflake._legacy',
 ]
 

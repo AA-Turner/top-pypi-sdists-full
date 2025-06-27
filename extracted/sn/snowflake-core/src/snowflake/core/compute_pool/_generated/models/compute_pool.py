@@ -35,7 +35,7 @@ class ComputePool(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     min_nodes : int
         Minimum number of nodes for the compute pool.
     max_nodes : int
@@ -307,7 +307,7 @@ class ComputePoolModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         min_nodes : int
             Minimum number of nodes for the compute pool.
         max_nodes : int

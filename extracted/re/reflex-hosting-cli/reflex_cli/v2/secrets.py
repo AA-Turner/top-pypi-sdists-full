@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import click
-from tabulate import tabulate
 
 from reflex_cli import constants
 from reflex_cli.utils import console
@@ -65,7 +64,7 @@ def get_secrets(
         if secrets:
             headers = ["Keys"]
             table = [[key] for key in secrets]
-            console.print(tabulate(table, headers=headers))
+            console.print_table(table, headers=headers)
         else:
             console.print(str(secrets))
     except NotAuthenticatedError as err:

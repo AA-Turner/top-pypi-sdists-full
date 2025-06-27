@@ -34,13 +34,14 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.13",
     install_requires=[
-        "dagster==1.10.21",
+        "dagster==1.11.0",
         "docker",
         "docker-image-py",
     ],
     extras_require={
         "test": [
             "flaky",
+            "botocore>=1.21.49",  # first botocore version that works on python 3.9+
         ],
     },
     zip_safe=False,

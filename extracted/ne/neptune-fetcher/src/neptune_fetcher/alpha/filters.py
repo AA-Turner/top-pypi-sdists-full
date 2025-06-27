@@ -27,6 +27,7 @@ from typing import (
 )
 
 from neptune_fetcher.internal import filters as _filters
+from neptune_fetcher.internal.filters import _AttributeNameFilter
 from neptune_fetcher.internal.retrieval import attribute_types as types
 from neptune_fetcher.internal.util import (
     _validate_allowed_value,
@@ -47,6 +48,7 @@ class BaseAttributeFilter(ABC):
     def __or__(self, other: "BaseAttributeFilter") -> "BaseAttributeFilter":
         return BaseAttributeFilter.any(self, other)
 
+    @staticmethod
     def any(*filters: "BaseAttributeFilter") -> "BaseAttributeFilter":
         return _AttributeFilterAlternative(filters=filters)
 
@@ -109,11 +111,23 @@ class AttributeFilter(BaseAttributeFilter):
         _validate_list_of_allowed_values(self.aggregations, types.ALL_AGGREGATIONS, "aggregations")  # type: ignore
 
     def _to_internal(self) -> _filters._AttributeFilter:
+        matches_all = [self.name_matches_all] if isinstance(self.name_matches_all, str) else self.name_matches_all
+        matches_none = [self.name_matches_none] if isinstance(self.name_matches_none, str) else self.name_matches_none
+
+        if matches_all is not None or matches_none is not None:
+            must_match_any = [
+                _AttributeNameFilter(
+                    must_match_regexes=matches_all,
+                    must_not_match_regexes=matches_none,
+                )
+            ]
+        else:
+            must_match_any = None
+
         return _filters._AttributeFilter(
             name_eq=self.name_eq,
             type_in=self.type_in,
-            name_matches_all=self.name_matches_all,
-            name_matches_none=self.name_matches_none,
+            must_match_any=must_match_any,
             aggregations=self.aggregations,
         )
 
@@ -359,9 +373,8 @@ class Filter(ABC):
             filters = [Filter.name_eq(name) for name in names]
             return Filter.any(*filters)
 
-    @abc.abstractmethod
     def to_query(self) -> str:
-        ...
+        return self._to_internal().to_query()
 
     @abc.abstractmethod
     def _to_internal(self) -> _filters._Filter:
@@ -384,9 +397,6 @@ class _AttributeValuePredicate(Filter):
         if not isinstance(self.value, (bool, int, float, str, datetime)):
             raise TypeError(f"Invalid value type: {type(self.value).__name__}. Expected int, float, str, or datetime.")
 
-    def to_query(self) -> str:
-        return f"{self.attribute} {self.operator} {self._right_query()}"
-
     def _right_query(self) -> str:
         if isinstance(self.value, datetime):
             return f'"{self.value.astimezone().isoformat()}"'
@@ -407,9 +417,6 @@ class _AttributePredicate(Filter):
     postfix_operator: Literal["EXISTS"]
     attribute: Attribute
 
-    def to_query(self) -> str:
-        return f"{self.attribute} {self.postfix_operator}"
-
     def _to_internal(self) -> _filters._Filter:
         return _filters._AttributePredicate(
             postfix_operator=self.postfix_operator,
@@ -422,12 +429,8 @@ class _AssociativeOperator(Filter):
     operator: Literal["AND", "OR"]
     filters: Iterable[Filter]
 
-    def to_query(self) -> str:
-        filter_queries = [f"({child})" for child in self.filters]
-        return f" {self.operator} ".join(filter_queries)
-
     def _to_internal(self) -> _filters._Filter:
-        return _filters._AssociativeOperator(
+        return _AlphaInternalAssociativeOperator(
             operator=self.operator,
             filters=[f._to_internal() for f in self.filters],
         )
@@ -438,11 +441,19 @@ class _PrefixOperator(Filter):
     operator: Literal["NOT"]
     filter_: Filter
 
-    def to_query(self) -> str:
-        return f"{self.operator} ({self.filter_})"
-
     def _to_internal(self) -> _filters._Filter:
         return _filters._PrefixOperator(
             operator=self.operator,
             filter_=self.filter_._to_internal(),
         )
+
+
+class _AlphaInternalAssociativeOperator(_filters._AssociativeOperator):
+    """
+    A version of internal.filters._AssociativeOperator that skips filters validation and allows them to be an empty list
+    """
+
+    def __post_init__(self) -> None:
+        # Only validate the operator as we're allowing empty filters for _AssociativeOperator in alpha
+        allowed_operators = {"AND", "OR"}
+        _validate_allowed_value(self.operator, allowed_operators, "operator")

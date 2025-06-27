@@ -187,6 +187,7 @@ class TestCase(test_env.BaseAsyncTestCase):
             results = value
             await other_conn.commit()
             self.assertEqual(results, self.raw_data[0])
+            self.assertEqual(props.deliverymode, oracledb.MSG_BUFFERED)
 
     async def test_7910(self):
         "7910 - test enqueue/dequeue delivery modes identical - persistent"
@@ -208,6 +209,7 @@ class TestCase(test_env.BaseAsyncTestCase):
             results = value
             await other_conn.commit()
             self.assertEqual(results, self.raw_data[0])
+            self.assertEqual(props.deliverymode, oracledb.MSG_PERSISTENT)
 
     async def test_7911(self):
         "7911 - test enqueue/dequeue delivery modes the same"
@@ -401,6 +403,39 @@ class TestCase(test_env.BaseAsyncTestCase):
         props = self.conn.msgproperties(payload=obj)
         with self.assertRaisesFullCode("DPY-2062"):
             await queue.enqone(props)
+
+    async def test_7925(self):
+        "7925 - test deq options correlation with buffered messages"
+        queue = await self.get_and_clear_queue("TEST_RAW_QUEUE")
+        value = self.raw_data[0]
+        props = self.conn.msgproperties(payload=value, correlation="sample")
+        queue.enqoptions.visibility = oracledb.ENQ_IMMEDIATE
+        queue.enqoptions.deliverymode = oracledb.MSG_BUFFERED
+        await queue.enqone(props)
+        await self.conn.commit()
+        queue.deqoptions.visibility = oracledb.DEQ_IMMEDIATE
+        queue.deqoptions.deliverymode = oracledb.MSG_BUFFERED
+        queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
+        queue.deqoptions.correlation = "sample"
+        msg = await queue.deqone()
+        await self.conn.commit()
+        self.assertEqual(msg.payload, value)
+
+    async def test_7926(self):
+        "7926 - test deq options with msgid > 16 bytes"
+        queue = await self.get_and_clear_queue("TEST_RAW_QUEUE")
+        queue.deqoptions.msgid = b"invalid_msgid_123456789"
+        queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
+        with self.assertRaisesFullCode("ORA-25263"):
+            await queue.deqone()
+
+    async def test_7927(self):
+        "7927 - test deq options with msgid < 16 bytes"
+        queue = await self.get_and_clear_queue("TEST_RAW_QUEUE")
+        queue.deqoptions.msgid = b"short_msgid"
+        queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
+        with self.assertRaisesFullCode("ORA-25263"):
+            await queue.deqone()
 
 
 if __name__ == "__main__":

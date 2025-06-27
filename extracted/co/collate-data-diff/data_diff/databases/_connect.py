@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Hashable, MutableMapping, Type, Optional, Union, Dict
 from itertools import zip_longest
 from contextlib import suppress
@@ -291,7 +292,7 @@ class Connect:
 
     def __make_cache_key(self, db_conf: Union[str, dict]) -> Hashable:
         if isinstance(db_conf, dict):
-            return tuple(db_conf.items())
+            return json.dumps(db_conf)
         return db_conf
 
 

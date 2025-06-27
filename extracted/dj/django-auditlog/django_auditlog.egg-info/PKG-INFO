@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-auditlog
-Version: 3.1.2
+Version: 3.2.0
 Summary: Audit log app for Django
 Home-page: https://github.com/jazzband/django-auditlog
 Author: Jan-Jelle Kester

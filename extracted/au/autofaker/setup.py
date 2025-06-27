@@ -5,7 +5,7 @@ with open("docs/pypi.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="autofaker",
-    version='1.0.19',
+    version='1.0.22',
     url="https://github.com/christianhelle/autofaker",
     license="MIT License",
     license_files=["LICENSE"],
@@ -16,6 +16,6 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=["pandas", "faker", "typing_inspect"],
 )

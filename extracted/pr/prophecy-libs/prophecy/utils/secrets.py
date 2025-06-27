@@ -75,7 +75,8 @@ def conn_detail_type(
 class HashiCorpConnectionDetails(SecretsProviderConnectionDetails):
     address: Optional[str] = None
     token: Optional[str] = None
-    namespace: Optional[str] = None
+    namespace: Optional[str] = None,
+    allowedSecretPaths: Optional[list[str]] = None
 
     @staticmethod
     def environment_driven() -> "HashiCorpConnectionDetails":
@@ -630,7 +631,7 @@ def _split_mount_and_path(full_path: str) -> tuple[str, str]:
     m = _FIRST_SEG_RX.match(full_path.lstrip("/"))
     if not m:
         raise ValueError(f"Illegal Vault path: {full_path!r}")
-    return m.group(1), m.group(2)
+    return m.group(1), f"{m.group(2).strip("/")}/"
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -656,13 +657,6 @@ class VaultUtils:
               - explicit namespace argument wins
               - else fall back to spark.conf "spark.prophecy.execution.hashicorp.namespace"
         """
-        # # Hard-coded for prophecy, to be removed before merge
-        os.environ["VAULT_ADDR"] = (
-            "https://prophecy-dev-vault-public-vault-d2518923.84541bcf.z1.hashicorp.cloud:8200"
-        )
-        os.environ["VAULT_TOKEN"] = (
-            "hvs.CAESIJgQJHp0VkNfeIsOLQXbRsRLalFiDHANGoCRXtHZit5SGigKImh2cy5LcnJpTnZSS3NTQmVIS0JGNXJaZHE5TFYuaXlVdzQQ4r4c"
-        )
 
         addr = address or os.getenv("VAULT_ADDR")
         tok = token or os.getenv("VAULT_TOKEN")
@@ -835,11 +829,16 @@ class VaultUtils:
         except hvac.exceptions.InvalidPath:
             mounts = cli.sys.list_mounted_secrets_engines()
 
-        for mount, meta in mounts.items():
-            if meta["type"] != "kv":
-                continue
-            kv = int(meta.get("options", {}).get("version", "1"))
-            VaultUtils._walk_kv(cli, mount.rstrip("/"), "", kv, out)
+        if conn.allowedSecretPaths:
+            for path in conn.allowedSecretPaths:
+                mount, inner_path = _split_mount_and_path(path)
+                VaultUtils._walk_kv(cli, mount, inner_path, None, out)
+        else:
+            for mount, meta in mounts.items():
+                if meta["type"] != "kv":
+                    continue
+                kv = int(meta.get("options", {}).get("version", "1"))
+                VaultUtils._walk_kv(cli, mount.rstrip("/"), "", kv, out)
 
         return dict(out)
 
@@ -862,13 +861,21 @@ class VaultUtils:
                 resp = cli.secrets.kv.v2.list_secrets(
                     path=inner or "", mount_point=mount
                 )
-            else:
+            elif kv_ver == 1:
                 resp = cli.secrets.kv.v1.list_secrets(
                     path=inner or "", mount_point=mount
                 )
+            else:
+                try:
+                    resp = cli.secrets.kv.v2.list_secrets(path=inner or "", mount_point=mount)
+                    kv_ver = 2
+                except hvac.exceptions.Forbidden:
+                    resp = cli.secrets.kv.v1.list_secrets(path=inner or "", mount_point=mount)
+                    kv_ver = 1
+
             keys = resp["data"]["keys"]
         except hvac.exceptions.InvalidPath:
-            return
+            keys = [""]
 
         for k in keys:
             if k.endswith("/"):  # folder → recurse
@@ -885,8 +892,10 @@ class VaultUtils:
                         secret = cli.secrets.kv.v1.read_secret(
                             path=f"{inner}{k}", mount_point=mount
                         )["data"]
+                    print(full_path, inner, k)
                     acc[full_path] = list(secret.keys())
                 except hvac.exceptions.InvalidPath:  # race / ACL issue
+                    logger.warning(f'Got Invalid Path : {full_path}')
                     pass
 
     # ------------------------------------------------------------------ #

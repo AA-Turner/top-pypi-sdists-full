@@ -155,6 +155,34 @@ def datetime_utc(
 ##
 
 
+@overload
+def diff_year_month(
+    x: YearMonth, y: YearMonth, /, *, years: Literal[True]
+) -> tuple[int, int]: ...
+@overload
+def diff_year_month(
+    x: YearMonth, y: YearMonth, /, *, years: Literal[False] = False
+) -> int: ...
+@overload
+def diff_year_month(
+    x: YearMonth, y: YearMonth, /, *, years: bool = False
+) -> int | tuple[int, int]: ...
+def diff_year_month(
+    x: YearMonth, y: YearMonth, /, *, years: bool = False
+) -> int | tuple[int, int]:
+    """Compute the difference between two year-months."""
+    x_date, y_date = x.on_day(1), y.on_day(1)
+    diff = x_date - y_date
+    if years:
+        yrs, mth, _ = diff.in_years_months_days()
+        return yrs, mth
+    mth, _ = diff.in_months_days()
+    return mth
+
+
+##
+
+
 def format_compact(
     obj: Date | Time | PlainDateTime | ZonedDateTime, /, *, fmt: str | None = None
 ) -> str:
@@ -552,6 +580,26 @@ def to_local_plain(date_time: ZonedDateTime, /) -> PlainDateTime:
 ##
 
 
+def to_months(delta: DateDelta, /) -> int:
+    """Compute the number of months in a date delta."""
+    months, days = delta.in_months_days()
+    if days != 0:
+        raise ToMonthsError(days=days)
+    return months
+
+
+@dataclass(kw_only=True, slots=True)
+class ToMonthsError(Exception):
+    days: int
+
+    @override
+    def __str__(self) -> str:
+        return f"Date delta must not contain days; got {self.days}"
+
+
+##
+
+
 def to_nanos(delta: DateTimeDelta, /) -> int:
     """Compute the number of nanoseconds in a date-time delta."""
     try:
@@ -801,10 +849,12 @@ __all__ = [
     "MeanDateTimeError",
     "MinMaxDateError",
     "ToDaysError",
+    "ToMonthsError",
     "ToNanosError",
     "ToPyTimeDeltaError",
     "WheneverLogRecord",
     "datetime_utc",
+    "diff_year_month",
     "format_compact",
     "from_timestamp",
     "from_timestamp_millis",
@@ -819,6 +869,7 @@ __all__ = [
     "to_date_time_delta",
     "to_days",
     "to_local_plain",
+    "to_months",
     "to_nanos",
     "to_py_time_delta",
     "to_zoned_date_time",

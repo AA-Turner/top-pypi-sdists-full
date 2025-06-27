@@ -179,9 +179,7 @@ def no_response():
 
 
 @app.route("/api/list_json", methods=["POST"])
-@api.validate(
-    json=ListJSON,
-)
+@api.validate(json=ListJSON)
 def json_list():
     return {}
 
@@ -263,6 +261,12 @@ def return_model():
         pre_serialize=False,
         return_what=request.args.get("return_what", default="RootResp"),
     )
+
+
+@app.route("/api/return_string_status", methods=["GET"])
+@api.validate()
+def return_string_status():
+    return "Response text string", 200
 
 
 @app.route("/api/return_optional_alias", methods=["GET"])

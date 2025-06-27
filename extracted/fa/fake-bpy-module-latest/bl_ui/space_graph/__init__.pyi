@@ -31,6 +31,32 @@ class GRAPH_HT_header(bpy.types.Header):
         :param context:
         """
 
+class GRAPH_HT_playback_controls(bpy.types.Header):
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class GRAPH_MT_channel(bpy.types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -565,3 +591,5 @@ class GRAPH_PT_snapping(bpy.types.Panel):
 
         :param context:
         """
+
+def drivers_editor_footer(layout, context) -> None: ...

@@ -9,6 +9,7 @@ from sqlglot.dialects.dialect import (
     build_timetostr_or_tochar,
     binary_from_function,
     build_default_decimal_type,
+    build_replace_with_optional_replacement,
     build_timestamp_from_parts,
     date_delta_sql,
     date_trunc_to_time,
@@ -484,6 +485,7 @@ class Snowflake(Dialect):
             "REGEXP_REPLACE": _build_regexp_replace,
             "REGEXP_SUBSTR": _build_regexp_extract(exp.RegexpExtract),
             "REGEXP_SUBSTR_ALL": _build_regexp_extract(exp.RegexpExtractAll),
+            "REPLACE": build_replace_with_optional_replacement,
             "RLIKE": exp.RegexpLike.from_arg_list,
             "SQUARE": lambda args: exp.Pow(this=seq_get(args, 0), expression=exp.Literal.number(2)),
             "TABLE": lambda args: exp.TableFromRows(this=seq_get(args, 0)),
@@ -1416,7 +1418,7 @@ class Snowflake(Dialect):
 
         def timetostr_sql(self, expression: exp.TimeToStr) -> str:
             this = expression.this
-            if not isinstance(this, exp.TsOrDsToTimestamp):
+            if this.is_string:
                 this = exp.cast(this, exp.DataType.Type.TIMESTAMP)
 
             return self.func("TO_CHAR", this, self.format_time(expression))

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import click
-from tabulate import tabulate
 
 from reflex_cli import constants
 from reflex_cli.core.config import Config
@@ -87,7 +86,7 @@ def app_history(
         if history:
             headers = list(history[0].keys())
             table = [list(deployment.values()) for deployment in history]
-            console.print(tabulate(table, headers=headers))
+            console.print_table(table, headers=headers)
         else:
             console.print(str(history))
     except NotAuthenticatedError as err:
@@ -437,7 +436,9 @@ def app_logs(
             else:
                 console.warn("Unable to retrieve logs.")
         if interactive and follow:
-            prompt = console.Prompt.ask(
+            from rich.prompt import Prompt
+
+            prompt = Prompt.ask(
                 "Press Enter to fetch next 100 logs or type 'exit' to quit",
                 default="",
                 show_default=False,
@@ -528,7 +529,7 @@ def list_apps(
     if deployments:
         headers = list(deployments[0].keys())
         table = [list(deployment.values()) for deployment in deployments]
-        console.print(tabulate(table, headers=headers))
+        console.print_table(table, headers=headers)
     else:
         console.print(str(deployments))
 

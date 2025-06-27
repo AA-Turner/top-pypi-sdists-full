@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: synphot
-Version: 1.5.0
+Version: 1.6.0
 Summary: Synthetic photometry
 Home-page: https://www.github.com/spacetelescope/synphot_refactor
 Author: STScI
@@ -22,12 +22,13 @@ Requires-Dist: numpy>=1.23
 Requires-Dist: astropy>=6
 Requires-Dist: scipy>=1.9
 Provides-Extra: all
-Requires-Dist: specutils>=0.7; extra == "all"
+Requires-Dist: specutils>=1.10; extra == "all"
 Requires-Dist: dust-extinction; extra == "all"
 Provides-Extra: test
 Requires-Dist: pytest-astropy; extra == "test"
 Provides-Extra: docs
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: sphinx-astropy; extra == "docs"
+Dynamic: license-file
 
 This is a package for doing synthetic photometry that relies on Astropy

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk_databrew_cicd
-Version: 2.0.631
+Version: 2.0.632
 Summary: A construct for AWS Glue DataBrew wtih CICD
 Home-page: https://github.com/HsiehShuJeng/cdk-databrew-cicd.git
 Author: Shu-Jeng Hsieh

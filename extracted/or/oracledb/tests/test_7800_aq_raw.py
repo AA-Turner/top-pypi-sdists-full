@@ -140,6 +140,7 @@ class TestCase(test_env.BaseTestCase):
         self.__verify_attr(props, "priority", 1)
         self.assertEqual(props.state, oracledb.MSG_READY)
         self.assertEqual(props.deliverymode, 0)
+        self.assertIsNone(props.enqtime)
 
     def test_7807(self):
         "7807 - test enqueue visibility option - ENQ_ON_COMMIT"
@@ -198,6 +199,7 @@ class TestCase(test_env.BaseTestCase):
         results = value
         other_conn.commit()
         self.assertEqual(results, self.raw_data[0])
+        self.assertEqual(props.deliverymode, oracledb.MSG_BUFFERED)
 
     def test_7810(self):
         "7810 - test enqueue/dequeue delivery modes identical - persistent"
@@ -219,6 +221,7 @@ class TestCase(test_env.BaseTestCase):
         results = value
         other_conn.commit()
         self.assertEqual(results, self.raw_data[0])
+        self.assertEqual(props.deliverymode, oracledb.MSG_PERSISTENT)
 
     def test_7811(self):
         "7811 - test enqueue/dequeue delivery modes the same"
@@ -420,6 +423,80 @@ class TestCase(test_env.BaseTestCase):
         props = self.conn.msgproperties(payload=obj)
         with self.assertRaisesFullCode("DPY-2062"):
             queue.enqone(props)
+
+    def test_7826(self):
+        "7826 - test providing null values on queue dequeue options"
+        queue = self.conn.queue("TEST_RAW_QUEUE")
+        str_value = "test - 7826"
+        bytes_value = str_value.encode()
+        for name in [
+            "condition",
+            "consumername",
+            "correlation",
+            "msgid",
+            "transformation",
+        ]:
+            value = bytes_value if name == "msgid" else str_value
+            with self.subTest(name=name):
+                setattr(queue.deqoptions, name, value)
+                self.assertEqual(getattr(queue.deqoptions, name), value)
+                setattr(queue.deqoptions, name, None)
+                self.assertIsNone(getattr(queue.deqoptions, name))
+
+    def test_7827(self):
+        "7827 - test providing null values on queue enqueue options"
+        queue = self.conn.queue("TEST_RAW_QUEUE")
+        value = "test - 7827"
+        for name in ["transformation"]:
+            with self.subTest(name=name):
+                setattr(queue.enqoptions, name, value)
+                self.assertEqual(getattr(queue.enqoptions, name), value)
+                setattr(queue.enqoptions, name, None)
+                self.assertIsNone(getattr(queue.enqoptions, name))
+
+    def test_7828(self):
+        "7828 - test providing null correlation on message properties"
+        props = self.conn.msgproperties()
+        value = "test - 7828"
+        for name in ["correlation", "exceptionq"]:
+            with self.subTest(name=name):
+                setattr(props, name, value)
+                self.assertEqual(getattr(props, name), value)
+                setattr(props, name, None)
+                self.assertIsNone(getattr(props, name))
+
+    def test_7829(self):
+        "7829 - test deq options correlation with buffered messages"
+        queue = self.get_and_clear_queue("TEST_RAW_QUEUE")
+        value = self.raw_data[0]
+        props = self.conn.msgproperties(payload=value, correlation="sample")
+        queue.enqoptions.visibility = oracledb.ENQ_IMMEDIATE
+        queue.enqoptions.deliverymode = oracledb.MSG_BUFFERED
+        queue.enqone(props)
+        self.conn.commit()
+        queue.deqoptions.visibility = oracledb.DEQ_IMMEDIATE
+        queue.deqoptions.deliverymode = oracledb.MSG_BUFFERED
+        queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
+        queue.deqoptions.correlation = "sample"
+        msg = queue.deqone()
+        self.conn.commit()
+        self.assertEqual(msg.payload, value)
+
+    def test_7830(self):
+        "7830 - test deq options with msgid > 16 bytes"
+        queue = self.get_and_clear_queue("TEST_RAW_QUEUE")
+        queue.deqoptions.msgid = b"invalid_msgid_123456789"
+        queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
+        with self.assertRaisesFullCode("ORA-25263"):
+            queue.deqone()
+
+    def test_7831(self):
+        "7831 - test deq options with msgid < 16 bytes"
+        queue = self.get_and_clear_queue("TEST_RAW_QUEUE")
+        queue.deqoptions.msgid = b"short_msgid"
+        queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
+        with self.assertRaisesFullCode("ORA-25263"):
+            queue.deqone()
 
 
 if __name__ == "__main__":

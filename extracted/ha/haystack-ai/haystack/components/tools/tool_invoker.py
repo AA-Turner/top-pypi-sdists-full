@@ -5,9 +5,10 @@
 import asyncio
 import inspect
 import json
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.components.agents import State
@@ -24,6 +25,7 @@ from haystack.tools import (
 )
 from haystack.tools.errors import ToolInvocationError
 from haystack.tracing.utils import _serializable_value
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +169,8 @@ class ToolInvoker:
         convert_result_to_json_string: bool = False,
         streaming_callback: Optional[StreamingCallbackT] = None,
         *,
+        enable_streaming_callback_passthrough: bool = False,
+        max_workers: int = 4,
         async_executor: Optional[ThreadPoolExecutor] = None,
     ):
         """
@@ -186,9 +190,20 @@ class ToolInvoker:
             A callback function that will be called to emit tool results.
             Note that the result is only emitted once it becomes available — it is not
             streamed incrementally in real time.
+        :param enable_streaming_callback_passthrough:
+            If True, the `streaming_callback` will be passed to the tool invocation if the tool supports it.
+            This allows tools to stream their results back to the client.
+            Note that this requires the tool to have a `streaming_callback` parameter in its `invoke` method signature.
+            If False, the `streaming_callback` will not be passed to the tool invocation.
+        :param max_workers:
+            The maximum number of workers to use in the thread pool executor.
         :param async_executor:
-            Optional ThreadPoolExecutor to use for async calls. If not provided, a single-threaded executor will be
-            initialized and used.
+            Optional `ThreadPoolExecutor` to use for asynchronous calls.
+            Note: As of Haystack 2.15.0, you no longer need to explicitly pass
+            `async_executor`. Instead, you can provide the `max_workers` parameter,
+            and a `ThreadPoolExecutor` will be created automatically for parallel tool invocations.
+            Support for `async_executor` will be removed in Haystack 2.16.0.
+            Please migrate to using `max_workers` instead.
         :raises ValueError:
             If no tools are provided or if duplicate tool names are found.
         """
@@ -198,6 +213,8 @@ class ToolInvoker:
         # could be a Toolset instance or a list of Tools
         self.tools = tools
         self.streaming_callback = streaming_callback
+        self.enable_streaming_callback_passthrough = enable_streaming_callback_passthrough
+        self.max_workers = max_workers
 
         # Convert Toolset to list for internal use
         if isinstance(tools, Toolset):
@@ -215,8 +232,19 @@ class ToolInvoker:
         self.raise_on_failure = raise_on_failure
         self.convert_result_to_json_string = convert_result_to_json_string
         self._owns_executor = async_executor is None
+        if self._owns_executor:
+            warnings.warn(
+                "'async_executor' is deprecated in favor of the 'max_workers' parameter. "
+                "ToolInvoker now creates its own thread pool executor by default using 'max_workers'. "
+                "Support for 'async_executor' will be removed in Haystack 2.16.0. "
+                "Please update your usage to pass 'max_workers' instead.",
+                DeprecationWarning,
+            )
+
         self.executor = (
-            ThreadPoolExecutor(thread_name_prefix=f"async-ToolInvoker-executor-{id(self)}", max_workers=1)
+            ThreadPoolExecutor(
+                thread_name_prefix=f"async-ToolInvoker-executor-{id(self)}", max_workers=self.max_workers
+            )
             if async_executor is None
             else async_executor
         )
@@ -329,18 +357,12 @@ class ToolInvoker:
                 raise conversion_error from e
         return ChatMessage.from_tool(tool_result=tool_result_str, error=error, origin=tool_call)
 
-    @staticmethod
-    def _inject_state_args(tool: Tool, llm_args: Dict[str, Any], state: State) -> Dict[str, Any]:
+    def _get_func_params(self, tool: Tool) -> Set:
         """
-        Combine LLM-provided arguments (llm_args) with state-based arguments.
+        Returns the function parameters of the tool's invoke method.
 
-        Tool arguments take precedence in the following order:
-          - LLM overrides state if the same param is present in both
-          - local tool.inputs mappings (if any)
-          - function signature name matching
+        This method inspects the tool's function signature to determine which parameters the tool accepts.
         """
-        final_args = dict(llm_args)  # start with LLM-provided
-
         # ComponentTool wraps the function with a function that accepts kwargs, so we need to look at input sockets
         # to find out which parameters the tool accepts.
         if isinstance(tool, ComponentTool):
@@ -351,6 +373,20 @@ class ToolInvoker:
             func_params = set(tool._component.__haystack_input__._sockets_dict.keys())
         else:
             func_params = set(inspect.signature(tool.function).parameters.keys())
+
+        return func_params
+
+    def _inject_state_args(self, tool: Tool, llm_args: Dict[str, Any], state: State) -> Dict[str, Any]:
+        """
+        Combine LLM-provided arguments (llm_args) with state-based arguments.
+
+        Tool arguments take precedence in the following order:
+          - LLM overrides state if the same param is present in both
+          - local tool.inputs mappings (if any)
+          - function signature name matching
+        """
+        final_args = dict(llm_args)  # start with LLM-provided
+        func_params = self._get_func_params(tool)
 
         # Determine the source of parameter mappings (explicit tool inputs or direct function parameters)
         # Typically, a "Tool" might have .inputs_from_state = {"state_key": "tool_param_name"}
@@ -411,12 +447,69 @@ class ToolInvoker:
             # Merge other outputs into the state
             state.set(state_key, output_value, handler_override=handler)
 
+    def _prepare_tool_call_params(
+        self,
+        messages_with_tool_calls: List[ChatMessage],
+        state: State,
+        streaming_callback: Optional[StreamingCallbackT],
+        enable_streaming_passthrough: bool,
+    ) -> tuple[List[Dict[str, Any]], List[ChatMessage]]:
+        """
+        Prepare tool call parameters for execution and collect any error messages.
+
+        :param messages_with_tool_calls: Messages containing tool calls to process
+        :param state: The current state for argument injection
+        :param streaming_callback: Optional streaming callback to inject
+        :param enable_streaming_passthrough: Whether to pass streaming callback to tools
+        :returns: Tuple of (tool_call_params, error_messages)
+        """
+        tool_call_params = []
+        error_messages = []
+
+        for message in messages_with_tool_calls:
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.tool_name
+
+                # Check if the tool is available, otherwise return an error message
+                if tool_name not in self._tools_with_names:
+                    error_message = self._handle_error(
+                        ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
+                    )
+                    error_messages.append(
+                        ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                    )
+                    continue
+
+                tool_to_invoke = self._tools_with_names[tool_name]
+
+                # Combine user + state inputs
+                llm_args = tool_call.arguments.copy()
+                final_args = self._inject_state_args(tool_to_invoke, llm_args, state)
+
+                # Check whether to inject streaming_callback
+                if (
+                    enable_streaming_passthrough
+                    and streaming_callback is not None
+                    and "streaming_callback" not in final_args
+                ):
+                    invoke_params = self._get_func_params(tool_to_invoke)
+                    if "streaming_callback" in invoke_params:
+                        final_args["streaming_callback"] = streaming_callback
+
+                tool_call_params.append(
+                    {"tool_call": tool_call, "tool_to_invoke": tool_to_invoke, "final_args": final_args}
+                )
+
+        return tool_call_params, error_messages
+
     @component.output_types(tool_messages=List[ChatMessage], state=State)
     def run(
         self,
         messages: List[ChatMessage],
         state: Optional[State] = None,
         streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
+        enable_streaming_callback_passthrough: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Processes ChatMessage objects containing tool calls and invokes the corresponding tools, if available.
@@ -427,6 +520,12 @@ class ToolInvoker:
         :param streaming_callback: A callback function that will be called to emit tool results.
             Note that the result is only emitted once it becomes available — it is not
             streamed incrementally in real time.
+        :param enable_streaming_callback_passthrough:
+            If True, the `streaming_callback` will be passed to the tool invocation if the tool supports it.
+            This allows tools to stream their results back to the client.
+            Note that this requires the tool to have a `streaming_callback` parameter in its `invoke` method signature.
+            If False, the `streaming_callback` will not be passed to the tool invocation.
+            If None, the value from the constructor will be used.
         :returns:
             A dictionary with the key `tool_messages` containing a list of ChatMessage objects with tool role.
             Each ChatMessage objects wraps the result of a tool invocation.
@@ -442,6 +541,12 @@ class ToolInvoker:
         """
         if state is None:
             state = State(schema={})
+
+        resolved_enable_streaming_passthrough = (
+            enable_streaming_callback_passthrough
+            if enable_streaming_callback_passthrough is not None
+            else self.enable_streaming_callback_passthrough
+        )
 
         # Only keep messages with tool calls
         messages_with_tool_calls = [message for message in messages if message.tool_calls]
@@ -450,69 +555,104 @@ class ToolInvoker:
         )
 
         tool_messages = []
-        for message in messages_with_tool_calls:
-            for tool_call in message.tool_calls:
-                tool_name = tool_call.tool_name
 
-                # Check if the tool is available, otherwise return an error message
-                if tool_name not in self._tools_with_names:
-                    error_message = self._handle_error(
-                        ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
-                    )
-                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
-                    continue
+        # 1) Collect all tool calls and their parameters for parallel execution
+        tool_call_params, error_messages = self._prepare_tool_call_params(
+            messages_with_tool_calls, state, streaming_callback, resolved_enable_streaming_passthrough
+        )
+        tool_messages.extend(error_messages)
 
-                tool_to_invoke = self._tools_with_names[tool_name]
+        # 2) Execute valid tool calls in parallel
+        if tool_call_params:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = []
+                for params in tool_call_params:
+                    future = executor.submit(self._execute_single_tool_call, **params)  # type: ignore[arg-type]
+                    futures.append(future)
 
-                # 1) Combine user + state inputs
-                llm_args = tool_call.arguments.copy()
-                final_args = self._inject_state_args(tool_to_invoke, llm_args, state)
+                # 3) Process results in the order they are submitted
+                for future in futures:
+                    result = future.result()
+                    if isinstance(result, ChatMessage):
+                        tool_messages.append(result)
+                    else:
+                        # Handle state merging and prepare tool result message
+                        tool_call, tool_to_invoke, tool_result = result
 
-                # 2) Invoke the tool
-                try:
-                    tool_result = tool_to_invoke.invoke(**final_args)
+                        # 4) Merge outputs into state
+                        try:
+                            self._merge_tool_outputs(tool_to_invoke, tool_result, state)
+                        except Exception as e:
+                            try:
+                                error_message = self._handle_error(
+                                    ToolOutputMergeError(
+                                        f"Failed to merge tool outputs fromtool {tool_call.tool_name} into State: {e}"
+                                    )
+                                )
+                                tool_messages.append(
+                                    ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                                )
+                                continue
+                            except ToolOutputMergeError as propagated_e:
+                                # Re-raise with proper error chain
+                                raise propagated_e from e
 
-                except ToolInvocationError as e:
-                    error_message = self._handle_error(e)
-                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
-                    continue
-
-                # 3) Merge outputs into state
-                try:
-                    self._merge_tool_outputs(tool_to_invoke, tool_result, state)
-                except Exception as e:
-                    try:
-                        error_message = self._handle_error(
-                            ToolOutputMergeError(f"Failed to merge tool outputs from tool {tool_name} into State: {e}")
-                        )
+                        # 5) Prepare the tool result ChatMessage message
                         tool_messages.append(
-                            ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                            self._prepare_tool_result_message(
+                                result=tool_result, tool_call=tool_call, tool_to_invoke=tool_to_invoke
+                            )
                         )
-                        continue
-                    except ToolOutputMergeError as propagated_e:
-                        # Re-raise with proper error chain
-                        raise propagated_e from e
 
-                # 4) Prepare the tool result ChatMessage message
-                tool_messages.append(
-                    self._prepare_tool_result_message(
-                        result=tool_result, tool_call=tool_call, tool_to_invoke=tool_to_invoke
-                    )
-                )
-
-                if streaming_callback is not None:
-                    streaming_callback(
-                        StreamingChunk(
-                            content="",
-                            meta={"tool_result": tool_messages[-1].tool_call_results[0].result, "tool_call": tool_call},
-                        )
-                    )
+                        # 6) Handle streaming callback
+                        if streaming_callback is not None:
+                            streaming_callback(
+                                StreamingChunk(
+                                    content="",
+                                    index=len(tool_messages) - 1,
+                                    tool_call_result=tool_messages[-1].tool_call_results[0],
+                                    start=True,
+                                    meta={
+                                        "tool_result": tool_messages[-1].tool_call_results[0].result,
+                                        "tool_call": tool_call,
+                                    },
+                                )
+                            )
 
         # We stream one more chunk that contains a finish_reason if tool_messages were generated
         if len(tool_messages) > 0 and streaming_callback is not None:
-            streaming_callback(StreamingChunk(content="", meta={"finish_reason": "tool_call_results"}))
+            streaming_callback(
+                StreamingChunk(
+                    content="", finish_reason="tool_call_results", meta={"finish_reason": "tool_call_results"}
+                )
+            )
 
         return {"tool_messages": tool_messages, "state": state}
+
+    def _execute_single_tool_call(self, tool_call: ToolCall, tool_to_invoke: Tool, final_args: Dict[str, Any]):
+        """
+        Execute a single tool call. This method is designed to be run in a thread pool.
+
+        :param tool_call: The ToolCall object containing the tool name and arguments.
+        :param tool_to_invoke: The Tool object that should be invoked.
+        :param final_args: The final arguments to pass to the tool.
+        :returns: Either a ChatMessage with error or a tuple of (tool_call, tool_to_invoke, tool_result)
+        """
+        try:
+            tool_result = tool_to_invoke.invoke(**final_args)
+            return (tool_call, tool_to_invoke, tool_result)
+        except ToolInvocationError as e:
+            error_message = self._handle_error(e)
+            return ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+
+    @staticmethod
+    async def invoke_tool_safely(executor: ThreadPoolExecutor, tool_to_invoke: Tool, final_args: Dict[str, Any]) -> Any:
+        """Safely invoke a tool with proper exception handling."""
+        loop = asyncio.get_running_loop()
+        try:
+            return await loop.run_in_executor(executor, partial(tool_to_invoke.invoke, **final_args))
+        except ToolInvocationError as e:
+            return e
 
     @component.output_types(tool_messages=List[ChatMessage], state=State)
     async def run_async(
@@ -520,16 +660,25 @@ class ToolInvoker:
         messages: List[ChatMessage],
         state: Optional[State] = None,
         streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
+        enable_streaming_callback_passthrough: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
-        Asynchronously processes ChatMessage objects containing tool calls and invokes the corresponding tools.
+        Asynchronously processes ChatMessage objects containing tool calls.
 
+        Multiple tool calls are performed concurrently.
         :param messages:
             A list of ChatMessage objects.
         :param state: The runtime state that should be used by the tools.
         :param streaming_callback: An asynchronous callback function that will be called to emit tool results.
             Note that the result is only emitted once it becomes available — it is not
             streamed incrementally in real time.
+        :param enable_streaming_callback_passthrough:
+            If True, the `streaming_callback` will be passed to the tool invocation if the tool supports it.
+            This allows tools to stream their results back to the client.
+            Note that this requires the tool to have a `streaming_callback` parameter in its `invoke` method signature.
+            If False, the `streaming_callback` will not be passed to the tool invocation.
+            If None, the value from the constructor will be used.
         :returns:
             A dictionary with the key `tool_messages` containing a list of ChatMessage objects with tool role.
             Each ChatMessage objects wraps the result of a tool invocation.
@@ -543,8 +692,15 @@ class ToolInvoker:
         :raises ToolOutputMergeError:
             If merging tool outputs into state fails and `raise_on_failure` is True.
         """
+
         if state is None:
             state = State(schema={})
+
+        resolved_enable_streaming_passthrough = (
+            enable_streaming_callback_passthrough
+            if enable_streaming_callback_passthrough is not None
+            else self.enable_streaming_callback_passthrough
+        )
 
         # Only keep messages with tool calls
         messages_with_tool_calls = [message for message in messages if message.tool_calls]
@@ -553,69 +709,86 @@ class ToolInvoker:
         )
 
         tool_messages = []
-        for message in messages_with_tool_calls:
-            for tool_call in message.tool_calls:
-                tool_name = tool_call.tool_name
 
-                # Check if the tool is available, otherwise return an error message
-                if tool_name not in self._tools_with_names:
-                    error_message = self._handle_error(
-                        ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
-                    )
-                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
-                    continue
+        # 1) Prepare tool call parameters for execution
+        tool_call_params, error_messages = self._prepare_tool_call_params(
+            messages_with_tool_calls, state, streaming_callback, resolved_enable_streaming_passthrough
+        )
+        tool_messages.extend(error_messages)
 
-                tool_to_invoke = self._tools_with_names[tool_name]
+        # 2) Execute valid tool calls in parallel
+        if tool_call_params:
+            with self.executor as executor:
+                tool_call_tasks = []
+                valid_tool_calls = []
 
-                # 1) Combine user + state inputs
-                llm_args = tool_call.arguments.copy()
-                final_args = self._inject_state_args(tool_to_invoke, llm_args, state)
+                # 3) Create async tasks for valid tool calls
+                for params in tool_call_params:
+                    task = ToolInvoker.invoke_tool_safely(executor, params["tool_to_invoke"], params["final_args"])
+                    tool_call_tasks.append(task)
+                    valid_tool_calls.append((params["tool_call"], params["tool_to_invoke"]))
 
-                # 2) Invoke the tool asynchronously
-                try:
-                    tool_result = await asyncio.get_running_loop().run_in_executor(
-                        self.executor, partial(tool_to_invoke.invoke, **final_args)
-                    )
+                if tool_call_tasks:
+                    # 4) Gather results from all tool calls
+                    tool_results = await asyncio.gather(*tool_call_tasks)
 
-                except ToolInvocationError as e:
-                    error_message = self._handle_error(e)
-                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
-                    continue
+                    # 5) Process results
+                    for i, ((tool_call, tool_to_invoke), tool_result) in enumerate(zip(valid_tool_calls, tool_results)):
+                        # Check if the tool_result is a ToolInvocationError (caught by our wrapper)
+                        if isinstance(tool_result, ToolInvocationError):
+                            error_message = self._handle_error(tool_result)
+                            tool_messages.append(
+                                ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                            )
+                            continue
 
-                # 3) Merge outputs into state
-                try:
-                    self._merge_tool_outputs(tool_to_invoke, tool_result, state)
-                except Exception as e:
-                    try:
-                        error_message = self._handle_error(
-                            ToolOutputMergeError(f"Failed to merge tool outputs from tool {tool_name} into State: {e}")
-                        )
+                        # 6) Merge outputs into state
+                        try:
+                            self._merge_tool_outputs(tool_to_invoke, tool_result, state)
+                        except Exception as e:
+                            try:
+                                error_message = self._handle_error(
+                                    ToolOutputMergeError(
+                                        f"Failed to merge tool outputs fromtool {tool_call.tool_name} into State: {e}"
+                                    )
+                                )
+                                tool_messages.append(
+                                    ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                                )
+                                continue
+                            except ToolOutputMergeError as propagated_e:
+                                # Re-raise with proper error chain
+                                raise propagated_e from e
+
+                        # 7) Prepare the tool result ChatMessage message
                         tool_messages.append(
-                            ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                            self._prepare_tool_result_message(
+                                result=tool_result, tool_call=tool_call, tool_to_invoke=tool_to_invoke
+                            )
                         )
-                        continue
-                    except ToolOutputMergeError as propagated_e:
-                        # Re-raise with proper error chain
-                        raise propagated_e from e
 
-                # 4) Prepare the tool result ChatMessage message
-                tool_messages.append(
-                    self._prepare_tool_result_message(
-                        result=tool_result, tool_call=tool_call, tool_to_invoke=tool_to_invoke
-                    )
-                )
-
-                if streaming_callback is not None:
-                    await streaming_callback(
-                        StreamingChunk(
-                            content="",
-                            meta={"tool_result": tool_messages[-1].tool_call_results[0].result, "tool_call": tool_call},
-                        )
-                    )  # type: ignore[misc] # we have checked that streaming_callback is not None and async
+                        # 8) Handle streaming callback
+                        if streaming_callback is not None:
+                            await streaming_callback(
+                                StreamingChunk(
+                                    content="",
+                                    index=i,
+                                    tool_call_result=tool_messages[-1].tool_call_results[0],
+                                    start=True,
+                                    meta={
+                                        "tool_result": tool_messages[-1].tool_call_results[0].result,
+                                        "tool_call": tool_call,
+                                    },
+                                )
+                            )
 
         # We stream one more chunk that contains a finish_reason if tool_messages were generated
         if len(tool_messages) > 0 and streaming_callback is not None:
-            await streaming_callback(StreamingChunk(content="", meta={"finish_reason": "tool_call_results"}))  # type: ignore[misc] # we have checked that streaming_callback is not None and async
+            await streaming_callback(
+                StreamingChunk(
+                    content="", finish_reason="tool_call_results", meta={"finish_reason": "tool_call_results"}
+                )
+            )
 
         return {"tool_messages": tool_messages, "state": state}
 
@@ -626,11 +799,18 @@ class ToolInvoker:
         :returns:
             Dictionary with serialized data.
         """
+        if self.streaming_callback is not None:
+            streaming_callback = serialize_callable(self.streaming_callback)
+        else:
+            streaming_callback = None
+
         return default_to_dict(
             self,
             tools=serialize_tools_or_toolset(self.tools),
             raise_on_failure=self.raise_on_failure,
             convert_result_to_json_string=self.convert_result_to_json_string,
+            streaming_callback=streaming_callback,
+            enable_streaming_callback_passthrough=self.enable_streaming_callback_passthrough,
         )
 
     @classmethod
@@ -644,4 +824,8 @@ class ToolInvoker:
             The deserialized component.
         """
         deserialize_tools_or_toolset_inplace(data["init_parameters"], key="tools")
+        if data["init_parameters"].get("streaming_callback") is not None:
+            data["init_parameters"]["streaming_callback"] = deserialize_callable(
+                data["init_parameters"]["streaming_callback"]
+            )
         return default_from_dict(cls, data)

@@ -23,6 +23,16 @@ PostmanGetCollection = create_model(
     "PostmanGetCollection"
 )
 
+PostmanGetCollectionFlat = create_model(
+    "PostmanGetCollectionFlat"
+)
+
+PostmanGetFolderFlat = create_model(
+    "PostmanGetFolderFlat",
+    folder_path=(str, Field(
+        description="The path to the folder to parse (e.g., 'API/Users' for nested folders)"))
+)
+
 PostmanGetFolder = create_model(
     "PostmanGetFolder",
     folder_path=(str, Field(
@@ -45,24 +55,17 @@ PostmanSearchRequests = create_model(
         description="Optional HTTP method filter", default=None))
 )
 
-PostmanAnalyzeCollection = create_model(
-    "PostmanAnalyzeCollection",
+PostmanAnalyze = create_model(
+    "PostmanAnalyze",
+    scope=(str, Field(
+        description="The scope of analysis: 'collection', 'folder', or 'request'", 
+        default="collection")),
+    target_path=(Optional[str], Field(
+        description="The path to the folder or request to analyze (required for folder/request scope)", 
+        default=None)),
     include_improvements=(bool, Field(
-        description="Include improvement suggestions in the analysis", default=False))
-)
-
-PostmanAnalyzeFolder = create_model(
-    "PostmanAnalyzeFolder",
-    folder_path=(str, Field(description="The path to the folder to analyze")),
-    include_improvements=(bool, Field(
-        description="Include improvement suggestions in the analysis", default=False))
-)
-
-PostmanAnalyzeRequest = create_model(
-    "PostmanAnalyzeRequest",
-    request_path=(str, Field(description="The path to the request to analyze")),
-    include_improvements=(bool, Field(
-        description="Include improvement suggestions in the analysis", default=False))
+        description="Include improvement suggestions in the analysis", 
+        default=False))
 )
 
 PostmanCreateCollection = create_model(
@@ -235,16 +238,28 @@ PostmanMoveRequest = create_model(
         description="New folder path", default=None))
 )
 
-PostmanGetRequest = create_model(
-    "PostmanGetRequest",
+PostmanGetRequestByPath = create_model(
+    "PostmanGetRequestByPath",
     request_path=(str, Field(
         description="The path to the request (e.g., 'API/Users/Get User' or 'applications/recommendations')"))
+)
+
+PostmanGetRequestById = create_model(
+    "PostmanGetRequestById",
+    request_id=(str, Field(
+        description="The unique ID of the request"))
 )
 
 PostmanGetRequestScript = create_model(
     "PostmanGetRequestScript",
     request_path=(str, Field(description="Path to the request (folder/requestName)")),
     script_type=(str, Field(description="The type of script to retrieve: 'test' or 'prerequest'", default="prerequest"))
+)
+
+PostmanExecuteRequest = create_model(
+    "PostmanExecuteRequest",
+    request_path=(str, Field(description="The path to the request in the collection (e.g., 'API/Users/Get User')")),
+    override_variables=(Optional[Dict[str, Any]], Field(description="Optional variables to override environment/collection variables", default=None))
 )
 
 
@@ -255,6 +270,7 @@ class PostmanApiWrapper(BaseToolApiWrapper):
     base_url: str = "https://api.getpostman.com"
     collection_id: Optional[str] = None
     workspace_id: Optional[str] = None
+    environment_config: dict = {}
     timeout: int = 30
     session: Any = None
     analyzer: PostmanAnalyzer = None
@@ -309,6 +325,108 @@ class PostmanApiWrapper(BaseToolApiWrapper):
             raise ToolException(
                 f"Invalid JSON response from Postman API: {str(e)}")
 
+    def _apply_authentication(self, headers, params, all_variables, resolve_variables):
+        """Apply authentication based on environment_config auth settings.
+        
+        Supports multiple authentication types:
+        - bearer: Bearer token in Authorization header
+        - basic: Basic authentication in Authorization header  
+        - api_key: API key in header, query parameter, or cookie
+        - oauth2: OAuth2 access token in Authorization header
+        - custom: Custom headers, cookies, or query parameters
+        
+        Required format:
+        environment_config = {
+            "auth": {
+                "type": "bearer|basic|api_key|oauth2|custom",
+                "params": {
+                    # type-specific parameters
+                }
+            }
+        }
+        """
+        import base64
+        
+        # Handle structured auth configuration only - no backward compatibility
+        auth_config = self.environment_config.get('auth')
+        if auth_config and isinstance(auth_config, dict):
+            auth_type = auth_config.get('type', '').lower()
+            auth_params = auth_config.get('params', {})
+            
+            if auth_type == 'bearer':
+                # Bearer token authentication
+                token = resolve_variables(str(auth_params.get('token', '')))
+                if token:
+                    headers['Authorization'] = f'Bearer {token}'
+                    
+            elif auth_type == 'basic':
+                # Basic authentication
+                username = resolve_variables(str(auth_params.get('username', '')))
+                password = resolve_variables(str(auth_params.get('password', '')))
+                if username and password:
+                    credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+                    headers['Authorization'] = f'Basic {credentials}'
+                    
+            elif auth_type == 'api_key':
+                # API key authentication
+                key_name = resolve_variables(str(auth_params.get('key', '')))
+                key_value = resolve_variables(str(auth_params.get('value', '')))
+                key_location = auth_params.get('in', 'header').lower()
+                
+                if key_name and key_value:
+                    if key_location == 'header':
+                        headers[key_name] = key_value
+                    elif key_location == 'query':
+                        params[key_name] = key_value
+                    elif key_location == 'cookie':
+                        # Add to Cookie header
+                        existing_cookies = headers.get('Cookie', '')
+                        new_cookie = f"{key_name}={key_value}"
+                        if existing_cookies:
+                            headers['Cookie'] = f"{existing_cookies}; {new_cookie}"
+                        else:
+                            headers['Cookie'] = new_cookie
+                            
+            elif auth_type == 'oauth2':
+                # OAuth2 access token
+                access_token = resolve_variables(str(auth_params.get('access_token', '')))
+                if access_token:
+                    headers['Authorization'] = f'Bearer {access_token}'
+                    
+            elif auth_type == 'custom':
+                # Custom authentication - allows full control
+                custom_headers = auth_params.get('headers', {})
+                custom_cookies = auth_params.get('cookies', {})
+                custom_query = auth_params.get('query', {})
+                
+                # Add custom headers
+                for key, value in custom_headers.items():
+                    resolved_key = resolve_variables(str(key))
+                    resolved_value = resolve_variables(str(value))
+                    headers[resolved_key] = resolved_value
+                
+                # Add custom query parameters
+                for key, value in custom_query.items():
+                    resolved_key = resolve_variables(str(key))
+                    resolved_value = resolve_variables(str(value))
+                    params[resolved_key] = resolved_value
+                
+                # Add custom cookies
+                if custom_cookies:
+                    cookie_parts = []
+                    for key, value in custom_cookies.items():
+                        resolved_key = resolve_variables(str(key))
+                        resolved_value = resolve_variables(str(value))
+                        cookie_parts.append(f"{resolved_key}={resolved_value}")
+                    
+                    existing_cookies = headers.get('Cookie', '')
+                    new_cookies = "; ".join(cookie_parts)
+                    if existing_cookies:
+                        headers['Cookie'] = f"{existing_cookies}; {new_cookies}"
+                    else:
+                        headers['Cookie'] = new_cookies
+
+
     def get_available_tools(self):
         """Return list of available tools with their configurations."""
         return [
@@ -319,33 +437,54 @@ class PostmanApiWrapper(BaseToolApiWrapper):
                 "args_schema": PostmanGetCollections,
                 "ref": self.get_collections
             },
+            # {
+            #     "name": "get_collection",
+            #     "mode": "get_collection",
+            #     "description": "Get a specific Postman collection by ID",
+            #     "args_schema": PostmanGetCollection,
+            #     "ref": self.get_collection
+            # },
             {
                 "name": "get_collection",
                 "mode": "get_collection",
-                "description": "Get a specific Postman collection by ID",
-                "args_schema": PostmanGetCollection,
-                "ref": self.get_collection
+                "description": "Get a specific Postman collection in flattened format with path-based structure",
+                "args_schema": PostmanGetCollectionFlat,
+                "ref": self.get_collection_flat
             },
             {
                 "name": "get_folder",
                 "mode": "get_folder",
-                "description": "Get folders from a collection by path (supports nested paths like 'API/Users')",
-                "args_schema": PostmanGetFolder,
-                "ref": self.get_folder
+                "description": "Get a specific folder in flattened format with path-based structure",
+                "args_schema": PostmanGetFolderFlat,
+                "ref": self.get_folder_flat
             },
+            # {
+            #     "name": "get_folder",
+            #     "mode": "get_folder",
+            #     "description": "Get folders from a collection by path (supports nested paths like 'API/Users')",
+            #     "args_schema": PostmanGetFolder,
+            #     "ref": self.get_folder
+            # },
+            # {
+            #     "name": "get_folder_requests",
+            #     "mode": "get_folder_requests",
+            #     "description": "Get detailed information about all requests in a folder",
+            #     "args_schema": PostmanGetFolderRequests,
+            #     "ref": self.get_folder_requests
+            # },
             {
-                "name": "get_folder_requests",
-                "mode": "get_folder_requests",
-                "description": "Get detailed information about all requests in a folder",
-                "args_schema": PostmanGetFolderRequests,
-                "ref": self.get_folder_requests
-            },
-            {
-                "name": "get_request",
-                "mode": "get_request",
+                "name": "get_request_by_path",
+                "mode": "get_request_by_path",
                 "description": "Get a specific request by path",
-                "args_schema": PostmanGetRequest,
-                "ref": self.get_request
+                "args_schema": PostmanGetRequestByPath,
+                "ref": self.get_request_by_path
+            },
+            {
+                "name": "get_request_by_id",
+                "mode": "get_request_by_id",
+                "description": "Get a specific request by ID",
+                "args_schema": PostmanGetRequestById,
+                "ref": self.get_request_by_id
             },
             {
                 "name": "get_request_script",
@@ -362,40 +501,33 @@ class PostmanApiWrapper(BaseToolApiWrapper):
                 "ref": self.search_requests
             },
             {
-                "name": "analyze_collection",
-                "mode": "analyze_collection",
-                "description": "Analyze a collection for API quality, best practices, and issues",
-                "args_schema": PostmanAnalyzeCollection,
-                "ref": self.analyze_collection
+                "name": "analyze",
+                "mode": "analyze",
+                "description": "Analyze collection, folder, or request for API quality, best practices, and issues",
+                "args_schema": PostmanAnalyze,
+                "ref": self.analyze
             },
             {
-                "name": "analyze_folder",
-                "mode": "analyze_folder",
-                "description": "Analyze a specific folder within a collection",
-                "args_schema": PostmanAnalyzeFolder,
-                "ref": self.analyze_folder
+                "name": "execute_request",
+                "mode": "execute_request",
+                "description": "Execute a Postman request with environment variables and custom configuration",
+                "args_schema": PostmanExecuteRequest,
+                "ref": self.execute_request
             },
-            {
-                "name": "analyze_request",
-                "mode": "analyze_request",
-                "description": "Analyze a specific request within a collection",
-                "args_schema": PostmanAnalyzeRequest,
-                "ref": self.analyze_request
-            },
-            {
-                "name": "create_collection",
-                "mode": "create_collection",
-                "description": "Create a new Postman collection",
-                "args_schema": PostmanCreateCollection,
-                "ref": self.create_collection
-            },
-            {
-                "name": "update_collection_name",
-                "mode": "update_collection_name",
-                "description": "Update collection name",
-                "args_schema": PostmanUpdateCollectionName,
-                "ref": self.update_collection_name
-            },
+            # {
+            #     "name": "create_collection",
+            #     "mode": "create_collection",
+            #     "description": "Create a new Postman collection",
+            #     "args_schema": PostmanCreateCollection,
+            #     "ref": self.create_collection
+            # },
+            # {
+            #     "name": "update_collection_name",
+            #     "mode": "update_collection_name",
+            #     "description": "Update collection name",
+            #     "args_schema": PostmanUpdateCollectionName,
+            #     "ref": self.update_collection_name
+            # },
             {
                 "name": "update_collection_description",
                 "mode": "update_collection_description",
@@ -567,11 +699,228 @@ class PostmanApiWrapper(BaseToolApiWrapper):
             logger.error(f"Exception when getting collections: {stacktrace}")
             raise ToolException(f"Unable to get collections: {str(e)}")
 
+    def execute_request(self, request_path: str, override_variables: Dict = None, **kwargs) -> str:
+        """Execute a Postman request with environment variables and custom configuration.
+        
+        This method uses the environment_config to make actual HTTP requests 
+        using the requests library with structured authentication.
+        
+        Args:
+            request_path: The path to the request in the collection
+            override_variables: Optional variables to override environment/collection variables
+        
+        Returns:
+            JSON string with comprehensive response data
+        """
+        try:
+            import time
+            from urllib.parse import urlencode, parse_qs, urlparse
+            
+            # Get the request from the collection
+            request_item, _, collection_data = self._get_request_item_and_id(request_path)
+            request_data = request_item.get('request', {})
+            
+            # Gather all variables from different sources
+            all_variables = {}
+            
+            # 1. Start with environment_config variables (lowest priority)
+            all_variables.update(self.environment_config)
+            
+            # 2. Add collection variables
+            collection_variables = collection_data.get('variable', [])
+            for var in collection_variables:
+                if isinstance(var, dict) and 'key' in var:
+                    all_variables[var['key']] = var.get('value', '')
+            
+            # 3. Add override variables (highest priority)
+            if override_variables:
+                all_variables.update(override_variables)
+            
+            # Helper function to resolve variables in strings
+            def resolve_variables(text):
+                if not isinstance(text, str):
+                    return text
+                
+                # Replace {{variable}} patterns
+                import re
+                def replace_var(match):
+                    var_name = match.group(1)
+                    return str(all_variables.get(var_name, match.group(0)))
+                
+                return re.sub(r'\{\{([^}]+)\}\}', replace_var, text)
+            
+            # Prepare the request
+            method = request_data.get('method', 'GET').upper()
+            
+            # Handle URL
+            url_data = request_data.get('url', '')
+            if isinstance(url_data, str):
+                url = resolve_variables(url_data)
+                params = {}
+            else:
+                # URL is an object
+                raw_url = resolve_variables(url_data.get('raw', ''))
+                url = raw_url
+                
+                # Extract query parameters
+                params = {}
+                query_params = url_data.get('query', [])
+                for param in query_params:
+                    if isinstance(param, dict) and not param.get('disabled', False):
+                        key = resolve_variables(param.get('key', ''))
+                        value = resolve_variables(param.get('value', ''))
+                        if key:
+                            params[key] = value
+            
+            # Prepare headers
+            headers = {}
+            
+            # Handle authentication from environment_config
+            self._apply_authentication(headers, params, all_variables, resolve_variables)
+            
+            # Add headers from request
+            request_headers = request_data.get('header', [])
+            for header in request_headers:
+                if isinstance(header, dict) and not header.get('disabled', False):
+                    key = resolve_variables(header.get('key', ''))
+                    value = resolve_variables(header.get('value', ''))
+                    if key:
+                        headers[key] = value
+            
+            # Prepare body
+            body = None
+            content_type = headers.get('Content-Type', '').lower()
+            
+            request_body = request_data.get('body', {})
+            if request_body:
+                body_mode = request_body.get('mode', '')
+                
+                if body_mode == 'raw':
+                    raw_body = request_body.get('raw', '')
+                    body = resolve_variables(raw_body)
+                    
+                    # Try to parse as JSON if content type suggests it
+                    if 'application/json' in content_type:
+                        try:
+                            # Validate JSON
+                            json.loads(body)
+                        except json.JSONDecodeError:
+                            logger.warning("Body is not valid JSON despite Content-Type")
+                    
+                elif body_mode == 'formdata':
+                    # Handle form data
+                    form_data = {}
+                    formdata_items = request_body.get('formdata', [])
+                    for item in formdata_items:
+                        if isinstance(item, dict) and not item.get('disabled', False):
+                            key = resolve_variables(item.get('key', ''))
+                            value = resolve_variables(item.get('value', ''))
+                            if key:
+                                form_data[key] = value
+                    body = form_data
+                    
+                elif body_mode == 'urlencoded':
+                    # Handle URL encoded data
+                    urlencoded_data = {}
+                    urlencoded_items = request_body.get('urlencoded', [])
+                    for item in urlencoded_items:
+                        if isinstance(item, dict) and not item.get('disabled', False):
+                            key = resolve_variables(item.get('key', ''))
+                            value = resolve_variables(item.get('value', ''))
+                            if key:
+                                urlencoded_data[key] = value
+                    body = urlencode(urlencoded_data)
+                    if 'content-type' not in [h.lower() for h in headers.keys()]:
+                        headers['Content-Type'] = 'application/x-www-form-urlencoded'
+            
+            # Execute the request
+            start_time = time.time()
+            
+            logger.info(f"Executing {method} request to {url}")
+            
+            # Create a new session for this request (separate from Postman API session)
+            exec_session = requests.Session()
+            
+            # Prepare request kwargs
+            request_kwargs = {
+                'timeout': self.timeout,
+                'params': params if params else None,
+                'headers': headers if headers else None
+            }
+            
+            # Add body based on content type and method
+            if body is not None and method in ['POST', 'PUT', 'PATCH']:
+                if isinstance(body, dict):
+                    # Form data
+                    request_kwargs['data'] = body
+                elif isinstance(body, str):
+                    if 'application/json' in content_type:
+                        request_kwargs['json'] = json.loads(body) if body.strip() else {}
+                    else:
+                        request_kwargs['data'] = body
+                else:
+                    request_kwargs['data'] = body
+            
+            # Execute the request
+            response = exec_session.request(method, url, **request_kwargs)
+            
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            
+            # Parse response
+            response_data = {
+                "request": {
+                    "path": request_path,
+                    "method": method,
+                    "url": url,
+                    "headers": dict(headers) if headers else {},
+                    "params": dict(params) if params else {},
+                    "body": body if body is not None else None
+                },
+                "response": {
+                    "status_code": response.status_code,
+                    "status_text": response.reason,
+                    "headers": dict(response.headers),
+                    "elapsed_time_seconds": round(elapsed_time, 3),
+                    "size_bytes": len(response.content)
+                },
+                "variables_used": dict(all_variables),
+                "success": response.ok
+            }
+            
+            # Add response body
+            try:
+                # Try to parse as JSON
+                response_data["response"]["body"] = response.json()
+                response_data["response"]["content_type"] = "application/json"
+            except json.JSONDecodeError:
+                # Fall back to text
+                try:
+                    response_data["response"]["body"] = response.text
+                    response_data["response"]["content_type"] = "text/plain"
+                except UnicodeDecodeError:
+                    # Binary content
+                    response_data["response"]["body"] = f"<binary content: {len(response.content)} bytes>"
+                    response_data["response"]["content_type"] = "binary"
+            
+            # Add error details if request failed
+            if not response.ok:
+                response_data["error"] = {
+                    "message": f"HTTP {response.status_code}: {response.reason}",
+                    "status_code": response.status_code
+                }
+            
+            return json.dumps(response_data, indent=2)
+            
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(f"Exception when executing request: {stacktrace}")
+            raise ToolException(f"Unable to execute request '{request_path}': {str(e)}")
+
     def get_collection(self, **kwargs) -> str:
         """Get a specific collection by ID."""
         try:
-            response = self._make_request(
-                'GET', f'/collections/{self.collection_id}')
+            response = self._make_request('GET', f'/collections/{self.collection_id}')
             return json.dumps(response, indent=2)
         except Exception as e:
             stacktrace = format_exc()
@@ -579,6 +928,19 @@ class PostmanApiWrapper(BaseToolApiWrapper):
                 f"Exception when getting collection {self.collection_id}: {stacktrace}")
             raise ToolException(
                 f"Unable to get collection {self.collection_id}: {str(e)}")
+
+    def get_collection_flat(self, **kwargs) -> str:
+        """Get a specific collection by ID in flattened format."""
+        try:
+            response = self._make_request('GET', f'/collections/{self.collection_id}')
+            flattened = self.parse_collection_to_flat_structure(response)
+            return json.dumps(flattened, indent=2)
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(
+                f"Exception when getting flattened collection {self.collection_id}: {stacktrace}")
+            raise ToolException(
+                f"Unable to get flattened collection {self.collection_id}: {str(e)}")
 
     def get_folder(self, folder_path: str, **kwargs) -> str:
         """Get folders from a collection by path."""
@@ -594,6 +956,19 @@ class PostmanApiWrapper(BaseToolApiWrapper):
                 f"Exception when getting folder {folder_path}: {stacktrace}")
             raise ToolException(
                 f"Unable to get folder {folder_path} from collection {self.collection_id}: {str(e)}")
+
+    def get_folder_flat(self, folder_path: str, **kwargs) -> str:
+        """Get a specific folder in flattened format with path-based structure."""
+        try:
+            response = self._make_request('GET', f'/collections/{self.collection_id}')
+            flattened = self.parse_collection_to_flat_structure(response, folder_path)
+            return json.dumps(flattened, indent=2)
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(
+                f"Exception when getting flattened folder {folder_path}: {stacktrace}")
+            raise ToolException(
+                f"Unable to get flattened folder {folder_path}: {str(e)}")
 
     def get_folder_requests(self, folder_path: str, include_details: bool = False, **kwargs) -> str:
         """Get detailed information about all requests in a folder."""
@@ -626,20 +1001,55 @@ class PostmanApiWrapper(BaseToolApiWrapper):
                 f"Unable to get requests from folder {folder_path}: {str(e)}")
 
     def search_requests(self, query: str, search_in: str = "all", method: str = None, **kwargs) -> str:
-        """Search for requests across the collection."""
+        """Search for requests across the collection and return results in flattened structure."""
         try:
-            collection = self._make_request(
+            collection_response = self._make_request(
                 'GET', f'/collections/{self.collection_id}')
-            requests = self.analyzer.search_requests_in_items(
-                collection['collection']['item'], query, search_in, method)
-
+            
+            # Get the collection in flattened structure
+            flattened = self.parse_collection_to_flat_structure(collection_response)
+            
+            # Filter only requests that match the search criteria
+            matching_requests = {}
+            
+            for path, item in flattened['items'].items():
+                if item.get('type') != 'request':
+                    continue
+                
+                # Apply method filter if specified
+                if method and item.get('method', '').upper() != method.upper():
+                    continue
+                
+                # Apply search criteria
+                match_found = False
+                query_lower = query.lower()
+                
+                if search_in == "all" or search_in == "name":
+                    # Extract request name from path (last part after /)
+                    request_name = path.split('/')[-1] if '/' in path else path
+                    if query_lower in request_name.lower():
+                        match_found = True
+                
+                if not match_found and (search_in == "all" or search_in == "url"):
+                    url = item.get('request_url', '') or item.get('url', '')
+                    if query_lower in url.lower():
+                        match_found = True
+                
+                if not match_found and (search_in == "all" or search_in == "description"):
+                    description = item.get('description', '')
+                    if isinstance(description, str) and query_lower in description.lower():
+                        match_found = True
+                
+                if match_found:
+                    matching_requests[path] = item
+            
+            # Create result structure similar to flattened format
             result = {
-                "collection_id": self.collection_id,
                 "query": query,
                 "search_in": search_in,
                 "method_filter": method,
-                "results_count": len(requests),
-                "results": requests
+                "results_count": len(matching_requests),
+                "items": matching_requests
             }
 
             return json.dumps(result, indent=2)
@@ -649,83 +1059,85 @@ class PostmanApiWrapper(BaseToolApiWrapper):
             raise ToolException(
                 f"Unable to search requests in collection {self.collection_id}: {str(e)}")
 
-    def analyze_collection(self, include_improvements: bool = False, **kwargs) -> str:
-        """Analyze a collection for API quality and best practices."""
+    def analyze(self, scope: str = "collection", target_path: str = None, include_improvements: bool = False, **kwargs) -> str:
+        """Unified analysis method for collection, folder, or request analysis.
+        
+        Args:
+            scope: The scope of analysis ('collection', 'folder', or 'request')
+            target_path: The path to the folder or request (required for folder/request scope)
+            include_improvements: Whether to include improvement suggestions
+        """
         try:
+            # Validate parameters
+            if scope not in ["collection", "folder", "request"]:
+                raise ToolException(f"Invalid scope '{scope}'. Must be 'collection', 'folder', or 'request'")
+            
+            if scope in ["folder", "request"] and not target_path:
+                raise ToolException(f"target_path is required when scope is '{scope}'")
+            
+            # Get collection data
             collection = self._make_request(
                 'GET', f'/collections/{self.collection_id}')
-            analysis = self.analyzer.perform_collection_analysis(collection)
             
-            if include_improvements:
-                improvements = self.analyzer.generate_improvements(analysis)
-                analysis["improvements"] = improvements
-                analysis["improvement_count"] = len(improvements)
-            
-            return json.dumps(analysis, indent=2)
-        except Exception as e:
-            stacktrace = format_exc()
-            logger.error(f"Exception when analyzing collection: {stacktrace}")
-            raise ToolException(
-                f"Unable to analyze collection {self.collection_id}: {str(e)}")
-
-    def analyze_folder(self, folder_path: str, include_improvements: bool = False, **kwargs) -> str:
-        """Analyze a specific folder within a collection."""
-        try:
-            collection = self._make_request(
-                'GET', f'/collections/{self.collection_id}')
-            folders = self.analyzer.find_folders_by_path(
-                collection['collection']['item'], folder_path)
-
-            if not folders:
-                return json.dumps({"error": f"Folder '{folder_path}' not found"}, indent=2)
-
-            folder_analyses = []
-            for folder in folders:
-                analysis = self.analyzer.perform_folder_analysis(folder, folder_path)
+            if scope == "collection":
+                # Analyze entire collection
+                analysis = self.analyzer.perform_collection_analysis(collection)
                 
                 if include_improvements:
-                    improvements = self.analyzer.generate_folder_improvements(analysis)
+                    improvements = self.analyzer.generate_improvements(analysis)
                     analysis["improvements"] = improvements
                     analysis["improvement_count"] = len(improvements)
                 
-                folder_analyses.append(analysis)
+                return json.dumps(analysis, indent=2)
+                
+            elif scope == "folder":
+                # Analyze specific folder
+                folders = self.analyzer.find_folders_by_path(
+                    collection['collection']['item'], target_path)
 
-            return json.dumps(folder_analyses, indent=2)
+                if not folders:
+                    return json.dumps({"error": f"Folder '{target_path}' not found"}, indent=2)
+
+                folder_analyses = []
+                for folder in folders:
+                    analysis = self.analyzer.perform_folder_analysis(folder, target_path)
+                    
+                    if include_improvements:
+                        improvements = self.analyzer.generate_folder_improvements(analysis)
+                        analysis["improvements"] = improvements
+                        analysis["improvement_count"] = len(improvements)
+                    
+                    folder_analyses.append(analysis)
+
+                return json.dumps(folder_analyses, indent=2)
+                
+            elif scope == "request":
+                # Analyze specific request
+                collection_data = collection["collection"]
+
+                # Find the request
+                request_item = self.analyzer.find_request_by_path(
+                    collection_data["item"], target_path)
+                if not request_item:
+                    raise ToolException(f"Request '{target_path}' not found")
+
+                # Perform request analysis
+                analysis = self.analyzer.perform_request_analysis(request_item)
+                analysis["request_path"] = target_path
+                analysis["collection_id"] = self.collection_id
+                
+                if include_improvements:
+                    improvements = self.analyzer.generate_request_improvements(analysis)
+                    analysis["improvements"] = improvements
+                    analysis["improvement_count"] = len(improvements)
+
+                return json.dumps(analysis, indent=2)
+                
         except Exception as e:
             stacktrace = format_exc()
-            logger.error(f"Exception when analyzing folder: {stacktrace}")
+            logger.error(f"Exception when analyzing {scope}: {stacktrace}")
             raise ToolException(
-                f"Unable to analyze folder {folder_path}: {str(e)}")
-
-    def analyze_request(self, request_path: str, include_improvements: bool = False, **kwargs) -> str:
-        """Analyze a specific request within a collection."""
-        try:
-            collection = self._make_request(
-                'GET', f'/collections/{self.collection_id}')
-            collection_data = collection["collection"]
-
-            # Find the request
-            request_item = self.analyzer.find_request_by_path(
-                collection_data["item"], request_path)
-            if not request_item:
-                raise ToolException(f"Request '{request_path}' not found")
-
-            # Perform request analysis
-            analysis = self.analyzer.perform_request_analysis(request_item)
-            analysis["request_path"] = request_path
-            analysis["collection_id"] = self.collection_id
-            
-            if include_improvements:
-                improvements = self.analyzer.generate_request_improvements(analysis)
-                analysis["improvements"] = improvements
-                analysis["improvement_count"] = len(improvements)
-
-            return json.dumps(analysis, indent=2)
-        except Exception as e:
-            stacktrace = format_exc()
-            logger.error(f"Exception when analyzing request: {stacktrace}")
-            raise ToolException(
-                f"Unable to analyze request {request_path}: {str(e)}")
+                f"Unable to analyze {scope} {target_path or self.collection_id}: {str(e)}")
 
     # =================================================================
     # COLLECTION MANAGEMENT METHODS
@@ -1292,33 +1704,30 @@ class PostmanApiWrapper(BaseToolApiWrapper):
     def update_request_tests(self, request_path: str, tests: str, **kwargs) -> str:
         """Update request test scripts."""
         try:
-            # Get the request ID
-            _, request_id, _ = self._get_request_item_and_id(request_path)
+            # Get request item and ID
+            request_item, request_id, _ = self._get_request_item_and_id(request_path)
             
-            # Get current request to preserve existing data
-            current_request = self._make_request('GET', f'/collections/{self.collection_id}/requests/{request_id}')
-            request_data = current_request.get("data", {})
+            # Get existing events and preserve non-test events
+            existing_events = request_item.get("event", [])
+            events = [event for event in existing_events if event.get("listen") != "test"]
             
-            # Prepare the events array - preserve any non-test events
-            events = [event for event in request_data.get("events", []) if event.get("listen") != "test"]
-            
-            # Add the new test script
+            # Add the new test script using the official API format
             events.append({
                 "listen": "test",
                 "script": {
-                    "type": "text/javascript",
-                    "exec": tests.strip().split('\n')
+                    "exec": tests.strip().split('\n'),
+                    "type": "text/javascript"
                 }
             })
             
-            # Update the events array in the request data
-            request_data["events"] = events
-            
-            # Update the request using the individual request endpoint
+            # Create update payload using the events array format from official spec
+            request_update = {
+                "events": events
+            }
+
+            # Update using the individual request endpoint with proper events format
             response = self._make_request('PUT', f'/collections/{self.collection_id}/requests/{request_id}',
-                                        json=request_data)
-            
-            logger.info(f"Test script updated successfully for request '{request_path}'")
+                                          json=request_update)
             return json.dumps({"success": True, "message": f"Request '{request_path}' tests updated successfully"}, indent=2)
         except Exception as e:
             stacktrace = format_exc()
@@ -1329,33 +1738,30 @@ class PostmanApiWrapper(BaseToolApiWrapper):
     def update_request_pre_script(self, request_path: str, pre_request_script: str, **kwargs) -> str:
         """Update request pre-request scripts."""
         try:
-            # Get the request ID
-            _, request_id, _ = self._get_request_item_and_id(request_path)
+            # Get request item and ID
+            request_item, request_id, _ = self._get_request_item_and_id(request_path)
             
-            # Get current request to preserve existing data
-            current_request = self._make_request('GET', f'/collections/{self.collection_id}/requests/{request_id}')
-            request_data = current_request.get("data", {})
+            # Get existing events and preserve non-prerequest events
+            existing_events = request_item.get("event", [])
+            events = [event for event in existing_events if event.get("listen") != "prerequest"]
             
-            # Prepare the events array - preserve any non-prerequest events
-            events = [event for event in request_data.get("events", []) if event.get("listen") != "prerequest"]
-            
-            # Add the new prerequest script
+            # Add the new prerequest script using the official API format
             events.append({
                 "listen": "prerequest",
                 "script": {
-                    "type": "text/javascript",
-                    "exec": pre_request_script.strip().split('\n')
+                    "exec": pre_request_script.strip().split('\n'),
+                    "type": "text/javascript"
                 }
             })
             
-            # Update the events array in the request data
-            request_data["events"] = events
-            
-            # Update the request using the individual request endpoint
+            # Create update payload using the events array format from official spec
+            request_update = {
+                "events": events
+            }
+
+            # Update using the individual request endpoint with proper events format
             response = self._make_request('PUT', f'/collections/{self.collection_id}/requests/{request_id}',
-                                        json=request_data)
-            
-            logger.info(f"Pre-request script updated successfully for request '{request_path}'")
+                                          json=request_update)
             return json.dumps({"success": True, "message": f"Request '{request_path}' pre-script updated successfully"}, indent=2)
         except Exception as e:
             stacktrace = format_exc()
@@ -1482,7 +1888,7 @@ class PostmanApiWrapper(BaseToolApiWrapper):
     # HELPER METHODS
     # =================================================================
 
-    def get_request(self, request_path: str, **kwargs) -> str:
+    def get_request_by_path(self, request_path: str, **kwargs) -> str:
         """Get a specific request by path.
         
         Uses the _get_request_item_and_id helper to find the request and then fetches complete
@@ -1500,9 +1906,27 @@ class PostmanApiWrapper(BaseToolApiWrapper):
             return json.dumps(response, indent=2)
         except Exception as e:
             stacktrace = format_exc()
-            logger.error(f"Exception when getting request: {stacktrace}")
+            logger.error(f"Exception when getting request by path: {stacktrace}")
             raise ToolException(
                 f"Unable to get request '{request_path}': {str(e)}")
+
+    def get_request_by_id(self, request_id: str, **kwargs) -> str:
+        """Get a specific request by ID.
+        
+        Directly fetches the request using its unique ID from the Postman API.
+        """
+        try:
+            # Fetch the complete request information from the API using the ID
+            response = self._make_request(
+                'GET', f'/collections/{self.collection_id}/requests/{request_id}'
+            )
+            
+            return json.dumps(response, indent=2)
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(f"Exception when getting request by ID: {stacktrace}")
+            raise ToolException(
+                f"Unable to get request with ID '{request_id}': {str(e)}")
 
     def get_request_script(self, request_path: str, script_type: str = "prerequest", **kwargs) -> str:
         """
@@ -1516,16 +1940,14 @@ class PostmanApiWrapper(BaseToolApiWrapper):
             The script content as JSON string, or an error message if the script doesn't exist
         """
         try:
-            # Get the request ID and fetch current request data
-            _, request_id, _ = self._get_request_item_and_id(request_path)
+            # Get the request item from the collection and also try individual endpoint
+            request_item, request_id, _ = self._get_request_item_and_id(request_path)
             
-            # Get current request to have the latest version with updated scripts
-            current_request = self._make_request('GET', f'/collections/{self.collection_id}/requests/{request_id}')
-            request_data = current_request.get("data", {})
-            
-            # Find the script by type
             script_content = None
-            for event in request_data.get("events", []):
+            
+            # Method 1: Check events array (modern format)
+            events = request_item.get("event", [])
+            for event in events:
                 if event.get("listen") == script_type:
                     script = event.get("script", {})
                     exec_content = script.get("exec", [])
@@ -1535,13 +1957,25 @@ class PostmanApiWrapper(BaseToolApiWrapper):
                         script_content = str(exec_content)
                     break
             
+            # Method 2: If not found in events, try individual request endpoint for direct fields
             if script_content is None:
+                try:
+                    individual_request = self._make_request('GET', f'/collections/{self.collection_id}/requests/{request_id}')
+                    if script_type == "test":
+                        script_content = individual_request.get("tests", "")
+                    elif script_type == "prerequest":
+                        script_content = individual_request.get("preRequestScript", "")
+                except:
+                    # If individual endpoint fails, that's okay, we'll fall back to not found
+                    pass
+            
+            if not script_content or script_content.strip() == "":
                 return json.dumps({"success": False, "message": f"No {script_type} script found for request '{request_path}'"}, indent=2)
             
             return json.dumps({
                 "success": True,
                 "script_type": script_type, 
-                "script_content": script_content, 
+                "script_content": script_content.strip(), 
                 "request_path": request_path
             }, indent=2)
                 
@@ -1549,3 +1983,144 @@ class PostmanApiWrapper(BaseToolApiWrapper):
             stacktrace = format_exc()
             logger.error(f"Exception when getting request {script_type} script: {stacktrace}")
             raise ToolException(f"Unable to get {script_type} script for request '{request_path}': {str(e)}")
+
+    def parse_collection_to_flat_structure(self, collection_response: Dict[str, Any], folder_path: str = None) -> Dict[str, Any]:
+        """Parse collection response into a flattened structure with path-based keys.
+        
+        Args:
+            collection_response: The Postman collection response JSON
+            folder_path: Optional folder path to filter results. If provided, only items
+                        within this folder will be included in the output, and collection
+                        metadata will be excluded.
+        """
+        collection = collection_response.get('collection', {})
+        info = collection.get('info', {})
+        
+        # If folder_path is specified, return minimal structure focused on the folder
+        if folder_path is not None:
+            result = {
+                "folder_path": folder_path,
+                "items": {}
+            }
+        else:
+            # Full collection structure with metadata
+            result = {
+                "collection_postman_id": info.get('_postman_id'),
+                "name": info.get('name'),
+                "updatedAt": info.get('updatedAt'),
+                "createdAt": info.get('createdAt'),
+                "lastUpdatedBy": info.get('lastUpdatedBy'),
+                "uid": info.get('uid'),
+                "items": {}
+            }
+        
+        def parse_items(items, parent_path=""):
+            """Recursively parse items into flat structure."""
+            for item in items:
+                item_name = item.get('name', '')
+                current_path = f"{parent_path}/{item_name}" if parent_path else item_name
+                
+                # If folder_path is specified, check if we should include this item
+                if folder_path is not None:
+                    # Check if current path is within the specified folder
+                    if not (current_path == folder_path or current_path.startswith(folder_path + "/")):
+                        # If this is a folder, we need to check if it contains the target folder
+                        if 'item' in item and folder_path.startswith(current_path + "/"):
+                            # This folder is an ancestor of the target folder, continue traversing
+                            parse_items(item['item'], current_path)
+                        continue
+                
+                # Check if this is a folder (has 'item' property) or a request
+                if 'item' in item:
+                    # This is a folder
+                   
+                    result['items'][current_path] = {
+                        "type": "folder",
+                        "id": item.get('id'),
+                        "uid": item.get('uid')
+                    }
+                    # Recursively parse nested items
+                    parse_items(item['item'], current_path)
+                else:
+                    # This is a request
+                    request_info = item.get('request', {})
+                    
+                    # Parse URL
+                    url_info = request_info.get('url', {})
+                    if isinstance(url_info, str):
+                        url = url_info
+                    else:
+                        # URL is an object with raw property
+                        url = url_info.get('raw', '')
+                    
+                    # Parse headers
+                    headers = request_info.get('header', [])
+                    
+                    # Parse body
+                    body_info = None
+                    body = request_info.get('body', {})
+                    if body:
+                        body_mode = body.get('mode', '')
+                        if body_mode == 'raw':
+                            try:
+                                raw_data = body.get('raw', '')
+                                if raw_data:
+                                    body_info = {
+                                        "type": "json",
+                                        "data": json.loads(raw_data) if raw_data.strip() else {}
+                                    }
+                            except json.JSONDecodeError:
+                                body_info = {
+                                    "type": "raw",
+                                    "data": body.get('raw', '')
+                                }
+                        elif body_mode == 'formdata':
+                            body_info = {
+                                "type": "formdata",
+                                "data": body.get('formdata', [])
+                            }
+                        elif body_mode == 'urlencoded':
+                            body_info = {
+                                "type": "urlencoded",
+                                "data": body.get('urlencoded', [])
+                            }
+                    
+                    # Parse URL parameters
+                    params = []
+                    if isinstance(url_info, dict):
+                        query = url_info.get('query', [])
+                        for param in query:
+                            if isinstance(param, dict):
+                                params.append({
+                                    "key": param.get('key', ''),
+                                    "value": param.get('value', ''),
+                                    "disabled": param.get('disabled', False)
+                                })
+                    
+                    request_data = {
+                        "id": item.get('id'),
+                        "uid": item.get('uid'),
+                        "full_postman_path": current_path,
+                        "type": "request",
+                        "method": request_info.get('method', 'GET'),
+                        "request_url": url,
+                        "headers": headers,
+                        "params": params
+                    }
+                    
+                    # Add body if present
+                    if body_info:
+                        request_data["body"] = body_info
+                    
+                    # Add description if present
+                    description = request_info.get('description')
+                    if description:
+                        request_data["description"] = description
+                    
+                    result['items'][current_path] = request_data
+        
+        # Parse the top-level items
+        items = collection.get('item', [])
+        parse_items(items)
+        
+        return result

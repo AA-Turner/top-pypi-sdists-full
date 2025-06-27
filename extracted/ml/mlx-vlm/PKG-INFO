@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.1.27
+Version: 0.2.0
 Summary: Vision LLMs on Apple silicon with MLX and the Hugging Face Hub
 Home-page: https://github.com/Blaizzy/mlx-vlm
 Author: Prince Canuma
@@ -13,13 +13,16 @@ Requires-Dist: mlx>=0.26.0
 Requires-Dist: datasets>=2.19.1
 Requires-Dist: tqdm>=4.66.2
 Requires-Dist: numpy>=1.23.4
-Requires-Dist: transformers>=4.51.3
+Requires-Dist: transformers>=4.53.0
 Requires-Dist: gradio>=5.19.0
 Requires-Dist: Pillow>=10.3.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: opencv-python==4.10.0.84
-Requires-Dist: mlx-lm>=0.25.1
+Requires-Dist: mlx-lm>=0.23.0
 Requires-Dist: fastapi>=0.95.1
+Requires-Dist: soundfile>=0.13.1
+Requires-Dist: scipy>=1.15.3
+Requires-Dist: mlx-audio
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

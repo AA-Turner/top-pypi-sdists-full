@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from snowflake.core import PollingOperation, RESTConnection
+from snowflake.core._common import TokenType
 from snowflake.core.spark_connect import SparkConnectResource
 from snowflake.core.version import __version__ as VERSION
 
@@ -17,7 +18,7 @@ API_CLIENT_REQUEST = "snowflake.core.spark_connect._generated.api_client.ApiClie
 
 @pytest.fixture
 def spark_connect_resource():
-    conn = RESTConnection("localhost.me", 80, "", False, "http")
+    conn = RESTConnection("localhost.me", 80, token="", token_type=TokenType.SESSION_TOKEN, protocol="http")
     return SparkConnectResource(conn)
 
 

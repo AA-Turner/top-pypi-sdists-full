@@ -14,8 +14,7 @@ import onnx
 import onnxscript.ir.passes
 import onnxscript.ir.passes.common
 from onnxscript import ir
-from onnxscript.ir.passes.common import _c_api_utils
-from onnxscript.version_converter import _version_converter
+from onnxscript.version_converter import _c_api_utils, _version_converter
 
 logger = logging.getLogger(__name__)
 
@@ -170,5 +169,5 @@ def convert_version(
     if model_proto is not None:
         # Update the model proto in-place
         model_proto.graph.Clear()
-        del model_proto.functions
+        del model_proto.functions[:]
         model_proto.graph.CopyFrom(ir.to_proto(model.graph))

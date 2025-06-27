@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from snowflake.connector import Error, SnowflakeConnection, cursor
 from snowflake.core._options import require_snowpark
 
+from ._common import TokenType
 from ._constants import (
     PLATFORM,
     PYTHON_VERSION,
@@ -428,8 +429,14 @@ class Root:
         return self._connection.rest.master_token  # type: ignore[union-attr]
 
     @property
-    def _is_sessionless(self) -> bool:
-        return False  # Unlike RESTRoot, normal Root always uses session token
+    def external_session_id(self) -> Optional[str]:
+        return getattr(self._connection.rest, "_external_session_id", None)
+
+    @property
+    def token_type(self) -> TokenType:
+        if getattr(self._connection, "_authenticator", None) == "PAT_WITH_EXTERNAL_SESSION":
+            return TokenType.EXTERNAL_SESSION_WITH_PAT
+        return TokenType.SESSION_TOKEN
 
     def _refresh_parameters(self) -> None:
         parameters = {

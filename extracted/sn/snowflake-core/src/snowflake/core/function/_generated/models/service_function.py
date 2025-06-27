@@ -43,7 +43,7 @@ class ServiceFunction(Function):
     arguments : List[FunctionArgument]
 
     service : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     endpoint : str
         Function's endpoint
     path : str
@@ -68,9 +68,9 @@ class ServiceFunction(Function):
         Function's body.
 
     service_database : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     service_schema : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     """
 
     service: Annotated[str, Field(strict=True)]
@@ -245,7 +245,7 @@ class ServiceFunctionModel(Function):
         arguments : List[FunctionArgument]
 
         service : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         endpoint : str
             Function's endpoint
         path : str
@@ -270,9 +270,9 @@ class ServiceFunctionModel(Function):
             Function's body.
 
         service_database : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         service_schema : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         """
 
         super().__init__(

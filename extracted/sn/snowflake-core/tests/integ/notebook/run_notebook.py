@@ -1,3 +1,4 @@
+import argparse
 import uuid
 
 import snowflake.connector
@@ -34,11 +35,20 @@ all_notebook_files = [
     },
 ]
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--tests-only", action="store_true", default=False,
+    help="Only run the notebooks with tests"
+)
 
-def run():
+def run(tests_only: bool):
     execution_output = None
     config = connection_config()
     should_fail_job = False
+    if tests_only:
+        notebooks_to_run = [notebook for notebook in all_notebook_files if notebook.get("is_integration_test")]
+    else:
+        notebooks_to_run = all_notebook_files
 
     # copy the snowpy package to the tests/integ/notebook folder
     snowflake_core_source_folder = "./src"
@@ -74,7 +84,7 @@ def run():
 
                 # create the stage and put the notebook files in the stage
                 cursor.execute(f"CREATE STAGE {STAGE_NAME}")
-                for notebook_file in all_notebook_files:
+                for notebook_file in notebooks_to_run:
                     stage_url = f"{STAGE_NAME}/{notebook_file['notebook_name']}"
                     files_to_upload = [
                         f"{notebook_directory_path}/{notebook_file['notebook_file_name']}",
@@ -85,7 +95,7 @@ def run():
                 upload_given_files_to_stage(cursor, f"{STAGE_NAME}/zip", [snowflake_core_zip_filepath])
 
                 # try to create and execute the notebook
-                for notebook_file in all_notebook_files:
+                for notebook_file in notebooks_to_run:
                     print(f"Executing notebook {notebook_file['notebook_file_name']}")
                     should_fail_job_temp = execute_notebook(
                         cursor,
@@ -138,4 +148,6 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    args = parser.parse_args()
+    tests_only: bool = args.tests_only
+    run(tests_only)

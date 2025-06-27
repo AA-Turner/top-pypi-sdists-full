@@ -44,10 +44,10 @@ async def async_request(app: FastAPI, method, url, current_user: dict = None,
             if "json" in kwargs:
                 kwargs["json"] = jsonable_encoder(kwargs["json"])
 
-            app.state.logger.info(f"async_request() request, url: {url}, method: {method}, kwargs: {kwargs}")
+            app.state.logger.info(f"async_request() request, url: {method} {url} \nkwargs: {kwargs}")
             response = await client.request(method, url, **kwargs)
             app.state.logger.info(
-                f"async_request() response, url: {url}, method: {method}, kwargs: {kwargs}, response: {response}, response.text: {response.text}")
+                f"async_request() response, url: {method} {url} \nkwargs: {kwargs} \n\nresponse.status_code: {response.status_code} \nresponse.text: {response.text}")
             return response
     except httpx.TimeoutException as exc:
         app.state.logger.warn(

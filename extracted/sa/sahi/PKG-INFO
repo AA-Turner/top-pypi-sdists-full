@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sahi
-Version: 0.11.25
+Version: 0.11.26
 Summary: A vision library for performing sliced inference on large images/small objects
 Project-URL: homepage, https://github.com/obss/sahi
 License-Expression: MIT
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Requires-Dist: click
 Requires-Dist: fire
-Requires-Dist: opencv-python<=4.10.0.84
+Requires-Dist: opencv-python<=4.11.0.86
 Requires-Dist: pillow>=8.2.0
 Requires-Dist: pybboxes==0.1.6
 Requires-Dist: pyyaml
@@ -113,15 +113,17 @@ Object detection and instance segmentation are by far the most important applica
 
 - `YOLOX` + `SAHI` demo: <a href="https://huggingface.co/spaces/fcakyon/sahi-yolox"><img src="https://raw.githubusercontent.com/obss/sahi/main/resources/hf_spaces_badge.svg" alt="sahi-yolox"></a>
 
-- `YOLO12` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-yolo12"></a> (NEW)
+- `YOLO12` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-yolo12"></a>
 
 - `YOLO11-OBB` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-yolo11-obb"></a> (NEW)
 
 - `YOLO11` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-yolo11"></a>
 
+- `Roboflow/RF-DETR` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github.com/obss/sahi/blob/main/demo/inference_for_roboflow.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="roboflow"> (NEW)
+
 - `RT-DETR v2` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_huggingface.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-rtdetrv2"></a> (NEW)
 
-- `RT-DETR` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_rtdetr.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-rtdetr"></a> (NEW)
+- `RT-DETR` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_rtdetr.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-rtdetr"></a>
 
 - `HuggingFace` + `SAHI` walkthrough: <a href="https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_huggingface.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="sahi-huggingface"></a>
 
@@ -191,6 +193,12 @@ mim install mmdet==3.3.0
 
 ```console
 pip install transformers>=4.42.0 timm
+```
+
+- Install your desired detection framework (roboflow):
+
+```console
+pip install inference>=0.50.3 rfdetr>=1.1.0
 ```
 
 </details>
@@ -281,6 +289,8 @@ All you need to do is, create a new .py file under [sahi/models/](https://github
 
 <a align="left" href="https://github.com/madenburak" target="_blank">Burak Maden</a>
 
+<a align="left" href="https://github.com/nok" target="_blank">Darius Morawiec</a>
+
 <a align="left" href="https://github.com/PushpakBhoge" target="_blank">Pushpak Bhoge</a>
 
 <a align="left" href="https://github.com/mcvarer" target="_blank">M. Can V.</a>
@@ -288,6 +298,10 @@ All you need to do is, create a new .py file under [sahi/models/](https://github
 <a align="left" href="https://github.com/ChristofferEdlund" target="_blank">Christoffer Edlund</a>
 
 <a align="left" href="https://github.com/ishworii" target="_blank">Ishwor</a>
+
+<a align="left" href="https://github.com/ducviet00" target="_blank">Duc-Viet Hoang</a>
+
+<a align="left" href="https://github.com/mario-dg" target="_blank">Mario da Graca</a>
 
 <a align="left" href="https://github.com/mecevit" target="_blank">Mehmet Ecevit</a>
 

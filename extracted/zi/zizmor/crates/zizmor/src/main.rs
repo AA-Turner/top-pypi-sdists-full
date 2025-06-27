@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::dbg_macro)]
+
 use std::{
     io::{Write, stdout},
     process::ExitCode,
@@ -5,7 +7,7 @@ use std::{
 };
 
 use annotate_snippets::{Level, Renderer};
-use anstream::{eprintln, stream::IsTerminal};
+use anstream::{eprintln, println, stream::IsTerminal};
 use anyhow::{Context, Result, anyhow};
 use audit::{Audit, AuditLoadError};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -21,6 +23,7 @@ use indicatif::ProgressStyle;
 use owo_colors::OwoColorize;
 use registry::{AuditRegistry, FindingRegistry, InputKey, InputKind, InputRegistry};
 use state::AuditState;
+use terminal_link::Link;
 use tracing::{Span, info_span, instrument};
 use tracing_indicatif::{IndicatifLayer, span_ext::IndicatifSpanExt};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
@@ -34,6 +37,11 @@ mod output;
 mod registry;
 mod state;
 mod utils;
+mod yaml_patch;
+
+// TODO: Dedupe this with the top-level `sponsors.json` used by the
+// README + docs site.
+const THANKS: &[(&str, &str)] = &[("Grafana Labs", "https://grafana.com")];
 
 /// Finds security issues in GitHub Actions setups.
 #[derive(Parser)]
@@ -132,6 +140,24 @@ struct App {
     /// Enable naches mode.
     #[arg(long, hide = true, env = "ZIZMOR_NACHES")]
     naches: bool,
+
+    /// Fix findings automatically, when available.
+    #[arg(
+        long,
+        value_enum,
+        value_name = "MODE",
+        // NOTE: These attributes are needed to make `--fix` behave as the
+        // default for `--fix=safe`. Unlike other flags we don't support
+        // `--fix safe`, since `clap` can't disambiguate that.
+        num_args=0..=1,
+        require_equals = true,
+        default_missing_value = "safe",
+    )]
+    fix: Option<FixMode>,
+
+    /// Emit thank-you messages for zizmor's sponsors.
+    #[arg(long, exclusive = true)]
+    thanks: bool,
 
     /// The inputs to audit.
     ///
@@ -280,6 +306,16 @@ impl CollectionMode {
             CollectionMode::All | CollectionMode::Default | CollectionMode::ActionsOnly
         )
     }
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub(crate) enum FixMode {
+    /// Apply only safe fixes (the default).
+    Safe,
+    /// Apply only unsafe fixes.
+    UnsafeOnly,
+    /// Apply all fixes, both safe and unsafe.
+    All,
 }
 
 fn tips(err: impl AsRef<str>, tips: &[impl AsRef<str>]) -> String {
@@ -454,7 +490,6 @@ fn collect_inputs(
             registry.register(kind, contents, key)?;
         } else if input_path.is_dir() {
             collect_from_dir(input_path, mode, &mut registry)?;
-            // collect_from_repo_dir(input_path, input_path, mode, &mut registry)?;
         } else {
             // If this input isn't a file or directory, it's probably an
             // `owner/repo(@ref)?` slug.
@@ -482,6 +517,15 @@ fn run() -> Result<ExitCode> {
     human_panic::setup_panic!();
 
     let mut app = App::parse();
+
+    if app.thanks {
+        println!("zizmor's development is sustained by our generous sponsors:");
+        for (name, url) in THANKS {
+            let link = Link::new(name, url);
+            println!("🌈 {link}")
+        }
+        return Ok(ExitCode::SUCCESS);
+    }
 
     if let Some(shell) = app.completions {
         let mut cmd = App::command();
@@ -620,6 +664,7 @@ fn run() -> Result<ExitCode> {
     register_audit!(audit::obfuscation::Obfuscation);
     register_audit!(audit::stale_action_refs::StaleActionRefs);
     register_audit!(audit::unpinned_images::UnpinnedImages);
+    register_audit!(audit::anonymous_definition::AnonymousDefinition);
 
     let mut results = FindingRegistry::new(&app, &config);
     {
@@ -635,6 +680,11 @@ fn run() -> Result<ExitCode> {
         for (_, input) in registry.iter_inputs() {
             Span::current().pb_set_message(input.key().filename());
             for (name, audit) in audit_registry.iter_audits() {
+                tracing::debug!(
+                    "running {name} on {input}",
+                    name = name,
+                    input = input.key()
+                );
                 results.extend(audit.audit(input).with_context(|| {
                     format!("{name} failed on {input}", input = input.key().filename())
                 })?);
@@ -659,10 +709,14 @@ fn run() -> Result<ExitCode> {
         OutputFormat::Github => output::github::output(stdout(), results.findings())?,
     };
 
+    if let Some(fix_mode) = app.fix {
+        output::fix::apply_fixes(fix_mode, &results, &registry)?;
+    }
+
     if app.no_exit_codes || matches!(app.format, OutputFormat::Sarif) {
         Ok(ExitCode::SUCCESS)
     } else {
-        Ok(results.into())
+        Ok(results.exit_code())
     }
 }
 

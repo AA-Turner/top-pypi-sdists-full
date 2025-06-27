@@ -11,6 +11,7 @@ TEST_SERVICE_NAME = "SNOWPY_TEST_SERVICE"
 
 API_NOT_ENABLED = "Cortex Search API is not enabled"
 
+EXACTLY_ONE_OF = "The request must contain exactly one of 'query' or 'multi_index_query'"
 pytestmark = [pytest.mark.skip_gov]
 
 @pytest.fixture(autouse=True)
@@ -64,6 +65,20 @@ def test_search(cortex_search_services):
         assert row["col1"] is not None
         assert row["col2"] is not None
 
+
+def test_search_optionalized(cortex_search_services):
+    # because no column is specified, we default to displaying the indexed search column
+    resp = cortex_search_services[TEST_SERVICE_NAME].search(query="hi", limit=5)
+    assert len(resp.results) == 5
+    for row in resp.results:
+        assert row["COL1"] is not None
+
+    # If no query input is specified (query or multi_index_query) as well as no columns, then we should see an error.
+    try:
+        cortex_search_services[TEST_SERVICE_NAME].search(limit=5)
+    except Exception as err:
+        if EXACTLY_ONE_OF not in err.body:
+          pytest.xfail(EXACTLY_ONE_OF)
 
 def test_search_collection(cortex_search_services):
     resp = cortex_search_services.search(

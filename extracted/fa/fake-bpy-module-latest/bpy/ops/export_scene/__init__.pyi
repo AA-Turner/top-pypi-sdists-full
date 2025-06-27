@@ -126,7 +126,7 @@ def fbx(
         :type use_mesh_modifiers: bool | None
         :param use_mesh_modifiers_render: Use Modifiers Render Setting, Use render settings when applying modifiers to mesh objects (DISABLED in Blender 2.8)
         :type use_mesh_modifiers_render: bool | None
-        :param mesh_smooth_type: Smoothing, Export smoothing information (prefer 'Normals Only' option if your target importer understand split normals)
+        :param mesh_smooth_type: Smoothing, Export smoothing information (prefer 'Normals Only' option if your target importer understands custom normals)
 
     OFF
     Normals Only -- Export only normals instead of writing edge or face smoothing data.

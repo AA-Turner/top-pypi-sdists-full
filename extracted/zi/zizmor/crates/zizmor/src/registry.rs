@@ -19,7 +19,7 @@ use crate::{
     audit::{Audit, AuditInput},
     config::Config,
     finding::{Confidence, Finding, Persona, Severity},
-    models::{Action, Workflow},
+    models::{action::Action, workflow::Workflow},
 };
 
 #[derive(Error, Debug)]
@@ -54,12 +54,21 @@ pub(crate) enum InputKind {
     Action,
 }
 
+impl std::fmt::Display for InputKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InputKind::Workflow => write!(f, "workflow"),
+            InputKind::Action => write!(f, "action"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, PartialOrd, Ord)]
 pub(crate) struct LocalKey {
     /// The path's nondeterministic prefix, if any.
     prefix: Option<Utf8PathBuf>,
     /// The given path to the input. This can be absolute or relative.
-    given_path: Utf8PathBuf,
+    pub(crate) given_path: Utf8PathBuf,
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, PartialOrd, Ord)]
@@ -204,9 +213,11 @@ impl InputRegistry {
         contents: String,
         key: InputKey,
     ) -> anyhow::Result<()> {
+        tracing::debug!("registering {kind} input as with key {key}");
+
         let input: Result<AuditInput, InputError> = match kind {
-            InputKind::Workflow => Workflow::from_string(contents, key).map(|wf| wf.into()),
-            InputKind::Action => Action::from_string(contents, key).map(|a| a.into()),
+            InputKind::Workflow => Workflow::from_string(contents, key.clone()).map(|wf| wf.into()),
+            InputKind::Action => Action::from_string(contents, key.clone()).map(|a| a.into()),
         };
 
         match input {
@@ -216,10 +227,10 @@ impl InputRegistry {
                 Ok(())
             }
             Err(e @ InputError::Schema { .. }) if !self.strict => {
-                tracing::warn!("failed to validate input as {kind:?}: {e}");
+                tracing::warn!("failed to validate input as {kind}: {e}");
                 Ok(())
             }
-            Err(e) => Err(anyhow!(e)).with_context(|| format!("failed to load input as {kind:?}")),
+            Err(e) => Err(anyhow!(e)).with_context(|| format!("failed to load {key} as {kind}")),
         }
     }
 
@@ -339,6 +350,19 @@ impl<'a> FindingRegistry<'a> {
         &self.findings
     }
 
+    /// Findings from [`FindingRegistry::findings`] that are fixable.
+    ///
+    /// A finding is considered fixable if it has at least one
+    /// fix, and all fixes are local (i.e. they don't reference remote inputs).
+    pub(crate) fn fixable_findings(&self) -> impl Iterator<Item = &Finding<'a>> {
+        self.findings.iter().filter(|f| {
+            !f.fixes.is_empty()
+                && f.fixes
+                    .iter()
+                    .all(|fix| matches!(fix.key, InputKey::Local(_)))
+        })
+    }
+
     /// All ignored findings.
     pub(crate) fn ignored(&self) -> &[Finding<'a>] {
         &self.ignored
@@ -348,11 +372,11 @@ impl<'a> FindingRegistry<'a> {
     pub(crate) fn suppressed(&self) -> &[Finding<'a>] {
         &self.suppressed
     }
-}
 
-impl From<FindingRegistry<'_>> for ExitCode {
-    fn from(value: FindingRegistry<'_>) -> Self {
-        match value.highest_seen_severity {
+    /// Returns an appropriate exit code based on the registry's
+    /// highest-seen severity.
+    pub(crate) fn exit_code(&self) -> ExitCode {
+        match self.highest_seen_severity {
             Some(sev) => match sev {
                 Severity::Unknown => ExitCode::from(10),
                 Severity::Informational => ExitCode::from(11),

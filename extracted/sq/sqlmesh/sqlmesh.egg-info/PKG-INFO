@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.196.3
+Version: 0.196.4
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -343,7 +343,7 @@ Requires-Dist: watchfiles>=0.19.0; extra == "lsp"
 Requires-Dist: uvicorn[standard]==0.22.0; extra == "lsp"
 Requires-Dist: sse-starlette>=0.2.2; extra == "lsp"
 Requires-Dist: pyarrow; extra == "lsp"
-Requires-Dist: pygls; extra == "lsp"
+Requires-Dist: pygls<2.0.0,>=1.2.0; extra == "lsp"
 Requires-Dist: lsprotocol; extra == "lsp"
 Provides-Extra: risingwave
 Requires-Dist: psycopg2; extra == "risingwave"

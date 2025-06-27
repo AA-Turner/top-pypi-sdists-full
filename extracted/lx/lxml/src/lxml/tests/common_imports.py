@@ -58,6 +58,18 @@ def needs_libxml(*version):
         "needs libxml2 >= %s.%s.%s" % (version + (0, 0, 0))[:3])
 
 
+def needs_feature(feature_name):
+    assert feature_name in [
+        'catalog', 'ftp', 'html', 'http', 'iconv', 'icu',
+        'lzma', 'regexp', 'schematron', 'xmlschema', 'xpath', 'zlib',
+    ], feature_name
+    features = ', '.join(sorted(etree.LIBXML_FEATURES))
+    return unittest.skipIf(
+        feature_name not in etree.LIBXML_FEATURES,
+        f"needs libxml2 with feature {feature_name}, found [{features}]"
+    )
+
+
 import doctest
 
 try:

@@ -76,13 +76,13 @@
     __esExport("ChatAreaInput", chatarea_input_1.ChatAreaInput);
     var column_1 = require("dd255421d9") /* ./column */;
     __esExport("Column", column_1.Column);
-    var comm_manager_1 = require("3ec0e8eb36") /* ./comm_manager */;
+    var comm_manager_1 = require("db82e464de") /* ./comm_manager */;
     __esExport("CommManager", comm_manager_1.CommManager);
     var customselect_1 = require("92bbd30bd1") /* ./customselect */;
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("857881a0e5") /* ./tabulator */;
+    var tabulator_1 = require("7934c11cba") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("d08bb9618c") /* ./react_component */;
+    var react_component_1 = require("e97fdbf701") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("cc3d9d7226") /* ./reactive_esm */;
+    var reactive_esm_1 = require("140084c190") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -705,7 +705,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("cc3d9d7226") /* ./reactive_esm */;
+    const reactive_esm_1 = require("140084c190") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -869,7 +869,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"cc3d9d7226": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"140084c190": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -890,6 +890,7 @@ export default {render}`;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const dom_2 = require("@bokehjs/core/dom");
+    const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const types_1 = require("@bokehjs/core/util/types");
     const event_to_object_1 = require("2cc1a33000") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
@@ -1126,6 +1127,7 @@ export default {render}`;
             this._child_callbacks = new Map();
             this.model.disconnect_watchers(this);
         }
+        _on_mounted() { }
         notify_mount(child, id, remove) {
             if (!this._mounted.has(child)) {
                 this._mounted.set(child, new Set());
@@ -1141,6 +1143,7 @@ export default {render}`;
                 children = [children];
             }
             if (children.every((model) => this._mounted.get(child)?.has(model.id))) {
+                this._on_mounted();
                 for (const cb of this._lifecycle_handlers.get("mounted") || []) {
                     cb(child);
                 }
@@ -1219,6 +1222,40 @@ export default {render}`;
                 element_view.render_to(target);
             }
         }
+        get is_managed() {
+            return this.parent instanceof layout_dom_1.LayoutDOMView && !(this.parent instanceof ReactiveESMView);
+        }
+        compute_layout() {
+            if (this.is_managed) {
+                super.compute_layout();
+                return;
+            }
+            this.measure_layout();
+            this.update_bbox();
+            this._compute_layout();
+            this.after_layout();
+            // Override private property
+            this._layout_computed = true;
+        }
+        _update_bbox() {
+            const displayed = (() => {
+                // Consider using Element.checkVisibility() in the future.
+                // https://w3c.github.io/csswg-drafts/cssom-view-1/#dom-element-checkvisibility
+                if (!this.el.isConnected) {
+                    return false;
+                }
+                else if (this.el.offsetParent != null) {
+                    return true;
+                }
+                else {
+                    const { position, display } = getComputedStyle(this.el);
+                    return position == "fixed" && display != "none";
+                }
+            })();
+            // Override private property
+            this._is_displayed = displayed;
+            return true;
+        }
         after_rendered() {
             const handlers = (this._lifecycle_handlers.get("after_render") || []);
             for (const cb of handlers) {
@@ -1262,6 +1299,14 @@ export default {render}`;
             }
             this.after_render();
         }
+        invalidate_layout() {
+            if (this.is_managed) {
+                super.invalidate_layout();
+                return;
+            }
+            this.update_layout();
+            this.compute_layout();
+        }
         remove() {
             super.remove();
             for (const cb of (this._lifecycle_handlers.get("remove") || [])) {
@@ -1272,8 +1317,8 @@ export default {render}`;
             this._mounted.clear();
         }
         after_resize() {
-            super.after_resize();
             if (this._rendered && !this._changing) {
+                super.after_resize();
                 for (const cb of (this._lifecycle_handlers.get("resize") || [])) {
                     cb();
                 }
@@ -1516,7 +1561,7 @@ export default {render}`;
                 const render_url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
                 // @ts-ignore
                 this.render_module = importShim(render_url);
-                MODULE_CACHE.set(this.data.type, this.render_module);
+                MODULE_CACHE.set(this._render_cache_key, this.render_module);
             }
         }
         _render_code() {
@@ -19227,7 +19272,7 @@ ${namesToRegister
         }));
     })();
 },
-"3ec0e8eb36": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
+"db82e464de": /* models/comm_manager.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const document_1 = require("@bokehjs/document");
@@ -19255,6 +19300,7 @@ ${namesToRegister
             this._receiver = new receiver_1.Receiver();
             this._event_buffer = [];
             this._blocked = false;
+            this._reconnect = false;
             this._timeout = Date.now();
             if ((window.PyViz == undefined) || (!window.PyViz.comm_manager)) {
                 console.warn("Could not find comm manager on window.PyViz, ensure the extension is loaded.");
@@ -19275,6 +19321,7 @@ ${namesToRegister
                     }
                 });
                 this._client_comm = this.ns.comm_manager.get_client_comm(this.plot_id, this.client_comm_id, (msg) => this.on_ack(msg));
+                this._reconnect = !this._client_comm.active;
                 if (this.ns.shared_views == null) {
                     this.ns.shared_views = new Map();
                 }
@@ -19298,7 +19345,10 @@ ${namesToRegister
                 return;
             }
             this._event_buffer.push(event);
-            if (!exports.comm_settings.debounce) {
+            if (this._reconnect && this._client_comm.connected) {
+                this.on_ack({ metadata: { msg_type: "Ready" } });
+            }
+            else if (!exports.comm_settings.debounce) {
                 this.process_events();
             }
             else if ((!this._blocked || (Date.now() > this._timeout))) {
@@ -19530,7 +19580,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"857881a0e5": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"7934c11cba": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -19543,7 +19593,7 @@ ${namesToRegister
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const tables_1 = require("@bokehjs/models/widgets/tables");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const comm_manager_1 = require("3ec0e8eb36") /* ./comm_manager */;
+    const comm_manager_1 = require("db82e464de") /* ./comm_manager */;
     const data_1 = require("be689f0377") /* ./data */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
     const util_1 = require("6ae1cb3800") /* ./util */;
@@ -20510,6 +20560,9 @@ ${namesToRegister
                 this.columns.set(column.field, tab_column);
                 if (tab_column.title == null) {
                     tab_column.title = column.title;
+                }
+                if (tab_column.headerTooltip === undefined) {
+                    tab_column.headerTooltip = true;
                 }
                 if (tab_column.width == null && column.width != null && column.width != 0) {
                     tab_column.width = column.width;
@@ -28694,16 +28747,51 @@ ${namesToRegister
         }));
     })();
 },
-"d08bb9618c": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"e97fdbf701": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("cc3d9d7226") /* ./reactive_esm */;
+    const dom_1 = require("@bokehjs/core/dom");
+    const types_1 = require("@bokehjs/core/util/types");
+    const reactive_esm_1 = require("140084c190") /* ./reactive_esm */;
+    class HostedStyleSheet extends dom_1.InlineStyleSheet {
+        constructor(css, id, persistent = false, host_id = "") {
+            super(css, id, persistent);
+            this.persistent = persistent;
+            this.host_id = host_id;
+        }
+        replace(css, styles) {
+            css = css.replace(/:host\b/g, `#${this.host_id}`);
+            super.replace(css, styles);
+        }
+        prepend(css, styles) {
+            css = css.replace(/:host\b/g, `#${this.host_id}`);
+            super.prepend(css, styles);
+        }
+        append(css, styles) {
+            css = css.replace(/:host\b/g, `#${this.host_id}`);
+            super.append(css, styles);
+        }
+    }
+    exports.HostedStyleSheet = HostedStyleSheet;
+    HostedStyleSheet.__name__ = "HostedStyleSheet";
     class ReactComponentView extends reactive_esm_1.ReactiveESMView {
         constructor() {
             super(...arguments);
             this.model_getter = reactive_esm_1.model_getter;
             this.model_setter = reactive_esm_1.model_setter;
+            this.react_root = null;
             this._force_update_callbacks = [];
+        }
+        initialize() {
+            super.initialize();
+            if (!this.use_shadow_dom) {
+                this.display = new HostedStyleSheet("", "display", false, this.model.id);
+                this.style = new HostedStyleSheet("", "style", false, this.model.id);
+                this.parent_style = new HostedStyleSheet("", "parent", true, this.model.id);
+            }
+        }
+        get use_shadow_dom() {
+            return this.model.use_shadow_dom || !(this.parent instanceof ReactComponentView);
         }
         render_esm() {
             if (this.model.compiled === null || this.model.render_module === null) {
@@ -28736,11 +28824,49 @@ ${namesToRegister
             }
         }
         remove() {
-            super.remove();
             this._force_update_callbacks = [];
-            if (this.react_root) {
+            if (this.react_root && this.use_shadow_dom) {
+                super.remove();
                 this.react_root.then((root) => root.unmount());
             }
+            else {
+                this._applied_stylesheets.forEach((stylesheet) => stylesheet.uninstall());
+                for (const cb of (this._lifecycle_handlers.get("remove") || [])) {
+                    cb();
+                }
+                this._child_callbacks.clear();
+                this._child_rendered.clear();
+                this._mounted.clear();
+            }
+        }
+        get root_view() {
+            let root = this;
+            if (this.use_shadow_dom) {
+                return root;
+            }
+            while (root.parent instanceof ReactComponentView) {
+                root = root.parent;
+            }
+            return root;
+        }
+        _apply_stylesheets(stylesheets) {
+            const resolved_stylesheets = stylesheets.map((style) => (0, types_1.isString)(style) ? new dom_1.InlineStyleSheet(style) : style);
+            const styles = this.root_view.shadow_el.querySelectorAll("style");
+            const links = this.root_view.shadow_el.querySelectorAll("link");
+            resolved_stylesheets.forEach((stylesheet) => {
+                if (!this.use_shadow_dom) {
+                    if (stylesheet instanceof dom_1.InlineStyleSheet &&
+                        Array.from(styles).some(style => style.innerHTML === stylesheet.css)) {
+                        return;
+                    }
+                    if (stylesheet instanceof dom_1.ImportedStyleSheet &&
+                        Array.from(links).some(link => link.href === stylesheet.el.href)) {
+                        return;
+                    }
+                }
+                this._applied_stylesheets.push(stylesheet);
+                stylesheet.install(this.root_view.shadow_el);
+            });
         }
         render() {
             if (this.react_root) {
@@ -28755,7 +28881,9 @@ ${namesToRegister
             // React component to ensure anything depending on the DOM
             // structure (e.g. emotion caches) is updated
             super.r_after_render();
-            this.force_update();
+            if (!this.use_shadow_dom) {
+                this.force_update();
+            }
         }
         _update_layout() {
             super._update_layout();
@@ -28783,10 +28911,12 @@ ${namesToRegister
                     new_views.set(child, [child_view]);
                 }
             }
-            for (const view of this._child_rendered.keys()) {
-                if (!all_views.includes(view)) {
-                    this._child_rendered.delete(view);
-                    view.el.remove();
+            if (this.use_shadow_dom) {
+                for (const view of this._child_rendered.keys()) {
+                    if (!all_views.includes(view)) {
+                        this._child_rendered.delete(view);
+                        view.el.remove();
+                    }
                 }
             }
             for (const child of this.model.children) {
@@ -28797,7 +28927,15 @@ ${namesToRegister
                 }
             }
             this._update_children();
+        }
+        _on_mounted() {
             this.invalidate_layout();
+        }
+        patch_container(container) {
+            this.el = this.container = container;
+            this._update_stylesheets();
+            this.class_list = new dom_1.ClassList(this.container.classList);
+            this._apply_html_attributes();
         }
         after_rendered() {
             const handlers = (this._lifecycle_handlers.get("after_render") || []);
@@ -28853,14 +28991,16 @@ import createCache from "@emotion/cache"
 import { CacheProvider } from "@emotion/react"`;
                 }
                 init_code = `
-  const css_key = id.replace("-", "").replace(/\d/g, (digit) => String.fromCharCode(digit.charCodeAt(0) + 49)).toLowerCase()
-  this.mui_cache = createCache({
-    key: 'css-'+css_key,
-    prepend: true,
-    container: view.style_cache,
-  })`;
+  if (view.use_shadow_dom) {
+    const css_key = id.replace("-", "").replace(/\d/g, (digit) => String.fromCharCode(digit.charCodeAt(0) + 49)).toLowerCase()
+    this.mui_cache = createCache({
+      key: 'css-'+css_key,
+      prepend: true,
+      container: view.style_cache,
+    })
+  }`;
                 render_code = `
-  if (rendered) {
+  if (rendered && ((view.parent?.react_root === undefined) || view.model.use_shadow_dom)) {
     rendered = React.createElement(CacheProvider, {value: this.mui_cache}, rendered)
   }`;
             }
@@ -28876,6 +29016,8 @@ async function render(id) {
   ${bundle_code}
 
   class Child extends React.PureComponent {
+
+    state = {rendered: null}
 
     constructor(props) {
       super(props)
@@ -28903,9 +29045,27 @@ async function render(id) {
       return view == null ? null : view.el
     }
 
+    get use_shadow_dom() {
+      return this.view?.model.use_shadow_dom || (this.view?.react_root === undefined)
+    }
+
     componentDidMount() {
       const view = this.view
       if (view == null) { return }
+      else if (!this.use_shadow_dom) {
+        view.patch_container(this.containerRef.current)
+        view.model.render_module.then(async (mod) => {
+          this.setState(
+            {rendered: await mod.default.render(view.model.id)},
+            () => {
+              this.props.parent.notify_mount(this.props.name, view.model.id)
+              this.view.r_after_render()
+              this.view.after_rendered()
+            }
+          )
+        })
+        return
+      }
       this.updateElement()
       this.props.parent.rerender_(view)
       this.render_callback = (new_views) => {
@@ -28926,14 +29086,23 @@ async function render(id) {
       if (this.render_callback) {
         this.props.parent.remove_on_child_render(this.props.name, this.render_callback)
       }
+      if (!this.use_shadow_dom && this.view._mounted.has(this.props.name)) {
+        this.view._mounted.get(this.props.name).delete(this.props.id)
+      }
     }
 
     componentDidUpdate() {
-      this.updateElement()
+      if (this.use_shadow_dom) {
+        this.updateElement()
+      }
     }
 
     render() {
-      return React.createElement('div', {className: "child-wrapper", ref: this.containerRef})
+      const child = this.state.rendered
+      const class_name = (this.use_shadow_dom ?
+        "child-wrapper" : this.view.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()
+      )
+      return React.createElement('div', {id: this.view?.model.id, className: class_name, ref: this.containerRef}, child)
     }
   }
 
@@ -29040,6 +29209,7 @@ async function render(id) {
     }
 
     componentDidMount() {
+      if (!this.props.view.use_shadow_dom) { return }
       this.props.view.on_force_update(() => {
         ${init_code}
         this.forceUpdate()
@@ -29060,6 +29230,9 @@ async function render(id) {
 
   const props = {view, model: react_proxy, data: view.model.data, el: view.container}
   const rendered = React.createElement(Component, props)
+  if (!view.model.use_shadow_dom && (view.parent?.react_root !== undefined)) {
+    return rendered
+  }
   if (rendered) {
     view._changing = true
     let container
@@ -29109,8 +29282,9 @@ ${compiled}`;
     ReactComponent.__module__ = "panel.models.esm";
     (() => {
         _a.prototype.default_view = ReactComponentView;
-        _a.define(({ Nullable, Str }) => ({
+        _a.define(({ Bool, Nullable, Str }) => ({
             root_node: [Nullable(Str), null],
+            use_shadow_dom: [Bool, true],
         }));
     })();
 },
@@ -40307,5 +40481,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"cc3d9d7226","models/event-to-object":"2cc1a33000","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"3ec0e8eb36","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"857881a0e5","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"f3ddc6fd49","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"b5cfca1687","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"d34360f699","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"90f76e3d2e","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"ffbe075545","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"d08bb9618c","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"140084c190","models/event-to-object":"2cc1a33000","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"db82e464de","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"7934c11cba","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"f3ddc6fd49","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"b5cfca1687","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"d34360f699","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"90f76e3d2e","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"ffbe075545","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"e97fdbf701","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

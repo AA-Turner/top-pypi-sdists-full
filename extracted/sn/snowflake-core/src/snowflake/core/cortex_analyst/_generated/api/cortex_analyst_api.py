@@ -14,8 +14,12 @@
 from __future__ import absolute_import
 
 import logging
+from pydantic import StrictStr
+from snowflake.core.cortex_analyst._generated.models.fast_generation_request import FastGenerationRequest
 from snowflake.core.cortex_analyst._generated.models.generate_verified_query_suggestions_request import GenerateVerifiedQuerySuggestionsRequest
 from snowflake.core.cortex_analyst._generated.models.generate_verified_query_suggestions_response import GenerateVerifiedQuerySuggestionsResponse
+from snowflake.core.cortex_analyst._generated.models.pre_selection_request import PreSelectionRequest
+from snowflake.core.cortex_analyst._generated.models.pre_selection_response import PreSelectionResponse
 from snowflake.core.cortex_analyst._generated.models.send_feedback_request import SendFeedbackRequest
 from snowflake.core.cortex_analyst._generated.models.send_message_request import SendMessageRequest
 from snowflake.core.cortex_analyst._generated.models.send_message_response import SendMessageResponse
@@ -58,6 +62,184 @@ class CortexAnalystApi(object):
     @property
     def api_client(self):
         return self._api_client
+
+    @overload
+    def fast_generation(self,
+                        fast_generation_request: FastGenerationRequest,
+                        async_req: Literal[False] = False,
+                        **kwargs) -> str:
+        ...
+
+    @overload
+    def fast_generation(self,
+                        fast_generation_request: FastGenerationRequest,
+                        async_req: Literal[True] = True,
+                        **kwargs) -> Future[str]:
+        ...
+
+    @overload
+    def fast_generation(self,
+                        fast_generation_request: FastGenerationRequest,
+                        async_req: bool = False,
+                        **kwargs) -> Union[str, Future[str]]:
+        ...
+
+    @validate_call
+    def fast_generation(self, fast_generation_request: FastGenerationRequest,
+                        **kwargs) -> Union[str, Future[str]]:  # noqa: E501
+        """Rapidly generate a semantic model given source material  # noqa: E501.
+
+        Provides real-time suggestions for improving a given semantic model via a streaming response.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.fast_generation(fast_generation_request, async_req=True)
+        >>> result = future.result()
+        :param fast_generation_request: (required)
+        :type fast_generation_request: FastGenerationRequest
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[str, Future[str]]
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.fast_generation_with_http_info(fast_generation_request,
+                                                   **kwargs)  # noqa: E501
+
+    @validate_call
+    def fast_generation_with_http_info(
+            self, fast_generation_request: FastGenerationRequest,
+            **kwargs):  # noqa: E501
+        """Rapidly generate a semantic model given source material  # noqa: E501.
+
+        Provides real-time suggestions for improving a given semantic model via a streaming response.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.fast_generation_with_http_info(fast_generation_request, async_req=True)
+        >>> result = future.result()
+        :param fast_generation_request: (required)
+        :type fast_generation_request: FastGenerationRequest
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[str, Future[str]], status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = ['fast_generation_request']
+        _all_params.extend([
+            'async_req', '_return_http_data_only', '_preload_content',
+            '_request_timeout', '_request_auth', '_content_type', '_headers'
+        ])
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise _APITypeError("Got an unexpected keyword argument '%s'"
+                                    " to method fast_generation" % _key)
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        # process the query parameters
+        _query_params = []
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params['fast_generation_request']:
+            _body_params = _params['fast_generation_request']
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/event-stream', 'application/json'])  # noqa: E501
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            '_content_type',
+            self.api_client.select_header_content_type(['application/json']))
+        if _content_types_list:
+            _header_params['Content-Type'] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ['ExternalOAuth', 'KeyPair',
+                          'SnowflakeOAuth']  # noqa: E501
+
+        _response_types_map = {
+            '200': "str",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '405': "ErrorResponse",
+            '429': "ErrorResponse",
+            '500': "ErrorResponse",
+            '503': "ErrorResponse",
+            '504': "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            '/api/v2/cortex/analyst/fast-generation',
+            'POST',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get(
+                '_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
 
     @overload
     def generate_verified_query_suggestions(
@@ -394,6 +576,188 @@ class CortexAnalystApi(object):
             self._root,
             '/api/v2/cortex/analyst/token',
             'GET',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get(
+                '_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+    @overload
+    def pre_selection(self,
+                      pre_selection_request: PreSelectionRequest,
+                      async_req: Literal[False] = False,
+                      **kwargs) -> PreSelectionResponse:
+        ...
+
+    @overload
+    def pre_selection(self,
+                      pre_selection_request: PreSelectionRequest,
+                      async_req: Literal[True] = True,
+                      **kwargs) -> Future[PreSelectionResponse]:
+        ...
+
+    @overload
+    def pre_selection(
+            self,
+            pre_selection_request: PreSelectionRequest,
+            async_req: bool = False,
+            **kwargs
+    ) -> Union[PreSelectionResponse, Future[PreSelectionResponse]]:
+        ...
+
+    @validate_call
+    def pre_selection(
+        self, pre_selection_request: PreSelectionRequest, **kwargs
+    ) -> Union[PreSelectionResponse,
+               Future[PreSelectionResponse]]:  # noqa: E501
+        """Retrieve relevant table information from input data for semantic model generation  # noqa: E501.
+
+        Retrieve relevant table information from input data for semantic model generation  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.pre_selection(pre_selection_request, async_req=True)
+        >>> result = future.result()
+        :param pre_selection_request: (required)
+        :type pre_selection_request: PreSelectionRequest
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[PreSelectionResponse, Future[PreSelectionResponse]]
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.pre_selection_with_http_info(pre_selection_request,
+                                                 **kwargs)  # noqa: E501
+
+    @validate_call
+    def pre_selection_with_http_info(
+            self, pre_selection_request: PreSelectionRequest,
+            **kwargs):  # noqa: E501
+        """Retrieve relevant table information from input data for semantic model generation  # noqa: E501.
+
+        Retrieve relevant table information from input data for semantic model generation  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.pre_selection_with_http_info(pre_selection_request, async_req=True)
+        >>> result = future.result()
+        :param pre_selection_request: (required)
+        :type pre_selection_request: PreSelectionRequest
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[PreSelectionResponse, Future[PreSelectionResponse]], status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = ['pre_selection_request']
+        _all_params.extend([
+            'async_req', '_return_http_data_only', '_preload_content',
+            '_request_timeout', '_request_auth', '_content_type', '_headers'
+        ])
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise _APITypeError("Got an unexpected keyword argument '%s'"
+                                    " to method pre_selection" % _key)
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        # process the query parameters
+        _query_params = []
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params['pre_selection_request']:
+            _body_params = _params['pre_selection_request']
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            '_content_type',
+            self.api_client.select_header_content_type(['application/json']))
+        if _content_types_list:
+            _header_params['Content-Type'] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ['ExternalOAuth', 'KeyPair',
+                          'SnowflakeOAuth']  # noqa: E501
+
+        _response_types_map = {
+            '200': "PreSelectionResponse",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '405': "ErrorResponse",
+            '429': "ErrorResponse",
+            '500': "ErrorResponse",
+            '503': "ErrorResponse",
+            '504': "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            '/api/v2/cortex/analyst/pre-selection',
+            'POST',
             _path_params,
             _query_params,
             _header_params,

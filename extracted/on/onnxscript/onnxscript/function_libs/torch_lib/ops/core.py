@@ -61,20 +61,18 @@ _MATH_PI = math.pi
 Rank = common_ops.Rank
 
 
-@torch_op("aten::_local_scalar_dense")
-def aten__local_scalar_dense(self: Union[FLOAT16, FLOAT, DOUBLE, BFLOAT16]) -> FLOAT:
+@torch_op("aten::_local_scalar_dense", trace_only=True)
+def aten__local_scalar_dense(self: TensorType) -> TensorType:
     """_local_scalar_dense(Tensor self) -> Scalar"""
 
     # Return the first element in tensor as a scalar.
-    return op.Cast(op.Gather(op.Reshape(self, [-1]), 0), to=FLOAT.dtype)
-
-
-@torch_op("aten::_local_scalar_dense")
-def aten__local_scalar_dense_int(self: IntType) -> INT64:
-    """_local_scalar_dense(Tensor self) -> Scalar"""
-
-    # Return the first element in tensor as a scalar.
-    return op.Cast(op.Gather(op.Reshape(self, [-1]), 0), to=INT64.dtype)
+    if self.dtype.is_floating_point():
+        dtype = ir.DataType.FLOAT
+    elif self.dtype == ir.DataType.BOOL:
+        dtype = ir.DataType.BOOL
+    else:
+        dtype = ir.DataType.INT64
+    return op.Cast(op.Gather(op.Reshape(self, [-1]), 0), to=dtype)
 
 
 @torch_op("aten::_log_softmax", trace_only=True)
@@ -5315,14 +5313,14 @@ def aten_max_dim(self: TReal, dim: int, keepdim: bool = False) -> Tuple[TReal, I
     return result, indices
 
 
-@torch_op(("aten::maximum", "aten::max.other"))
+@torch_op("aten::maximum")
 def aten_maximum(self: TReal, other: TReal) -> TReal:
     """maximum(Tensor self, Tensor other) -> Tensor"""
 
     return op.Max(self, other)
 
 
-@torch_op(("aten::maximum", "aten::max.other"))
+@torch_op("aten::maximum")
 def aten_maximum_bool(self: BOOL, other: BOOL) -> BOOL:
     """maximum(Tensor self, Tensor other) -> Tensor"""
 
@@ -5382,14 +5380,14 @@ def aten_min_dim(self: TReal, dim: int, keepdim: bool = False) -> Tuple[TReal, T
     return result, indices
 
 
-@torch_op(("aten::minimum", "aten::min.other"))
+@torch_op("aten::minimum")
 def aten_minimum(self: TReal, other: TReal) -> TReal:
     """minimum(Tensor self, Tensor other) -> Tensor"""
 
     return op.Min(self, other)
 
 
-@torch_op(("aten::minimum", "aten::min.other"))
+@torch_op("aten::minimum")
 def aten_minimum_bool(self: BOOL, other: BOOL) -> BOOL:
     """minimum(Tensor self, Tensor other) -> Tensor"""
 
@@ -8657,29 +8655,36 @@ def aten_unfold(self: TTensor, dimension: int, size: int, step: int) -> TTensor:
         # Handle negative dimension
         if dimension < 0:
             dimension = dimension + self_rank
-        dim_size = self.shape[dimension]
 
-        low_indices = range(0, dim_size, step)
-        hi_indices = range(size, dim_size + 1, step)
-        stack = [
-            op.Slice(
-                self,
-                op.Constant(value_ints=[low]),
-                op.Constant(value_ints=[hi]),
-                op.Constant(value_ints=[dimension]),
-            )
-            for low, hi in zip(low_indices, hi_indices)
-        ]
+        input_shape = op.Shape(self)
+        dim_size = op.Gather(input_shape, op.Constant(value_ints=[dimension]))
 
+        # Create indices for each window
+        window_starts = op.Range(0, op.Sub(dim_size, size - 1), step)
+
+        # Create the base indices for one window
+        window_indices = list(range(size))
+
+        # Broadcast to create all indices
+        starts_expanded = op.Unsqueeze(window_starts, [1])  # [num_windows, 1]
+        indices_expanded = op.Unsqueeze(window_indices, [0])  # [1, size]
+        all_indices = op.Add(starts_expanded, indices_expanded)  # [num_windows, size]
+
+        # Gather along the specified dimension
+        result = op.Gather(self, all_indices, axis=dimension)
+
+        # The result shape is now [..., num_windows, size, ...] with num_windows at position 'dimension'.
+        # We need to move the size dimension to the end:
+        #   Current shape: [..., num_windows, size, ...]
+        #   Target shape:  [..., num_windows, ..., size]
+
+        # Move the size dimension (at position dimension+1) to the end
         # perm need to be list[int], so have to be generated in trace_only mode
-        perm = list(range(self_rank))
-        # from [0,1,2,3,4] -> [0,1,3,4,2] when dimension=1
-        perm.append(perm.pop(dimension))
-        unsqueeze = [
-            op.Unsqueeze(op.Transpose(t, perm=perm), op.Constant(value_ints=[dimension]))
-            for t in stack
-        ]
-        result = op.Concat(*unsqueeze, axis=dimension)
+        perm = list(range(self_rank + 1))
+        perm.append(perm.pop(dimension + 1))
+
+        result = op.Transpose(result, perm=perm)
+
     return result
 
 

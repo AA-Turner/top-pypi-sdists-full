@@ -1,16 +1,15 @@
 Metadata-Version: 2.3
 Name: launchdarkly-eventsource
-Version: 1.2.4
+Version: 1.3.0
 Summary: LaunchDarkly SSE Client
 License: Apache-2.0
 Author: LaunchDarkly
 Author-email: dev@launchdarkly.com
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -44,7 +43,7 @@ This is a synchronous implementation which blocks the caller's thread when readi
 
 ## Supported Python versions
 
-This version of the package is compatible with Python 3.8 and higher.
+This version of the package is compatible with Python 3.9 and higher.
 
 ## Contributing
 

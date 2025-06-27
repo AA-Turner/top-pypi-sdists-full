@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kr8s
-Version: 0.20.7
+Version: 0.20.8
 Summary: A Kubernetes API library
 Project-URL: Documentation, https://docs.kr8s.org/en/stable
 Project-URL: Repository, https://github.com/kr8s-org/kr8s.git

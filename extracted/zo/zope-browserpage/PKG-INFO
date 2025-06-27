@@ -1,30 +1,55 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.browserpage
-Version: 5.0
+Version: 5.1
 Summary: ZCML directives for configuring browser views for Zope.
 Home-page: https://github.com/zopefoundation/zope.browserpage
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.7
-Provides-Extra: menu
-Provides-Extra: test
+Requires-Python: >=3.9
 License-File: LICENSE.txt
+Requires-Dist: setuptools
+Requires-Dist: zope.tal>=4.2.0
+Requires-Dist: zope.pagetemplate
+Requires-Dist: zope.component>=3.7
+Requires-Dist: zope.configuration
+Requires-Dist: zope.interface
+Requires-Dist: zope.publisher>=3.8
+Requires-Dist: zope.schema
+Requires-Dist: zope.security
+Requires-Dist: zope.traversing
+Provides-Extra: menu
+Requires-Dist: zope.browsermenu; extra == "menu"
+Provides-Extra: test
+Requires-Dist: zope.browsermenu; extra == "test"
+Requires-Dist: zope.testing; extra == "test"
+Requires-Dist: zope.testrunner; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ======================
  ``zope.browserpage``
@@ -65,6 +90,13 @@ the menu attribute.
 =========
  Changes
 =========
+
+5.1 (2025-06-26)
+================
+
+- Add support for Python 3.12, 3.13.
+
+- Drop support for Python 3.7, 3.8.
 
 5.0 (2023-01-19)
 ================

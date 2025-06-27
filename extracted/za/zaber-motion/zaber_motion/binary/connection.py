@@ -66,6 +66,14 @@ class Connection:
         """
         return self._interface_id
 
+    @property
+    def is_open(self) -> bool:
+        """
+        Returns whether the connection is open.
+        Does not guarantee that the subsequent requests will succeed.
+        """
+        return self.__retrieve_is_open()
+
     def __init__(self, interface_id: int):
         self._interface_id = interface_id
         self.__setup_events()
@@ -496,6 +504,24 @@ class Connection:
             raise ValueError('Invalid value; physical devices are numbered from 1.')
 
         return Device(self, device_address)
+
+    def __retrieve_is_open(
+            self
+    ) -> bool:
+        """
+        Returns is open.
+
+        Returns:
+            Is open.
+        """
+        request = dto.InterfaceEmptyRequest(
+            interface_id=self.interface_id,
+        )
+        response = call_sync(
+            "interface/get_is_open",
+            request,
+            dto.BoolResponse.from_binary)
+        return response.value
 
     def __repr__(
             self

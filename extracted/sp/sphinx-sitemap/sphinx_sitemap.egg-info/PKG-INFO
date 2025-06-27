@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-sitemap
-Version: 2.7.1
+Version: 2.7.2
 Summary: Sitemap generator for Sphinx
 Author-email: Jared Dillard <jared.dillard@gmail.com>
 Maintainer-email: Jared Dillard <jared.dillard@gmail.com>
@@ -16,8 +16,6 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Documentation :: Sphinx
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: requests>=2.28.1
-Requires-Dist: flask>=2.0.0
 Requires-Dist: sphinx-last-updated-by-git
 Provides-Extra: dev
 Requires-Dist: tox; extra == "dev"

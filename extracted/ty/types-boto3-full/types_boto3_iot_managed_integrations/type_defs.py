@@ -22,10 +22,14 @@ from typing import Any, Union
 
 from .literals import (
     AbortCriteriaFailureTypeType,
+    AssociationStateType,
     AuthMaterialTypeType,
+    CloudConnectorTypeType,
     ConfigurationStateType,
+    ConnectorEventOperationType,
     DeviceDiscoveryStatusType,
     DisconnectReasonValueType,
+    DiscoveryModificationType,
     DiscoveryTypeType,
     EncryptionTypeType,
     EventTypeType,
@@ -42,6 +46,7 @@ from .literals import (
     SchemaVersionFormatType,
     SchemaVersionTypeType,
     SchemaVersionVisibilityType,
+    TokenEndpointAuthenticationSchemeType,
 )
 
 if sys.version_info >= (3, 9):
@@ -58,6 +63,9 @@ else:
 
 __all__ = (
     "AbortConfigCriteriaTypeDef",
+    "AccountAssociationItemTypeDef",
+    "AuthConfigTypeDef",
+    "AuthConfigUpdateTypeDef",
     "CapabilityActionTypeDef",
     "CapabilityReportCapabilityOutputTypeDef",
     "CapabilityReportCapabilityTypeDef",
@@ -66,10 +74,19 @@ __all__ = (
     "CapabilityReportOutputTypeDef",
     "CapabilityReportTypeDef",
     "CapabilityReportUnionTypeDef",
+    "CapabilitySchemaItemTypeDef",
     "CommandCapabilityTypeDef",
     "CommandEndpointTypeDef",
     "ConfigurationErrorTypeDef",
     "ConfigurationStatusTypeDef",
+    "ConnectorDestinationSummaryTypeDef",
+    "ConnectorItemTypeDef",
+    "CreateAccountAssociationRequestTypeDef",
+    "CreateAccountAssociationResponseTypeDef",
+    "CreateCloudConnectorRequestTypeDef",
+    "CreateCloudConnectorResponseTypeDef",
+    "CreateConnectorDestinationRequestTypeDef",
+    "CreateConnectorDestinationResponseTypeDef",
     "CreateCredentialLockerRequestTypeDef",
     "CreateCredentialLockerResponseTypeDef",
     "CreateDestinationRequestTypeDef",
@@ -87,6 +104,9 @@ __all__ = (
     "CreateProvisioningProfileRequestTypeDef",
     "CreateProvisioningProfileResponseTypeDef",
     "CredentialLockerSummaryTypeDef",
+    "DeleteAccountAssociationRequestTypeDef",
+    "DeleteCloudConnectorRequestTypeDef",
+    "DeleteConnectorDestinationRequestTypeDef",
     "DeleteCredentialLockerRequestTypeDef",
     "DeleteDestinationRequestTypeDef",
     "DeleteEventLogConfigurationRequestTypeDef",
@@ -95,10 +115,21 @@ __all__ = (
     "DeleteOtaTaskConfigurationRequestTypeDef",
     "DeleteOtaTaskRequestTypeDef",
     "DeleteProvisioningProfileRequestTypeDef",
+    "DeregisterAccountAssociationRequestTypeDef",
     "DestinationSummaryTypeDef",
+    "DeviceDiscoverySummaryTypeDef",
+    "DeviceTypeDef",
+    "DiscoveredDeviceSummaryTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EndpointConfigTypeDef",
     "EventLogConfigurationSummaryTypeDef",
     "ExponentialRolloutRateTypeDef",
+    "GetAccountAssociationRequestTypeDef",
+    "GetAccountAssociationResponseTypeDef",
+    "GetCloudConnectorRequestTypeDef",
+    "GetCloudConnectorResponseTypeDef",
+    "GetConnectorDestinationRequestTypeDef",
+    "GetConnectorDestinationResponseTypeDef",
     "GetCredentialLockerRequestTypeDef",
     "GetCredentialLockerResponseTypeDef",
     "GetCustomEndpointResponseTypeDef",
@@ -132,15 +163,34 @@ __all__ = (
     "GetRuntimeLogConfigurationResponseTypeDef",
     "GetSchemaVersionRequestTypeDef",
     "GetSchemaVersionResponseTypeDef",
+    "LambdaConfigTypeDef",
+    "ListAccountAssociationsRequestPaginateTypeDef",
+    "ListAccountAssociationsRequestTypeDef",
+    "ListAccountAssociationsResponseTypeDef",
+    "ListCloudConnectorsRequestPaginateTypeDef",
+    "ListCloudConnectorsRequestTypeDef",
+    "ListCloudConnectorsResponseTypeDef",
+    "ListConnectorDestinationsRequestPaginateTypeDef",
+    "ListConnectorDestinationsRequestTypeDef",
+    "ListConnectorDestinationsResponseTypeDef",
     "ListCredentialLockersRequestPaginateTypeDef",
     "ListCredentialLockersRequestTypeDef",
     "ListCredentialLockersResponseTypeDef",
     "ListDestinationsRequestPaginateTypeDef",
     "ListDestinationsRequestTypeDef",
     "ListDestinationsResponseTypeDef",
+    "ListDeviceDiscoveriesRequestPaginateTypeDef",
+    "ListDeviceDiscoveriesRequestTypeDef",
+    "ListDeviceDiscoveriesResponseTypeDef",
+    "ListDiscoveredDevicesRequestPaginateTypeDef",
+    "ListDiscoveredDevicesRequestTypeDef",
+    "ListDiscoveredDevicesResponseTypeDef",
     "ListEventLogConfigurationsRequestPaginateTypeDef",
     "ListEventLogConfigurationsRequestTypeDef",
     "ListEventLogConfigurationsResponseTypeDef",
+    "ListManagedThingAccountAssociationsRequestPaginateTypeDef",
+    "ListManagedThingAccountAssociationsRequestTypeDef",
+    "ListManagedThingAccountAssociationsResponseTypeDef",
     "ListManagedThingSchemasRequestPaginateTypeDef",
     "ListManagedThingSchemasRequestTypeDef",
     "ListManagedThingSchemasResponseTypeDef",
@@ -165,9 +215,20 @@ __all__ = (
     "ListSchemaVersionsRequestPaginateTypeDef",
     "ListSchemaVersionsRequestTypeDef",
     "ListSchemaVersionsResponseTypeDef",
+    "ListTagsForResourceRequestTypeDef",
+    "ListTagsForResourceResponseTypeDef",
+    "ManagedThingAssociationTypeDef",
     "ManagedThingSchemaListItemTypeDef",
     "ManagedThingSummaryTypeDef",
+    "MatterCapabilityReportAttributeTypeDef",
+    "MatterCapabilityReportClusterTypeDef",
+    "MatterCapabilityReportEndpointTypeDef",
+    "MatterCapabilityReportTypeDef",
+    "MatterClusterTypeDef",
+    "MatterEndpointTypeDef",
     "NotificationConfigurationSummaryTypeDef",
+    "OAuthConfigTypeDef",
+    "OAuthUpdateTypeDef",
     "OtaTaskAbortConfigOutputTypeDef",
     "OtaTaskAbortConfigTypeDef",
     "OtaTaskConfigurationSummaryTypeDef",
@@ -183,6 +244,7 @@ __all__ = (
     "OtaTaskSummaryTypeDef",
     "OtaTaskTimeoutConfigTypeDef",
     "PaginatorConfigTypeDef",
+    "ProactiveRefreshTokenRenewalTypeDef",
     "ProvisioningProfileSummaryTypeDef",
     "PushConfigOutputTypeDef",
     "PushConfigTypeDef",
@@ -192,6 +254,8 @@ __all__ = (
     "PutHubConfigurationRequestTypeDef",
     "PutHubConfigurationResponseTypeDef",
     "PutRuntimeLogConfigurationRequestTypeDef",
+    "RegisterAccountAssociationRequestTypeDef",
+    "RegisterAccountAssociationResponseTypeDef",
     "RegisterCustomEndpointResponseTypeDef",
     "ResetRuntimeLogConfigurationRequestTypeDef",
     "ResponseMetadataTypeDef",
@@ -200,13 +264,23 @@ __all__ = (
     "RuntimeLogConfigurationsTypeDef",
     "ScheduleMaintenanceWindowTypeDef",
     "SchemaVersionListItemTypeDef",
+    "SecretsManagerTypeDef",
+    "SendConnectorEventRequestTypeDef",
+    "SendConnectorEventResponseTypeDef",
     "SendManagedThingCommandRequestTypeDef",
     "SendManagedThingCommandResponseTypeDef",
+    "StartAccountAssociationRefreshRequestTypeDef",
+    "StartAccountAssociationRefreshResponseTypeDef",
     "StartDeviceDiscoveryRequestTypeDef",
     "StartDeviceDiscoveryResponseTypeDef",
     "StateCapabilityTypeDef",
     "StateEndpointTypeDef",
+    "TagResourceRequestTypeDef",
     "TaskProcessingDetailsTypeDef",
+    "UntagResourceRequestTypeDef",
+    "UpdateAccountAssociationRequestTypeDef",
+    "UpdateCloudConnectorRequestTypeDef",
+    "UpdateConnectorDestinationRequestTypeDef",
     "UpdateDestinationRequestTypeDef",
     "UpdateEventLogConfigurationRequestTypeDef",
     "UpdateManagedThingRequestTypeDef",
@@ -220,6 +294,16 @@ class AbortConfigCriteriaTypeDef(TypedDict):
     FailureType: NotRequired[AbortCriteriaFailureTypeType]
     MinNumberOfExecutedThings: NotRequired[int]
     ThresholdPercentage: NotRequired[float]
+
+
+class AccountAssociationItemTypeDef(TypedDict):
+    AccountAssociationId: str
+    AssociationState: AssociationStateType
+    ErrorMessage: NotRequired[str]
+    ConnectorDestinationId: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    Arn: NotRequired[str]
 
 
 class CapabilityActionTypeDef(TypedDict):
@@ -253,14 +337,31 @@ CapabilityReportCapabilityTypeDef = TypedDict(
 )
 
 
+class CapabilitySchemaItemTypeDef(TypedDict):
+    Format: SchemaVersionFormatType
+    CapabilityId: str
+    ExtrinsicId: str
+    ExtrinsicVersion: int
+    Schema: Mapping[str, Any]
+
+
 class ConfigurationErrorTypeDef(TypedDict):
     code: NotRequired[str]
     message: NotRequired[str]
 
 
-class CreateCredentialLockerRequestTypeDef(TypedDict):
+class ConnectorDestinationSummaryTypeDef(TypedDict):
     Name: NotRequired[str]
+    Description: NotRequired[str]
+    CloudConnectorId: NotRequired[str]
+    Id: NotRequired[str]
+
+
+class CreateAccountAssociationRequestTypeDef(TypedDict):
+    ConnectorDestinationId: str
     ClientToken: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -270,6 +371,17 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: Dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class SecretsManagerTypeDef(TypedDict):
+    arn: str
+    versionId: str
+
+
+class CreateCredentialLockerRequestTypeDef(TypedDict):
+    Name: NotRequired[str]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class CreateDestinationRequestTypeDef(TypedDict):
@@ -311,6 +423,18 @@ class CredentialLockerSummaryTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
 
 
+class DeleteAccountAssociationRequestTypeDef(TypedDict):
+    AccountAssociationId: str
+
+
+class DeleteCloudConnectorRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class DeleteConnectorDestinationRequestTypeDef(TypedDict):
+    Identifier: str
+
+
 class DeleteCredentialLockerRequestTypeDef(TypedDict):
     Identifier: str
 
@@ -344,12 +468,39 @@ class DeleteProvisioningProfileRequestTypeDef(TypedDict):
     Identifier: str
 
 
+class DeregisterAccountAssociationRequestTypeDef(TypedDict):
+    ManagedThingId: str
+    AccountAssociationId: str
+
+
 class DestinationSummaryTypeDef(TypedDict):
     Description: NotRequired[str]
     DeliveryDestinationArn: NotRequired[str]
     DeliveryDestinationType: NotRequired[Literal["KINESIS"]]
     Name: NotRequired[str]
     RoleArn: NotRequired[str]
+
+
+class DeviceDiscoverySummaryTypeDef(TypedDict):
+    Id: NotRequired[str]
+    DiscoveryType: NotRequired[DiscoveryTypeType]
+    Status: NotRequired[DeviceDiscoveryStatusType]
+
+
+class DiscoveredDeviceSummaryTypeDef(TypedDict):
+    ConnectorDeviceId: NotRequired[str]
+    ConnectorDeviceName: NotRequired[str]
+    DeviceTypes: NotRequired[List[str]]
+    ManagedThingId: NotRequired[str]
+    Modification: NotRequired[DiscoveryModificationType]
+    DiscoveredAt: NotRequired[datetime]
+    Brand: NotRequired[str]
+    Model: NotRequired[str]
+    AuthenticationMaterial: NotRequired[str]
+
+
+class LambdaConfigTypeDef(TypedDict):
+    arn: str
 
 
 class EventLogConfigurationSummaryTypeDef(TypedDict):
@@ -362,6 +513,18 @@ class EventLogConfigurationSummaryTypeDef(TypedDict):
 class RolloutRateIncreaseCriteriaTypeDef(TypedDict):
     numberOfNotifiedThings: NotRequired[int]
     numberOfSucceededThings: NotRequired[int]
+
+
+class GetAccountAssociationRequestTypeDef(TypedDict):
+    AccountAssociationId: str
+
+
+class GetCloudConnectorRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class GetConnectorDestinationRequestTypeDef(TypedDict):
+    Identifier: str
 
 
 class GetCredentialLockerRequestTypeDef(TypedDict):
@@ -459,6 +622,29 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListAccountAssociationsRequestTypeDef(TypedDict):
+    ConnectorDestinationId: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+ListCloudConnectorsRequestTypeDef = TypedDict(
+    "ListCloudConnectorsRequestTypeDef",
+    {
+        "Type": NotRequired[CloudConnectorTypeType],
+        "LambdaArn": NotRequired[str],
+        "MaxResults": NotRequired[int],
+        "NextToken": NotRequired[str],
+    },
+)
+
+
+class ListConnectorDestinationsRequestTypeDef(TypedDict):
+    CloudConnectorId: NotRequired[str]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListCredentialLockersRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -469,9 +655,34 @@ class ListDestinationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class ListDeviceDiscoveriesRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    TypeFilter: NotRequired[DiscoveryTypeType]
+    StatusFilter: NotRequired[DeviceDiscoveryStatusType]
+
+
+class ListDiscoveredDevicesRequestTypeDef(TypedDict):
+    Identifier: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListEventLogConfigurationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListManagedThingAccountAssociationsRequestTypeDef(TypedDict):
+    ManagedThingId: NotRequired[str]
+    AccountAssociationId: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ManagedThingAssociationTypeDef(TypedDict):
+    ManagedThingId: NotRequired[str]
+    AccountAssociationId: NotRequired[str]
 
 
 class ListManagedThingSchemasRequestTypeDef(TypedDict):
@@ -494,6 +705,8 @@ class ListManagedThingsRequestTypeDef(TypedDict):
     RoleFilter: NotRequired[RoleType]
     ParentControllerIdentifierFilter: NotRequired[str]
     ConnectorPolicyIdFilter: NotRequired[str]
+    ConnectorDestinationIdFilter: NotRequired[str]
+    ConnectorDeviceIdFilter: NotRequired[str]
     SerialNumberFilter: NotRequired[str]
     ProvisioningStatusFilter: NotRequired[ProvisioningStatusType]
     NextToken: NotRequired[str]
@@ -508,6 +721,7 @@ class ManagedThingSummaryTypeDef(TypedDict):
     Classification: NotRequired[str]
     ConnectorDeviceId: NotRequired[str]
     ConnectorPolicyId: NotRequired[str]
+    ConnectorDestinationId: NotRequired[str]
     Model: NotRequired[str]
     Name: NotRequired[str]
     Owner: NotRequired[str]
@@ -599,6 +813,34 @@ SchemaVersionListItemTypeDef = TypedDict(
 )
 
 
+class ListTagsForResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+
+
+MatterCapabilityReportAttributeTypeDef = TypedDict(
+    "MatterCapabilityReportAttributeTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "value": NotRequired[Mapping[str, Any]],
+    },
+)
+MatterClusterTypeDef = TypedDict(
+    "MatterClusterTypeDef",
+    {
+        "id": NotRequired[str],
+        "attributes": NotRequired[Mapping[str, Any]],
+        "commands": NotRequired[Mapping[str, Mapping[str, Any]]],
+        "events": NotRequired[Mapping[str, Mapping[str, Any]]],
+    },
+)
+
+
+class ProactiveRefreshTokenRenewalTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    DaysBeforeRenewal: NotRequired[int]
+
+
 class RetryConfigCriteriaTypeDef(TypedDict):
     FailureType: NotRequired[RetryCriteriaFailureTypeType]
     MinNumberOfRetries: NotRequired[int]
@@ -631,14 +873,26 @@ class PutHubConfigurationRequestTypeDef(TypedDict):
     HubTokenTimerExpirySettingInSeconds: int
 
 
+class RegisterAccountAssociationRequestTypeDef(TypedDict):
+    ManagedThingId: str
+    AccountAssociationId: str
+    DeviceDiscoveryId: str
+
+
 class ResetRuntimeLogConfigurationRequestTypeDef(TypedDict):
     ManagedThingId: str
 
 
+class StartAccountAssociationRefreshRequestTypeDef(TypedDict):
+    AccountAssociationId: str
+
+
 class StartDeviceDiscoveryRequestTypeDef(TypedDict):
     DiscoveryType: DiscoveryTypeType
+    CustomProtocolDetail: NotRequired[Mapping[str, str]]
     ControllerIdentifier: NotRequired[str]
     ConnectorAssociationIdentifier: NotRequired[str]
+    AccountAssociationId: NotRequired[str]
     AuthenticationMaterial: NotRequired[str]
     AuthenticationMaterialType: NotRequired[Literal["ZWAVE_INSTALL_CODE"]]
     ClientToken: NotRequired[str]
@@ -654,6 +908,28 @@ StateCapabilityTypeDef = TypedDict(
         "properties": NotRequired[Dict[str, Any]],
     },
 )
+
+
+class TagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Tags: Mapping[str, str]
+
+
+class UntagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    TagKeys: Sequence[str]
+
+
+class UpdateAccountAssociationRequestTypeDef(TypedDict):
+    AccountAssociationId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+
+
+class UpdateCloudConnectorRequestTypeDef(TypedDict):
+    Identifier: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class UpdateDestinationRequestTypeDef(TypedDict):
@@ -720,6 +996,24 @@ class ConfigurationStatusTypeDef(TypedDict):
     error: NotRequired[ConfigurationErrorTypeDef]
 
 
+class CreateAccountAssociationResponseTypeDef(TypedDict):
+    OAuthAuthorizationUrl: str
+    AccountAssociationId: str
+    AssociationState: AssociationStateType
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateCloudConnectorResponseTypeDef(TypedDict):
+    Id: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateConnectorDestinationResponseTypeDef(TypedDict):
+    Id: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateCredentialLockerResponseTypeDef(TypedDict):
     Id: str
     Arn: str
@@ -775,6 +1069,19 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetAccountAssociationResponseTypeDef(TypedDict):
+    AccountAssociationId: str
+    AssociationState: AssociationStateType
+    ErrorMessage: str
+    ConnectorDestinationId: str
+    Name: str
+    Description: str
+    Arn: str
+    OAuthAuthorizationUrl: str
+    Tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetCredentialLockerResponseTypeDef(TypedDict):
     Id: str
     Arn: str
@@ -809,6 +1116,7 @@ class GetDeviceDiscoveryResponseTypeDef(TypedDict):
     StartedAt: datetime
     ControllerId: str
     ConnectorAssociationId: str
+    AccountAssociationId: str
     FinishedAt: datetime
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -857,6 +1165,7 @@ class GetManagedThingResponseTypeDef(TypedDict):
     UniversalProductCode: str
     InternationalArticleNumber: str
     ConnectorPolicyId: str
+    ConnectorDestinationId: str
     ConnectorDeviceId: str
     DeviceSpecificKey: str
     MacAddress: str
@@ -905,8 +1214,32 @@ GetSchemaVersionResponseTypeDef = TypedDict(
 )
 
 
+class ListAccountAssociationsResponseTypeDef(TypedDict):
+    Items: List[AccountAssociationItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListConnectorDestinationsResponseTypeDef(TypedDict):
+    ConnectorDestinationList: List[ConnectorDestinationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class PutHubConfigurationResponseTypeDef(TypedDict):
     HubTokenTimerExpirySettingInSeconds: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterAccountAssociationResponseTypeDef(TypedDict):
+    AccountAssociationId: str
+    DeviceDiscoveryId: str
+    ManagedThingId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -915,8 +1248,18 @@ class RegisterCustomEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SendConnectorEventResponseTypeDef(TypedDict):
+    ConnectorId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class SendManagedThingCommandResponseTypeDef(TypedDict):
     TraceId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartAccountAssociationRefreshResponseTypeDef(TypedDict):
+    OAuthAuthorizationUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -936,6 +1279,26 @@ class ListDestinationsResponseTypeDef(TypedDict):
     DestinationList: List[DestinationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ListDeviceDiscoveriesResponseTypeDef(TypedDict):
+    Items: List[DeviceDiscoverySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListDiscoveredDevicesResponseTypeDef(TypedDict):
+    Items: List[DiscoveredDeviceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+EndpointConfigTypeDef = TypedDict(
+    "EndpointConfigTypeDef",
+    {
+        "lambda": NotRequired[LambdaConfigTypeDef],
+    },
+)
 
 
 class ListEventLogConfigurationsResponseTypeDef(TypedDict):
@@ -961,6 +1324,26 @@ class PutRuntimeLogConfigurationRequestTypeDef(TypedDict):
     RuntimeLogConfigurations: RuntimeLogConfigurationsTypeDef
 
 
+class ListAccountAssociationsRequestPaginateTypeDef(TypedDict):
+    ConnectorDestinationId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+ListCloudConnectorsRequestPaginateTypeDef = TypedDict(
+    "ListCloudConnectorsRequestPaginateTypeDef",
+    {
+        "Type": NotRequired[CloudConnectorTypeType],
+        "LambdaArn": NotRequired[str],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+
+class ListConnectorDestinationsRequestPaginateTypeDef(TypedDict):
+    CloudConnectorId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListCredentialLockersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -969,7 +1352,24 @@ class ListDestinationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListDeviceDiscoveriesRequestPaginateTypeDef(TypedDict):
+    TypeFilter: NotRequired[DiscoveryTypeType]
+    StatusFilter: NotRequired[DeviceDiscoveryStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListDiscoveredDevicesRequestPaginateTypeDef(TypedDict):
+    Identifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListEventLogConfigurationsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListManagedThingAccountAssociationsRequestPaginateTypeDef(TypedDict):
+    ManagedThingId: NotRequired[str]
+    AccountAssociationId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -986,6 +1386,8 @@ class ListManagedThingsRequestPaginateTypeDef(TypedDict):
     RoleFilter: NotRequired[RoleType]
     ParentControllerIdentifierFilter: NotRequired[str]
     ConnectorPolicyIdFilter: NotRequired[str]
+    ConnectorDestinationIdFilter: NotRequired[str]
+    ConnectorDeviceIdFilter: NotRequired[str]
     SerialNumberFilter: NotRequired[str]
     ProvisioningStatusFilter: NotRequired[ProvisioningStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1023,6 +1425,12 @@ ListSchemaVersionsRequestPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+
+class ListManagedThingAccountAssociationsResponseTypeDef(TypedDict):
+    Items: List[ManagedThingAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListManagedThingSchemasResponseTypeDef(TypedDict):
@@ -1065,6 +1473,45 @@ class ListSchemaVersionsResponseTypeDef(TypedDict):
     Items: List[SchemaVersionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+MatterCapabilityReportClusterTypeDef = TypedDict(
+    "MatterCapabilityReportClusterTypeDef",
+    {
+        "id": str,
+        "revision": int,
+        "publicId": NotRequired[str],
+        "name": NotRequired[str],
+        "specVersion": NotRequired[str],
+        "attributes": NotRequired[Sequence[MatterCapabilityReportAttributeTypeDef]],
+        "commands": NotRequired[Sequence[str]],
+        "events": NotRequired[Sequence[str]],
+        "featureMap": NotRequired[int],
+        "generatedCommands": NotRequired[Sequence[str]],
+        "fabricIndex": NotRequired[int],
+    },
+)
+MatterEndpointTypeDef = TypedDict(
+    "MatterEndpointTypeDef",
+    {
+        "id": NotRequired[str],
+        "clusters": NotRequired[Sequence[MatterClusterTypeDef]],
+    },
+)
+
+
+class OAuthConfigTypeDef(TypedDict):
+    authUrl: str
+    tokenUrl: str
+    tokenEndpointAuthenticationScheme: TokenEndpointAuthenticationSchemeType
+    scope: NotRequired[str]
+    oAuthCompleteRedirectUrl: NotRequired[str]
+    proactiveRefreshTokenRenewal: NotRequired[ProactiveRefreshTokenRenewalTypeDef]
+
+
+class OAuthUpdateTypeDef(TypedDict):
+    oAuthCompleteRedirectUrl: NotRequired[str]
+    proactiveRefreshTokenRenewal: NotRequired[ProactiveRefreshTokenRenewalTypeDef]
 
 
 class OtaTaskExecutionRetryConfigOutputTypeDef(TypedDict):
@@ -1130,9 +1577,65 @@ class PutDefaultEncryptionConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+ConnectorItemTypeDef = TypedDict(
+    "ConnectorItemTypeDef",
+    {
+        "Name": str,
+        "EndpointConfig": EndpointConfigTypeDef,
+        "Description": NotRequired[str],
+        "EndpointType": NotRequired[Literal["LAMBDA"]],
+        "Id": NotRequired[str],
+        "Type": NotRequired[CloudConnectorTypeType],
+    },
+)
+
+
+class CreateCloudConnectorRequestTypeDef(TypedDict):
+    Name: str
+    EndpointConfig: EndpointConfigTypeDef
+    Description: NotRequired[str]
+    EndpointType: NotRequired[Literal["LAMBDA"]]
+    ClientToken: NotRequired[str]
+
+
+GetCloudConnectorResponseTypeDef = TypedDict(
+    "GetCloudConnectorResponseTypeDef",
+    {
+        "Name": str,
+        "EndpointConfig": EndpointConfigTypeDef,
+        "Description": str,
+        "EndpointType": Literal["LAMBDA"],
+        "Id": str,
+        "Type": CloudConnectorTypeType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
 class OtaTaskExecutionRolloutConfigTypeDef(TypedDict):
     ExponentialRolloutRate: NotRequired[ExponentialRolloutRateTypeDef]
     MaximumPerMinute: NotRequired[int]
+
+
+MatterCapabilityReportEndpointTypeDef = TypedDict(
+    "MatterCapabilityReportEndpointTypeDef",
+    {
+        "id": str,
+        "deviceTypes": Sequence[str],
+        "clusters": Sequence[MatterCapabilityReportClusterTypeDef],
+        "parts": NotRequired[Sequence[str]],
+        "semanticTags": NotRequired[Sequence[str]],
+        "clientClusters": NotRequired[Sequence[str]],
+    },
+)
+
+
+class AuthConfigTypeDef(TypedDict):
+    oAuth: NotRequired[OAuthConfigTypeDef]
+
+
+class AuthConfigUpdateTypeDef(TypedDict):
+    oAuthUpdate: NotRequired[OAuthUpdateTypeDef]
 
 
 OtaTaskExecutionRetryConfigUnionTypeDef = Union[
@@ -1165,6 +1668,7 @@ GetOtaTaskResponseTypeDef = TypedDict(
         "OtaSchedulingConfig": OtaTaskSchedulingConfigOutputTypeDef,
         "OtaTaskExecutionRetryConfig": OtaTaskExecutionRetryConfigOutputTypeDef,
         "Status": OtaStatusType,
+        "Tags": Dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1182,6 +1686,7 @@ class SendManagedThingCommandRequestTypeDef(TypedDict):
     ManagedThingId: str
     Endpoints: Sequence[CommandEndpointTypeDef]
     ConnectorAssociationId: NotRequired[str]
+    AccountAssociationId: NotRequired[str]
 
 
 class GetManagedThingCapabilitiesResponseTypeDef(TypedDict):
@@ -1194,6 +1699,12 @@ class GetManagedThingCapabilitiesResponseTypeDef(TypedDict):
 CapabilityReportUnionTypeDef = Union[CapabilityReportTypeDef, CapabilityReportOutputTypeDef]
 
 
+class ListCloudConnectorsResponseTypeDef(TypedDict):
+    Items: List[ConnectorItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class PushConfigOutputTypeDef(TypedDict):
     AbortConfig: NotRequired[OtaTaskAbortConfigOutputTypeDef]
     RolloutConfig: NotRequired[OtaTaskExecutionRolloutConfigTypeDef]
@@ -1204,6 +1715,43 @@ class PushConfigTypeDef(TypedDict):
     AbortConfig: NotRequired[OtaTaskAbortConfigTypeDef]
     RolloutConfig: NotRequired[OtaTaskExecutionRolloutConfigTypeDef]
     TimeoutConfig: NotRequired[OtaTaskTimeoutConfigTypeDef]
+
+
+class MatterCapabilityReportTypeDef(TypedDict):
+    version: str
+    endpoints: Sequence[MatterCapabilityReportEndpointTypeDef]
+    nodeId: NotRequired[str]
+
+
+class CreateConnectorDestinationRequestTypeDef(TypedDict):
+    CloudConnectorId: str
+    AuthType: Literal["OAUTH"]
+    AuthConfig: AuthConfigTypeDef
+    SecretsManager: SecretsManagerTypeDef
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
+class GetConnectorDestinationResponseTypeDef(TypedDict):
+    Name: str
+    Description: str
+    CloudConnectorId: str
+    Id: str
+    AuthType: Literal["OAUTH"]
+    AuthConfig: AuthConfigTypeDef
+    SecretsManager: SecretsManagerTypeDef
+    OAuthCompleteRedirectUrl: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateConnectorDestinationRequestTypeDef(TypedDict):
+    Identifier: str
+    Description: NotRequired[str]
+    Name: NotRequired[str]
+    AuthType: NotRequired[Literal["OAUTH"]]
+    AuthConfig: NotRequired[AuthConfigUpdateTypeDef]
+    SecretsManager: NotRequired[SecretsManagerTypeDef]
 
 
 CreateOtaTaskRequestTypeDef = TypedDict(
@@ -1236,6 +1784,7 @@ class CreateManagedThingRequestTypeDef(TypedDict):
     Model: NotRequired[str]
     Name: NotRequired[str]
     CapabilityReport: NotRequired[CapabilityReportUnionTypeDef]
+    CapabilitySchemas: NotRequired[Sequence[CapabilitySchemaItemTypeDef]]
     Capabilities: NotRequired[str]
     ClientToken: NotRequired[str]
     Classification: NotRequired[str]
@@ -1252,6 +1801,7 @@ class UpdateManagedThingRequestTypeDef(TypedDict):
     Model: NotRequired[str]
     Name: NotRequired[str]
     CapabilityReport: NotRequired[CapabilityReportUnionTypeDef]
+    CapabilitySchemas: NotRequired[Sequence[CapabilitySchemaItemTypeDef]]
     Capabilities: NotRequired[str]
     Classification: NotRequired[str]
     HubNetworkMode: NotRequired[HubNetworkModeType]
@@ -1270,8 +1820,30 @@ class GetOtaTaskConfigurationResponseTypeDef(TypedDict):
 PushConfigUnionTypeDef = Union[PushConfigTypeDef, PushConfigOutputTypeDef]
 
 
+class DeviceTypeDef(TypedDict):
+    ConnectorDeviceId: str
+    CapabilityReport: MatterCapabilityReportTypeDef
+    ConnectorDeviceName: NotRequired[str]
+    CapabilitySchemas: NotRequired[Sequence[CapabilitySchemaItemTypeDef]]
+    DeviceMetadata: NotRequired[Mapping[str, Any]]
+
+
 class CreateOtaTaskConfigurationRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Name: NotRequired[str]
     PushConfig: NotRequired[PushConfigUnionTypeDef]
     ClientToken: NotRequired[str]
+
+
+class SendConnectorEventRequestTypeDef(TypedDict):
+    ConnectorId: str
+    Operation: ConnectorEventOperationType
+    UserId: NotRequired[str]
+    OperationVersion: NotRequired[str]
+    StatusCode: NotRequired[int]
+    Message: NotRequired[str]
+    DeviceDiscoveryId: NotRequired[str]
+    ConnectorDeviceId: NotRequired[str]
+    TraceId: NotRequired[str]
+    Devices: NotRequired[Sequence[DeviceTypeDef]]
+    MatterEndpoint: NotRequired[MatterEndpointTypeDef]

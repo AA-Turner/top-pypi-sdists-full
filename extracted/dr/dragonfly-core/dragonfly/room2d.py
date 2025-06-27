@@ -1288,17 +1288,18 @@ class Room2D(_BaseGeometry):
                         if overlapping_bounding_boxes(sf.geometry, face, dist):
                             ang = sf.normal.angle(face.normal)
                             if ang < a_tol_min or ang > a_tol_max:
-                                clean_pts = [face.plane.project_point(pt)
-                                             for pt in sf.geometry.boundary]
-                                proj_geo = Face3D(clean_pts)
-                                if any(proj_geo.center.distance_to_point(pt) < tolerance
-                                       for pt in already_assigned[i]):
-                                    continue
-                                else:
-                                    isd = True if isinstance(sf, Door) \
-                                        and not sf.is_glass else False
-                                    wps[i].append((proj_geo, isd))
-                                    already_assigned[i].append(proj_geo.center)
+                                bpts = sf.geometry.boundary
+                                clean_pts = [face.plane.project_point(pt) for pt in bpts]
+                                if clean_pts[0].distance_to_point(bpts[0]) <= dist:
+                                    pj_geo = Face3D(clean_pts)
+                                    if any(pj_geo.center.distance_to_point(p) < tolerance
+                                           for p in already_assigned[i]):
+                                        continue
+                                    else:
+                                        isd = True if isinstance(sf, Door) \
+                                            and not sf.is_glass else False
+                                        wps[i].append((pj_geo, isd))
+                                        already_assigned[i].append(pj_geo.center)
 
         # convert any projected Face3Ds to DetailedWindows and assign them
         sliver_tol = 3 * tolerance
@@ -3774,14 +3775,28 @@ class Room2D(_BaseGeometry):
             else:
                 adjacencies.append((hb_face, bc.boundary_condition_objects))
 
+        # determine if the floor has a counterclockwise hole, requiring window flipping
+        if not self.floor_geometry.has_holes:
+            win_flip = [0] * len(self._window_parameters)
+        else:
+            win_flip = [0] * len(self.floor_geometry.boundary)
+            for hole_poly in self.floor_geometry.hole_polygon2d:
+                if hole_poly.is_clockwise:
+                    win_flip.extend([0] * len(hole_poly))
+                else:
+                    for seg in hole_poly.segments:
+                        win_flip.append(seg.length)
+
         # assign windows, shading, and air boundary properties to walls
         skip = 0
-        for i, glz_par in enumerate(self._window_parameters):
+        for i, (glz_par, w_flip) in enumerate(zip(self._window_parameters, win_flip)):
             if ex_wall_i is not None and i in ex_wall_i:
                 skip += 1
                 continue
             if glz_par is not None:
                 hb_face = hb_room[i + 1 - skip]
+                if isinstance(glz_par, _AsymmetricBase) and w_flip != 0:
+                    glz_par = glz_par.flip(w_flip)
                 try:
                     glz_par.add_window_to_face(hb_face, tolerance)
                 except AssertionError as e:

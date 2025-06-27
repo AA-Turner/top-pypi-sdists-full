@@ -643,7 +643,10 @@ class FlowRun(Run):
 
 
 _TaskInput = Union[
-    schemas.core.TaskRunResult, schemas.core.Parameter, schemas.core.Constant
+    schemas.core.TaskRunResult,
+    schemas.core.FlowRunResult,
+    schemas.core.Parameter,
+    schemas.core.Constant,
 ]
 _TaskInputs = dict[str, list[_TaskInput]]
 
@@ -672,9 +675,8 @@ class TaskRun(Run):
     tags: Mapped[list[str]] = mapped_column(JSON, server_default="[]", default=list)
     labels: Mapped[Optional[schemas.core.KeyValueLabels]] = mapped_column(JSON)
 
-    # TODO remove this foreign key for significant delete performance gains
     state_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        sa.ForeignKey("task_run_state.id", ondelete="SET NULL", use_alter=True),
+        UUID,
         index=True,
     )
 
@@ -1254,6 +1256,7 @@ class Automation(Base):
     description: Mapped[str] = mapped_column(default="")
 
     enabled: Mapped[bool] = mapped_column(server_default="1", default=True)
+    tags: Mapped[list[str]] = mapped_column(JSON, server_default="[]", default=list)
 
     trigger: Mapped[ServerTriggerTypes] = mapped_column(Pydantic(ServerTriggerTypes))
 

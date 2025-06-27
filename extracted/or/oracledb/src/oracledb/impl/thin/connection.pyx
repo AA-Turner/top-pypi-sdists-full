@@ -46,7 +46,6 @@ cdef class BaseThinConnImpl(BaseConnImpl):
         bint _client_identifier_modified
         str _module
         bint _module_modified
-        BaseThinPoolImpl _pool
         bytes _ltxid
         str _current_schema
         bint _current_schema_modified
@@ -70,6 +69,7 @@ cdef class BaseThinConnImpl(BaseConnImpl):
         int _dbobject_type_cache_num
         bytes _combo_key
         str _connection_id
+        bint _is_pooled
         bint _is_pool_extra
         bytes _transaction_context
         uint8_t pipeline_mode
@@ -91,6 +91,15 @@ cdef class BaseThinConnImpl(BaseConnImpl):
             errors._raise_err(errors.ERR_UNKNOWN_TRANSACTION_STATE,
                               state=state)
         self._transaction_context = None
+
+    cdef int _clear_dbobject_type_cache(self) except -1:
+        """
+        """
+        cdef int cache_num
+        if self._dbobject_type_cache_num > 0:
+            cache_num = self._dbobject_type_cache_num
+            self._dbobject_type_cache_num = 0
+            remove_dbobject_type_cache(cache_num)
 
     cdef BaseThinLobImpl _create_lob_impl(self, DbType dbtype,
                                           bytes locator=None):
@@ -165,13 +174,6 @@ cdef class BaseThinConnImpl(BaseConnImpl):
         message.context = self._transaction_context
         return message
 
-    cdef int _force_close(self) except -1:
-        self._pool = None
-        if self._dbobject_type_cache_num > 0:
-            remove_dbobject_type_cache(self._dbobject_type_cache_num)
-            self._dbobject_type_cache_num = 0
-        self._protocol._force_close()
-
     cdef Statement _get_statement(self, str sql = None,
                                   bint cache_statement = False):
         """
@@ -191,11 +193,8 @@ cdef class BaseThinConnImpl(BaseConnImpl):
         self._drcp_enabled = description.server_type == "pooled"
         if self._cclass is None:
             self._cclass = description.cclass
-        if self._cclass is None and self._pool is not None \
-                and self._drcp_enabled:
-            gen_uuid = uuid.uuid4()
-            self._cclass = f"DPY:{base64.b64encode(gen_uuid.bytes).decode()}"
-            params._default_description.cclass = self._cclass
+        if self._cclass is None:
+            self._cclass = params._default_description.cclass
 
     cdef int _post_connect_phase_two(self, ConnectParamsImpl params) except -1:
         """
@@ -262,8 +261,7 @@ cdef class BaseThinConnImpl(BaseConnImpl):
         return self._internal_name
 
     def get_is_healthy(self):
-        return self._protocol._transport is not None \
-                and self._protocol._read_buf._pending_error_num == 0
+        return self._protocol._get_is_healthy()
 
     def get_ltxid(self):
         return self._ltxid or b''
@@ -343,6 +341,13 @@ cdef class ThinConnImpl(BaseThinConnImpl):
     def __init__(self, str dsn, ConnectParamsImpl params):
         BaseThinConnImpl.__init__(self, dsn, params)
         self._protocol = Protocol()
+
+    cdef int _close(self):
+        """
+        Internal method for closing the connection.
+        """
+        cdef Protocol protocol = <Protocol> self._protocol
+        protocol._close(self)
 
     cdef int _connect_with_address(self, Address address,
                                    Description description,
@@ -435,9 +440,12 @@ cdef class ThinConnImpl(BaseThinConnImpl):
         protocol._process_single_message(message)
 
     def close(self, bint in_del=False):
+        """
+        Internal method for closing the connection to the database.
+        """
         cdef Protocol protocol = <Protocol> self._protocol
         try:
-            protocol._close(self)
+            protocol.close(self, in_del)
         except (ssl.SSLError, exceptions.DatabaseError):
             pass
 
@@ -449,17 +457,17 @@ cdef class ThinConnImpl(BaseThinConnImpl):
         protocol._process_single_message(message)
 
     def connect(self, ConnectParamsImpl params):
-        # specify that binding a string to a LOB value is possible in thin
-        # mode without the use of asyncio (will be removed in a future release)
-        self._allow_bind_str_to_lob = True
-
+        cdef Protocol protocol = <Protocol> self._protocol
         try:
             self._pre_connect(params)
             self._connect_with_params(params)
             self._post_connect_phase_two(params)
         except:
-            self._force_close()
+            protocol._disconnect()
             raise
+        # specify that binding a string to a LOB value is possible in thin
+        # mode without the use of asyncio (will be removed in a future release)
+        self._allow_bind_str_to_lob = True
 
     def create_queue_impl(self):
         return ThinQueueImpl.__new__(ThinQueueImpl)
@@ -588,11 +596,13 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
         cursor_impl = message_with_data.cursor_impl
         if message.resend:
             await protocol._process_message(message)
+            await message.postprocess_async()
             if op_type in (
                 PIPELINE_OP_TYPE_FETCH_ONE,
                 PIPELINE_OP_TYPE_FETCH_MANY,
                 PIPELINE_OP_TYPE_FETCH_ALL,
             ):
+                result_impl.rows = []
                 while cursor_impl._buffer_rowcount > 0:
                     result_impl.rows.append(cursor_impl._create_row())
         result_impl.fetch_metadata = cursor_impl.fetch_metadata
@@ -862,7 +872,7 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
             Message message
         for message in messages:
             result_impl = message.pipeline_result_impl
-            if result_impl.error is not None:
+            if result_impl.error is not None or message.resend:
                 continue
             try:
                 self._populate_pipeline_op_result(message)
@@ -948,7 +958,7 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
         """
         cdef BaseAsyncProtocol protocol = <BaseAsyncProtocol> self._protocol
         try:
-            await protocol._close(self)
+            await protocol.close(self, in_del)
         except (ssl.SSLError, exceptions.DatabaseError):
             pass
 
@@ -973,7 +983,7 @@ cdef class AsyncThinConnImpl(BaseThinConnImpl):
             await self._connect_with_params(params)
             self._post_connect_phase_two(params)
         except:
-            self._force_close()
+            protocol._disconnect()
             raise
 
     def create_queue_impl(self):

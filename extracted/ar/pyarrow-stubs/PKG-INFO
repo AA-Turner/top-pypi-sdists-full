@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyarrow-stubs
-Version: 20.0.0.20250618
+Version: 20.0.0.20250627
 Summary: Type annotations for pyarrow
 Project-URL: homepage, https://github.com/zen-xu/pyarrow-stubs
 Project-URL: repository, https://github.com/zen-xu/pyarrow-stubs.git

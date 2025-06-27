@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_keyspaces.literals import ClientSideTimestampsStatusType
+    from mypy_boto3_keyspaces.literals import CdcPropagateTagsType
 
-    data: ClientSideTimestampsStatusType = "ENABLED"
+    data: CdcPropagateTagsType = "NONE"
     ```
 """
 
@@ -22,6 +22,8 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CdcPropagateTagsType",
+    "CdcStatusType",
     "ClientSideTimestampsStatusType",
     "EncryptionTypeType",
     "KeyspaceStatusType",
@@ -41,8 +43,11 @@ __all__ = (
     "ThroughputModeType",
     "TimeToLiveStatusType",
     "TypeStatusType",
+    "ViewTypeType",
 )
 
+CdcPropagateTagsType = Literal["NONE", "TABLE"]
+CdcStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 ClientSideTimestampsStatusType = Literal["ENABLED"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 KeyspaceStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
@@ -65,6 +70,7 @@ TableStatusType = Literal[
 ThroughputModeType = Literal["PAY_PER_REQUEST", "PROVISIONED"]
 TimeToLiveStatusType = Literal["ENABLED"]
 TypeStatusType = Literal["ACTIVE", "CREATING", "DELETING", "RESTORING"]
+ViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAGE"]
 KeyspacesServiceName = Literal["keyspaces"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -270,6 +276,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",

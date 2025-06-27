@@ -53,7 +53,8 @@ def beautify_fill(
         :type use_restrict_tag: bool
         :param method: Method to define what is beautiful.
         :type method: typing.Literal['AREA','ANGLE']
-        :return: geom: New flipped faces and edges.
+        :return: geom:
+    New flipped faces and edges.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -127,15 +128,18 @@ def bevel(
         :type custom_profile: bpy.types.bpy_struct | None
         :param vmesh_method: The method to use to create meshes at intersections.
         :type vmesh_method: typing.Literal['ADJ','CUTOFF']
-        :return: faces: Output faces.
+        :return: faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
 
-    edges: Output edges.
+    edges:
+    Output edges.
 
     type list of (`bmesh.types.BMEdge`)
 
-    verts: Output verts.
+    verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -157,7 +161,8 @@ def bisect_edges(
         :param cuts: Number of cuts.
         :type cuts: int
         :param edge_percents: Undocumented.
-        :return: geom_split: Newly created vertices and edges.
+        :return: geom_split:
+    Newly created vertices and edges.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -193,11 +198,13 @@ def bisect_plane(
         :type clear_outer: bool
         :param clear_inner: When enabled. remove all geometry on the negative side of the plane.
         :type clear_inner: bool
-        :return: geom_cut: Output geometry aligned with the plane (new and existing).
+        :return: geom_cut:
+    Output geometry aligned with the plane (new and existing).
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`)
 
-    geom: Input and output geometry (result of cut).
+    geom:
+    Input and output geometry (result of cut).
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -241,11 +248,13 @@ def bridge_loops(
         :type merge_factor: float
         :param twist_offset: Twist offset for closed loops.
         :type twist_offset: int
-        :return: faces: New faces.
+        :return: faces:
+    New faces.
 
     type list of (`bmesh.types.BMFace`)
 
-    edges: New edges.
+    edges:
+    New edges.
 
     type list of (`bmesh.types.BMEdge`)
         :rtype: dict[str, typing.Any]
@@ -378,11 +387,13 @@ def contextual_create(
         :type mat_nr: int
         :param use_smooth: Smooth to use.
         :type use_smooth: bool
-        :return: faces: Newly-made face(s).
+        :return: faces:
+    Newly-made face(s).
 
     type list of (`bmesh.types.BMFace`)
 
-    edges: Newly-made edge(s).
+    edges:
+    Newly-made edge(s).
 
     type list of (`bmesh.types.BMEdge`)
         :rtype: dict[str, typing.Any]
@@ -453,7 +464,8 @@ def create_circle(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -491,7 +503,8 @@ def create_cone(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -514,7 +527,8 @@ def create_cube(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -543,7 +557,8 @@ def create_grid(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -569,7 +584,8 @@ def create_icosphere(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -589,7 +605,8 @@ def create_monkey(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -618,7 +635,8 @@ def create_uvsphere(
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
         :param calc_uvs: Calculate default UVs.
         :type calc_uvs: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -635,7 +653,8 @@ def create_vert(
         :type bm: bmesh.types.BMesh
         :param co: The coordinate of the new vert.
         :type co: collections.abc.Sequence[float] | mathutils.Vector
-        :return: vert: The new vert.
+        :return: vert:
+    The new vert.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -697,6 +716,7 @@ def dissolve_edges(
         :param use_face_split: Split off face corners to maintain surrounding geometry.
         :type use_face_split: bool
         :param angle_threshold: Do not dissolve verts between 2 edges when their angle exceeds this threshold.
+    Disabled by default.
         :type angle_threshold: float
         :return: region:
 
@@ -834,7 +854,8 @@ def edgeloop_fill(
         :type mat_nr: int
         :param use_smooth: Smooth state to use.
         :type use_smooth: bool
-        :return: faces: New faces.
+        :return: faces:
+    New faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -859,7 +880,8 @@ def edgenet_fill(
         :type use_smooth: bool
         :param sides: Number of sides.
         :type sides: int
-        :return: faces: New faces.
+        :return: faces:
+    New faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -875,7 +897,8 @@ def edgenet_prepare(
         :type bm: bmesh.types.BMesh
         :param edges: Input edges.
         :type edges: list[bmesh.types.BMEdge]
-        :return: edges: New edges.
+        :return: edges:
+    New edges.
 
     type list of (`bmesh.types.BMEdge`)
         :rtype: dict[str, typing.Any]
@@ -897,7 +920,8 @@ def extrude_discrete_faces(
         :type use_normal_flip: bool
         :param use_select_history: Pass to duplicate.
         :type use_select_history: bool
-        :return: faces: Output faces.
+        :return: faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -920,7 +944,8 @@ def extrude_edge_only(
         :type use_normal_flip: bool
         :param use_select_history: Pass to duplicate.
         :type use_select_history: bool
-        :return: geom: Output geometry.
+        :return: geom:
+    Output geometry.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -974,11 +999,13 @@ def extrude_vert_indiv(
         :type verts: list[bmesh.types.BMVert]
         :param use_select_history: Pass to duplicate.
         :type use_select_history: bool
-        :return: edges: Output wire edges.
+        :return: edges:
+    Output wire edges.
 
     type list of (`bmesh.types.BMEdge`)
 
-    verts: Output vertices.
+    verts:
+    Output vertices.
 
     type list of (`bmesh.types.BMVert`)
         :rtype: dict[str, typing.Any]
@@ -1000,7 +1027,8 @@ def face_attribute_fill(
         :type use_normals: bool
         :param use_data: Copy face data.
         :type use_data: bool
-        :return: faces_fail: Faces that could not be handled.
+        :return: faces_fail:
+    Faces that could not be handled.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1060,7 +1088,8 @@ def grid_fill(
         :type use_smooth: bool
         :param use_interp_simple: Use simple interpolation.
         :type use_interp_simple: bool
-        :return: faces: New faces.
+        :return: faces:
+    New faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1077,7 +1106,8 @@ def holes_fill(
         :type edges: list[bmesh.types.BMEdge]
         :param sides: Number of face sides to fill.
         :type sides: int
-        :return: faces: New faces.
+        :return: faces:
+    New faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1108,7 +1138,8 @@ def inset_individual(
         :type use_interpolate: bool
         :param use_relative_offset: Scale the offset by surrounding geometry.
         :type use_relative_offset: bool
-        :return: faces: Output faces.
+        :return: faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1151,7 +1182,8 @@ def inset_region(
         :type depth: float
         :param use_outset: Outset rather than inset.
         :type use_outset: bool
-        :return: faces: Output faces.
+        :return: faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1201,7 +1233,8 @@ def join_triangles(
         :type merge_limit: int
         :param neighbor_debug: Undocumented.
         :type neighbor_debug: int
-        :return: faces: Joined faces.
+        :return: faces:
+    Joined faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1262,7 +1295,8 @@ def mirror(
         :type mirror_udim: bool
         :param use_shapekey: Transform shape keys too.
         :type use_shapekey: bool
-        :return: geom: Output geometry, mirrored.
+        :return: geom:
+    Output geometry, mirrored.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1295,7 +1329,8 @@ def offset_edgeloops(
         :type edges: list[bmesh.types.BMEdge]
         :param use_cap_endpoint: Extend loop around end-points.
         :type use_cap_endpoint: bool
-        :return: edges: Output edges.
+        :return: edges:
+    Output edges.
 
     type list of (`bmesh.types.BMEdge`)
         :rtype: dict[str, typing.Any]
@@ -1317,7 +1352,8 @@ def planar_faces(
         :type iterations: int
         :param factor: Influence for making planar each iteration
         :type factor: float
-        :return: geom: Output slot, computed boundary geometry.
+        :return: geom:
+    Output slot, computed boundary geometry.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1372,11 +1408,13 @@ def poke(
         :type center_mode: typing.Literal['MEAN_WEIGHTED','MEAN','BOUNDS']
         :param use_relative_offset: Apply offset.
         :type use_relative_offset: bool
-        :return: verts: Output verts.
+        :return: verts:
+    Output verts.
 
     type list of (`bmesh.types.BMVert`)
 
-    faces: Output faces.
+    faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1417,7 +1455,8 @@ def region_extend(
         :type use_faces: bool
         :param use_face_step: Step over connected faces.
         :type use_face_step: bool
-        :return: geom: Output slot, computed boundary geometry.
+        :return: geom:
+    Output slot, computed boundary geometry.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1531,7 +1570,8 @@ def rotate_edges(
         :type edges: list[bmesh.types.BMEdge]
         :param use_ccw: Rotate edge counter-clockwise if true, otherwise clockwise.
         :type use_ccw: bool
-        :return: edges: Newly spun edges.
+        :return: edges:
+    Newly spun edges.
 
     type list of (`bmesh.types.BMEdge`)
         :rtype: dict[str, typing.Any]
@@ -1701,7 +1741,8 @@ def spin(
         :type use_normal_flip: bool
         :param use_duplicate: Duplicate or extrude?.
         :type use_duplicate: bool
-        :return: geom_last: Result of last step.
+        :return: geom_last:
+    Result of last step.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1756,7 +1797,8 @@ def split_edges(
         :type verts: list[bmesh.types.BMVert]
         :param use_verts: Use 'verts' for splitting, else just find verts to split from edges.
         :type use_verts: bool
-        :return: edges: Old output disconnected edges.
+        :return: edges:
+    Old output disconnected edges.
 
     type list of (`bmesh.types.BMEdge`)
         :rtype: dict[str, typing.Any]
@@ -1789,7 +1831,8 @@ def subdivide_edgering(
         :type profile_shape: typing.Literal['SMOOTH','SPHERE','ROOT','SHARP','LINEAR','INVERSE_SQUARE']
         :param profile_shape_factor: How much intermediary new edges are shrunk/expanded.
         :type profile_shape_factor: float
-        :return: faces: Output faces.
+        :return: faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1858,7 +1901,8 @@ def subdivide_edges(
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
 
-    geom: Contains all output geometry.
+    geom:
+    Contains all output geometry.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1959,7 +2003,8 @@ def triangle_fill(
         :type edges: list[bmesh.types.BMEdge]
         :param normal: Optionally pass the fill normal to use.
         :type normal: collections.abc.Sequence[float] | mathutils.Vector
-        :return: geom: New faces and edges.
+        :return: geom:
+    New faces and edges.
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]
@@ -1995,7 +2040,8 @@ def triangulate(
 
     type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
 
-    face_map_double: Duplicate faces.
+    face_map_double:
+    Duplicate faces.
 
     type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
         :rtype: dict[str, typing.Any]
@@ -2061,7 +2107,8 @@ def wireframe(
         :type use_relative_offset: bool
         :param material_offset: Offset material index of generated faces.
         :type material_offset: int
-        :return: faces: Output faces.
+        :return: faces:
+    Output faces.
 
     type list of (`bmesh.types.BMFace`)
         :rtype: dict[str, typing.Any]

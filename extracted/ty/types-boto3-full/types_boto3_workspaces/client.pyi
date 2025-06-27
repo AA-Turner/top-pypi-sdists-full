@@ -202,6 +202,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: Type[BotocoreClientError]
     IncompatibleApplicationsException: Type[BotocoreClientError]
     InternalServerException: Type[BotocoreClientError]
+    InvalidParameterCombinationException: Type[BotocoreClientError]
     InvalidParameterValuesException: Type[BotocoreClientError]
     InvalidResourceStateException: Type[BotocoreClientError]
     OperatingSystemNotCompatibleException: Type[BotocoreClientError]

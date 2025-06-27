@@ -17,11 +17,8 @@ from __future__ import absolute_import
 
 # import models into model package
 from snowflake.core.cortex.lite_agent_service._generated.models.agent_run_request import AgentRunRequest
-from snowflake.core.cortex.lite_agent_service._generated.models.agent_run_response import AgentRunResponse
-from snowflake.core.cortex.lite_agent_service._generated.models.analyst_resource import AnalystResource
 from snowflake.core.cortex.lite_agent_service._generated.models.error_response import ErrorResponse
 from snowflake.core.cortex.lite_agent_service._generated.models.message import Message
-from snowflake.core.cortex.lite_agent_service._generated.models.search_resource import SearchResource
 from snowflake.core.cortex.lite_agent_service._generated.models.tool import Tool
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_choice import ToolChoice
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_tool_spec import ToolToolSpec
@@ -29,11 +26,8 @@ from snowflake.core.cortex.lite_agent_service._generated.models.tool_tool_spec_i
 
 __all__ = [
     'AgentRunRequest',
-    'AgentRunResponse',
-    'AnalystResource',
     'ErrorResponse',
     'Message',
-    'SearchResource',
     'Tool',
     'ToolChoice',
     'ToolToolSpec',

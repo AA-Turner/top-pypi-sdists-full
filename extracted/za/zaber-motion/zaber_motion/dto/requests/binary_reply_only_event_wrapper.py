@@ -12,12 +12,18 @@ class BinaryReplyOnlyEventWrapper:
 
     interface_id: int = 0
 
+    session_id: int = 0
+    """
+    The id of the connection session.
+    """
+
     reply: ReplyOnlyEvent = field(default_factory=ReplyOnlyEvent.zero_values)
 
     @staticmethod
     def zero_values() -> 'BinaryReplyOnlyEventWrapper':
         return BinaryReplyOnlyEventWrapper(
             interface_id=0,
+            session_id=0,
             reply=ReplyOnlyEvent.zero_values(),
         )
 
@@ -35,6 +41,7 @@ class BinaryReplyOnlyEventWrapper:
     def to_dict(self) -> Dict[str, Any]:
         return {
             'interfaceId': int(self.interface_id),
+            'sessionId': int(self.session_id),
             'reply': self.reply.to_dict(),
         }
 
@@ -42,6 +49,7 @@ class BinaryReplyOnlyEventWrapper:
     def from_dict(data: Dict[str, Any]) -> 'BinaryReplyOnlyEventWrapper':
         return BinaryReplyOnlyEventWrapper(
             interface_id=data.get('interfaceId'),  # type: ignore
+            session_id=data.get('sessionId'),  # type: ignore
             reply=ReplyOnlyEvent.from_dict(data.get('reply')),  # type: ignore
         )
 
@@ -55,6 +63,15 @@ class BinaryReplyOnlyEventWrapper:
 
         if int(self.interface_id) != self.interface_id:
             raise ValueError(f'Property "InterfaceId" of "BinaryReplyOnlyEventWrapper" is not integer value.')
+
+        if self.session_id is None:
+            raise ValueError(f'Property "SessionId" of "BinaryReplyOnlyEventWrapper" is None.')
+
+        if not isinstance(self.session_id, (int, float, decimal.Decimal)):
+            raise ValueError(f'Property "SessionId" of "BinaryReplyOnlyEventWrapper" is not a number.')
+
+        if int(self.session_id) != self.session_id:
+            raise ValueError(f'Property "SessionId" of "BinaryReplyOnlyEventWrapper" is not integer value.')
 
         if self.reply is None:
             raise ValueError(f'Property "Reply" of "BinaryReplyOnlyEventWrapper" is None.')

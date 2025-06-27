@@ -816,7 +816,7 @@ def select_box(
         :type undo: bool | None
         :param axis_range: Axis Range
         :type axis_range: bool | None
-        :param include_handles: Include Handles, Are handles tested individually against the selection criteria
+        :param include_handles: Include Handles, Are handles tested individually against the selection criteria, independently from their keys. When unchecked, handles are (de)selected in unison with their keys
         :type include_handles: bool | None
         :param tweak: Tweak, Operator has been activated using a click-drag event
         :type tweak: bool | None
@@ -855,6 +855,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
+    include_handles: bool | None = True,
     use_curve_selection: bool | None = True,
 ) -> None:
     """Select keyframe points using circle selection
@@ -880,6 +881,8 @@ def select_circle(
     SUB
     Subtract -- Subtract existing selection.
         :type mode: typing.Literal['SET','ADD','SUB'] | None
+        :param include_handles: Include Handles, Are handles tested individually against the selection criteria, independently from their keys. When unchecked, handles are (de)selected in unison with their keys
+        :type include_handles: bool | None
         :param use_curve_selection: Select Curves, Allow selecting all the keyframes of a curve by selecting the curve itself
         :type use_curve_selection: bool | None
     """
@@ -958,6 +961,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
+    include_handles: bool | None = True,
     use_curve_selection: bool | None = True,
 ) -> None:
     """Select keyframe points using lasso selection
@@ -983,6 +987,8 @@ def select_lasso(
     SUB
     Subtract -- Subtract existing selection.
         :type mode: typing.Literal['SET','ADD','SUB'] | None
+        :param include_handles: Include Handles, Are handles tested individually against the selection criteria, independently from their keys. When unchecked, handles are (de)selected in unison with their keys
+        :type include_handles: bool | None
         :param use_curve_selection: Select Curves, Allow selecting all the keyframes of a curve by selecting the curve itself
         :type use_curve_selection: bool | None
     """

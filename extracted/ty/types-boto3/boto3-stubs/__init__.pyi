@@ -225,6 +225,7 @@ from types_boto3_kafkaconnect.client import KafkaConnectClient
 from types_boto3_kendra.client import KendraClient
 from types_boto3_kendra_ranking.client import KendraRankingClient
 from types_boto3_keyspaces.client import KeyspacesClient
+from types_boto3_keyspacesstreams.client import KeyspacesStreamsClient
 from types_boto3_kinesis.client import KinesisClient
 from types_boto3_kinesis_video_archived_media.client import KinesisVideoArchivedMediaClient
 from types_boto3_kinesis_video_media.client import KinesisVideoMediaClient
@@ -4117,6 +4118,24 @@ def client(
 ) -> KeyspacesClient:
     """
     Create client for Keyspaces service.
+    """
+
+@overload
+def client(
+    service_name: Literal["keyspacesstreams"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> KeyspacesStreamsClient:
+    """
+    Create client for KeyspacesStreams service.
     """
 
 @overload

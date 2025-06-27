@@ -17,6 +17,7 @@ import json
 import os
 import statistics
 from unittest import mock
+import google.auth.credentials
 import warnings
 
 from google.cloud import aiplatform
@@ -42,6 +43,84 @@ _evals_common = _genai.evals._evals_common
 _evals_utils = _genai._evals_utils
 
 pytestmark = pytest.mark.usefixtures("google_auth_mock")
+
+
+@pytest.fixture
+def mock_api_client_fixture():
+    mock_client = mock.Mock(spec=client.Client)
+    mock_client.project = _TEST_PROJECT
+    mock_client.location = _TEST_LOCATION
+    mock_client._credentials = mock.create_autospec(
+        google.auth.credentials.Credentials, instance=True
+    )
+    mock_client._credentials.universe_domain = "googleapis.com"
+    mock_client._evals_client = mock.Mock(spec=evals.Evals)
+    return mock_client
+
+
+@pytest.fixture
+def mock_eval_dependencies(mock_api_client_fixture):
+    with mock.patch("google.cloud.storage.Client") as mock_storage_client, mock.patch(
+        "google.cloud.bigquery.Client"
+    ) as mock_bq_client, mock.patch(
+        "vertexai._genai.evals.Evals.evaluate_instances"
+    ) as mock_evaluate_instances, mock.patch(
+        "vertexai._genai._evals_utils.GcsUtils.upload_json_to_prefix"
+    ) as mock_upload_to_gcs, mock.patch(
+        "vertexai._genai._evals_utils.LazyLoadedPrebuiltMetric._fetch_and_parse"
+    ) as mock_fetch_prebuilt_metric:
+
+        def mock_evaluate_instances_side_effect(*args, **kwargs):
+            metric_config = kwargs.get("metric_config", {})
+            if "exact_match_input" in metric_config:
+                return vertexai_genai_types.EvaluateInstancesResponse(
+                    exact_match_results=vertexai_genai_types.ExactMatchResults(
+                        exact_match_metric_values=[
+                            vertexai_genai_types.ExactMatchMetricValue(score=1.0)
+                        ]
+                    )
+                )
+            elif "rouge_input" in metric_config:
+                return vertexai_genai_types.EvaluateInstancesResponse(
+                    rouge_results=vertexai_genai_types.RougeResults(
+                        rouge_metric_values=[
+                            vertexai_genai_types.RougeMetricValue(score=0.8)
+                        ]
+                    )
+                )
+            elif "pointwise_metric_input" in metric_config:
+                return vertexai_genai_types.EvaluateInstancesResponse(
+                    pointwise_metric_result=vertexai_genai_types.PointwiseMetricResult(
+                        score=0.9, explanation="Mocked LLM explanation"
+                    )
+                )
+            elif "comet_input" in metric_config:
+                return vertexai_genai_types.EvaluateInstancesResponse(
+                    comet_result=vertexai_genai_types.CometResult(score=0.75)
+                )
+            return vertexai_genai_types.EvaluateInstancesResponse()
+
+        mock_evaluate_instances.side_effect = mock_evaluate_instances_side_effect
+        mock_upload_to_gcs.return_value = (
+            "gs://mock-bucket/mock_path/evaluation_result_timestamp.json"
+        )
+        mock_prebuilt_safety_metric = vertexai_genai_types.LLMMetric(
+            name="safety", prompt_template="Is this safe? {response}"
+        )
+        mock_prebuilt_safety_metric._is_predefined = True
+        mock_prebuilt_safety_metric._config_source = "gs://mock-metrics/safety/v1.yaml"
+        mock_prebuilt_safety_metric._version = "v1"
+
+        mock_fetch_prebuilt_metric.return_value = mock_prebuilt_safety_metric
+
+        yield {
+            "mock_storage_client": mock_storage_client,
+            "mock_bq_client": mock_bq_client,
+            "mock_evaluate_instances": mock_evaluate_instances,
+            "mock_upload_to_gcs": mock_upload_to_gcs,
+            "mock_fetch_prebuilt_metric": mock_fetch_prebuilt_metric,
+            "mock_prebuilt_safety_metric": mock_prebuilt_safety_metric,
+        }
 
 
 class TestEvals:
@@ -79,14 +158,13 @@ class TestEvals:
 
     @pytest.mark.usefixtures("google_auth_mock")
     @mock.patch.object(client.Client, "_get_api_client")
-    @mock.patch.object(evals.Evals, "batch_eval")
-    def test_eval_batch_eval(self, mock_evaluate, mock_get_api_client):
+    @mock.patch.object(evals.Evals, "batch_evaluate")
+    def test_eval_batch_evaluate(self, mock_evaluate, mock_get_api_client):
         test_client = vertexai.Client(project=_TEST_PROJECT, location=_TEST_LOCATION)
-        test_client.evals.batch_eval(
+        test_client.evals.batch_evaluate(
             dataset=vertexai_genai_types.EvaluationDataset(),
             metrics=[vertexai_genai_types.Metric(name="test")],
-            output_config=vertexai_genai_types.OutputConfig(),
-            autorater_config=vertexai_genai_types.AutoraterConfig(),
+            dest="gs://bucket/output",
             config=vertexai_genai_types.EvaluateDatasetConfig(),
         )
         mock_evaluate.assert_called_once()
@@ -297,13 +375,14 @@ class TestEvalsRunInference:
             mock_generate_content_response
         )
 
-        gcs_dest_path = "gs://bucket/output.jsonl"
-        config = vertexai_genai_types.EvalRunInferenceConfig(dest=gcs_dest_path)
+        gcs_dest_dir = "gs://bucket/output"
+        config = vertexai_genai_types.EvalRunInferenceConfig(dest=gcs_dest_dir)
 
         inference_result = self.client.evals.run_inference(
             model="gemini-pro", src=mock_df, config=config
         )
 
+        expected_gcs_path = os.path.join(gcs_dest_dir, "inference_results.jsonl")
         expected_df_to_save = pd.DataFrame(
             {
                 "prompt": ["test prompt"],
@@ -314,7 +393,7 @@ class TestEvalsRunInference:
         pd.testing.assert_frame_equal(saved_df, expected_df_to_save)
         mock_gcs_utils.return_value.upload_dataframe.assert_called_once_with(
             df=mock.ANY,
-            gcs_destination_blob_path=gcs_dest_path,
+            gcs_destination_blob_path=expected_gcs_path,
             file_type="jsonl",
         )
         pd.testing.assert_frame_equal(
@@ -322,7 +401,7 @@ class TestEvalsRunInference:
         )
         assert inference_result.candidate_name == "gemini-pro"
         assert inference_result.gcs_source == vertexai_genai_types.GcsSource(
-            uris=[gcs_dest_path]
+            uris=[expected_gcs_path]
         )
 
     @mock.patch.object(_evals_common, "Models")
@@ -355,16 +434,17 @@ class TestEvalsRunInference:
             mock_generate_content_response
         )
 
-        local_dest_path = "/tmp/test/output_dir/results.jsonl"
-        config = vertexai_genai_types.EvalRunInferenceConfig(dest=local_dest_path)
+        local_dest_dir = "/tmp/test/output_dir"
+        config = vertexai_genai_types.EvalRunInferenceConfig(dest=local_dest_dir)
 
         inference_result = self.client.evals.run_inference(
             model="gemini-pro", src=mock_df, config=config
         )
 
-        mock_makedirs.assert_called_once_with("/tmp/test/output_dir", exist_ok=True)
+        mock_makedirs.assert_called_once_with(local_dest_dir, exist_ok=True)
+        expected_save_path = os.path.join(local_dest_dir, "inference_results.jsonl")
         mock_df_to_json.assert_called_once_with(
-            local_dest_path, orient="records", lines=True
+            expected_save_path, orient="records", lines=True
         )
         expected_df = pd.DataFrame(
             {
@@ -378,7 +458,7 @@ class TestEvalsRunInference:
 
     @mock.patch.object(_evals_common, "Models")
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
-    def test_inference_from_request_column_save_locally(
+    def test_inference_from_request_column_save_to_local_dir(
         self, mock_eval_dataset_loader, mock_models
     ):
         mock_df = pd.DataFrame(
@@ -415,8 +495,8 @@ class TestEvalsRunInference:
             mock_generate_content_responses
         )
 
-        local_dest_path = "/tmp/output.jsonl"
-        config = vertexai_genai_types.EvalRunInferenceConfig(dest=local_dest_path)
+        local_dest_dir = "/tmp/test_output_dir"
+        config = vertexai_genai_types.EvalRunInferenceConfig(dest=local_dest_dir)
 
         inference_result = self.client.evals.run_inference(
             model="gemini-pro", src=mock_df, config=config
@@ -451,13 +531,15 @@ class TestEvalsRunInference:
             expected_df.sort_values(by="request").reset_index(drop=True),
         )
 
-        with open(local_dest_path, "r") as f:
+        saved_file_path = os.path.join(local_dest_dir, "inference_results.jsonl")
+        with open(saved_file_path, "r") as f:
             saved_records = [json.loads(line) for line in f]
         expected_records = expected_df.to_dict(orient="records")
         assert sorted(saved_records, key=lambda x: x["request"]) == sorted(
             expected_records, key=lambda x: x["request"]
         )
-        os.remove(local_dest_path)
+        os.remove(saved_file_path)
+        os.rmdir(local_dest_dir)
         assert inference_result.candidate_name == "gemini-pro"
         assert inference_result.gcs_source is None
 
@@ -716,26 +798,38 @@ class TestEvalsRunInference:
                 mock.call(
                     model="gemini-pro",
                     contents=[
-                        {"parts": [{"text": "Placeholder prompt 1"}], "role": "user"}
+                        {
+                            "parts": [{"text": "Placeholder prompt 1"}],
+                            "role": "user",
+                        }
                     ],
                     config=genai_types.GenerateContentConfig(),
                 ),
                 mock.call(
                     model="gemini-pro",
                     contents=[
-                        {"parts": [{"text": "Placeholder prompt 2.1"}], "role": "user"},
+                        {
+                            "parts": [{"text": "Placeholder prompt 2.1"}],
+                            "role": "user",
+                        },
                         {
                             "parts": [{"text": "Placeholder model response 2.1"}],
                             "role": "model",
                         },
-                        {"parts": [{"text": "Placeholder prompt 2.2"}], "role": "user"},
+                        {
+                            "parts": [{"text": "Placeholder prompt 2.2"}],
+                            "role": "user",
+                        },
                     ],
                     config=genai_types.GenerateContentConfig(temperature=0.7, top_k=5),
                 ),
                 mock.call(
                     model="gemini-pro",
                     contents=[
-                        {"parts": [{"text": "Placeholder prompt 3"}], "role": "user"}
+                        {
+                            "parts": [{"text": "Placeholder prompt 3"}],
+                            "role": "user",
+                        }
                     ],
                     config=genai_types.GenerateContentConfig(),
                 ),
@@ -857,6 +951,163 @@ class TestEvalsRunInference:
         )
         assert inference_result.candidate_name == "gemini-pro"
         assert inference_result.gcs_source is None
+
+    def test_run_inference_with_litellm_string_prompt_format(
+        self,
+        mock_api_client_fixture,
+    ):
+        """Tests inference with LiteLLM using a simple prompt string."""
+        with mock.patch(
+            "vertexai._genai._evals_common.litellm"
+        ) as mock_litellm, mock.patch(
+            "vertexai._genai._evals_common._call_litellm_completion"
+        ) as mock_call_litellm_completion:
+            mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
+            prompt_df = pd.DataFrame([{"prompt": "What is LiteLLM?"}])
+            expected_messages = [{"role": "user", "content": "What is LiteLLM?"}]
+
+            mock_response_dict = {
+                "id": "test",
+                "created": 123456,
+                "model": "gpt-4o",
+                "object": "chat.completion",
+                "system_fingerprint": "123456",
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "index": 0,
+                        "message": {
+                            "content": "LiteLLM is a library...",
+                            "role": "assistant",
+                            "annotations": [],
+                        },
+                        "provider_specific_fields": {},
+                    }
+                ],
+                "usage": {
+                    "completion_tokens": 114,
+                    "prompt_tokens": 13,
+                    "total_tokens": 127,
+                },
+                "service_tier": "default",
+            }
+            mock_call_litellm_completion.return_value = mock_response_dict
+            evals_module = evals.Evals(api_client_=mock_api_client_fixture)
+
+            result_dataset = evals_module.run_inference(
+                model="gpt-4o",
+                src=prompt_df,
+            )
+
+            mock_call_litellm_completion.assert_called_once()
+            _, call_kwargs = mock_call_litellm_completion.call_args
+
+            assert call_kwargs["model"] == "gpt-4o"
+            assert call_kwargs["messages"] == expected_messages
+            assert "response" in result_dataset.eval_dataset_df.columns
+            response_content = json.loads(result_dataset.eval_dataset_df["response"][0])
+            assert (
+                response_content["choices"][0]["message"]["content"]
+                == "LiteLLM is a library..."
+            )
+
+    def test_run_inference_with_litellm_openai_request_format(
+        self,
+        mock_api_client_fixture,
+    ):
+        """Tests inference with LiteLLM where the row contains an chat completion request body."""
+        with mock.patch(
+            "vertexai._genai._evals_common.litellm"
+        ) as mock_litellm, mock.patch(
+            "vertexai._genai._evals_common._call_litellm_completion"
+        ) as mock_call_litellm_completion:
+            mock_litellm.utils.get_valid_models.return_value = ["gpt-4o"]
+            prompt_df = pd.DataFrame(
+                [
+                    {
+                        "model": "gpt-4o",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a helpful assistant.",
+                            },
+                            {"role": "user", "content": "Hello!"},
+                        ],
+                    }
+                ]
+            )
+            expected_messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hello!"},
+            ]
+
+            mock_response_dict = {
+                "id": "test",
+                "created": 123456,
+                "model": "gpt-4o",
+                "object": "chat.completion",
+                "system_fingerprint": "123456",
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "index": 0,
+                        "message": {
+                            "content": "Hello there",
+                            "role": "assistant",
+                            "annotations": [],
+                        },
+                        "provider_specific_fields": {},
+                    }
+                ],
+                "usage": {
+                    "completion_tokens": 114,
+                    "prompt_tokens": 13,
+                    "total_tokens": 127,
+                },
+                "service_tier": "default",
+            }
+            mock_call_litellm_completion.return_value = mock_response_dict
+            evals_module = evals.Evals(api_client_=mock_api_client_fixture)
+
+            result_dataset = evals_module.run_inference(
+                model="gpt-4o",
+                src=prompt_df,
+            )
+
+            mock_call_litellm_completion.assert_called_once()
+            _, call_kwargs = mock_call_litellm_completion.call_args
+
+            assert call_kwargs["model"] == "gpt-4o"
+            assert call_kwargs["messages"] == expected_messages
+            assert "response" in result_dataset.eval_dataset_df.columns
+            response_content = json.loads(result_dataset.eval_dataset_df["response"][0])
+            assert response_content["choices"][0]["message"]["content"] == "Hello there"
+
+    def test_run_inference_with_unsupported_model_string(
+        self,
+        mock_api_client_fixture,
+    ):
+        with mock.patch(
+            "vertexai._genai._evals_common.litellm"
+        ) as mock_litellm_package:
+            mock_litellm_package.utils.get_valid_models.return_value = []
+            evals_module = evals.Evals(api_client_=mock_api_client_fixture)
+            prompt_df = pd.DataFrame([{"prompt": "test"}])
+
+            with pytest.raises(TypeError, match="Unsupported string model name"):
+                evals_module.run_inference(
+                    model="some-random-model/name", src=prompt_df
+                )
+
+    @mock.patch("vertexai._genai._evals_common.litellm", None)
+    def test_run_inference_with_litellm_import_error(self, mock_api_client_fixture):
+        evals_module = evals.Evals(api_client_=mock_api_client_fixture)
+        prompt_df = pd.DataFrame([{"prompt": "test"}])
+        with pytest.raises(
+            ImportError,
+            match="The 'litellm' library is required to use third-party models",
+        ):
+            evals_module.run_inference(model="gpt-4o", src=prompt_df)
 
 
 class TestMetricPromptBuilder:
@@ -2736,81 +2987,6 @@ class TestAutoDetectDatasetSchema:
             _evals_data_converters.auto_detect_dataset_schema([])
             == _evals_data_converters.EvalDatasetSchema.UNKNOWN
         )
-
-
-@pytest.fixture
-def mock_api_client_fixture():
-    mock_client = mock.Mock(spec=client.Client)
-    mock_client.project = _TEST_PROJECT
-    mock_client.location = _TEST_LOCATION
-    mock_client._credentials = mock.Mock()
-    mock_client._evals_client = mock.Mock(spec=evals.Evals)
-    return mock_client
-
-
-@pytest.fixture
-def mock_eval_dependencies(mock_api_client_fixture):
-    with mock.patch("google.cloud.storage.Client") as mock_storage_client, mock.patch(
-        "google.cloud.bigquery.Client"
-    ) as mock_bq_client, mock.patch(
-        "vertexai._genai.evals.Evals.evaluate_instances"
-    ) as mock_evaluate_instances, mock.patch(
-        "vertexai._genai._evals_utils.GcsUtils.upload_json_to_prefix"
-    ) as mock_upload_to_gcs, mock.patch(
-        "vertexai._genai._evals_utils.LazyLoadedPrebuiltMetric._fetch_and_parse"
-    ) as mock_fetch_prebuilt_metric:
-
-        def mock_evaluate_instances_side_effect(*args, **kwargs):
-            metric_config = kwargs.get("metric_config", {})
-            if "exact_match_input" in metric_config:
-                return vertexai_genai_types.EvaluateInstancesResponse(
-                    exact_match_results=vertexai_genai_types.ExactMatchResults(
-                        exact_match_metric_values=[
-                            vertexai_genai_types.ExactMatchMetricValue(score=1.0)
-                        ]
-                    )
-                )
-            elif "rouge_input" in metric_config:
-                return vertexai_genai_types.EvaluateInstancesResponse(
-                    rouge_results=vertexai_genai_types.RougeResults(
-                        rouge_metric_values=[
-                            vertexai_genai_types.RougeMetricValue(score=0.8)
-                        ]
-                    )
-                )
-            elif "pointwise_metric_input" in metric_config:
-                return vertexai_genai_types.EvaluateInstancesResponse(
-                    pointwise_metric_result=vertexai_genai_types.PointwiseMetricResult(
-                        score=0.9, explanation="Mocked LLM explanation"
-                    )
-                )
-            elif "comet_input" in metric_config:
-                return vertexai_genai_types.EvaluateInstancesResponse(
-                    comet_result=vertexai_genai_types.CometResult(score=0.75)
-                )
-            return vertexai_genai_types.EvaluateInstancesResponse()
-
-        mock_evaluate_instances.side_effect = mock_evaluate_instances_side_effect
-        mock_upload_to_gcs.return_value = (
-            "gs://mock-bucket/mock_path/evaluation_result_timestamp.json"
-        )
-        mock_prebuilt_safety_metric = vertexai_genai_types.LLMMetric(
-            name="safety", prompt_template="Is this safe? {response}"
-        )
-        mock_prebuilt_safety_metric._is_predefined = True
-        mock_prebuilt_safety_metric._config_source = "gs://mock-metrics/safety/v1.yaml"
-        mock_prebuilt_safety_metric._version = "v1"
-
-        mock_fetch_prebuilt_metric.return_value = mock_prebuilt_safety_metric
-
-        yield {
-            "mock_storage_client": mock_storage_client,
-            "mock_bq_client": mock_bq_client,
-            "mock_evaluate_instances": mock_evaluate_instances,
-            "mock_upload_to_gcs": mock_upload_to_gcs,
-            "mock_fetch_prebuilt_metric": mock_fetch_prebuilt_metric,
-            "mock_prebuilt_safety_metric": mock_prebuilt_safety_metric,
-        }
 
 
 class TestEvalsRunEvaluation:

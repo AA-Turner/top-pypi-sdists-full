@@ -35,7 +35,7 @@ class Warehouse(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     warehouse_type : str, optional
         Type of warehouse, possible types: STANDARD, SNOWPARK-OPTIMIZED
     warehouse_size : str, optional
@@ -55,7 +55,7 @@ class Warehouse(BaseModel):
     initially_suspended : str, optional
         Specifies whether the warehouse is created initially in the Suspended state
     resource_monitor : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     comment : str, optional
         Specifies a comment for the warehouse
     enable_query_acceleration : str, optional
@@ -462,7 +462,7 @@ class WarehouseModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         warehouse_type : str, optional
             Type of warehouse, possible types: STANDARD, SNOWPARK-OPTIMIZED
         warehouse_size : str, optional
@@ -482,7 +482,7 @@ class WarehouseModel():
         initially_suspended : str, optional
             Specifies whether the warehouse is created initially in the Suspended state
         resource_monitor : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         comment : str, optional
             Specifies a comment for the warehouse
         enable_query_acceleration : str, optional

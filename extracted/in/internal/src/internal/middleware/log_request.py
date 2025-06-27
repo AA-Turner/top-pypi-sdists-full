@@ -28,14 +28,12 @@ class LogRequestMiddleware(BaseHTTPMiddleware):
         params = {k: v[0] if len(v) == 1 else v for k, v in temp.items()}
 
         body = await request.body()
-        self.logger.info(
-            f"[Request id: {request_id}] Method: {method}, URL: {url} - Headers: {headers} - Params: {params} - Body: {body} start processing...")
+        self.logger.info(f"[Request id: {request_id}] \nURL: {method} {url} \nParams: {params} \nBody: {body} \nHeaders: {headers} \nstart processing...")
 
         # 记录请求处理时间
         start_time = time.time()
         response = await call_next(request)
         process_time = time.time() - start_time
 
-        self.logger.info(
-            f"[Request id: {request_id}] Method: {method}, URL: {url} - Headers: {headers} - Params: {params} - Body: {body}, Completed in {process_time:.4f} seconds")
+        self.logger.info(f"[Request id: {request_id}] \nURL: {method} {url} \nParams: {params} \nBody: {body} \nCompleted in {process_time:.4f} seconds")
         return response

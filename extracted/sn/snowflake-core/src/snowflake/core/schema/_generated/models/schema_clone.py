@@ -37,7 +37,7 @@ class SchemaClone(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     point_of_time : PointOfTime, optional
 
     created_on : datetime, optional
@@ -346,7 +346,7 @@ class SchemaCloneModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         point_of_time : PointOfTime, optional
 
         created_on : datetime, optional

@@ -1,6 +1,6 @@
 [project]
 name = "reflex-hosting-cli"
-version = "0.1.50"
+version = "0.1.51"
 description = "Reflex Hosting CLI"
 license = "Apache-2.0"
 authors = [
@@ -16,7 +16,7 @@ keywords = ["web", "framework"]
 classifiers = ["Development Status :: 4 - Beta"]
 requires-python = ">=3.10"
 dependencies = [
-    "click >=8",
+    "click >=8.2",
     "httpx >=0.25.1,<1.0",
     "packaging >=24.2",
     "platformdirs >=3.10.0,<5.0",

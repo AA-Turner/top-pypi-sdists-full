@@ -54,7 +54,9 @@ from litellm.integrations.custom_guardrail import CustomGuardrail
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.integrations.deepeval.deepeval import DeepEvalLogger
 from litellm.integrations.mlflow import MlflowLogger
-from litellm.integrations.vector_stores.bedrock_vector_store import BedrockVectorStore
+from litellm.integrations.vector_store_integrations.bedrock_vector_store import (
+    BedrockVectorStore,
+)
 from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
 from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
@@ -1083,6 +1085,18 @@ class Logging(LiteLLMLoggingBaseClass):
         used for consistent cost calculation across response headers + logging integrations.
         """
 
+        if isinstance(result, BaseModel) and hasattr(result, "_hidden_params"):
+            hidden_params = getattr(result, "_hidden_params", {})
+            if (
+                "response_cost" in hidden_params
+                and hidden_params["response_cost"] is not None
+            ):  # use cost if already calculated
+                return hidden_params["response_cost"]
+            elif (
+                router_model_id is None and "model_id" in hidden_params
+            ):  # use model_id if not already set
+                router_model_id = hidden_params["model_id"]
+
         ## RESPONSE COST ##
         custom_pricing = use_custom_pricing_for_model(
             litellm_params=(
@@ -1223,7 +1237,12 @@ class Logging(LiteLLMLoggingBaseClass):
                 return False
 
         # Check for dynamically disabled callbacks via headers
-        if EnterpriseCallbackControls is not None and EnterpriseCallbackControls.is_callback_disabled_via_headers(callback, litellm_params):
+        if (
+            EnterpriseCallbackControls is not None
+            and EnterpriseCallbackControls.is_callback_disabled_via_headers(
+                callback, litellm_params
+            )
+        ):
             verbose_logger.debug(
                 f"Callback {callback} disabled via x-litellm-disable-callbacks header for {event_hook} event"
             )
@@ -1256,9 +1275,13 @@ class Logging(LiteLLMLoggingBaseClass):
             self.model_call_details["log_event_type"] = "successful_api_call"
             self.model_call_details["end_time"] = end_time
             self.model_call_details["cache_hit"] = cache_hit
-
             if self.call_type == CallTypes.anthropic_messages.value:
                 result = self._handle_anthropic_messages_response_logging(result=result)
+            elif (
+                self.call_type == CallTypes.generate_content.value or 
+                self.call_type == CallTypes.agenerate_content.value
+            ):
+                result = self._handle_non_streaming_google_genai_generate_content_response_logging(result=result)
             ## if model in model cost map - log the response cost
             ## else set cost to None
 
@@ -1894,16 +1917,27 @@ class Logging(LiteLLMLoggingBaseClass):
             return
 
         ## CALCULATE COST FOR BATCH JOBS
-        if self.call_type == CallTypes.aretrieve_batch.value and isinstance(
-            result, LiteLLMBatch
+        if (
+            self.call_type == CallTypes.aretrieve_batch.value
+            and isinstance(result, LiteLLMBatch)
+            and result.status == "completed"
         ):
-            response_cost, batch_usage, batch_models = await _handle_completed_batch(
-                batch=result, custom_llm_provider=self.custom_llm_provider
+            from litellm.proxy.openai_files_endpoints.common_utils import (
+                _is_base64_encoded_unified_file_id,
             )
 
-            result._hidden_params["response_cost"] = response_cost
-            result._hidden_params["batch_models"] = batch_models
-            result.usage = batch_usage
+            # check if file id is a unified file id
+            is_base64_unified_file_id = _is_base64_encoded_unified_file_id(result.id)
+            if not is_base64_unified_file_id:  # only run for non-unified file ids
+                response_cost, batch_usage, batch_models = (
+                    await _handle_completed_batch(
+                        batch=result, custom_llm_provider=self.custom_llm_provider
+                    )
+                )
+
+                result._hidden_params["response_cost"] = response_cost
+                result._hidden_params["batch_models"] = batch_models
+                result.usage = batch_usage
 
         start_time, end_time, result = self._success_handler_helper_fn(
             start_time=start_time,
@@ -2722,6 +2756,27 @@ class Logging(LiteLLMLoggingBaseClass):
                 model_response=litellm.ModelResponse(),
                 json_mode=None,
             )
+        return result
+    
+    def _handle_non_streaming_google_genai_generate_content_response_logging(self, result: Any) -> ModelResponse:
+        """
+        Handles logging for Google GenAI generate content responses.
+        """
+        import httpx
+        httpx_response = self.model_call_details.get("httpx_response", None)
+        if httpx_response is None:
+            raise ValueError("Google GenAI Generate Content: httpx_response is None")
+        dict_result = httpx_response.json()
+        result = litellm.VertexGeminiConfig()._transform_google_generate_content_to_openai_model_response(
+            completion_response=dict_result,
+            model_response=litellm.ModelResponse(),
+            model=self.model,
+            logging_obj=self,
+            raw_response=httpx.Response(
+                status_code=200,
+                headers={},
+            ),  
+        )
         return result
 
 

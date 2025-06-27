@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: langgraph
-Version: 0.4.10
+Version: 0.5.0
 Summary: Building stateful, multi-actor applications with LLMs
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.9
 Requires-Dist: langchain-core>=0.1
-Requires-Dist: langgraph-checkpoint>=2.0.26
-Requires-Dist: langgraph-prebuilt>=0.2.0
+Requires-Dist: langgraph-checkpoint>=2.1.0
+Requires-Dist: langgraph-prebuilt>=0.5.0
 Requires-Dist: langgraph-sdk>=0.1.42
 Requires-Dist: pydantic>=2.7.4
 Requires-Dist: xxhash>=3.5.0
@@ -28,7 +28,6 @@ Description-Content-Type: text/markdown
 [![Downloads](https://static.pepy.tech/badge/langgraph/month)](https://pepy.tech/project/langgraph)
 [![Open Issues](https://img.shields.io/github/issues-raw/langchain-ai/langgraph)](https://github.com/langchain-ai/langgraph/issues)
 [![Docs](https://img.shields.io/badge/docs-latest-blue)](https://langchain-ai.github.io/langgraph/)
-[![GitMCP](https://img.shields.io/endpoint?url=https://gitmcp.io/badge/langchain-ai/langgraph)](https://gitmcp.io/langchain-ai/langgraph)
 
 Trusted by companies shaping the future of agents – including Klarna, Replit, Elastic, and more – LangGraph is a low-level orchestration framework for building, managing, and deploying long-running, stateful agents.
 

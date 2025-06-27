@@ -198,8 +198,6 @@ class AsyncBaseHTTPView(
         if not self.allow_queries_via_get and request_adapter.method == "GET":
             allowed_operation_types = allowed_operation_types - {OperationType.QUERY}
 
-        assert self.schema
-
         if request_data.protocol == "multipart-subscription":
             return await self.schema.subscribe(
                 request_data.query,  # type: ignore
@@ -291,7 +289,7 @@ class AsyncBaseHTTPView(
                     view=self,
                     websocket=websocket,
                     context=context,
-                    root_value=root_value,  # type: ignore
+                    root_value=root_value,
                     schema=self.schema,
                     debug=self.debug,
                     connection_init_wait_timeout=self.connection_init_wait_timeout,
@@ -301,7 +299,7 @@ class AsyncBaseHTTPView(
                     view=self,
                     websocket=websocket,
                     context=context,
-                    root_value=root_value,  # type: ignore
+                    root_value=root_value,
                     schema=self.schema,
                     debug=self.debug,
                     keep_alive=self.keep_alive,
@@ -536,9 +534,16 @@ class AsyncBaseHTTPView(
                 "The GraphQL operation's `query` must be a string or null, if provided.",
             )
 
+        variables = data.get("variables")
+        if not isinstance(variables, (dict, type(None))):
+            raise HTTPException(
+                400,
+                "The GraphQL operation's `variables` must be an object or null, if provided.",
+            )
+
         return GraphQLRequestData(
             query=query,
-            variables=data.get("variables"),
+            variables=variables,
             operation_name=data.get("operationName"),
             extensions=data.get("extensions"),
             protocol=protocol,

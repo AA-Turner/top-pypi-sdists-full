@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblock-drag-and-drop-v2
-Version: 5.0.2
+Version: 5.0.3
 Summary: XBlock - Drag-and-Drop v2
 Home-page: https://github.com/openedx/xblock-drag-and-drop-v2
 Classifier: Programming Language :: Python
@@ -588,6 +588,11 @@ Drag and Drop XBlock changelog
 
 Unreleased
 ---------------------------
+
+Version 5.0.3 (2025-06-26)
+---------------------------
+
+* Load JS synchronously in the fragment to prevent race conditions.
 
 Version 5.0.2 (2025-04-07)
 ---------------------------

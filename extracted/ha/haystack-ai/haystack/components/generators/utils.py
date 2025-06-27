@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+import json
+from typing import Dict, List
 
-from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
+from haystack import logging
+from haystack.dataclasses import ChatMessage, StreamingChunk, ToolCall
 
-from haystack.dataclasses import StreamingChunk
+logger = logging.getLogger(__name__)
 
 
 def print_streaming_chunk(chunk: StreamingChunk) -> None:
@@ -24,32 +26,110 @@ def print_streaming_chunk(chunk: StreamingChunk) -> None:
     :param chunk: A chunk of streaming data containing content and optional metadata, such as tool calls and
         tool results.
     """
-    # Print tool call metadata if available (from ChatGenerator)
-    if tool_calls := chunk.meta.get("tool_calls"):
-        for tool_call in tool_calls:
-            # Convert to dict if tool_call is a ChoiceDeltaToolCall
-            tool_call_dict: Dict[str, Any] = (
-                tool_call.to_dict() if isinstance(tool_call, ChoiceDeltaToolCall) else tool_call
-            )
+    if chunk.start and chunk.index and chunk.index > 0:
+        # If this is the start of a new content block but not the first content block, print two new lines
+        print("\n\n", flush=True, end="")
 
-            if function := tool_call_dict.get("function"):
-                if name := function.get("name"):
-                    print("\n\n[TOOL CALL]\n", flush=True, end="")
-                    print(f"Tool: {name} ", flush=True, end="")
-                    print("\nArguments: ", flush=True, end="")
+    ## Tool Call streaming
+    if chunk.tool_calls:
+        # Typically, if there are multiple tool calls in the chunk this means that the tool calls are fully formed and
+        # not just a delta.
+        for tool_call in chunk.tool_calls:
+            # If chunk.start is True indicates beginning of a tool call
+            # Also presence of tool_call.tool_name indicates the start of a tool call too
+            if chunk.start:
+                # If there is more than one tool call in the chunk, we print two new lines to separate them
+                # We know there is more than one tool call if the index of the tool call is greater than the index of
+                # the chunk.
+                if chunk.index and tool_call.index > chunk.index:
+                    print("\n\n", flush=True, end="")
 
-                if arguments := function.get("arguments"):
-                    print(arguments, flush=True, end="")
+                print("[TOOL CALL]\nTool: {tool_call.tool_name} \nArguments: ", flush=True, end="")
 
+            # print the tool arguments
+            if tool_call.arguments:
+                print(tool_call.arguments, flush=True, end="")
+
+    ## Tool Call Result streaming
     # Print tool call results if available (from ToolInvoker)
-    if tool_result := chunk.meta.get("tool_result"):
-        print(f"\n\n[TOOL RESULT]\n{tool_result}", flush=True, end="")
+    if chunk.tool_call_result:
+        # Tool Call Result is fully formed so delta accumulation is not needed
+        print(f"[TOOL RESULT]\n{chunk.tool_call_result.result}", flush=True, end="")
 
+    ## Normal content streaming
     # Print the main content of the chunk (from ChatGenerator)
-    if content := chunk.content:
-        print(content, flush=True, end="")
+    if chunk.content:
+        if chunk.start:
+            print("[ASSISTANT]\n", flush=True, end="")
+        print(chunk.content, flush=True, end="")
 
     # End of LLM assistant message so we add two new lines
-    # This ensures spacing between multiple LLM messages (e.g. Agent)
-    if chunk.meta.get("finish_reason") is not None:
+    # This ensures spacing between multiple LLM messages (e.g. Agent) or multiple Tool Call Results
+    if chunk.finish_reason is not None:
         print("\n\n", flush=True, end="")
+
+
+def _convert_streaming_chunks_to_chat_message(chunks: List[StreamingChunk]) -> ChatMessage:
+    """
+    Connects the streaming chunks into a single ChatMessage.
+
+    :param chunks: The list of all `StreamingChunk` objects.
+
+    :returns: The ChatMessage.
+    """
+    text = "".join([chunk.content for chunk in chunks])
+    tool_calls = []
+
+    # Process tool calls if present in any chunk
+    tool_call_data: Dict[int, Dict[str, str]] = {}  # Track tool calls by index
+    for chunk in chunks:
+        if chunk.tool_calls:
+            # We do this to make sure mypy is happy, but we enforce index is not None in the StreamingChunk dataclass if
+            # tool_call is present
+            assert chunk.index is not None
+
+            for tool_call in chunk.tool_calls:
+                # We use the index of the tool_call to track the tool call across chunks since the ID is not always
+                # provided
+                if tool_call.index not in tool_call_data:
+                    tool_call_data[chunk.index] = {"id": "", "name": "", "arguments": ""}
+
+                # Save the ID if present
+                if tool_call.id is not None:
+                    tool_call_data[chunk.index]["id"] = tool_call.id
+
+                if tool_call.tool_name is not None:
+                    tool_call_data[chunk.index]["name"] += tool_call.tool_name
+                if tool_call.arguments is not None:
+                    tool_call_data[chunk.index]["arguments"] += tool_call.arguments
+
+    # Convert accumulated tool call data into ToolCall objects
+    sorted_keys = sorted(tool_call_data.keys())
+    for key in sorted_keys:
+        tool_call_dict = tool_call_data[key]
+        try:
+            arguments = json.loads(tool_call_dict["arguments"])
+            tool_calls.append(ToolCall(id=tool_call_dict["id"], tool_name=tool_call_dict["name"], arguments=arguments))
+        except json.JSONDecodeError:
+            logger.warning(
+                "OpenAI returned a malformed JSON string for tool call arguments. This tool call "
+                "will be skipped. To always generate a valid JSON, set `tools_strict` to `True`. "
+                "Tool call ID: {_id}, Tool name: {_name}, Arguments: {_arguments}",
+                _id=tool_call_dict["id"],
+                _name=tool_call_dict["name"],
+                _arguments=tool_call_dict["arguments"],
+            )
+
+    # finish_reason can appear in different places so we look for the last one
+    finish_reasons = [chunk.finish_reason for chunk in chunks if chunk.finish_reason]
+    finish_reason = finish_reasons[-1] if finish_reasons else None
+
+    meta = {
+        "model": chunks[-1].meta.get("model"),
+        "index": 0,
+        "finish_reason": finish_reason,
+        "completion_start_time": chunks[0].meta.get("received_at"),  # first chunk received
+        "usage": chunks[-1].meta.get("usage"),  # last chunk has the final usage data if available
+    }
+
+    return ChatMessage.from_assistant(text=text or None, tool_calls=tool_calls, meta=meta)

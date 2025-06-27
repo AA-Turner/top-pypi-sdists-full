@@ -16,7 +16,6 @@ use pyo3::{
     ffi::c_str,
     marker::Ungil,
     prelude::*,
-    sync::GILOnceCell,
     types::{PyDict, PyList, PyString, PyType},
     IntoPyObjectExt,
 };
@@ -25,24 +24,24 @@ use python_helpers::{
     parse_dynamic_evaluation_run_response, parse_feedback_response, parse_inference_chunk,
     parse_inference_response, parse_tool, python_uuid_to_uuid,
 };
-use tensorzero_internal::{
+use tensorzero_core::{
     clickhouse::ClickhouseFormat,
     inference::types::{
         pyo3_helpers::{
             deserialize_from_pyobj, deserialize_from_stored_inference, serialize_to_dict,
-            tensorzero_internal_error, JSON_DUMPS, JSON_LOADS,
+            tensorzero_core_error, tensorzero_core_error_class, tensorzero_error_class, JSON_DUMPS,
+            JSON_LOADS,
         },
         ResolvedInput, ResolvedInputMessage,
     },
 };
-use tensorzero_internal::{
+use tensorzero_core::{
     endpoints::{
         datasets::InsertDatapointParams, dynamic_evaluation_run::DynamicEvaluationRunEpisodeParams,
     },
     gateway_util::ShutdownHandle,
     inference::types::{
         extra_body::UnfilteredInferenceExtraBody, extra_headers::UnfilteredInferenceExtraHeaders,
-        file::serialize_with_file_data,
     },
 };
 use tensorzero_rust::{
@@ -55,14 +54,18 @@ use tensorzero_rust::{
 use tokio::sync::Mutex;
 use url::Url;
 
-mod internal;
 mod python_helpers;
-
-pub(crate) static TENSORZERO_HTTP_ERROR: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
 
 #[pymodule]
 fn tensorzero(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Make sure that we can load our error classes, so that we don't trigger
+    // a nested exception when calling `convert_error` below
+    let _ = tensorzero_error_class(m.py())?;
+    let _ = tensorzero_core_error_class(m.py())?;
     // Otel is disabled for now in the Python client until we decide how it should be configured
+    // We might have produced an error when trying to construct the (not yet enabled) OTEL layer,
+    // which will just get ignored here. The HTTP gateway will handle that error, as that's
+    // the only place where we actually try to enable OTEL.
     let _delayed_enable = tokio_block_on_without_gil(
         m.py(),
         tensorzero_rust::observability::setup_observability(LogFormat::Pretty),
@@ -114,7 +117,7 @@ fn _start_http_gateway(
 ) -> PyResult<Bound<'_, PyAny>> {
     warn_no_config(py, config_file.as_deref())?;
     let gateway_fut = async move {
-        let (addr, handle) = tensorzero_internal::gateway_util::start_openai_compatible_gateway(
+        let (addr, handle) = tensorzero_core::gateway_util::start_openai_compatible_gateway(
             config_file,
             clickhouse_url,
         )
@@ -233,7 +236,7 @@ impl BaseTensorZeroGateway {
         let client = match client_builder.build_http() {
             Ok(client) => client,
             Err(e) => {
-                return Err(tensorzero_internal_error(
+                return Err(tensorzero_core_error(
                     py,
                     &format!("Failed to construct TensorZero client: {e:?}"),
                 )?);
@@ -509,7 +512,7 @@ impl TensorZeroGateway {
         let client = match client_res {
             Ok(client) => client,
             Err(e) => {
-                return Err(tensorzero_internal_error(
+                return Err(tensorzero_core_error(
                     cls.py(),
                     &format!("Failed to construct TensorZero client: {e:?}"),
                 )?);
@@ -577,13 +580,14 @@ impl TensorZeroGateway {
             config_file: config_file.map(PathBuf::from),
             clickhouse_url,
             timeout,
+            verify_credentials: true,
         })
         .build();
         let client = tokio_block_on_without_gil(cls.py(), client_fut);
         let client = match client {
             Ok(client) => client,
             Err(e) => {
-                return Err(tensorzero_internal_error(
+                return Err(tensorzero_core_error(
                     cls.py(),
                     &format!("Failed to construct TensorZero client: {e:?}"),
                 )?);
@@ -878,15 +882,16 @@ impl TensorZeroGateway {
     ///
     /// :param dataset_name: The name of the dataset to get the datapoints from.
     /// :return: A list of `Datapoint` objects.
-    #[pyo3(signature = (*, dataset_name, limit=None, offset=None))]
+    #[pyo3(signature = (*, dataset_name, function_name=None, limit=None, offset=None))]
     fn list_datapoints(
         this: PyRef<'_, Self>,
         dataset_name: String,
+        function_name: Option<String>,
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> PyResult<Bound<'_, PyList>> {
         let client = this.as_super().client.clone();
-        let fut = client.list_datapoints(dataset_name, limit, offset);
+        let fut = client.list_datapoints(dataset_name, function_name, limit, offset);
         let resp = tokio_block_on_without_gil(this.py(), fut);
         match resp {
             Ok(resp) => {
@@ -943,7 +948,7 @@ impl TensorZeroGateway {
             output_source
                 .as_str()
                 .try_into()
-                .map_err(|e: tensorzero_internal::error::Error| {
+                .map_err(|e: tensorzero_core::error::Error| {
                     convert_error(this.py(), TensorZeroError::Other { source: e.into() })
                 })?;
         let params = ListInferencesParams {
@@ -1047,7 +1052,7 @@ impl AsyncTensorZeroGateway {
                 let client = match client {
                     Ok(client) => client,
                     Err(e) => {
-                        return Err(tensorzero_internal_error(
+                        return Err(tensorzero_core_error(
                             py,
                             &format!("Failed to construct TensorZero client: {e:?}"),
                         )?);
@@ -1134,6 +1139,7 @@ impl AsyncTensorZeroGateway {
             config_file: config_file.map(PathBuf::from),
             clickhouse_url,
             timeout,
+            verify_credentials: true,
         })
         .build();
 
@@ -1145,7 +1151,7 @@ impl AsyncTensorZeroGateway {
                 let client = match client {
                     Ok(client) => client,
                     Err(e) => {
-                        return Err(tensorzero_internal_error(
+                        return Err(tensorzero_core_error(
                             py,
                             &format!("Failed to construct TensorZero client: {e:?}"),
                         )?);
@@ -1470,16 +1476,19 @@ impl AsyncTensorZeroGateway {
     ///
     /// :param dataset_name: The name of the dataset to get the datapoints from.
     /// :return: A list of `Datapoint` objects.
-    #[pyo3(signature = (*, dataset_name, limit=None, offset=None))]
+    #[pyo3(signature = (*, dataset_name, function_name=None, limit=None, offset=None))]
     fn list_datapoints(
         this: PyRef<'_, Self>,
         dataset_name: String,
+        function_name: Option<String>,
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> PyResult<Bound<'_, PyAny>> {
         let client = this.as_super().client.clone();
         pyo3_async_runtimes::tokio::future_into_py(this.py(), async move {
-            let res = client.list_datapoints(dataset_name, limit, offset).await;
+            let res = client
+                .list_datapoints(dataset_name, function_name, limit, offset)
+                .await;
             Python::with_gil(|py| match res {
                 Ok(resp) => {
                     let datapoints = resp
@@ -1536,7 +1545,7 @@ impl AsyncTensorZeroGateway {
             output_source
                 .as_str()
                 .try_into()
-                .map_err(|e: tensorzero_internal::error::Error| {
+                .map_err(|e: tensorzero_core::error::Error| {
                     convert_error(this.py(), TensorZeroError::Other { source: e.into() })
                 })?;
         pyo3_async_runtimes::tokio::future_into_py(this.py(), async move {
@@ -1591,72 +1600,6 @@ impl AsyncTensorZeroGateway {
             })
         })
     }
-
-    /// For internal use only - do not call.
-    // This is a helper function used by `optimization-server` to get the template config
-    // when applying a new prompt template during fine-tuning
-    #[pyo3(signature = (*, function_name, variant_name))]
-    fn _internal_get_template_config(
-        this: PyRef<'_, Self>,
-        function_name: &str,
-        variant_name: &str,
-    ) -> PyResult<Py<PyDict>> {
-        let Some(config) = this.as_super().client.get_config() else {
-            return Err(tensorzero_internal_error(
-                this.py(),
-                "Called _get_template_config on HTTP gateway",
-            )?);
-        };
-        crate::internal::get_template_config(this.py(), &config, function_name, variant_name)
-    }
-
-    /// For internal use only - do not call.
-    // This is a helper function used by `optimization-server` to get inferences used for fine-tuning
-    #[pyo3(signature = (*, function_name, metric_name=None, threshold=None, max_samples=None))]
-    fn _internal_get_curated_inferences(
-        this: PyRef<'_, Self>,
-        function_name: String,
-        metric_name: Option<String>,
-        threshold: Option<f64>,
-        max_samples: Option<u64>,
-    ) -> PyResult<Py<PyAny>> {
-        let Some(app_state) = this.as_super().client.get_app_state_data().cloned() else {
-            return Err(tensorzero_internal_error(
-                this.py(),
-                "Called _internal_get_curated_inferences on HTTP gateway",
-            )?);
-        };
-        let client = this.as_super().client.clone();
-        Ok(
-            pyo3_async_runtimes::tokio::future_into_py(this.py(), async move {
-                let inferences_result = crate::internal::get_curated_inferences(
-                    &app_state.config,
-                    &app_state.clickhouse_connection_info,
-                    &client,
-                    &function_name,
-                    metric_name.as_deref(),
-                    threshold,
-                    max_samples,
-                )
-                .await;
-
-                Python::with_gil(|py| {
-                    let inferences = inferences_result.map_err(|e| convert_error(py, e))?;
-                    let mut dict_inferences = Vec::with_capacity(inferences.len());
-                    for inference in inferences {
-                        dict_inferences.push(serialize_to_dict(
-                            py,
-                            serialize_with_file_data(&inference).map_err(|e| {
-                                convert_error(py, TensorZeroError::Other { source: e.into() })
-                            })?,
-                        )?);
-                    }
-                    Ok(PyList::new(py, dict_inferences)?.unbind())
-                })
-            })?
-            .unbind(),
-        )
-    }
 }
 
 #[expect(unknown_lints)]
@@ -1671,26 +1614,25 @@ pub fn convert_error(py: Python<'_>, e: TensorZeroError) -> PyErr {
             source: _,
         } => tensorzero_error(py, status_code, text).unwrap_or_else(|e| e),
         TensorZeroError::Other { source } => {
-            tensorzero_internal_error(py, &source.to_string()).unwrap_or_else(|e| e)
+            tensorzero_core_error(py, &source.to_string()).unwrap_or_else(|e| e)
         }
         TensorZeroError::RequestTimeout => {
-            tensorzero_internal_error(py, &e.to_string()).unwrap_or_else(|e| e)
+            tensorzero_core_error(py, &e.to_string()).unwrap_or_else(|e| e)
         }
         // Required due to the `#[non_exhaustive]` attribute on `TensorZeroError` - we want to force
         // downstream consumers to handle all possible error types, but the compiler also requires us
         // to do this (since our python bindings are in a different crate from the Rust client.)
-        _ => tensorzero_internal_error(py, &format!("Unexpected TensorZero error: {e:?}"))
+        _ => tensorzero_core_error(py, &format!("Unexpected TensorZero error: {e:?}"))
             .unwrap_or_else(|e| e),
     }
 }
 
 fn tensorzero_error(py: Python<'_>, status_code: u16, text: Option<String>) -> PyResult<PyErr> {
-    let err = TENSORZERO_HTTP_ERROR.get_or_try_init::<_, PyErr>(py, || {
-        let self_module = PyModule::import(py, "tensorzero.types")?;
-        let err: Bound<'_, PyAny> = self_module.getattr("TensorZeroError")?;
-        Ok(err.unbind())
-    })?;
-    Ok(PyErr::from_value(err.bind(py).call1((status_code, text))?))
+    Ok(PyErr::from_value(
+        tensorzero_error_class(py)?
+            .bind(py)
+            .call1((status_code, text))?,
+    ))
 }
 
 fn warn_no_config(py: Python<'_>, config: Option<&str>) -> PyResult<()> {

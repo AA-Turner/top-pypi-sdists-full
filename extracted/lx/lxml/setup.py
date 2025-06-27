@@ -7,14 +7,11 @@ import os.path
 # for command line options and supported environment variables, please
 # see the end of 'setupinfo.py'
 
-if sys.version_info[:2] < (3, 6):
-    print("This lxml version requires Python 3.6 or later.")
+if sys.version_info[:2] < (3, 8):
+    print("This lxml version requires Python 3.8 or later.")
     sys.exit(1)
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+from setuptools import setup
 
 # make sure Cython finds include files in the project directory and not outside
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -41,76 +38,65 @@ print("Building lxml version %s." % lxml_version)
 OPTION_RUN_TESTS = setupinfo.has_option('run-tests')
 
 branch_link = """
-After an official release of a new stable series, bug fixes may become
-available at
-https://github.com/lxml/lxml/tree/lxml-%(branch_version)s .
-Running ``easy_install lxml==%(branch_version)sbugfix`` will install
-the unreleased branch state from
-https://github.com/lxml/lxml/tarball/lxml-%(branch_version)s#egg=lxml-%(branch_version)sbugfix
-as soon as a maintenance branch has been established.  Note that this
-requires Cython to be installed at an appropriate version for the build.
+After an official release of a new stable series, bug fixes may become available at
+https://github.com/lxml/lxml/tree/lxml-{branch_version} .
+Running ``pip install https://github.com/lxml/lxml/archive/refs/heads/lxml-{branch_version}.tar.gz``
+will install the unreleased branch state as soon as a maintenance branch has been established.
+Note that this requires Cython to be installed at an appropriate version for the build.
 
 """
 
 if versioninfo.is_pre_release():
     branch_link = ""
 
+with open("requirements.txt", "r") as f:
+    deps = [line.strip() for line in f if ':' in line]
 
-extra_options = {}
-if 'setuptools' in sys.modules:
-    extra_options['zip_safe'] = False
-    extra_options['python_requires'] = (
-        # NOTE: keep in sync with Trove classifier list below.
-        '>=3.6')
+extra_options = {
+    'python_requires': '>=3.8',  # NOTE: keep in sync with Trove classifier list below.
 
-    try:
-        import pkg_resources
-    except ImportError:
-        pass
-    else:
-        f = open("requirements.txt", "r")
-        try:
-            deps = [str(req) for req in pkg_resources.parse_requirements(f)]
-        finally:
-            f.close()
-        extra_options['extras_require'] = {
-            'source': deps,
-            'cssselect': 'cssselect>=0.7',
-            'html5': 'html5lib',
-            'htmlsoup': 'BeautifulSoup4',
-            'html_clean': 'lxml_html_clean',
-        }
+    'extras_require': {
+        'source': deps,
+        'cssselect': 'cssselect>=0.7',
+        'html5': 'html5lib',
+        'htmlsoup': 'BeautifulSoup4',
+        'html_clean': 'lxml_html_clean',
+    },
 
-extra_options.update(setupinfo.extra_setup_args())
+    'zip_safe': False,
 
-extra_options['package_data'] = {
-    'lxml': [
-        'etree.h',
-        'etree_api.h',
-        'lxml.etree.h',
-        'lxml.etree_api.h',
-        # Include Cython source files for better traceback output.
-        '*.pyx',
-        '*.pxi',
-    ],
-    'lxml.includes': [
-        '*.pxd', '*.h'
+    'package_data': {
+        'lxml': [
+            'etree.h',
+            'etree_api.h',
+            'lxml.etree.h',
+            'lxml.etree_api.h',
+            # Include Cython source files for better traceback output.
+            '*.pyx',
+            '*.pxi',
         ],
-    'lxml.isoschematron':  [
-        'resources/rng/iso-schematron.rng',
-        'resources/xsl/*.xsl',
-        'resources/xsl/iso-schematron-xslt1/*.xsl',
-        'resources/xsl/iso-schematron-xslt1/readme.txt'
+        'lxml.includes': [
+            '*.pxd',
+            '*.h',
         ],
-    }
+        'lxml.isoschematron': [
+            'resources/rng/iso-schematron.rng',
+            'resources/xsl/*.xsl',
+            'resources/xsl/iso-schematron-xslt1/*.xsl',
+            'resources/xsl/iso-schematron-xslt1/readme.txt',
+        ],
+    },
 
-extra_options['package_dir'] = {
+    'package_dir': {
         '': 'src'
-    }
+    },
 
-extra_options['packages'] = [
+    'packages': [
         'lxml', 'lxml.includes', 'lxml.html', 'lxml.isoschematron'
-    ]
+    ],
+
+    **setupinfo.extra_setup_args(),
+}
 
 
 def setup_extra_options():
@@ -214,40 +200,32 @@ setup(
     maintainer_email="lxml@lxml.de",
     license="BSD-3-Clause",
     url="https://lxml.de/",
-    # Commented out because this causes distutils to emit warnings
-    # `Unknown distribution option: 'bugtrack_url'`
-    # which distract folks from real causes of problems when troubleshooting
-    # bugtrack_url="https://bugs.launchpad.net/lxml",
     project_urls={
         "Source": "https://github.com/lxml/lxml",
+        "Bug Tracker": "https://bugs.launchpad.net/lxml",
     },
     description=(
         "Powerful and Pythonic XML processing library"
         " combining libxml2/libxslt with the ElementTree API."
     ),
-    long_description=((("""\
-lxml is a Pythonic, mature binding for the libxml2 and libxslt libraries.  It
-provides safe and convenient access to these libraries using the ElementTree
-API.
+    long_description=(("""\
+lxml is a Pythonic, mature binding for the libxml2 and libxslt libraries.
+It provides safe and convenient access to these libraries using the
+ElementTree API.
 
 It extends the ElementTree API significantly to offer support for XPath,
 RelaxNG, XML Schema, XSLT, C14N and much more.
 
-To contact the project, go to the `project home page
-<https://lxml.de/>`_ or see our bug tracker at
-https://launchpad.net/lxml
+To contact the project, go to the `project home page <https://lxml.de/>`_
+or see our bug tracker at https://launchpad.net/lxml
 
 In case you want to use the current in-development version of lxml,
 you can get it from the github repository at
 https://github.com/lxml/lxml .  Note that this requires Cython to
-build the sources, see the build instructions on the project home
-page.  To the same end, running ``easy_install lxml==dev`` will
-install lxml from
-https://github.com/lxml/lxml/tarball/master#egg=lxml-dev if you have
-an appropriate version of Cython installed.
+build the sources, see the build instructions on the project home page.
 
-""" + branch_link) % {"branch_version": versioninfo.branch_version()}) +
-                      versioninfo.changes()),
+""" + branch_link).format(branch_version=versioninfo.branch_version())
+    + versioninfo.changes()),
     classifiers=[
         versioninfo.dev_status(),
         'Intended Audience :: Developers',
@@ -256,13 +234,12 @@ an appropriate version of Cython installed.
         'Programming Language :: Cython',
         # NOTE: keep in sync with 'python_requires' list above.
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: C',
         'Operating System :: OS Independent',
         'Topic :: Text Processing :: Markup :: HTML',

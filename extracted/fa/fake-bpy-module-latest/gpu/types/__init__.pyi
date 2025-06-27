@@ -129,6 +129,7 @@ class GPUFrameBuffer:
                 :type slot: int
                 :param format: The format that describes the content of a single channel.
         Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 and 10_11_11_REV.
+        UINT_24_8 is deprecated, use FLOAT instead.
                 :type format: str
                 :param data: Optional Buffer object to fill with the pixels values.
                 :type data: Buffer
@@ -171,12 +172,6 @@ class GPUIndexBuf:
 
 class GPUOffScreen:
     """This object gives access to off screen buffers."""
-
-    color_texture: int
-    """ OpenGL bindcode for the color texture.
-
-    :type: int
-    """
 
     height: int
     """ Height of the texture.
@@ -246,16 +241,6 @@ class GPUOffScreen:
         """
 
 class GPUShader:
-    """Deprecated, use gpu.shader.create_from_info(shader_info) instead.GPUShader combines multiple GLSL shaders into a program used for drawing.
-    It must contain at least a vertex and fragment shaders.The GLSL #version directive is automatically included at the top of shaders,
-    and set to 330. Some preprocessor directives are automatically added according to
-    the Operating System or availability: GPU_ATI, GPU_NVIDIA and GPU_INTEL.The following extensions are enabled by default if supported by the GPU:
-    GL_ARB_texture_gather, GL_ARB_texture_cube_map_array
-    and GL_ARB_shader_draw_parameters.For drawing user interface elements and gizmos, use
-    fragOutput = blender_srgb_to_framebuffer_space(fragOutput)
-    to transform the output sRGB colors to the frame-buffer color-space.
-    """
-
     name: str
     """ The name of the shader object for debugging purposes (read-only).
 
@@ -568,7 +553,7 @@ class GPUShaderCreateInfo:
 
         DEPTH32F_STENCIL8
 
-        DEPTH24_STENCIL8
+        DEPTH24_STENCIL8 (deprecated, use DEPTH32F_STENCIL8)
 
         SRGB8_A8
 
@@ -588,7 +573,7 @@ class GPUShaderCreateInfo:
 
         DEPTH_COMPONENT32F
 
-        DEPTH_COMPONENT24
+        DEPTH_COMPONENT24 (deprecated, use DEPTH_COMPONENT32F)
 
         DEPTH_COMPONENT16
                 :type format: str
@@ -1021,6 +1006,7 @@ class GPUTexture:
 
                 :param format: The format that describes the content of a single item.
         Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 and 10_11_11_REV.
+        UINT_24_8 is deprecated, use FLOAT instead.
                 :type format: str
                 :param value: Sequence each representing the value to fill. Sizes 1..4 are supported.
                 :type value: collections.abc.Sequence[float]

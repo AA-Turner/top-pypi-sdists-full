@@ -1054,6 +1054,7 @@ class JobSummaryTypeDef(TypedDict):
     taskRunStatus: NotRequired[TaskRunStatusType]
     targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
     taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
+    taskFailureRetryCount: NotRequired[int]
     maxFailedTasksCount: NotRequired[int]
     maxRetriesPerTask: NotRequired[int]
     maxWorkerCount: NotRequired[int]
@@ -1796,6 +1797,7 @@ class JobSearchSummaryTypeDef(TypedDict):
     taskRunStatus: NotRequired[TaskRunStatusType]
     targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
     taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
+    taskFailureRetryCount: NotRequired[int]
     priority: NotRequired[int]
     maxFailedTasksCount: NotRequired[int]
     maxRetriesPerTask: NotRequired[int]
@@ -1898,6 +1900,7 @@ class StepSummaryTypeDef(TypedDict):
     createdAt: datetime
     createdBy: str
     lifecycleStatusMessage: NotRequired[str]
+    taskFailureRetryCount: NotRequired[int]
     targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
@@ -2344,6 +2347,7 @@ class GetJobResponseTypeDef(TypedDict):
     taskRunStatus: TaskRunStatusType
     targetTaskRunStatus: JobTargetTaskRunStatusType
     taskRunStatusCounts: Dict[TaskRunStatusType, int]
+    taskFailureRetryCount: int
     storageProfileId: str
     maxFailedTasksCount: int
     maxRetriesPerTask: int
@@ -2548,6 +2552,7 @@ class StepSearchSummaryTypeDef(TypedDict):
     taskRunStatus: NotRequired[TaskRunStatusType]
     targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
     taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
+    taskFailureRetryCount: NotRequired[int]
     createdAt: NotRequired[datetime]
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
@@ -2576,6 +2581,7 @@ class GetStepResponseTypeDef(TypedDict):
     lifecycleStatusMessage: str
     taskRunStatus: TaskRunStatusType
     taskRunStatusCounts: Dict[TaskRunStatusType, int]
+    taskFailureRetryCount: int
     targetTaskRunStatus: StepTargetTaskRunStatusType
     createdAt: datetime
     createdBy: str

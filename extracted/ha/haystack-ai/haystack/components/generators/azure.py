@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from openai.lib.azure import AzureADTokenProvider, AzureOpenAI
 
 from haystack import component, default_from_dict, default_to_dict
 from haystack.components.generators import OpenAIGenerator
-from haystack.dataclasses import StreamingChunk
+from haystack.dataclasses import StreamingCallbackT
 from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
 from haystack.utils.http_client import init_http_client
 
@@ -55,7 +55,7 @@ class AzureOpenAIGenerator(OpenAIGenerator):
     """
 
     # pylint: disable=super-init-not-called
-    def __init__(  # pylint: disable=too-many-positional-arguments
+    def __init__(  # pylint: disable=too-many-positional-arguments  # noqa: PLR0913
         self,
         azure_endpoint: Optional[str] = None,
         api_version: Optional[str] = "2023-05-15",
@@ -63,7 +63,7 @@ class AzureOpenAIGenerator(OpenAIGenerator):
         api_key: Optional[Secret] = Secret.from_env_var("AZURE_OPENAI_API_KEY", strict=False),
         azure_ad_token: Optional[Secret] = Secret.from_env_var("AZURE_OPENAI_AD_TOKEN", strict=False),
         organization: Optional[str] = None,
-        streaming_callback: Optional[Callable[[StreamingChunk], None]] = None,
+        streaming_callback: Optional[StreamingCallbackT] = None,
         system_prompt: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,

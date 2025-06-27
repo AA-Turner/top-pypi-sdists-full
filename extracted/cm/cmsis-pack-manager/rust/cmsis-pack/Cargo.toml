@@ -1,0 +1,37 @@
+[package]
+name = "cmsis-pack"
+version = "0.7.2"
+authors = [
+    "Jimmy Brisson <theotherjimmy@gmail.com>",
+    "Chris Reed <flit@me.com>",
+    "Mathias Brossard <mathias.brossard@arm.com>",
+]
+repository = "https://github.com/pyocd/cmsis-pack-manager"
+description = "Rust crate for managing CMSIS Packs"
+license = "Apache-2.0"
+categories = ["embedded", "hardware-support", "development-tools::debugging"]
+keywords = ["embedded", "cmsis"]
+readme = "README.md"
+edition = "2021"
+rust-version = "1.71"
+
+[dependencies]
+bytes = "1.0"
+futures = "0.3.8"
+log = "0.4.8"
+roxmltree = "0.20.0"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["macros", "rt"] }
+reqwest = { version = "0.12.0", default-features = false, features = [
+    "rustls-tls-native-roots",
+    "trust-dns",
+    "stream",
+] }
+anyhow = "1.0.56"
+
+[dev-dependencies]
+time = "0.3.3"
+
+[features]
+default = []

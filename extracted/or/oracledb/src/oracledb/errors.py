@@ -287,6 +287,8 @@ ERR_ARROW_C_API_ERROR = 2060
 ERR_PARAMS_HOOK_HANDLER_FAILED = 2061
 ERR_PAYLOAD_CANNOT_BE_ENQUEUED = 2062
 ERR_SCROLL_OUT_OF_RESULT_SET = 2063
+ERR_POOL_MAX_LESS_THAN_MIN = 2064
+ERR_ARROW_SPARSE_VECTOR_NOT_ALLOWED = 2065
 
 # error numbers that result in NotSupportedError
 ERR_TIME_NOT_SUPPORTED = 3000
@@ -319,6 +321,7 @@ ERR_CURSOR_DIFF_CONNECTION = 3027
 ERR_UNSUPPORTED_PIPELINE_OPERATION = 3028
 ERR_INVALID_NETWORK_NAME = 3029
 ERR_ARROW_UNSUPPORTED_DATA_TYPE = 3030
+ERR_ARROW_UNSUPPORTED_VECTOR_FORMAT = 3031
 
 # error numbers that result in DatabaseError
 ERR_TNS_ENTRY_NOT_FOUND = 4000
@@ -781,6 +784,9 @@ ERR_MESSAGE_FORMATS = {
     ERR_POOL_HAS_BUSY_CONNECTIONS: (
         "connection pool cannot be closed because connections are busy"
     ),
+    ERR_POOL_MAX_LESS_THAN_MIN: (
+        "parameter 'max' should be greater than or equal to parameter 'min'"
+    ),
     ERR_POOL_NO_CONNECTION_AVAILABLE: (
         "timed out waiting for the connection pool to return a connection"
     ),
@@ -888,11 +894,19 @@ ERR_MESSAGE_FORMATS = {
     ERR_INVALID_NETWORK_NAME: (
         '"{name}" includes characters that are not allowed'
     ),
+    ERR_ARROW_SPARSE_VECTOR_NOT_ALLOWED: (
+        "Apache Arrow format does not support sparse vectors with flexible "
+        "dimensions"
+    ),
     ERR_ARROW_UNSUPPORTED_DATA_TYPE: (
         "conversion from Oracle Database type {db_type_name} to Apache "
         "Arrow format is not supported"
     ),
     ERR_ARROW_C_API_ERROR: (
         "Arrow C Data Interface operation failed with error code {code}"
+    ),
+    ERR_ARROW_UNSUPPORTED_VECTOR_FORMAT: (
+        "flexible vector formats are not supported. Only fixed 'FLOAT32', "
+        "'FLOAT64', 'INT8' or 'BINARY' formats are supported"
     ),
 }

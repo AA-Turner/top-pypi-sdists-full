@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: netbox-plugin-dns
-Version: 1.3.2
+Version: 1.3.3
 Summary: NetBox DNS is a NetBox plugin for managing DNS data.
 Author-email: Peter Eckel <pete@netbox-dns.org>
 Project-URL: Homepage, https://github.com/peteeckel/netbox-plugin-dns

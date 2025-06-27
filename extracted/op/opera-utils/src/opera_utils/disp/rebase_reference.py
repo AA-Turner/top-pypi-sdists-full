@@ -31,6 +31,11 @@ import h5py
 import numpy as np
 import rasterio as rio
 from numpy.typing import DTypeLike
+
+try:
+    from scipy import ndimage
+except ImportError:
+    ndimage = None
 from rasterio.enums import Resampling
 from tqdm.auto import trange
 from typing_extensions import Self
@@ -44,7 +49,7 @@ from ._enums import (
 )
 from ._product import DispProductStack
 from ._rebase import NaNPolicy
-from ._utils import _last_per_ministack, flatten, round_mantissa
+from ._utils import flatten, last_per_ministack, round_mantissa
 
 UINT16_MAX: Final = 65535
 
@@ -262,6 +267,12 @@ class GeotiffStackWriter:
             self.profile["dtype"] = np.dtype(self.dtype)
         if self.nodata is not None:
             self.profile["nodata"] = self.nodata
+        # Some versions of rasterio give:
+        # rasterio.errors.RasterBlockError: The height and width of TIFF dataset
+        # blocks must be multiples of 16
+        for key in ["blockxsize", "blockysize"]:
+            if key in self.profile:
+                del self.profile[key]
 
     def __setitem__(self, key, value):
         # Check if we have a floating point raster
@@ -429,7 +440,9 @@ def find_reference_point(
         Reference point (row, column)
 
     """
-    from scipy import ndimage
+    if ndimage is None:
+        msg = "scipy is required for image processing operations"
+        raise ImportError(msg)
 
     with rio.open(average_quality_raster) as src:
         quality = src.read(1)
@@ -498,13 +511,17 @@ def main(
     water_mask_path = output_path / "water_mask.tif"
     if not water_mask_path.exists():
         with rio.open(f"NETCDF:{nc_files[0]}:/water_mask") as src:
-            profile = src.profile | {"driver": "GTiff"}
+            profile = src.profile | {
+                "driver": "GTiff",
+                "blockxsize": 512,
+                "blockysize": 512,
+            }
             with rio.open(water_mask_path, "w", **profile) as dst:
                 dst.write(src.read(1), 1)
 
     # Transfer the quality layers (no rebasing needed)
     last_per_ministack_products = DispProductStack.from_file_list(
-        _last_per_ministack(nc_files)
+        last_per_ministack(nc_files)
     )
     with multiprocessing.Pool(num_workers) as pool:
         pool.starmap(

@@ -6,6 +6,7 @@ import logging
 import ssl
 import typing
 
+from typing import Optional
 from urllib.parse import quote
 
 import urllib3
@@ -14,21 +15,20 @@ from pydantic import SecretStr
 
 from snowflake.core.exceptions import SnowflakePythonError
 
+from ._common import TokenType
 from ._constants import SESSION_TOKEN_EXPIRED_ERROR_CODE
 
 
 if typing.TYPE_CHECKING:
     import snowflake.core
 
-
 logger = logging.getLogger(__name__)
-
 
 PrimitiveTypes = typing.TypeVar('PrimitiveTypes', float, bool, bytes, bytearray, str, int)
 PRIMITIVE_TYPES = (float, bool, bytes, bytearray, str, int)
 NATIVE_TYPES_MAPPING = {
     'int': int,
-    'long': int, # TODO remove as only py3 is supported?
+    'long': int,  # TODO remove as only py3 is supported?
     'float': float,
     'str': str,
     'bool': bool,
@@ -38,7 +38,7 @@ NATIVE_TYPES_MAPPING = {
     'bytes': bytes,
     'bytearray': bytearray,
 }
-DEFAULT_RETRY_TIMEOUT_SECONDS = 600.0 # default 10 minutes for query retries
+DEFAULT_RETRY_TIMEOUT_SECONDS = 600.0  # default 10 minutes for query retries
 STATUS_CODES_MAPPING = {
     200: "OK",
     202: "Long Running Query",
@@ -217,7 +217,7 @@ class SFPoolManager(urllib3.PoolManager):
         method: str,
         url: str,
         fields=None,
-        headers: typing.Optional[dict[str, str]]=None,
+        headers: typing.Optional[dict[str, str]] = None,
         **urlopen_kw: typing.Any,
     ):
         if headers is None:
@@ -227,7 +227,7 @@ class SFPoolManager(urllib3.PoolManager):
             if root._session_token is None:
                 # This should never trigger
                 raise Exception("session token is missing while making a request")
-            headers.update(get_session_headers(root._session_token, root._is_sessionless))
+            headers.update(get_session_headers(root.token_type, root._session_token, root.external_session_id))
         logger.debug("making an http %s call to '%s'", method.upper(), url)
         try:
             r = super().request(
@@ -272,7 +272,7 @@ class SFPoolManager(urllib3.PoolManager):
                 if root._session_token is None:
                     # This should never trigger
                     raise Exception("session token is missing right after renewal")
-                headers.update(get_session_headers(root._session_token, root._is_sessionless))
+                headers.update(get_session_headers(root.token_type, root._session_token, root.external_session_id))
             logger.debug(
                 "repeating an http with new session token %s call to '%s'",
                 method.upper(),
@@ -290,10 +290,17 @@ class SFPoolManager(urllib3.PoolManager):
 # Use a connection pool singleton for every resource
 CONNECTION_POOL: typing.Optional[SFPoolManager] = None
 
-def get_session_headers(session_token: str, is_sessionless: bool) -> dict[str, str]:
-    if is_sessionless:
-        return {"Authorization": f"{session_token}"}
+
+def get_session_headers(token_type: TokenType, session_token: str, external_session_id: Optional[str] = None) -> dict[
+    str, str]:
+    if token_type is TokenType.EXTERNAL_SESSION_WITH_PAT:
+        return {
+            "Authorization": f"Bearer {session_token}",
+            "X-Snowflake-External-Session-ID": external_session_id or "",
+            "X-Snowflake-Authorization-Token-Type": "PAT_WITH_EXTERNAL_SESSION_ID",
+        }
     return {"Authorization": f"Snowflake Token=\"{session_token}\""}
+
 
 def url_needs_auth(url: str) -> bool:
     """Whether a URL needs the authentication headers to work.
@@ -303,14 +310,15 @@ def url_needs_auth(url: str) -> bool:
     """
     return True
 
+
 # TODO: We could create the single connection pool at import time
 #  instead of having this function at all
 # TODO: Configuration classes have no single parent class
 def create_connection_pool(  # type: ignore[no-untyped-def]
         configuration,
-        pools_size: int=4,
-        maxsize:typing.Optional[int]=None,
-    ) -> SFPoolManager:
+        pools_size: int = 4,
+        maxsize: typing.Optional[int] = None,
+) -> SFPoolManager:
     # TODO: locking?
     global CONNECTION_POOL
     if CONNECTION_POOL is None:

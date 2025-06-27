@@ -6194,6 +6194,9 @@ def list_resource_groups(ctx, **kwargs):
     type=click_extension.JSONFile("r"),
 )
 @click.option("--published", type=click.Choice(["no", "public"]), default=None)
+@click.option(
+    "--hide", type=click.Choice(["no", "all", "desktop", "profile"]), default=None
+)
 @click.pass_context
 def update_resource(ctx, id, resource_member, remove_resource_member, **kwargs):
     result = resources.update_resource(
@@ -8665,6 +8668,61 @@ def create_support_request_message(
 ):
     users.create_support_request_message(
         ctx, target_user_id, target_org_id, duration, **kwargs
+    )
+
+
+@cli.command(name="create-support-request-acknowledgement")
+@click.argument("org-id", type=str)
+@click.argument("supporting-user-id", type=str)
+@click.argument("support-request-id", type=str)
+@click.pass_context
+def create_support_request_acknowledgement(
+    ctx, org_id, supporting_user_id, support_request_id, **kwargs
+):
+    """
+    Adds an acknowledgment for support request SUPPORT_REQUEST_ID.
+
+    ORG_ID is the supportting user's organization.
+    """
+    result = users.create_support_request_acknowledgement(
+        ctx, org_id, supporting_user_id, support_request_id, **kwargs
+    )
+    output_entry(ctx, result)
+
+
+@cli.command(name="show-support-request-acknowledgement")
+@click.argument("support-request-acknowledgement-id")
+@click.option("--org-id", default=None)
+@click.pass_context
+def show_support_request_acknowledgement(
+    ctx, support_request_acknowledgement_id, **kwargs
+):
+    result = users.show_support_request_acknowledgement(
+        ctx, support_request_acknowledgement_id, **kwargs
+    )
+    output_entry(ctx, result)
+
+
+@cli.command(name="list-support-request-acknowledgements")
+@click.option("--org-id", type=str, default=None, help="org id of the supporting user")
+@click.option("--supporting-user-id", type=str)
+@click.option("--support-request-id", default=None)
+@click.option("--limit", default=500)
+@click.pass_context
+def list_support_request_acknowledgements(ctx, **kwargs):
+    ids = users.list_support_request_acknowledgements(ctx, **kwargs)
+    table = users.format_support_request_acknowledgement_as_text(ctx, ids)
+    print(table)
+
+
+@cli.command(name="delete-support-request-acknowledgement")
+@click.argument("support-request-acknowledgement-id")
+@click.pass_context
+def delete_support_request_acknowledgement(
+    ctx, support_request_acknowledgement_id, **kwargs
+):
+    users.delete_support_request_acknowledgement(
+        ctx, support_request_acknowledgement_id, **kwargs
     )
 
 

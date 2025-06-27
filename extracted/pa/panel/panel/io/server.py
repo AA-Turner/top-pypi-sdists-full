@@ -68,8 +68,9 @@ from .loading import LOADING_INDICATOR_CSS_CLASS
 from .logging import LOG_SESSION_CREATED
 from .reload import record_modules
 from .resources import (
-    BASE_TEMPLATE, CDN_DIST, COMPONENT_PATH, ERROR_TEMPLATE, LOCAL_DIST,
-    Resources, _env, bundle_resources, patch_model_css, resolve_custom_path,
+    BASE_TEMPLATE, CDN_DIST, COMPONENT_PATH, DIST_DIR, ERROR_TEMPLATE,
+    LOCAL_DIST, Resources, _env, bundle_resources, patch_model_css,
+    resolve_custom_path,
 )
 from .session import generate_session
 from .state import set_curdoc, state
@@ -242,6 +243,8 @@ def html_page_for_render_items(
         base = BASE_TEMPLATE,
         macros = MACROS,
     ))
+    if "app_favicon" not in context:
+        context["app_favicon"] = (f"{state.rel_path}/" if state.rel_path else "./") + "favicon.ico"
 
     if len(render_items) == 1:
         context["doc"] = context["docs"][0]
@@ -422,7 +425,7 @@ class DocHandler(LoginUrlMixin, BkDocHandler):
         payload.update(self.application_context.application.process_request(self.request))  # type: ignore
         return payload
 
-    def _authorize(self, session: bool = False) -> tuple[bool, str | None]:
+    def _authorize(self, session: bool = False) -> tuple[bool | None, str | None]:
         """
         Determine if user is authorized to access this application.
         """
@@ -1063,6 +1066,9 @@ def get_server(
 
     if 'index' not in opts:
         opts['index'] = INDEX_HTML
+
+    if 'ico_path' not in opts:
+        opts['ico_path'] = DIST_DIR / "images" / "favicon.ico"
 
     if address is not None:
         opts['address'] = address

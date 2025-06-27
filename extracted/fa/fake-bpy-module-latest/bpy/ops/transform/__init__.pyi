@@ -580,7 +580,7 @@ def rotate_normal(
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
 ) -> None:
-    """Rotate split normal of selected items
+    """Rotate custom normal of selected items
 
     :type execution_context: int | str | None
     :type undo: bool | None

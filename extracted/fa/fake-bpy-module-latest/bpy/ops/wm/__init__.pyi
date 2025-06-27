@@ -2370,6 +2370,8 @@ def obj_import(
     validate_meshes: bool | None = True,
     close_spline_loops: bool | None = True,
     collection_separator: str = "",
+    mtl_name_collision_mode: typing.Literal["MAKE_UNIQUE", "REFERENCE_EXISTING"]
+    | None = "MAKE_UNIQUE",
     filter_glob: str = "*.obj;*.mtl",
 ) -> None:
     """Load a Wavefront OBJ scene
@@ -2490,6 +2492,14 @@ def obj_import(
         :type close_spline_loops: bool | None
         :param collection_separator: Path Separator, Character used to separate objects name into hierarchical structure
         :type collection_separator: str
+        :param mtl_name_collision_mode: Material Name Collision, How to handle naming collisions when importing materials
+
+    MAKE_UNIQUE
+    Make Unique -- Create new materials with unique names for each OBJ file.
+
+    REFERENCE_EXISTING
+    Reference Existing -- Use existing materials with same name instead of creating new ones.
+        :type mtl_name_collision_mode: typing.Literal['MAKE_UNIQUE','REFERENCE_EXISTING'] | None
         :param filter_glob: Extension Filter
         :type filter_glob: str
     """

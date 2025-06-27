@@ -42,7 +42,9 @@ from worker_automate_hub.utils.util import (
     ocr_by_class,
     nf_busca_nf_saida,
     pessoas_ativa_cliente_fornecedor,
+    gerenciador_nf_header_retransmissao,
     nf_devolucao_liquidar_cupom,
+    status_trasmissao,
     gerenciador_nf_header,
     cadastro_pre_venda_header,
     incluir_registro,
@@ -318,10 +320,19 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         console.print("INSERINDO CODIGO DO FORNECEDOR ...\n")
         field_fornecedor = main_window.child_window(class_name="TDBIEditCode", found_index=0)
         field_fornecedor.click()
-        field_fornecedor.set_edit_text(cod_cliente_incorreto)
+
+        if cod_cliente_incorreto != "140552":
+            field_fornecedor.set_edit_text(cod_cliente_incorreto)
+        else:
+            field_fornecedor.set_edit_text(cod_empresa)
         field_fornecedor.click()
         pyautogui.press("tab")
         await worker_sleep(2)
+
+
+        itens = nota.get('itens', [])
+        itens_arla = [item for item in itens if item['descricao'].lower() == 'arla']
+
 
         #SELECIONAO A NOP 
         console.print("SELECIONAO A NOP...\n")
@@ -331,20 +342,17 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         itens_to_select = select_box_nop_select.texts()
         nop_to_be_select = ''
 
-        for item in itens_to_select:
-            if '2662' in item and (('c finan' in item.lower() or 'cfinan' in item.lower()) and ('s est' in item.lower() or 'sest' in item.lower())):
-                nop_to_be_select = item
-                break
-        
-        if nop_to_be_select == '':
+        if len(itens_arla) == len(itens):
             for item in itens_to_select:
-                if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                if ('1202' in item and ('s/ est' in item.lower() or 's/est' in item.lower()) and ('c/ fin' in item.lower() or 'c/fin' in item.lower())):
                     nop_to_be_select = item
                     break
-        
-        if nop_to_be_select == '':
+                elif '2202' in item and (('s/ est' in item.lower() or 's/est' in item.lower()) and ('c/ fin' in item.lower() or 'c/fin' in item.lower())):
+                    nop_to_be_select = item
+                    break
+        else:        
             for item in itens_to_select:
-                if '1202' in item and (('s/estoque' in item.lower() or 's /estoque' in item.lower()) and ('c/financeiro' in item.lower() or 'c /financeiro' in item.lower())):
+                if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
                     nop_to_be_select = item
                     break
 
@@ -913,7 +921,12 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         pesquisar_venda_devolucao = await is_window_open_by_class("TFrmGerenciadorNFe2", "TFrmGerenciadorNFe2")
         if pesquisar_venda_devolucao["IsOpened"] == True:
             console.print(f"\n'Gerenciador de Notas Fiscais'aberta com sucesso",style="bold green")
-            selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_cliente_incorreto)
+
+            if cod_cliente_incorreto != "140552":
+                selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_cliente_incorreto)
+            else:
+                selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_empresa)
+            
             if selecionar_itens_gerenciador_nfe.sucesso:
                 console.print("PROCESSO EXECUTADO COM SUCESSO, SEGUINDO COM O PROCESSO PARA TRANSMITIR A NF-E...\n")
                 app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)
@@ -1069,15 +1082,257 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                         )
                 else:
-                    get_error_msg = await get_text_display_window(pop_up_status)
-                    console.print(f"Mensagem Rejeição: {get_error_msg}")
-                    retorno = f"Erro ao transmitir, mensagem de rejeição {get_error_msg} \nEtapas Executadas:\n{steps}"
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno=retorno,
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                    )
+                    x = 0
+                    while x <= 2:
+                        app = Application().connect(class_name="TFrmGerenciadorNFe2")
+                        main_window = app["TFrmGerenciadorNFe2"]
+                        main_window.close()
+                        await worker_sleep(3)
+
+
+                        type_text_into_field("Gerenciador de Notas Fiscais", app["TFrmMenuPrincipal"]["Edit"], True, "50")
+                        pyautogui.press("enter")
+                        await worker_sleep(2)
+                        pyautogui.press("enter")
+                        await worker_sleep(5)
+                        console.print(f"\nPesquisa: 'Gerenciador de Notas Fiscais' realizada com sucesso",style="bold green")
+                        pesquisar_venda_devolucao = await is_window_open_by_class("TFrmGerenciadorNFe2", "TFrmGerenciadorNFe2")
+                        if pesquisar_venda_devolucao["IsOpened"] == True:
+                            console.print(f"\n'Gerenciador de Notas Fiscais'aberta com sucesso",style="bold green")
+                            selecionar_itens_gerenciador_nfe = await gerenciador_nf_header_retransmissao(data_hoje, cod_cliente_incorreto, "Rejeitada")
+                            if selecionar_itens_gerenciador_nfe.sucesso:
+                                console.print("PROCESSO EXECUTADO COM SUCESSO, SEGUINDO COM O PROCESSO PARA TRANSMITIR A NF-E...\n")
+                                app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)
+                                main_window = app["TFrmGerenciadorNFe2"]
+                                main_window.set_focus()
+
+
+                                console.print("Obtendo informacao da tela para o botao Transfimitir\n")
+                                tpanel_footer = main_window.child_window(class_name="TPanel", found_index=1)
+                                btn_transmitir = tpanel_footer.child_window(class_name="TBitBtn", found_index=5)
+                                btn_transmitir.click()
+                                pyautogui.click(595, 746)
+                                console.print("Transmitir clicado com sucesso...\n")
+                                await worker_sleep(3)
+
+                                max_attempts = 15
+                                i = 0
+                                console.print("Aguardando pop de operacação concluida \n")
+                                while i < max_attempts:
+                                    try:
+                                        app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=10)
+                                        main_window = app["TFrmProcessamentoNFe2"]
+
+                                        await worker_sleep(5)
+                                        information_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
+                                        if information_pop_up["IsOpened"] == True:
+                                            msg_pop_up = await ocr_by_class(numero_nota_fiscal, "TMessageForm", "TMessageForm")
+                                            if msg_pop_up.sucesso:
+                                                if 'concl' in msg_pop_up.retorno.lower():
+                                                    try:
+                                                        information_operacao_concluida = main_window.child_window(class_name="TMessageForm")
+                                                        btn_ok = information_operacao_concluida.child_window(class_name="TButton")
+                                                        btn_ok.click()
+                                                        await worker_sleep(4)
+                                                    except:
+                                                        pyautogui.press('enter')
+                                                        await worker_sleep(4)
+                                                    finally:
+                                                        pyautogui.press('enter')
+                                                    break
+                                                else:
+                                                    retorno = f"Pop up nao mapeado para seguimento do robo {msg_pop_up} \nEtapas Executadas:\n{steps}"
+                                                    return RpaRetornoProcessoDTO(
+                                                        sucesso=False,
+                                                        retorno=retorno,
+                                                        status=RpaHistoricoStatusEnum.Falha,
+                                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                                    )
+                                            else:
+                                                retorno = f"Não foi possivel realizar a confirmação do msg do OCR \nEtapas Executadas:\n{steps}"
+                                                return RpaRetornoProcessoDTO(
+                                                    sucesso=False,
+                                                    retorno=retorno,
+                                                    status=RpaHistoricoStatusEnum.Falha,
+                                                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                                )
+                                    except Exception as e:
+                                        pass
+
+
+                                    i += 1
+                                    await worker_sleep(10)
+                                
+
+                                if i == max_attempts:
+                                    console.print("Número máximo de tentativas atingido. Encerrando...")
+                                    retorno = f"Tempo esgotado e numero de tentativas atingido, não foi possivel obter o retorno de conclusão para transmissão na tela de Gerenciador NF-e \nEtapas Executadas:\n{steps}"
+                                    return RpaRetornoProcessoDTO(
+                                        sucesso=False,
+                                        retorno=retorno,
+                                        status=RpaHistoricoStatusEnum.Falha,
+                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                    )
+                                
+
+                                pop_up_status = await status_trasmissao()
+                                console.print(f"Status copiado: {pop_up_status}")
+
+                                if "autorizado o uso da nf-e" in pop_up_status.lower():
+                                    console.print("Sucesso ao transmitir...\n")
+                                    app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=15)
+                                    main_window = app["TFrmProcessamentoNFe2"]
+                                    main_window.set_focus()
+                                    await worker_sleep(3)
+                                    console.print(f"Fechando tela de processamento...\n")
+                                    fechar_tela_processamento = "assets\\emsys\\button_fechar.PNG"
+                                    button_location = pyautogui.locateCenterOnScreen(
+                                        fechar_tela_processamento, confidence=0.6
+                                    )
+                                    if button_location:
+                                        pyautogui.click(button_location)
+                                        console.print("Botão 'Fechar' clicado com sucesso!")
+                                    
+                                    break
+                                elif 'duplicidade' in pop_up_status.lower():
+                                    console.print("Duplicidade de NF...\n")
+                                    app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=15)
+                                    main_window = app["TFrmProcessamentoNFe2"]
+                                    main_window.set_focus()
+                                    await worker_sleep(3)
+                                    console.print(f"Fechando tela de processamento...\n")
+                                    fechar_tela_processamento = "assets\\emsys\\button_fechar.PNG"
+                                    button_location = pyautogui.locateCenterOnScreen(
+                                        fechar_tela_processamento, confidence=0.6
+                                    )
+                                    if button_location:
+                                        pyautogui.click(button_location)
+                                        console.print("Botão 'Fechar' clicado com sucesso!")
+                                        
+                                    await worker_sleep(20)
+
+                                    try:
+                                        app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)
+                                        main_window = app["TFrmGerenciadorNFe2"]
+                                        main_window.set_focus()
+
+
+                                        console.print("Obtendo informacao da tela para o botao Transfimitir\n")
+                                        tpanel_footer = main_window.child_window(class_name="TPanel", found_index=1)
+                                        btn_consultar_sefaz = tpanel_footer.child_window(class_name="TBitBtn", found_index=4)
+                                        btn_consultar_sefaz.click()
+
+                                        await worker_sleep(3)
+
+                                        max_attempts = 15
+                                        i = 0
+                                        console.print("Aguardando pop de operacação concluida \n")
+                                        while i < max_attempts:
+                                            try:
+                                                app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=10)
+                                                main_window = app["TFrmProcessamentoNFe2"]
+
+                                                await worker_sleep(5)
+                                                information_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
+                                                if information_pop_up["IsOpened"] == True:
+                                                    msg_pop_up = await ocr_by_class(numero_nota_fiscal, "TMessageForm", "TMessageForm")
+                                                    if msg_pop_up.sucesso:
+                                                        if 'concl' in msg_pop_up.retorno.lower():
+                                                            try:
+                                                                information_operacao_concluida = main_window.child_window(class_name="TMessageForm")
+                                                                btn_ok = information_operacao_concluida.child_window(class_name="TButton")
+                                                                btn_ok.click()
+                                                                await worker_sleep(4)
+                                                            except:
+                                                                pyautogui.press('enter')
+                                                                await worker_sleep(4)
+                                                            finally:
+                                                                pyautogui.press('enter')
+                                                            break
+                                                        else:
+                                                            retorno = f"Pop up nao mapeado para seguimento do robo {msg_pop_up} \nEtapas Executadas:\n{steps}"
+                                                            return RpaRetornoProcessoDTO(
+                                                                sucesso=False,
+                                                                retorno=retorno,
+                                                                status=RpaHistoricoStatusEnum.Falha,
+                                                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                                            )
+                                                    else:
+                                                        retorno = f"Não foi possivel realizar a confirmação do msg do OCR \nEtapas Executadas:\n{steps}"
+                                                        return RpaRetornoProcessoDTO(
+                                                            sucesso=False,
+                                                            retorno=retorno,
+                                                            status=RpaHistoricoStatusEnum.Falha,
+                                                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                                        )
+                                            except Exception as e:
+                                                pass
+
+
+                                            i += 1
+                                            await worker_sleep(10)
+                                        
+
+                                        if i == max_attempts:
+                                            console.print("Número máximo de tentativas atingido. Encerrando...")
+                                            retorno = f"Tempo esgotado e numero de tentativas atingido, não foi possivel obter o retorno de conclusão para transmissão na tela de Gerenciador NF-e \nEtapas Executadas:\n{steps}"
+                                            return RpaRetornoProcessoDTO(
+                                                sucesso=False,
+                                                retorno=retorno,
+                                                status=RpaHistoricoStatusEnum.Falha,
+                                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                            )
+                                        
+
+                                        pop_up_status = await status_trasmissao()
+                                        console.print(f"Status copiado: {pop_up_status}")
+
+                                        if "autorizado o uso da nf-e" in pop_up_status.lower():
+                                            console.print("Sucesso ao transmitir...\n")
+                                            app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=15)
+                                            main_window = app["TFrmProcessamentoNFe2"]
+                                            main_window.set_focus()
+                                            await worker_sleep(3)
+                                            console.print(f"Fechando tela de processamento...\n")
+                                            fechar_tela_processamento = "assets\\emsys\\button_fechar.PNG"
+                                            button_location = pyautogui.locateCenterOnScreen(
+                                                fechar_tela_processamento, confidence=0.6
+                                            )
+                                            if button_location:
+                                                pyautogui.click(button_location)
+                                                console.print("Botão 'Fechar' clicado com sucesso!")
+                                        
+                                        else:
+                                            get_error_msg = await get_text_display_window(pop_up_status)
+                                            console.print(f"Mensagem Rejeição: {get_error_msg}")
+                                            retorno = f"Erro ao transmitir, mensagem de rejeição {get_error_msg} \nEtapas Executadas:\n{steps}"
+                                            return RpaRetornoProcessoDTO(
+                                                sucesso=False,
+                                                retorno=retorno,
+                                                status=RpaHistoricoStatusEnum.Falha,
+                                                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                                            )
+                                    except Exception as e:
+                                        retorno = f"Erro ao retransmitir, erro {e}, \nEtapas Executadas:\n{steps}"
+                                        return RpaRetornoProcessoDTO(
+                                            sucesso=False,
+                                            retorno=retorno,
+                                            status=RpaHistoricoStatusEnum.Falha,
+                                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                                        )
+                                else:
+                                    console.print(f"Mensagem de Rejeição: {pop_up_status.lower()}")
+
+                        x = x + 1
+                    if x == 2:
+                        retorno = f"Erro ao transmitir, \nEtapas Executadas:\n{steps}"
+                        return RpaRetornoProcessoDTO(
+                            sucesso=False,
+                            retorno=retorno,
+                            status=RpaHistoricoStatusEnum.Falha,
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        )
+                
 
 
                 #PROCESSO DE IMPRESSÃO 
@@ -1312,37 +1567,38 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                             if 'arla' in descricao.lower():
                                 item_arla = True
 
-                            app = Application().connect(class_name="TFrmPreVenda", timeout=60)
-                            main_window = app["TFrmPreVenda"]
-                            main_window.set_focus()
-                            
-                            console.print("Itens acessado com sucesso, clicando em Incluir...\n")
-                            panel_TGroup_Box= panel_TPage.child_window(class_name="TGroupBox", found_index=0)
-                            btn_incluir = panel_TGroup_Box.child_window(class_name="TDBIBitBtn", found_index=4)
-                            btn_incluir.click()
-                            await worker_sleep(2)
-                            console.print("Incluir clicado com sucesso...\n")
+                            if 'gasolina' in descricao.lower() or 'diesel' in descricao.lower() or 'gnv' in descricao.lower() or 'etanol' in descricao.lower() or 'arla' in descricao.lower():
+                                app = Application().connect(class_name="TFrmPreVenda", timeout=60)
+                                main_window = app["TFrmPreVenda"]
+                                main_window.set_focus()
 
-                            #VERIFICANDO A EXISTENCIA DE WARNINGS 
-                            console.print("Verificando a existência de Warning... \n")
-                            warning_pop_up = await is_window_open("Warning")
-                            if warning_pop_up["IsOpened"] == True:
-                                console.print("possui Pop-up de Warning, analisando... \n")
-                                ocr_pop_warning = await ocr_warnings(numero_cupom_fiscal)
-                                if ocr_pop_warning.sucesso == True:
-                                    return RpaRetornoProcessoDTO(
-                                        sucesso=False,
-                                        retorno=f"POP UP Warning não mapeado para seguimento do processo, mensagem: {ocr_pop_warning.retorno}",
-                                        status=RpaHistoricoStatusEnum.Falha,
-                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                                    )
-                                else:
-                                    return RpaRetornoProcessoDTO(
-                                        sucesso=False,
-                                        retorno=f"POP UP Warning não mapeado para seguimento do processo",
-                                        status=RpaHistoricoStatusEnum.Falha,
-                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                                    )
+                                console.print("Itens acessado com sucesso, clicando em Incluir...\n")
+                                panel_TGroup_Box= panel_TPage.child_window(class_name="TGroupBox", found_index=0)
+                                btn_incluir = panel_TGroup_Box.child_window(class_name="TDBIBitBtn", found_index=4)
+                                btn_incluir.click()
+                                await worker_sleep(2)
+                                console.print("Incluir clicado com sucesso...\n")
+
+                                #VERIFICANDO A EXISTENCIA DE WARNINGS 
+                                console.print("Verificando a existência de Warning... \n")
+                                warning_pop_up = await is_window_open("Warning")
+                                if warning_pop_up["IsOpened"] == True:
+                                    console.print("possui Pop-up de Warning, analisando... \n")
+                                    ocr_pop_warning = await ocr_warnings(numero_cupom_fiscal)
+                                    if ocr_pop_warning.sucesso == True:
+                                        return RpaRetornoProcessoDTO(
+                                            sucesso=False,
+                                            retorno=f"POP UP Warning não mapeado para seguimento do processo, mensagem: {ocr_pop_warning.retorno}",
+                                            status=RpaHistoricoStatusEnum.Falha,
+                                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                                        )
+                                    else:
+                                        return RpaRetornoProcessoDTO(
+                                            sucesso=False,
+                                            retorno=f"POP UP Warning não mapeado para seguimento do processo",
+                                            status=RpaHistoricoStatusEnum.Falha,
+                                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                                        )
 
 
                             i = 0
@@ -2861,162 +3117,162 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                             await worker_sleep(5) #FIM DO LOOP ITENS NOTA CONJUNTA
 
                         #FOR OUTROS ITENS NOTA
-                        for item in itens_nota:
-                            quantidade = item['quantidade']
-                            preco = item['valor_unitario']
-                            descricao = item['descricao']
-                            descricao = 'Diesel Comum' if descricao == 'Diesel S500' else descricao
-                            item_cod = item['codigo']
-                            #descricao = descricao.replace(".",",")
+                        # for item in itens_nota:
+                        #     quantidade = item['quantidade']
+                        #     preco = item['valor_unitario']
+                        #     descricao = item['descricao']
+                        #     descricao = 'Diesel Comum' if descricao == 'Diesel S500' else descricao
+                        #     item_cod = item['codigo']
+                        #     #descricao = descricao.replace(".",",")
 
-                            if 'arla' in descricao.lower():
-                                item_arla = True
-                                continue #continue para pular o item arla
+                        #     if 'arla' in descricao.lower():
+                        #         item_arla = True
+                        #         continue #continue para pular o item arla
 
-                            console.print(quantidade, preco, descricao)
+                        #     console.print(quantidade, preco, descricao)
 
-                            app = Application().connect(class_name="TFrmPreVenda", timeout=60)
-                            main_window = app["TFrmPreVenda"]
-                            main_window.set_focus()
+                        #     app = Application().connect(class_name="TFrmPreVenda", timeout=60)
+                        #     main_window = app["TFrmPreVenda"]
+                        #     main_window.set_focus()
                             
-                            console.print("Itens acessado com sucesso, clicando em Incluir...\n")
-                            panel_TGroup_Box= panel_TPage.child_window(class_name="TGroupBox", found_index=0)
-                            btn_incluir = panel_TGroup_Box.child_window(class_name="TDBIBitBtn", found_index=4)
-                            btn_incluir.click()
-                            await worker_sleep(5)
-                            console.print("Incluir clicado com sucesso...\n")
+                        #     console.print("Itens acessado com sucesso, clicando em Incluir...\n")
+                        #     panel_TGroup_Box= panel_TPage.child_window(class_name="TGroupBox", found_index=0)
+                        #     btn_incluir = panel_TGroup_Box.child_window(class_name="TDBIBitBtn", found_index=4)
+                        #     btn_incluir.click()
+                        #     await worker_sleep(5)
+                        #     console.print("Incluir clicado com sucesso...\n")
 
-                            #VERIFICANDO A EXISTENCIA DE WARNINGS 
-                            console.print("Verificando a existência de Warning... \n")
-                            warning_pop_up = await is_window_open("Warning")
-                            if warning_pop_up["IsOpened"] == True:
-                                console.print("possui Pop-up de Warning, analisando... \n")
-                                ocr_pop_warning = await ocr_warnings(numero_cupom_fiscal)
-                                if ocr_pop_warning.sucesso == True:
-                                    return RpaRetornoProcessoDTO(
-                                        sucesso=False,
-                                        retorno=f"POP UP Warning não mapeado para seguimento do processo, mensagem: {ocr_pop_warning.retorno}",
-                                        status=RpaHistoricoStatusEnum.Falha,
-                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                                    )
-                                else:
-                                    return RpaRetornoProcessoDTO(
-                                        sucesso=False,
-                                        retorno=f"POP UP Warning não mapeado para seguimento do processo",
-                                        status=RpaHistoricoStatusEnum.Falha,
-                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                                    )
+                        #     #VERIFICANDO A EXISTENCIA DE WARNINGS 
+                        #     console.print("Verificando a existência de Warning... \n")
+                        #     warning_pop_up = await is_window_open("Warning")
+                        #     if warning_pop_up["IsOpened"] == True:
+                        #         console.print("possui Pop-up de Warning, analisando... \n")
+                        #         ocr_pop_warning = await ocr_warnings(numero_cupom_fiscal)
+                        #         if ocr_pop_warning.sucesso == True:
+                        #             return RpaRetornoProcessoDTO(
+                        #                 sucesso=False,
+                        #                 retorno=f"POP UP Warning não mapeado para seguimento do processo, mensagem: {ocr_pop_warning.retorno}",
+                        #                 status=RpaHistoricoStatusEnum.Falha,
+                        #                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        #             )
+                        #         else:
+                        #             return RpaRetornoProcessoDTO(
+                        #                 sucesso=False,
+                        #                 retorno=f"POP UP Warning não mapeado para seguimento do processo",
+                        #                 status=RpaHistoricoStatusEnum.Falha,
+                        #                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        #             )
 
-                            app = Application().connect(class_name="TFrmIncluiItemPreVenda", timeout=60)
-                            main_window = app["TFrmIncluiItemPreVenda"]
-                            main_window.set_focus()
-                            panel_TGroup_Box= main_window.child_window(class_name="TPanel", found_index=2)
-                            almoxarificado_index = panel_TGroup_Box.child_window(class_name="TDBIEditNumber", found_index=1)
-                            cod_almoxarificado = str(cod_empresa)+"50"
-                            almoxarificado_index.click()
-                            await worker_sleep(1)
-                            for _ in range(5):
-                                pyautogui.press("del")
-                                pyautogui.press("backspace")
-                            await worker_sleep(1)
-                            pyautogui.write(cod_almoxarificado)
-                            pyautogui.press('tab')
-                            await worker_sleep(3)
+                        #     app = Application().connect(class_name="TFrmIncluiItemPreVenda", timeout=60)
+                        #     main_window = app["TFrmIncluiItemPreVenda"]
+                        #     main_window.set_focus()
+                        #     panel_TGroup_Box= main_window.child_window(class_name="TPanel", found_index=2)
+                        #     almoxarificado_index = panel_TGroup_Box.child_window(class_name="TDBIEditNumber", found_index=1)
+                        #     cod_almoxarificado = str(cod_empresa)+"50"
+                        #     almoxarificado_index.click()
+                        #     await worker_sleep(1)
+                        #     for _ in range(5):
+                        #         pyautogui.press("del")
+                        #         pyautogui.press("backspace")
+                        #     await worker_sleep(1)
+                        #     pyautogui.write(cod_almoxarificado)
+                        #     pyautogui.press('tab')
+                        #     await worker_sleep(3)
 
-                            cod_item_index = panel_TGroup_Box.child_window(class_name="TDBIEditNumber", found_index=0)
-                            cod_item_index.click()
-                            await worker_sleep(1)
+                        #     cod_item_index = panel_TGroup_Box.child_window(class_name="TDBIEditNumber", found_index=0)
+                        #     cod_item_index.click()
+                        #     await worker_sleep(1)
 
-                            for _ in range(5):
-                                pyautogui.press("del")
-                                pyautogui.press("backspace")
+                        #     for _ in range(5):
+                        #         pyautogui.press("del")
+                        #         pyautogui.press("backspace")
 
-                            await worker_sleep(1)
-                            pyautogui.write(str(item_cod))
-                            pyautogui.press('tab')
-                            await worker_sleep(3)
+                        #     await worker_sleep(1)
+                        #     pyautogui.write(str(item_cod))
+                        #     pyautogui.press('tab')
+                        #     await worker_sleep(3)
 
 
-                            natureza_oper_select = panel_TGroup_Box.child_window(class_name="TDBIComboBox", found_index=0)
-                            nop_selected = natureza_oper_select.window_text()
-                            nop_selected_value = nop_selected[:4]
+                        #     natureza_oper_select = panel_TGroup_Box.child_window(class_name="TDBIComboBox", found_index=0)
+                        #     nop_selected = natureza_oper_select.window_text()
+                        #     nop_selected_value = nop_selected[:4]
 
-                            itens_to_select = natureza_oper_select.texts()
-                            nop_to_be_select = ''
+                        #     itens_to_select = natureza_oper_select.texts()
+                        #     nop_to_be_select = ''
 
-                            for item in itens_to_select:
-                                if nop_selected_value in item and (('c/' in item.lower() or 'c /' in item.lower()) and ('s/' in item.lower() or 's /' in item.lower())):
-                                    nop_to_be_select = item
-                                    break
+                        #     for item in itens_to_select:
+                        #         if nop_selected_value in item and (('c/' in item.lower() or 'c /' in item.lower()) and ('s/' in item.lower() or 's /' in item.lower())):
+                        #             nop_to_be_select = item
+                        #             break
 
-                            natureza_oper_select.click()
-                            await worker_sleep(1)
-                            console.print(f"Descrição: {descricao}")
-                            if 'gasolina' in descricao.lower() or 'diesel' in descricao.lower() or 'gnv' in descricao.lower() or 'etanol' in descricao.lower():
-                                try:
-                                    console.print("Selecionando NOP do item: '5667 - VENDA DE COMB OU LUBRI - SEM ESTOQ E COM FINANC'")
-                                    natureza_oper_select.select("5667 - VENDA DE COMB OU LUBRI - SEM ESTOQ E COM FINANC")
+                        #     natureza_oper_select.click()
+                        #     await worker_sleep(1)
+                        #     console.print(f"Descrição: {descricao}")
+                        #     if 'gasolina' in descricao.lower() or 'diesel' in descricao.lower() or 'gnv' in descricao.lower() or 'etanol' in descricao.lower():
+                        #         try:
+                        #             console.print("Selecionando NOP do item: '5667 - VENDA DE COMB OU LUBRI - SEM ESTOQ E COM FINANC'")
+                        #             natureza_oper_select.select("5667 - VENDA DE COMB OU LUBRI - SEM ESTOQ E COM FINANC")
                                     
-                                except:
-                                    console.print("Selecionando NOP: 5656 - VENDA DE COMB OU LUB ADQ DE TERCEIRO C/ FIN S/ ESTOQUE")
-                                    natureza_oper_select.select("5656 - VENDA DE COMB OU LUB ADQ DE TERCEIRO C/ FIN S/ ESTOQUE")
+                        #         except:
+                        #             console.print("Selecionando NOP: 5656 - VENDA DE COMB OU LUB ADQ DE TERCEIRO C/ FIN S/ ESTOQUE")
+                        #             natureza_oper_select.select("5656 - VENDA DE COMB OU LUB ADQ DE TERCEIRO C/ FIN S/ ESTOQUE")
                                     
-                            elif 'arla' in descricao.lower():
-                                try:
-                                    #PRECISA DO ESPAÇO NO FINAL!!!
-                                    console.print("Selecionando NOP do item: '5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ ESTOQ C/ FINAN '")
-                                    natureza_oper_select.select("5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ ESTOQ C/ FINAN ")
+                        #     elif 'arla' in descricao.lower():
+                        #         try:
+                        #             #PRECISA DO ESPAÇO NO FINAL!!!
+                        #             console.print("Selecionando NOP do item: '5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ ESTOQ C/ FINAN '")
+                        #             natureza_oper_select.select("5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ ESTOQ C/ FINAN ")
                                     
-                                except:
-                                    console.print("Selecionando NOP do item: '5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ESTOQ C/ FINAN FE'")
-                                    natureza_oper_select.select("5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ESTOQ C/ FINAN FE")
+                        #         except:
+                        #             console.print("Selecionando NOP do item: '5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ESTOQ C/ FINAN FE'")
+                        #             natureza_oper_select.select("5102 - VENDA MERCAD. ADQ. DE TERCEIRO- 5.102 S/ESTOQ C/ FINAN FE")
                                     
-                            else:
-                                if nop_to_be_select != '':
-                                    console.print(f"Selecionando NOP do item: '{nop_to_be_select}'")
-                                    natureza_oper_select.select(nop_to_be_select)
-                                    # set_combobox("||List", nop_to_be_select)
-                                else:
-                                    retorno = f"Não foi possivel encontrar a nop para o item, nop original {nop_selected} \nEtapas Executadas:\n{steps}"
-                                    return RpaRetornoProcessoDTO(
-                                        sucesso=False,
-                                        retorno=retorno,
-                                        status=RpaHistoricoStatusEnum.Falha,
-                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                                    )
+                        #     else:
+                        #         if nop_to_be_select != '':
+                        #             console.print(f"Selecionando NOP do item: '{nop_to_be_select}'")
+                        #             natureza_oper_select.select(nop_to_be_select)
+                        #             # set_combobox("||List", nop_to_be_select)
+                        #         else:
+                        #             retorno = f"Não foi possivel encontrar a nop para o item, nop original {nop_selected} \nEtapas Executadas:\n{steps}"
+                        #             return RpaRetornoProcessoDTO(
+                        #                 sucesso=False,
+                        #                 retorno=retorno,
+                        #                 status=RpaHistoricoStatusEnum.Falha,
+                        #                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        #             )
                                 
-                            await worker_sleep(1)
-                            console.print("Natureza da operação selecionado com sucesso, preenchendo os itens...\n")
+                        #     await worker_sleep(1)
+                        #     console.print("Natureza da operação selecionado com sucesso, preenchendo os itens...\n")
 
-                            #INSERINDO A QUANTIDADE
-                            main_window.set_focus()
-                            panel_TPage_Control= main_window.child_window(class_name="TcxPageControl", found_index=0)
-                            panel_tabSheet = panel_TPage_Control.child_window(class_name="TcxTabSheet", found_index=0)
+                        #     #INSERINDO A QUANTIDADE
+                        #     main_window.set_focus()
+                        #     panel_TPage_Control= main_window.child_window(class_name="TcxPageControl", found_index=0)
+                        #     panel_tabSheet = panel_TPage_Control.child_window(class_name="TcxTabSheet", found_index=0)
 
-                            field_quantidade = panel_tabSheet.child_window(class_name="TDBIEditNumber", found_index=8)
-                            console.print("Inserindo a quantidade de Itens...\n")
-                            field_quantidade.click()
-                            await worker_sleep(1)
-                            pyautogui.press('del')
-                            await worker_sleep(1)
-                            pyautogui.press('backspace')
-                            await worker_sleep(1)
-                            pyautogui.write(quantidade)
-                            #field_quantidade.set_edit_text(quantidade)
-                            await worker_sleep(1)
-                            pyautogui.press('tab')
-                            await worker_sleep(2)
+                        #     field_quantidade = panel_tabSheet.child_window(class_name="TDBIEditNumber", found_index=8)
+                        #     console.print("Inserindo a quantidade de Itens...\n")
+                        #     field_quantidade.click()
+                        #     await worker_sleep(1)
+                        #     pyautogui.press('del')
+                        #     await worker_sleep(1)
+                        #     pyautogui.press('backspace')
+                        #     await worker_sleep(1)
+                        #     pyautogui.write(quantidade)
+                        #     #field_quantidade.set_edit_text(quantidade)
+                        #     await worker_sleep(1)
+                        #     pyautogui.press('tab')
+                        #     await worker_sleep(2)
 
-                            console.print("Verificando inclui itiem Pre Venda")
-                            app = Application().connect(class_name="TFrmIncluiItemPreVenda", timeout=60)
-                            main_window = app["TFrmIncluiItemPreVenda"]
-                            main_window.set_focus()
-                            send_keys("%i")
-                            await worker_sleep(2)
-                            #Divergencia de nop na capa e no item
-                            await find_nop_divergence()
-                            await worker_sleep(5)
-                            main_window.close()
+                        #     console.print("Verificando inclui itiem Pre Venda")
+                        #     app = Application().connect(class_name="TFrmIncluiItemPreVenda", timeout=60)
+                        #     main_window = app["TFrmIncluiItemPreVenda"]
+                        #     main_window.set_focus()
+                        #     send_keys("%i")
+                        #     await worker_sleep(2)
+                        #     #Divergencia de nop na capa e no item
+                        #     await find_nop_divergence()
+                        #     await worker_sleep(5)
+                        #     main_window.close()
                         
                         # Inclui registro
                         console.print(f"Incluindo registro...\n")
@@ -4182,61 +4438,45 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                 )
             
-            txt = ""
-            with open(f"{path_to_txt}.pdf", "rb") as f:
-                reader = PdfReader(f)
-                for p in reader.pages:
-                    txt += p.extract_text()
+            with open(f"{path_to_txt}.pdf", 'rb') as file:
+                file_bytes = io.BytesIO(file.read())
             
-            console.print(f"Texto extraido {txt}...\n")
-            v = re.findall(r'\b\d{1,3},\d{2}\b(?!\s*\d+\.\d+\.\d+)',txt)
+            # console.print(f"Texto extraido {txt}...\n")
+            # v = re.findall(r'\b\d{1,3},\d{2}\b(?!\s*\d+\.\d+\.\d+)',txt)
 
-            ultimo_valor = v[-1]
-            penultimo_valor = v[-2]
+            # ultimo_valor = v[-1]
+            # penultimo_valor = v[-2]
 
-            if ultimo_valor == penultimo_valor:
-                console.print("Valores no relatorio corretamente gerados...\n")
-                with open(f"{path_to_txt}.pdf", 'rb') as file:
-                    file_bytes = io.BytesIO(file.read())
 
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                desArquivo = f"CAIXA 13 DEVOLUCAO {numero_cupom_fiscal}.pdf"
-                try:
-                    await send_file(historico_id, desArquivo, "pdf", file_bytes, file_extension="pdf")
-                    os.remove(f"{path_to_txt}.pdf")
-                    retorno = f"Processo de devolução executado com sucesso \nEtapas Executadas:\n{steps}"
-
-                    try:
-                        url_retorno = nota.get("urlRetorno")
-                        identificador = nota.get("identificador")
-
-                        if url_retorno and identificador:
-                            await post_partner(url_retorno, identificador, numero_nota_fiscal, valor_nota_fiscal)
-                        else:
-                            console.print("Não foi possivel obter o valor de urlRetorno/identificador")
-                    except:
-                        console.print(f"Erro ao obter os dados ou enviar a requisição: {e}")
-                    
-                    return RpaRetornoProcessoDTO(
-                        sucesso=True,
-                        retorno=retorno,
-                        status=RpaHistoricoStatusEnum.Sucesso)
-                except Exception as e:
-                    result = f"Arquivo CAIXA 13 DEVOLUÇÃO gerado com sucesso, porém gerou erro ao realizar o envio para o backoffice {e} - Arquivo ainda salvo na dispositivo utilizado no diretório {path_to_txt} !"
-                    console.print(result, style="bold red")
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno=result,
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-                    )
-            else:
+            desArquivo = f"CAIXA 13 DEVOLUCAO {numero_cupom_fiscal}.pdf"
+            try:
+                await send_file(historico_id, desArquivo, "pdf", file_bytes, file_extension="pdf")
                 os.remove(f"{path_to_txt}.pdf")
+                retorno = f"Processo de devolução executado com sucesso \nEtapas Executadas:\n{steps}"
+
+                try:
+                    url_retorno = nota.get("urlRetorno")
+                    identificador = nota.get("identificador")
+
+                    if url_retorno and identificador:
+                        await post_partner(url_retorno, identificador, numero_nota_fiscal, valor_nota_fiscal)
+                    else:
+                        console.print("Não foi possivel obter o valor de urlRetorno/identificador")
+                except:
+                    console.print(f"Erro ao obter os dados ou enviar a requisição: {e}")
+                
+                return RpaRetornoProcessoDTO(
+                    sucesso=True,
+                    retorno=retorno,
+                    status=RpaHistoricoStatusEnum.Sucesso)
+            except Exception as e:
+                result = f"Arquivo CAIXA 13 DEVOLUÇÃO gerado com sucesso, porém gerou erro ao realizar o envio para o backoffice {e} - Arquivo ainda salvo na dispositivo utilizado no diretório {path_to_txt} !"
+                console.print(result, style="bold red")
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
-                    retorno=f"O valor de entrada {penultimo_valor} não esta batendo com o valor de saída {ultimo_valor}, por favor verificar. \nEtapas Executadas:\n{steps}",
+                    retorno=result,
                     status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                 )
         else:
             console.print("Cliente FIDC não é necessario gerar relatorio final, enviando as informações para o parceiro.")

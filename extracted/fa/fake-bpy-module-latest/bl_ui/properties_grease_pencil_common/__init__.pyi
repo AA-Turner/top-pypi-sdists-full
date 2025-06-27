@@ -88,7 +88,7 @@ class GPENCIL_UL_annotation_layer(bpy.types.UIList):
         layout,
         _data,
         item,
-        icon,
+        _icon,
         _active_data,
         _active_propname,
         _index,
@@ -99,7 +99,7 @@ class GPENCIL_UL_annotation_layer(bpy.types.UIList):
         :param layout:
         :param _data:
         :param item:
-        :param icon:
+        :param _icon:
         :param _active_data:
         :param _active_propname:
         :param _index:
@@ -129,7 +129,7 @@ class GPENCIL_UL_layer(bpy.types.UIList):
         layout,
         _data,
         item,
-        icon,
+        _icon,
         _active_data,
         _active_propname,
         _index,
@@ -140,7 +140,7 @@ class GPENCIL_UL_layer(bpy.types.UIList):
         :param layout:
         :param _data:
         :param item:
-        :param icon:
+        :param _icon:
         :param _active_data:
         :param _active_propname:
         :param _index:

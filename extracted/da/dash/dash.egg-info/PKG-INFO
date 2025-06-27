@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dash
-Version: 3.0.4
+Version: 3.1.0
 Summary: A Python framework for building reactive web-apps. Developed by Plotly.
 Home-page: https://plotly.com/dash
 Author: Chris Parmer
@@ -35,6 +35,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+Provides-Extra: async
 Provides-Extra: ci
 Provides-Extra: dev
 Provides-Extra: testing

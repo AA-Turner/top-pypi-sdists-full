@@ -4590,6 +4590,15 @@ class FabricTypeClass(object):
     RVW = "RVW"
     """Designates review fabrics"""
     
+    PRD = "PRD"
+    """Alternative Prod spelling"""
+    
+    TST = "TST"
+    """Alternative Test spelling"""
+    
+    SIT = "SIT"
+    """System Integration Testing"""
+    
     SANDBOX = "SANDBOX"
     """Designates sandbox fabrics"""
     
@@ -21504,6 +21513,7 @@ class DataHubResourceFilterClass(DictWrapper):
         resources: Union[None, List[str]]=None,
         allResources: Optional[bool]=None,
         filter: Union[None, "PolicyMatchFilterClass"]=None,
+        privilegeConstraints: Union[None, "PolicyMatchFilterClass"]=None,
     ):
         super().__init__()
         
@@ -21515,12 +21525,14 @@ class DataHubResourceFilterClass(DictWrapper):
         else:
             self.allResources = allResources
         self.filter = filter
+        self.privilegeConstraints = privilegeConstraints
     
     def _restore_defaults(self) -> None:
         self.type = self.RECORD_SCHEMA.fields_dict["type"].default
         self.resources = self.RECORD_SCHEMA.fields_dict["resources"].default
         self.allResources = self.RECORD_SCHEMA.fields_dict["allResources"].default
         self.filter = self.RECORD_SCHEMA.fields_dict["filter"].default
+        self.privilegeConstraints = self.RECORD_SCHEMA.fields_dict["privilegeConstraints"].default
     
     
     @property
@@ -21563,6 +21575,16 @@ class DataHubResourceFilterClass(DictWrapper):
     @filter.setter
     def filter(self, value: Union[None, "PolicyMatchFilterClass"]) -> None:
         self._inner_dict['filter'] = value
+    
+    
+    @property
+    def privilegeConstraints(self) -> Union[None, "PolicyMatchFilterClass"]:
+        """Constraints around what sub-resources operations are allowed to modify, i.e. NOT_EQUALS - cannot modify a particular defined tag, EQUALS - can only modify a particular defined tag, STARTS_WITH - can only modify a tag starting with xyz"""
+        return self._inner_dict.get('privilegeConstraints')  # type: ignore
+    
+    @privilegeConstraints.setter
+    def privilegeConstraints(self, value: Union[None, "PolicyMatchFilterClass"]) -> None:
+        self._inner_dict['privilegeConstraints'] = value
     
     
 class DataHubRoleInfoClass(_Aspect):
@@ -21632,6 +21654,9 @@ class PolicyMatchConditionClass(object):
     
     STARTS_WITH = "STARTS_WITH"
     """Whether the field value starts with the value"""
+    
+    NOT_EQUALS = "NOT_EQUALS"
+    """Whether the field does not match the value"""
     
     
     

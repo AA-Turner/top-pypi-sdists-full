@@ -25,19 +25,31 @@ else:
 __all__ = (
     "AbortCriteriaActionType",
     "AbortCriteriaFailureTypeType",
+    "AssociationStateType",
     "AuthMaterialTypeType",
+    "AuthTypeType",
+    "CloudConnectorTypeType",
     "ConfigurationStateType",
+    "ConnectorEventOperationType",
     "DeliveryDestinationTypeType",
     "DeviceDiscoveryStatusType",
     "DisconnectReasonValueType",
     "DiscoveryAuthMaterialTypeType",
+    "DiscoveryModificationType",
     "DiscoveryTypeType",
     "EncryptionTypeType",
+    "EndpointTypeType",
     "EventTypeType",
     "HubNetworkModeType",
+    "ListAccountAssociationsPaginatorName",
+    "ListCloudConnectorsPaginatorName",
+    "ListConnectorDestinationsPaginatorName",
     "ListCredentialLockersPaginatorName",
     "ListDestinationsPaginatorName",
+    "ListDeviceDiscoveriesPaginatorName",
+    "ListDiscoveredDevicesPaginatorName",
     "ListEventLogConfigurationsPaginatorName",
+    "ListManagedThingAccountAssociationsPaginatorName",
     "ListManagedThingSchemasPaginatorName",
     "ListManagedThingsPaginatorName",
     "ListNotificationConfigurationsPaginatorName",
@@ -64,13 +76,32 @@ __all__ = (
     "SchemaVersionTypeType",
     "SchemaVersionVisibilityType",
     "ServiceName",
+    "TokenEndpointAuthenticationSchemeType",
 )
 
 
 AbortCriteriaActionType = Literal["CANCEL"]
 AbortCriteriaFailureTypeType = Literal["ALL", "FAILED", "REJECTED", "TIMED_OUT"]
-AuthMaterialTypeType = Literal["WIFI_SETUP_QR_BAR_CODE", "ZIGBEE_QR_BAR_CODE", "ZWAVE_QR_BAR_CODE"]
+AssociationStateType = Literal[
+    "ASSOCIATION_DELETING",
+    "ASSOCIATION_FAILED",
+    "ASSOCIATION_IN_PROGRESS",
+    "ASSOCIATION_SUCCEEDED",
+    "REFRESH_TOKEN_EXPIRED",
+]
+AuthMaterialTypeType = Literal[
+    "CUSTOM_PROTOCOL_QR_BAR_CODE",
+    "DISCOVERED_DEVICE",
+    "WIFI_SETUP_QR_BAR_CODE",
+    "ZIGBEE_QR_BAR_CODE",
+    "ZWAVE_QR_BAR_CODE",
+]
+AuthTypeType = Literal["OAUTH"]
+CloudConnectorTypeType = Literal["LISTED", "UNLISTED"]
 ConfigurationStateType = Literal["ENABLED", "UPDATE_FAILED", "UPDATE_IN_PROGRESS"]
+ConnectorEventOperationType = Literal[
+    "DEVICE_COMMAND_REQUEST", "DEVICE_COMMAND_RESPONSE", "DEVICE_DISCOVERY", "DEVICE_EVENT"
+]
 DeliveryDestinationTypeType = Literal["KINESIS"]
 DeviceDiscoveryStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED", "TIMED_OUT"]
 DisconnectReasonValueType = Literal[
@@ -90,22 +121,34 @@ DisconnectReasonValueType = Literal[
     "WEBSOCKET_TTL_EXPIRATION",
 ]
 DiscoveryAuthMaterialTypeType = Literal["ZWAVE_INSTALL_CODE"]
-DiscoveryTypeType = Literal["CLOUD", "ZIGBEE", "ZWAVE"]
+DiscoveryModificationType = Literal["DISCOVERED", "NO_CHANGE", "UPDATED"]
+DiscoveryTypeType = Literal["CLOUD", "CUSTOM", "ZIGBEE", "ZWAVE"]
 EncryptionTypeType = Literal["CUSTOMER_KEY_ENCRYPTION", "MANAGED_INTEGRATIONS_DEFAULT_ENCRYPTION"]
+EndpointTypeType = Literal["LAMBDA"]
 EventTypeType = Literal[
+    "ACCOUNT_ASSOCIATION",
     "CONNECTOR_ASSOCIATION",
     "CONNECTOR_ERROR_REPORT",
     "DEVICE_COMMAND",
     "DEVICE_COMMAND_REQUEST",
+    "DEVICE_DISCOVERY_STATUS",
     "DEVICE_EVENT",
     "DEVICE_LIFE_CYCLE",
     "DEVICE_OTA",
     "DEVICE_STATE",
 ]
 HubNetworkModeType = Literal["NETWORK_WIDE_EXCLUSION", "STANDARD"]
+ListAccountAssociationsPaginatorName = Literal["list_account_associations"]
+ListCloudConnectorsPaginatorName = Literal["list_cloud_connectors"]
+ListConnectorDestinationsPaginatorName = Literal["list_connector_destinations"]
 ListCredentialLockersPaginatorName = Literal["list_credential_lockers"]
 ListDestinationsPaginatorName = Literal["list_destinations"]
+ListDeviceDiscoveriesPaginatorName = Literal["list_device_discoveries"]
+ListDiscoveredDevicesPaginatorName = Literal["list_discovered_devices"]
 ListEventLogConfigurationsPaginatorName = Literal["list_event_log_configurations"]
+ListManagedThingAccountAssociationsPaginatorName = Literal[
+    "list_managed_thing_account_associations"
+]
 ListManagedThingSchemasPaginatorName = Literal["list_managed_thing_schemas"]
 ListManagedThingsPaginatorName = Literal["list_managed_things"]
 ListNotificationConfigurationsPaginatorName = Literal["list_notification_configurations"]
@@ -139,6 +182,7 @@ SchedulingConfigEndBehaviorType = Literal["CANCEL", "FORCE_CANCEL", "STOP_ROLLOU
 SchemaVersionFormatType = Literal["AWS", "CONNECTOR", "ZCL"]
 SchemaVersionTypeType = Literal["capability", "definition"]
 SchemaVersionVisibilityType = Literal["PRIVATE", "PUBLIC"]
+TokenEndpointAuthenticationSchemeType = Literal["HTTP_BASIC", "REQUEST_BODY_CREDENTIALS"]
 ManagedintegrationsforIoTDeviceManagementServiceName = Literal["iot-managed-integrations"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -344,6 +388,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -562,9 +607,15 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_account_associations",
+    "list_cloud_connectors",
+    "list_connector_destinations",
     "list_credential_lockers",
     "list_destinations",
+    "list_device_discoveries",
+    "list_discovered_devices",
     "list_event_log_configurations",
+    "list_managed_thing_account_associations",
     "list_managed_thing_schemas",
     "list_managed_things",
     "list_notification_configurations",

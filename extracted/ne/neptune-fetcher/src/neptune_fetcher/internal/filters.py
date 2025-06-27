@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import abc
 from abc import ABC
 from dataclasses import (
@@ -20,6 +21,7 @@ from dataclasses import (
 )
 from datetime import datetime
 from typing import (
+    Callable,
     Iterable,
     Literal,
     Optional,
@@ -33,6 +35,7 @@ __all__ = ["_Filter", "_AttributeFilter", "_Attribute"]
 from neptune_fetcher.internal.util import (
     _validate_allowed_value,
     _validate_list_of_allowed_values,
+    _validate_string_list,
     _validate_string_or_string_list,
 )
 
@@ -43,11 +46,21 @@ AGGREGATION_LITERAL = Literal["last", "min", "max", "average", "variance"]
 
 
 class _BaseAttributeFilter(ABC):
-    def __or__(self, other: "_BaseAttributeFilter") -> "_BaseAttributeFilter":
-        return _BaseAttributeFilter.any(self, other)
-
-    def any(*filters: "_BaseAttributeFilter") -> "_BaseAttributeFilter":
+    @staticmethod
+    def any(filters: list["_BaseAttributeFilter"]) -> "_BaseAttributeFilter":
         return _AttributeFilterAlternative(filters=filters)
+
+    @abc.abstractmethod
+    def transform(
+        self, map_attribute_filter: Callable[["_AttributeFilter"], "_AttributeFilter"]
+    ) -> "_BaseAttributeFilter":
+        ...
+
+
+@dataclass
+class _AttributeNameFilter:
+    must_match_regexes: Optional[list[str]] = None
+    must_not_match_regexes: Optional[list[str]] = None
 
 
 @dataclass
@@ -68,6 +81,16 @@ class _AttributeFilter(_BaseAttributeFilter):
         name_matches_none (Union[str, list[str], None]): A regular expression or list of expressions that the attribute
             names mustn't match. Attributes matching any of the regexes are excluded.
             If `None`, this filter is not applied.
+        must_match_any (Optional[list[_AttributeNameFilter]]):
+            If `None`, this filter is not applied. Otherwise, it's a list of `_AttributeNameFilter` instances.
+            Each instance specifies a set of regexes that the attribute name must match or not match.
+            Any one of the list items must match for the attribute to be included.
+            Each list item should be an `_AttributeNameFilter` and it can contain:
+                name_matches_all (Union[str, list[str], None]): A list of regular expressions that the attribute
+                    name must match. If `None`, this filter is not applied.
+                name_matches_none (Union[str, list[str], None]): A list of regular expressions that the attribute
+                    names mustn't match. Attributes matching any of the regexes are excluded.
+                    If `None`, this filter is not applied.
         aggregations (list[Literal["last", "min", "max", "average", "variance"]]): List of
             aggregation functions to apply when fetching metrics of type FloatSeries or StringSeries.
             Defaults to ["last"].
@@ -90,17 +113,28 @@ class _AttributeFilter(_BaseAttributeFilter):
 
     name_eq: Union[str, list[str], None] = None
     type_in: list[ATTRIBUTE_LITERAL] = field(default_factory=lambda: list(types.ALL_TYPES))  # type: ignore
-    name_matches_all: Union[str, list[str], None] = None
-    name_matches_none: Union[str, list[str], None] = None
+    must_match_any: Optional[list[_AttributeNameFilter]] = None
     aggregations: list[AGGREGATION_LITERAL] = field(default_factory=lambda: ["last"])
 
     def __post_init__(self) -> None:
         _validate_string_or_string_list(self.name_eq, "name_eq")
-        _validate_string_or_string_list(self.name_matches_all, "name_matches_all")
-        _validate_string_or_string_list(self.name_matches_none, "name_matches_none")
+
+        if self.must_match_any is not None:
+            if not isinstance(self.must_match_any, list):
+                raise ValueError("must_match_any must be a list of _AttributeNameFilter instances")
+            for item in self.must_match_any:
+                if not isinstance(item, _AttributeNameFilter):
+                    raise ValueError("must_match_any must contain only _AttributeNameFilter instances")
+                _validate_string_list(item.must_match_regexes, "must_match_regexes")
+                _validate_string_list(item.must_not_match_regexes, "must_not_match_regexes")
 
         _validate_list_of_allowed_values(self.type_in, types.ALL_TYPES, "type_in")  # type: ignore
         _validate_list_of_allowed_values(self.aggregations, types.ALL_AGGREGATIONS, "aggregations")  # type: ignore
+
+    def transform(
+        self, map_attribute_filter: Callable[["_AttributeFilter"], "_AttributeFilter"]
+    ) -> "_BaseAttributeFilter":
+        return map_attribute_filter(self)
 
 
 @dataclass
@@ -110,6 +144,12 @@ class _AttributeFilterAlternative(_BaseAttributeFilter):
     def __or__(self, other: "_BaseAttributeFilter") -> "_BaseAttributeFilter":
         filters = tuple(self.filters) + (other,)
         return _AttributeFilterAlternative(filters)
+
+    def transform(
+        self, map_attribute_filter: Callable[["_AttributeFilter"], "_AttributeFilter"]
+    ) -> "_BaseAttributeFilter":
+        transformed_filters = [f.transform(map_attribute_filter) for f in self.filters]
+        return _AttributeFilterAlternative(transformed_filters)
 
 
 @dataclass
@@ -258,7 +298,7 @@ class _Filter(ABC):
             return _AttributeValuePredicate(operator="MATCHES", attribute=attribute, value=regex)
         else:
             filters = [_Filter.matches_all(attribute, r) for r in regex]
-            return _Filter.all(*filters)
+            return _Filter.all(filters)
 
     @staticmethod
     def matches_none(attribute: Union[str, _Attribute], regex: Union[str, list[str]]) -> "_Filter":
@@ -268,7 +308,7 @@ class _Filter(ABC):
             return _AttributeValuePredicate(operator="NOT MATCHES", attribute=attribute, value=regex)
         else:
             filters = [_Filter.matches_none(attribute, r) for r in regex]
-            return _Filter.all(*filters)
+            return _Filter.all(filters)
 
     @staticmethod
     def contains_all(attribute: Union[str, _Attribute], value: Union[str, list[str]]) -> "_Filter":
@@ -278,7 +318,7 @@ class _Filter(ABC):
             return _AttributeValuePredicate(operator="CONTAINS", attribute=attribute, value=value)
         else:
             filters = [_Filter.contains_all(attribute, v) for v in value]
-            return _Filter.all(*filters)
+            return _Filter.all(filters)
 
     @staticmethod
     def contains_none(attribute: Union[str, _Attribute], value: Union[str, list[str]]) -> "_Filter":
@@ -288,7 +328,7 @@ class _Filter(ABC):
             return _AttributeValuePredicate(operator="NOT CONTAINS", attribute=attribute, value=value)
         else:
             filters = [_Filter.contains_none(attribute, v) for v in value]
-            return _Filter.all(*filters)
+            return _Filter.all(filters)
 
     @staticmethod
     def exists(attribute: Union[str, _Attribute]) -> "_Filter":
@@ -297,25 +337,22 @@ class _Filter(ABC):
         return _AttributePredicate(postfix_operator="EXISTS", attribute=attribute)
 
     @staticmethod
-    def all(*filters: "_Filter") -> "_Filter":
+    def all(filters: list["_Filter"]) -> "_Filter":
+        """Combine multiple filters with a logical AND operator."""
+        if not filters or not isinstance(filters, list):
+            raise ValueError("At least one filter must be provided to combine with AND.")
         return _AssociativeOperator(operator="AND", filters=filters)
 
     @staticmethod
-    def any(*filters: "_Filter") -> "_Filter":
+    def any(filters: list["_Filter"]) -> "_Filter":
+        """Combine multiple filters with a logical OR operator."""
+        if not filters or not isinstance(filters, list):
+            raise ValueError("At least one filter must be provided to combine with OR.")
         return _AssociativeOperator(operator="OR", filters=filters)
 
     @staticmethod
     def negate(filter_: "_Filter") -> "_Filter":
         return _PrefixOperator(operator="NOT", filter_=filter_)
-
-    def __and__(self, other: "_Filter") -> "_Filter":
-        return self.all(self, other)
-
-    def __or__(self, other: "_Filter") -> "_Filter":
-        return self.any(self, other)
-
-    def __invert__(self) -> "_Filter":
-        return self.negate(self)
 
     @staticmethod
     def name_eq(name: str) -> "_Filter":
@@ -328,7 +365,7 @@ class _Filter(ABC):
             return _Filter.name_eq(names[0])
         else:
             filters = [_Filter.name_eq(name) for name in names]
-            return _Filter.any(*filters)
+            return _Filter.any(filters)
 
     @abc.abstractmethod
     def to_query(self) -> str:
@@ -375,6 +412,12 @@ class _AttributePredicate(_Filter):
 class _AssociativeOperator(_Filter):
     operator: Literal["AND", "OR"]
     filters: Iterable[_Filter]
+
+    def __post_init__(self) -> None:
+        allowed_operators = {"AND", "OR"}
+        _validate_allowed_value(self.operator, allowed_operators, "operator")
+        if not self.filters:
+            raise ValueError(f"At least one filter must be provided to combine with {self.operator}.")
 
     def to_query(self) -> str:
         filter_queries = [f"({child})" for child in self.filters]

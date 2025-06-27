@@ -8,6 +8,7 @@ class UsersApiMock:
         self.mock_create_challenge_method = MagicMock()
         self.mock_create_service_account = MagicMock()
         self.mock_create_support_request = MagicMock()
+        self.mock_create_support_request_acknowledgement = MagicMock()
         self.mock_create_support_request_message = MagicMock()
         self.mock_create_upstream_user_identity = MagicMock()
         self.mock_create_user = MagicMock()
@@ -17,6 +18,7 @@ class UsersApiMock:
         self.mock_delete_challenge_method = MagicMock()
         self.mock_delete_service_account = MagicMock()
         self.mock_delete_support_request = MagicMock()
+        self.mock_delete_support_request_acknowledgement = MagicMock()
         self.mock_delete_upstream_user_identity = MagicMock()
         self.mock_delete_user = MagicMock()
         self.mock_delete_user_metadata = MagicMock()
@@ -24,6 +26,7 @@ class UsersApiMock:
         self.mock_get_challenge_method = MagicMock()
         self.mock_get_service_account = MagicMock()
         self.mock_get_support_request = MagicMock()
+        self.mock_get_support_request_acknowledgement = MagicMock()
         self.mock_get_upstream_user_identity = MagicMock()
         self.mock_get_user = MagicMock()
         self.mock_get_user_metadata = MagicMock()
@@ -38,6 +41,7 @@ class UsersApiMock:
         self.mock_list_org_user_roles = MagicMock()
         self.mock_list_service_accounts = MagicMock()
         self.mock_list_ssh_access_info = MagicMock()
+        self.mock_list_support_request_acknowledgements = MagicMock()
         self.mock_list_support_requests = MagicMock()
         self.mock_list_upstream_user_identities = MagicMock()
         self.mock_list_user_access_info = MagicMock()
@@ -93,6 +97,12 @@ class UsersApiMock:
         """
         return self.mock_create_support_request(self, *args, **kwargs)
 
+    def create_support_request_acknowledgement(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.create_support_request_acknowledgement with MagicMock.
+        """
+        return self.mock_create_support_request_acknowledgement(self, *args, **kwargs)
+
     def create_support_request_message(self, *args, **kwargs):
         """
         This method mocks the original api UsersApi.create_support_request_message with MagicMock.
@@ -147,6 +157,12 @@ class UsersApiMock:
         """
         return self.mock_delete_support_request(self, *args, **kwargs)
 
+    def delete_support_request_acknowledgement(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.delete_support_request_acknowledgement with MagicMock.
+        """
+        return self.mock_delete_support_request_acknowledgement(self, *args, **kwargs)
+
     def delete_upstream_user_identity(self, *args, **kwargs):
         """
         This method mocks the original api UsersApi.delete_upstream_user_identity with MagicMock.
@@ -188,6 +204,12 @@ class UsersApiMock:
         This method mocks the original api UsersApi.get_support_request with MagicMock.
         """
         return self.mock_get_support_request(self, *args, **kwargs)
+
+    def get_support_request_acknowledgement(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.get_support_request_acknowledgement with MagicMock.
+        """
+        return self.mock_get_support_request_acknowledgement(self, *args, **kwargs)
 
     def get_upstream_user_identity(self, *args, **kwargs):
         """
@@ -272,6 +294,12 @@ class UsersApiMock:
         This method mocks the original api UsersApi.list_ssh_access_info with MagicMock.
         """
         return self.mock_list_ssh_access_info(self, *args, **kwargs)
+
+    def list_support_request_acknowledgements(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.list_support_request_acknowledgements with MagicMock.
+        """
+        return self.mock_list_support_request_acknowledgements(self, *args, **kwargs)
 
     def list_support_requests(self, *args, **kwargs):
         """

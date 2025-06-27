@@ -487,7 +487,6 @@ cdef class ReadBuffer(Buffer):
             BaseThinLobImpl lob_impl
             uint64_t size
             bytes locator
-            type cls
         self.read_ub4(&num_bytes)
         if num_bytes > 0:
             if dbtype._ora_type_num == ORA_TYPE_NUM_BFILE:
@@ -497,18 +496,13 @@ cdef class ReadBuffer(Buffer):
                 self.read_ub4(&chunk_size)
             locator = self.read_bytes()
             if lob is None:
-                lob_impl = conn_impl._create_lob_impl(dbtype, locator)
-                cls = PY_TYPE_ASYNC_LOB \
-                        if conn_impl._protocol._transport._is_async \
-                        else PY_TYPE_LOB
-                lob = cls._from_impl(lob_impl)
+                lob = lob_impl = conn_impl._create_lob_impl(dbtype, locator)
             else:
                 lob_impl = lob._impl
                 lob_impl._locator = locator
             lob_impl._size = size
             lob_impl._chunk_size = chunk_size
-            lob_impl._has_metadata = \
-                    dbtype._ora_type_num != ORA_TYPE_NUM_BFILE
+            lob_impl._has_metadata = dbtype._ora_type_num != ORA_TYPE_NUM_BFILE
             return lob
 
     cdef const char_type* read_raw_bytes(self, ssize_t num_bytes) except NULL:
@@ -660,10 +654,13 @@ cdef class ReadBuffer(Buffer):
         cdef:
             bint notify_waiter
             Packet packet
-        packet = self._transport.read_packet()
-        self._process_packet(packet, &notify_waiter, False)
-        if notify_waiter:
-            self._start_packet()
+        packet = self._transport.read_packet(raise_exc=False)
+        if packet is None:
+            self._pending_error_num = TNS_ERR_SESSION_SHUTDOWN
+        else:
+            self._process_packet(packet, &notify_waiter, False)
+            if notify_waiter:
+                self._start_packet()
 
     cdef bint has_response(self):
         """
@@ -895,24 +892,23 @@ cdef class WriteBuffer(Buffer):
         self.write_ub4(obj_impl.flags)      # flags
         self.write_bytes_with_length(packed_data)
 
-    cdef int write_extension_values(self, str txt_value, bytes bytes_value,
-                                    uint16_t keyword) except -1:
+    cdef int write_keyword_value_pair(self, str text_value, bytes binary_value,
+                                      uint16_t keyword) except -1:
         """
-        Writes extension's text value, binary value and keyword entry to the
-        buffer.
+        Writes a keyword/value pair (text and binary values) to the buffer.
         """
-        cdef bytes txt_value_bytes
-        if txt_value is None:
-            self.write_uint8(0)
+        cdef bytes text_value_bytes
+        if text_value is None:
+            self.write_ub4(0)
         else:
-            txt_value_bytes = txt_value.encode()
-            self.write_ub4(len(txt_value_bytes))
-            self.write_bytes_with_length(txt_value_bytes)
-        if bytes_value is None:
-            self.write_uint8(0)
+            text_value_bytes = text_value.encode()
+            self.write_ub4(len(text_value_bytes))
+            self.write_bytes_with_length(text_value_bytes)
+        if binary_value is None:
+            self.write_ub4(0)
         else:
-            self.write_ub4(len(bytes_value))
-            self.write_bytes_with_length(bytes_value)
+            self.write_ub4(len(binary_value))
+            self.write_bytes_with_length(binary_value)
         self.write_ub2(keyword)
 
     cdef int write_lob_with_length(self, BaseThinLobImpl lob_impl) except -1:

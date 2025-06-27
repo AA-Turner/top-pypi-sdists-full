@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-25T20:19:31.225556                                                            #
+# Generated on 2025-06-26T22:38:03.049656                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.user_configs.config_parameters
+    import metaflow.user_configs.config_decorators
+    import metaflow.flowspec
+    import functools
     import typing
+    import metaflow.user_configs.config_parameters
     import metaflow.decorators
     import metaflow.parameters
-    import functools
-    import metaflow.flowspec
-    import metaflow.user_configs.config_decorators
 
 from ..exception import MetaflowException as MetaflowException
 from .config_parameters import ConfigValue as ConfigValue

@@ -231,9 +231,10 @@ class Syncable(Renderable):
             for stylesheet in stylesheets:
                 if isinstance(stylesheet, str) and (stylesheet.split('?')[0].endswith('.css') or stylesheet.startswith('http')):
                     if stylesheet in css_cache:
-                        stylesheet = css_cache[stylesheet]
+                        conv_stylesheet = css_cache[stylesheet]
                     else:
-                        css_cache[stylesheet] = stylesheet = ImportedStyleSheet(url=stylesheet)
+                        css_cache[stylesheet] = conv_stylesheet = ImportedStyleSheet(url=stylesheet)
+                    stylesheet = conv_stylesheet
                 wrapped.append(stylesheet)
             properties['stylesheets'] = wrapped
         return properties
@@ -461,6 +462,7 @@ class Syncable(Renderable):
             with edit_readonly(state):
                 state._busy_counter += 1
         try:
+            params = {}
             if events and state.curdoc:
                 self._in_process__events[state.curdoc] = events
             params = self._process_property_change(events)

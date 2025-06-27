@@ -8026,6 +8026,90 @@ ingest_api_AuthenticationVisitor.__qualname__ = "AuthenticationVisitor"
 ingest_api_AuthenticationVisitor.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_AvroStreamOpts(ConjureBeanType):
+    """Options for ingesting Avro data with the following schema. This is a "stream-like" file format to support
+use cases where a columnar/tabular format does not make sense. This closely matches Nominal's streaming
+API, making it useful for use cases where network connection drops during streaming and a backup file needs
+to be created.
+
+If this schema is not used, will result in a failed ingestion.
+{
+    "type": "record",
+    "name": "AvroStream",
+    "namespace": "io.nominal.ingest",
+    "fields": [
+        {
+            "name": "channel",
+            "type": "string",
+            "doc": "Channel/series name (e.g., 'vehicle_id', 'col_1', 'temperature')",
+        },
+        {
+            "name": "timestamps",
+            "type": {"type": "array", "items": "long"},
+            "doc": "Array of Unix timestamps in nanoseconds",
+        },
+        {
+            "name": "values",
+            "type": {"type": "array", "items": ["double", "string"]},
+            "doc": "Array of values. Can either be doubles or strings",
+        },
+        {
+            "name": "tags",
+            "type": {"type": "map", "values": "string"},
+            "default": {},
+            "doc": "Key-value metadata tags",
+        },
+    ],
+}
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
+            'target': ConjureFieldDefinition('target', ingest_api_DatasetIngestTarget),
+            'time_unit': ConjureFieldDefinition('timeUnit', api_TimeUnit),
+            'channel_prefix': ConjureFieldDefinition('channelPrefix', ingest_api_ChannelPrefix),
+            'additional_file_tags': ConjureFieldDefinition('additionalFileTags', OptionalTypeWrapper[Dict[api_TagName, api_TagValue]])
+        }
+
+    __slots__: List[str] = ['_source', '_target', '_time_unit', '_channel_prefix', '_additional_file_tags']
+
+    def __init__(self, source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget", time_unit: "api_TimeUnit", additional_file_tags: Optional[Dict[str, str]] = None, channel_prefix: Optional[str] = None) -> None:
+        self._source = source
+        self._target = target
+        self._time_unit = time_unit
+        self._channel_prefix = channel_prefix
+        self._additional_file_tags = additional_file_tags
+
+    @builtins.property
+    def source(self) -> "ingest_api_IngestSource":
+        return self._source
+
+    @builtins.property
+    def target(self) -> "ingest_api_DatasetIngestTarget":
+        return self._target
+
+    @builtins.property
+    def time_unit(self) -> "api_TimeUnit":
+        return self._time_unit
+
+    @builtins.property
+    def channel_prefix(self) -> Optional[str]:
+        return self._channel_prefix
+
+    @builtins.property
+    def additional_file_tags(self) -> Optional[Dict[str, str]]:
+        """Specifies a tag set to apply to all data in the file.
+        """
+        return self._additional_file_tags
+
+
+ingest_api_AvroStreamOpts.__name__ = "AvroStreamOpts"
+ingest_api_AvroStreamOpts.__qualname__ = "AvroStreamOpts"
+ingest_api_AvroStreamOpts.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_ChannelConfig(ConjureBeanType):
 
     @builtins.classmethod
@@ -8478,6 +8562,8 @@ class ingest_api_CsvOpts(ConjureBeanType):
 
     @builtins.property
     def additional_file_tags(self) -> Optional[Dict[str, str]]:
+        """Specifies a tag set to apply to all data in the file.
+        """
         return self._additional_file_tags
 
 
@@ -9745,6 +9831,7 @@ class ingest_api_IngestOptions(ConjureUnionType):
     _parquet: Optional["ingest_api_ParquetOpts"] = None
     _video: Optional["ingest_api_VideoOpts"] = None
     _containerized: Optional["ingest_api_ContainerizedOpts"] = None
+    _avro_stream: Optional["ingest_api_AvroStreamOpts"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -9755,7 +9842,8 @@ class ingest_api_IngestOptions(ConjureUnionType):
             'csv': ConjureFieldDefinition('csv', ingest_api_CsvOpts),
             'parquet': ConjureFieldDefinition('parquet', ingest_api_ParquetOpts),
             'video': ConjureFieldDefinition('video', ingest_api_VideoOpts),
-            'containerized': ConjureFieldDefinition('containerized', ingest_api_ContainerizedOpts)
+            'containerized': ConjureFieldDefinition('containerized', ingest_api_ContainerizedOpts),
+            'avro_stream': ConjureFieldDefinition('avroStream', ingest_api_AvroStreamOpts)
         }
 
     def __init__(
@@ -9767,10 +9855,11 @@ class ingest_api_IngestOptions(ConjureUnionType):
             parquet: Optional["ingest_api_ParquetOpts"] = None,
             video: Optional["ingest_api_VideoOpts"] = None,
             containerized: Optional["ingest_api_ContainerizedOpts"] = None,
+            avro_stream: Optional["ingest_api_AvroStreamOpts"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (dataflash is not None) + (mcap_protobuf_timeseries is not None) + (journal_json is not None) + (csv is not None) + (parquet is not None) + (video is not None) + (containerized is not None) != 1:
+            if (dataflash is not None) + (mcap_protobuf_timeseries is not None) + (journal_json is not None) + (csv is not None) + (parquet is not None) + (video is not None) + (containerized is not None) + (avro_stream is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if dataflash is not None:
@@ -9794,6 +9883,9 @@ class ingest_api_IngestOptions(ConjureUnionType):
             if containerized is not None:
                 self._containerized = containerized
                 self._type = 'containerized'
+            if avro_stream is not None:
+                self._avro_stream = avro_stream
+                self._type = 'avroStream'
 
         elif type_of_union == 'dataflash':
             if dataflash is None:
@@ -9830,6 +9922,11 @@ class ingest_api_IngestOptions(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._containerized = containerized
             self._type = 'containerized'
+        elif type_of_union == 'avroStream':
+            if avro_stream is None:
+                raise ValueError('a union value must not be None')
+            self._avro_stream = avro_stream
+            self._type = 'avroStream'
 
     @builtins.property
     def dataflash(self) -> Optional["ingest_api_DataflashOpts"]:
@@ -9859,6 +9956,10 @@ class ingest_api_IngestOptions(ConjureUnionType):
     def containerized(self) -> Optional["ingest_api_ContainerizedOpts"]:
         return self._containerized
 
+    @builtins.property
+    def avro_stream(self) -> Optional["ingest_api_AvroStreamOpts"]:
+        return self._avro_stream
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, ingest_api_IngestOptionsVisitor):
             raise ValueError('{} is not an instance of ingest_api_IngestOptionsVisitor'.format(visitor.__class__.__name__))
@@ -9876,6 +9977,8 @@ class ingest_api_IngestOptions(ConjureUnionType):
             return visitor._video(self.video)
         if self._type == 'containerized' and self.containerized is not None:
             return visitor._containerized(self.containerized)
+        if self._type == 'avroStream' and self.avro_stream is not None:
+            return visitor._avro_stream(self.avro_stream)
 
 
 ingest_api_IngestOptions.__name__ = "IngestOptions"
@@ -9911,6 +10014,10 @@ class ingest_api_IngestOptionsVisitor:
 
     @abstractmethod
     def _containerized(self, containerized: "ingest_api_ContainerizedOpts") -> Any:
+        pass
+
+    @abstractmethod
+    def _avro_stream(self, avro_stream: "ingest_api_AvroStreamOpts") -> Any:
         pass
 
 
@@ -10176,6 +10283,39 @@ gets migrated to this one.
         _json: Any = _conjure_encoder.default(trigger_ingest)
 
         _path = '/ingest/v1/ingest'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), ingest_api_IngestResponse, self._return_none_for_unknown_union_types)
+
+    def rerun_ingest(self, auth_header: str, request: "ingest_api_RerunIngestRequest") -> "ingest_api_IngestResponse":
+        """Triggers an ingest job using an existing ingest job RID.
+Returns the same response format as the /ingest endpoint.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/ingest/v1/re-ingest'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -11649,6 +11789,8 @@ and archives such as .tar, .tar.gz, and .zip (must set the isArchive flag).
 
     @builtins.property
     def additional_file_tags(self) -> Optional[Dict[str, str]]:
+        """Specifies a tag set to apply to all data in the file.
+        """
         return self._additional_file_tags
 
     @builtins.property
@@ -11972,6 +12114,29 @@ class ingest_api_RelativeTimestamp(ConjureBeanType):
 ingest_api_RelativeTimestamp.__name__ = "RelativeTimestamp"
 ingest_api_RelativeTimestamp.__qualname__ = "RelativeTimestamp"
 ingest_api_RelativeTimestamp.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_RerunIngestRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'ingest_job_rid': ConjureFieldDefinition('ingestJobRid', ingest_api_IngestJobRid)
+        }
+
+    __slots__: List[str] = ['_ingest_job_rid']
+
+    def __init__(self, ingest_job_rid: str) -> None:
+        self._ingest_job_rid = ingest_job_rid
+
+    @builtins.property
+    def ingest_job_rid(self) -> str:
+        return self._ingest_job_rid
+
+
+ingest_api_RerunIngestRequest.__name__ = "RerunIngestRequest"
+ingest_api_RerunIngestRequest.__qualname__ = "RerunIngestRequest"
+ingest_api_RerunIngestRequest.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_S3IngestSource(ConjureBeanType):
@@ -13856,6 +14021,1450 @@ class ingest_workflow_api_ValidatedFileInput(ConjureBeanType):
 ingest_workflow_api_ValidatedFileInput.__name__ = "ValidatedFileInput"
 ingest_workflow_api_ValidatedFileInput.__qualname__ = "ValidatedFileInput"
 ingest_workflow_api_ValidatedFileInput.__module__ = "nominal_api.ingest_workflow_api"
+
+
+class modules_ApplyModuleRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+        }
+
+    __slots__: List[str] = ['_module_rid', '_asset_rid']
+
+    def __init__(self, asset_rid: str, module_rid: str) -> None:
+        self._module_rid = module_rid
+        self._asset_rid = asset_rid
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+
+modules_ApplyModuleRequest.__name__ = "ApplyModuleRequest"
+modules_ApplyModuleRequest.__qualname__ = "ApplyModuleRequest"
+modules_ApplyModuleRequest.__module__ = "nominal_api.modules"
+
+
+class modules_ApplyModuleResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'result': ConjureFieldDefinition('result', modules_ModuleApplication)
+        }
+
+    __slots__: List[str] = ['_result']
+
+    def __init__(self, result: "modules_ModuleApplication") -> None:
+        self._result = result
+
+    @builtins.property
+    def result(self) -> "modules_ModuleApplication":
+        return self._result
+
+
+modules_ApplyModuleResponse.__name__ = "ApplyModuleResponse"
+modules_ApplyModuleResponse.__qualname__ = "ApplyModuleResponse"
+modules_ApplyModuleResponse.__module__ = "nominal_api.modules"
+
+
+class modules_BatchArchiveModulesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[modules_api_ModuleRid])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List[str]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List[str]:
+        return self._requests
+
+
+modules_BatchArchiveModulesRequest.__name__ = "BatchArchiveModulesRequest"
+modules_BatchArchiveModulesRequest.__qualname__ = "BatchArchiveModulesRequest"
+modules_BatchArchiveModulesRequest.__module__ = "nominal_api.modules"
+
+
+class modules_BatchArchiveModulesResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'archived_module_rids': ConjureFieldDefinition('archivedModuleRids', List[modules_api_ModuleRid])
+        }
+
+    __slots__: List[str] = ['_archived_module_rids']
+
+    def __init__(self, archived_module_rids: List[str]) -> None:
+        self._archived_module_rids = archived_module_rids
+
+    @builtins.property
+    def archived_module_rids(self) -> List[str]:
+        return self._archived_module_rids
+
+
+modules_BatchArchiveModulesResponse.__name__ = "BatchArchiveModulesResponse"
+modules_BatchArchiveModulesResponse.__qualname__ = "BatchArchiveModulesResponse"
+modules_BatchArchiveModulesResponse.__module__ = "nominal_api.modules"
+
+
+class modules_BatchGetModulesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[modules_GetModuleRequest])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List["modules_GetModuleRequest"]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List["modules_GetModuleRequest"]:
+        return self._requests
+
+
+modules_BatchGetModulesRequest.__name__ = "BatchGetModulesRequest"
+modules_BatchGetModulesRequest.__qualname__ = "BatchGetModulesRequest"
+modules_BatchGetModulesRequest.__module__ = "nominal_api.modules"
+
+
+class modules_BatchUnarchiveModulesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[modules_api_ModuleRid])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List[str]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List[str]:
+        return self._requests
+
+
+modules_BatchUnarchiveModulesRequest.__name__ = "BatchUnarchiveModulesRequest"
+modules_BatchUnarchiveModulesRequest.__qualname__ = "BatchUnarchiveModulesRequest"
+modules_BatchUnarchiveModulesRequest.__module__ = "nominal_api.modules"
+
+
+class modules_BatchUnarchiveModulesResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'unarchived_module_rids': ConjureFieldDefinition('unarchivedModuleRids', List[modules_api_ModuleRid])
+        }
+
+    __slots__: List[str] = ['_unarchived_module_rids']
+
+    def __init__(self, unarchived_module_rids: List[str]) -> None:
+        self._unarchived_module_rids = unarchived_module_rids
+
+    @builtins.property
+    def unarchived_module_rids(self) -> List[str]:
+        return self._unarchived_module_rids
+
+
+modules_BatchUnarchiveModulesResponse.__name__ = "BatchUnarchiveModulesResponse"
+modules_BatchUnarchiveModulesResponse.__qualname__ = "BatchUnarchiveModulesResponse"
+modules_BatchUnarchiveModulesResponse.__module__ = "nominal_api.modules"
+
+
+class modules_CreateOrUpdateModuleRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'description': ConjureFieldDefinition('description', str),
+            'definition': ConjureFieldDefinition('definition', modules_ModuleVersionDefinition)
+        }
+
+    __slots__: List[str] = ['_name', '_description', '_definition']
+
+    def __init__(self, definition: "modules_ModuleVersionDefinition", description: str, name: str) -> None:
+        self._name = name
+        self._description = description
+        self._definition = definition
+
+    @builtins.property
+    def name(self) -> str:
+        """The name of the module. This should be unique to the module in the current workspace.
+        """
+        return self._name
+
+    @builtins.property
+    def description(self) -> str:
+        return self._description
+
+    @builtins.property
+    def definition(self) -> "modules_ModuleVersionDefinition":
+        return self._definition
+
+
+modules_CreateOrUpdateModuleRequest.__name__ = "CreateOrUpdateModuleRequest"
+modules_CreateOrUpdateModuleRequest.__qualname__ = "CreateOrUpdateModuleRequest"
+modules_CreateOrUpdateModuleRequest.__module__ = "nominal_api.modules"
+
+
+class modules_Function(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'description': ConjureFieldDefinition('description', str),
+            'parameters': ConjureFieldDefinition('parameters', List[modules_FunctionParameter]),
+            'function_node': ConjureFieldDefinition('functionNode', modules_FunctionNode),
+            'is_exported': ConjureFieldDefinition('isExported', bool)
+        }
+
+    __slots__: List[str] = ['_name', '_description', '_parameters', '_function_node', '_is_exported']
+
+    def __init__(self, description: str, function_node: "modules_FunctionNode", is_exported: bool, name: str, parameters: List["modules_FunctionParameter"]) -> None:
+        self._name = name
+        self._description = description
+        self._parameters = parameters
+        self._function_node = function_node
+        self._is_exported = is_exported
+
+    @builtins.property
+    def name(self) -> str:
+        """The name of the function. This should be unique to the function in the current module.
+        """
+        return self._name
+
+    @builtins.property
+    def description(self) -> str:
+        return self._description
+
+    @builtins.property
+    def parameters(self) -> List["modules_FunctionParameter"]:
+        return self._parameters
+
+    @builtins.property
+    def function_node(self) -> "modules_FunctionNode":
+        return self._function_node
+
+    @builtins.property
+    def is_exported(self) -> bool:
+        return self._is_exported
+
+
+modules_Function.__name__ = "Function"
+modules_Function.__qualname__ = "Function"
+modules_Function.__module__ = "nominal_api.modules"
+
+
+class modules_FunctionNode(ConjureUnionType):
+    _enum: Optional["scout_compute_api_EnumSeries"] = None
+    _numeric: Optional["scout_compute_api_NumericSeries"] = None
+    _ranges: Optional["scout_compute_api_RangeSeries"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumSeries),
+            'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericSeries),
+            'ranges': ConjureFieldDefinition('ranges', scout_compute_api_RangeSeries)
+        }
+
+    def __init__(
+            self,
+            enum: Optional["scout_compute_api_EnumSeries"] = None,
+            numeric: Optional["scout_compute_api_NumericSeries"] = None,
+            ranges: Optional["scout_compute_api_RangeSeries"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (enum is not None) + (numeric is not None) + (ranges is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if enum is not None:
+                self._enum = enum
+                self._type = 'enum'
+            if numeric is not None:
+                self._numeric = numeric
+                self._type = 'numeric'
+            if ranges is not None:
+                self._ranges = ranges
+                self._type = 'ranges'
+
+        elif type_of_union == 'enum':
+            if enum is None:
+                raise ValueError('a union value must not be None')
+            self._enum = enum
+            self._type = 'enum'
+        elif type_of_union == 'numeric':
+            if numeric is None:
+                raise ValueError('a union value must not be None')
+            self._numeric = numeric
+            self._type = 'numeric'
+        elif type_of_union == 'ranges':
+            if ranges is None:
+                raise ValueError('a union value must not be None')
+            self._ranges = ranges
+            self._type = 'ranges'
+
+    @builtins.property
+    def enum(self) -> Optional["scout_compute_api_EnumSeries"]:
+        return self._enum
+
+    @builtins.property
+    def numeric(self) -> Optional["scout_compute_api_NumericSeries"]:
+        return self._numeric
+
+    @builtins.property
+    def ranges(self) -> Optional["scout_compute_api_RangeSeries"]:
+        return self._ranges
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, modules_FunctionNodeVisitor):
+            raise ValueError('{} is not an instance of modules_FunctionNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'enum' and self.enum is not None:
+            return visitor._enum(self.enum)
+        if self._type == 'numeric' and self.numeric is not None:
+            return visitor._numeric(self.numeric)
+        if self._type == 'ranges' and self.ranges is not None:
+            return visitor._ranges(self.ranges)
+
+
+modules_FunctionNode.__name__ = "FunctionNode"
+modules_FunctionNode.__qualname__ = "FunctionNode"
+modules_FunctionNode.__module__ = "nominal_api.modules"
+
+
+class modules_FunctionNodeVisitor:
+
+    @abstractmethod
+    def _enum(self, enum: "scout_compute_api_EnumSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _numeric(self, numeric: "scout_compute_api_NumericSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _ranges(self, ranges: "scout_compute_api_RangeSeries") -> Any:
+        pass
+
+
+modules_FunctionNodeVisitor.__name__ = "FunctionNodeVisitor"
+modules_FunctionNodeVisitor.__qualname__ = "FunctionNodeVisitor"
+modules_FunctionNodeVisitor.__module__ = "nominal_api.modules"
+
+
+class modules_FunctionParameter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'type': ConjureFieldDefinition('type', modules_ValueType),
+            'default_value': ConjureFieldDefinition('defaultValue', OptionalTypeWrapper[scout_compute_api_VariableName])
+        }
+
+    __slots__: List[str] = ['_name', '_type', '_default_value']
+
+    def __init__(self, name: str, type: "modules_ValueType", default_value: Optional[str] = None) -> None:
+        self._name = name
+        self._type = type
+        self._default_value = default_value
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def type(self) -> "modules_ValueType":
+        return self._type
+
+    @builtins.property
+    def default_value(self) -> Optional[str]:
+        """This must reference a variable in its parent module's `defaultVariables`.
+        """
+        return self._default_value
+
+
+modules_FunctionParameter.__name__ = "FunctionParameter"
+modules_FunctionParameter.__qualname__ = "FunctionParameter"
+modules_FunctionParameter.__module__ = "nominal_api.modules"
+
+
+class modules_GetModuleRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid)
+        }
+
+    __slots__: List[str] = ['_module_rid']
+
+    def __init__(self, module_rid: str) -> None:
+        self._module_rid = module_rid
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+
+modules_GetModuleRequest.__name__ = "GetModuleRequest"
+modules_GetModuleRequest.__qualname__ = "GetModuleRequest"
+modules_GetModuleRequest.__module__ = "nominal_api.modules"
+
+
+class modules_Module(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'metadata': ConjureFieldDefinition('metadata', modules_ModuleMetadata),
+            'definition': ConjureFieldDefinition('definition', modules_ModuleVersionDefinition)
+        }
+
+    __slots__: List[str] = ['_metadata', '_definition']
+
+    def __init__(self, definition: "modules_ModuleVersionDefinition", metadata: "modules_ModuleMetadata") -> None:
+        self._metadata = metadata
+        self._definition = definition
+
+    @builtins.property
+    def metadata(self) -> "modules_ModuleMetadata":
+        return self._metadata
+
+    @builtins.property
+    def definition(self) -> "modules_ModuleVersionDefinition":
+        return self._definition
+
+
+modules_Module.__name__ = "Module"
+modules_Module.__qualname__ = "Module"
+modules_Module.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleApplication(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module': ConjureFieldDefinition('module', modules_ModuleRef),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'applied_at': ConjureFieldDefinition('appliedAt', str),
+            'applied_by': ConjureFieldDefinition('appliedBy', scout_rids_api_UserRid)
+        }
+
+    __slots__: List[str] = ['_module', '_asset_rid', '_applied_at', '_applied_by']
+
+    def __init__(self, applied_at: str, applied_by: str, asset_rid: str, module: "modules_ModuleRef") -> None:
+        self._module = module
+        self._asset_rid = asset_rid
+        self._applied_at = applied_at
+        self._applied_by = applied_by
+
+    @builtins.property
+    def module(self) -> "modules_ModuleRef":
+        return self._module
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+    @builtins.property
+    def applied_at(self) -> str:
+        return self._applied_at
+
+    @builtins.property
+    def applied_by(self) -> str:
+        return self._applied_by
+
+
+modules_ModuleApplication.__name__ = "ModuleApplication"
+modules_ModuleApplication.__qualname__ = "ModuleApplication"
+modules_ModuleApplication.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleMetadata(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid),
+            'name': ConjureFieldDefinition('name', str),
+            'description': ConjureFieldDefinition('description', str),
+            'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
+            'created_at': ConjureFieldDefinition('createdAt', str),
+            'archived_at': ConjureFieldDefinition('archivedAt', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_rid', '_name', '_description', '_created_by', '_created_at', '_archived_at']
+
+    def __init__(self, created_at: str, created_by: str, description: str, name: str, rid: str, archived_at: Optional[str] = None) -> None:
+        self._rid = rid
+        self._name = name
+        self._description = description
+        self._created_by = created_by
+        self._created_at = created_at
+        self._archived_at = archived_at
+
+    @builtins.property
+    def rid(self) -> str:
+        return self._rid
+
+    @builtins.property
+    def name(self) -> str:
+        """The name of the module. This is unique to the module in the current workspace.
+        """
+        return self._name
+
+    @builtins.property
+    def description(self) -> str:
+        return self._description
+
+    @builtins.property
+    def created_by(self) -> str:
+        return self._created_by
+
+    @builtins.property
+    def created_at(self) -> str:
+        return self._created_at
+
+    @builtins.property
+    def archived_at(self) -> Optional[str]:
+        """The time at which the module was archived. Unset if the module is not archived.
+        """
+        return self._archived_at
+
+
+modules_ModuleMetadata.__name__ = "ModuleMetadata"
+modules_ModuleMetadata.__qualname__ = "ModuleMetadata"
+modules_ModuleMetadata.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleParameter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'type': ConjureFieldDefinition('type', modules_ValueType)
+        }
+
+    __slots__: List[str] = ['_name', '_type']
+
+    def __init__(self, name: str, type: "modules_ValueType") -> None:
+        self._name = name
+        self._type = type
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def type(self) -> "modules_ValueType":
+        return self._type
+
+
+modules_ModuleParameter.__name__ = "ModuleParameter"
+modules_ModuleParameter.__qualname__ = "ModuleParameter"
+modules_ModuleParameter.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleRef(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid)
+        }
+
+    __slots__: List[str] = ['_rid']
+
+    def __init__(self, rid: str) -> None:
+        self._rid = rid
+
+    @builtins.property
+    def rid(self) -> str:
+        return self._rid
+
+
+modules_ModuleRef.__name__ = "ModuleRef"
+modules_ModuleRef.__qualname__ = "ModuleRef"
+modules_ModuleRef.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleSummary(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'metadata': ConjureFieldDefinition('metadata', modules_ModuleMetadata),
+            'latest': ConjureFieldDefinition('latest', modules_ModuleVersionMetadata)
+        }
+
+    __slots__: List[str] = ['_metadata', '_latest']
+
+    def __init__(self, latest: "modules_ModuleVersionMetadata", metadata: "modules_ModuleMetadata") -> None:
+        self._metadata = metadata
+        self._latest = latest
+
+    @builtins.property
+    def metadata(self) -> "modules_ModuleMetadata":
+        return self._metadata
+
+    @builtins.property
+    def latest(self) -> "modules_ModuleVersionMetadata":
+        return self._latest
+
+
+modules_ModuleSummary.__name__ = "ModuleSummary"
+modules_ModuleSummary.__qualname__ = "ModuleSummary"
+modules_ModuleSummary.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleVersionDefinition(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'parameters': ConjureFieldDefinition('parameters', List[modules_ModuleParameter]),
+            'default_variables': ConjureFieldDefinition('defaultVariables', List[modules_TypedModuleVariable]),
+            'functions': ConjureFieldDefinition('functions', List[modules_Function])
+        }
+
+    __slots__: List[str] = ['_parameters', '_default_variables', '_functions']
+
+    def __init__(self, default_variables: List["modules_TypedModuleVariable"], functions: List["modules_Function"], parameters: List["modules_ModuleParameter"]) -> None:
+        self._parameters = parameters
+        self._default_variables = default_variables
+        self._functions = functions
+
+    @builtins.property
+    def parameters(self) -> List["modules_ModuleParameter"]:
+        """Specifies the parameters the module accepts when applying it. Limited to 100.
+        """
+        return self._parameters
+
+    @builtins.property
+    def default_variables(self) -> List["modules_TypedModuleVariable"]:
+        """Specifies the variables that are present within the module to be used by other variables or functions.
+Limited to 100.
+        """
+        return self._default_variables
+
+    @builtins.property
+    def functions(self) -> List["modules_Function"]:
+        """The list of functions that resolve to derived series that appear in channel search after applying to an
+asset. Limited to 100.
+        """
+        return self._functions
+
+
+modules_ModuleVersionDefinition.__name__ = "ModuleVersionDefinition"
+modules_ModuleVersionDefinition.__qualname__ = "ModuleVersionDefinition"
+modules_ModuleVersionDefinition.__module__ = "nominal_api.modules"
+
+
+class modules_ModuleVersionMetadata(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
+            'created_at': ConjureFieldDefinition('createdAt', str)
+        }
+
+    __slots__: List[str] = ['_created_by', '_created_at']
+
+    def __init__(self, created_at: str, created_by: str) -> None:
+        self._created_by = created_by
+        self._created_at = created_at
+
+    @builtins.property
+    def created_by(self) -> str:
+        return self._created_by
+
+    @builtins.property
+    def created_at(self) -> str:
+        return self._created_at
+
+
+modules_ModuleVersionMetadata.__name__ = "ModuleVersionMetadata"
+modules_ModuleVersionMetadata.__qualname__ = "ModuleVersionMetadata"
+modules_ModuleVersionMetadata.__module__ = "nominal_api.modules"
+
+
+class modules_ModulesService(Service):
+    """Modules define collections of compute logic that can be shared and used across different contexts by applying them
+to assets. The Modules Service provides the api for managing these collections and using them.
+    """
+
+    def create_module(self, auth_header: str, request: "modules_CreateOrUpdateModuleRequest") -> "modules_Module":
+        """Create a new module.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_Module, self._return_none_for_unknown_union_types)
+
+    def update_module(self, auth_header: str, module_rid: str, request: "modules_CreateOrUpdateModuleRequest") -> "modules_Module":
+        """Update an existing module.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'moduleRid': quote(str(_conjure_encoder.default(module_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/{moduleRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_Module, self._return_none_for_unknown_union_types)
+
+    def batch_get_modules(self, auth_header: str, request: "modules_BatchGetModulesRequest") -> List["modules_Module"]:
+        """Get a list of modules by their RIDs and version specifiers if provided.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/batch-get'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), List[modules_Module], self._return_none_for_unknown_union_types)
+
+    def search_modules(self, auth_header: str, request: "modules_SearchModulesRequest") -> "modules_SearchModulesResponse":
+        """Search for modules.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/search'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_SearchModulesResponse, self._return_none_for_unknown_union_types)
+
+    def batch_archive_modules(self, auth_header: str, request: "modules_BatchArchiveModulesRequest") -> "modules_BatchArchiveModulesResponse":
+        """Archive a set of modules.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/archive'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_BatchArchiveModulesResponse, self._return_none_for_unknown_union_types)
+
+    def batch_unarchive_modules(self, auth_header: str, request: "modules_BatchUnarchiveModulesRequest") -> "modules_BatchUnarchiveModulesResponse":
+        """Unarchive a set of modules.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/unarchive'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_BatchUnarchiveModulesResponse, self._return_none_for_unknown_union_types)
+
+    def apply_module(self, auth_header: str, request: "modules_ApplyModuleRequest") -> "modules_ApplyModuleResponse":
+        """Apply a module to an asset.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/apply'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_ApplyModuleResponse, self._return_none_for_unknown_union_types)
+
+    def unapply_module(self, auth_header: str, request: "modules_UnapplyModuleRequest") -> "modules_UnapplyModuleResponse":
+        """Unapply a module from an asset.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/unapply'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_UnapplyModuleResponse, self._return_none_for_unknown_union_types)
+
+    def search_module_applications(self, auth_header: str, request: "modules_SearchModuleApplicationsRequest") -> "modules_SearchModuleApplicationsResponse":
+        """Search for module applications.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/modules/applications/search'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), modules_SearchModuleApplicationsResponse, self._return_none_for_unknown_union_types)
+
+
+modules_ModulesService.__name__ = "ModulesService"
+modules_ModulesService.__qualname__ = "ModulesService"
+modules_ModulesService.__module__ = "nominal_api.modules"
+
+
+class modules_SearchModuleApplicationsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'search_text': ConjureFieldDefinition('searchText', str),
+            'asset_rids': ConjureFieldDefinition('assetRids', OptionalTypeWrapper[List[scout_rids_api_AssetRid]]),
+            'module_rids': ConjureFieldDefinition('moduleRids', OptionalTypeWrapper[List[modules_api_ModuleRid]]),
+            'page_size': ConjureFieldDefinition('pageSize', int),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_search_text', '_asset_rids', '_module_rids', '_page_size', '_next_page_token']
+
+    def __init__(self, page_size: int, search_text: str, asset_rids: Optional[List[str]] = None, module_rids: Optional[List[str]] = None, next_page_token: Optional[str] = None) -> None:
+        self._search_text = search_text
+        self._asset_rids = asset_rids
+        self._module_rids = module_rids
+        self._page_size = page_size
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def search_text(self) -> str:
+        return self._search_text
+
+    @builtins.property
+    def asset_rids(self) -> Optional[List[str]]:
+        return self._asset_rids
+
+    @builtins.property
+    def module_rids(self) -> Optional[List[str]]:
+        return self._module_rids
+
+    @builtins.property
+    def page_size(self) -> int:
+        return self._page_size
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+modules_SearchModuleApplicationsRequest.__name__ = "SearchModuleApplicationsRequest"
+modules_SearchModuleApplicationsRequest.__qualname__ = "SearchModuleApplicationsRequest"
+modules_SearchModuleApplicationsRequest.__module__ = "nominal_api.modules"
+
+
+class modules_SearchModuleApplicationsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[modules_ModuleApplication]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_results', '_next_page_token']
+
+    def __init__(self, results: List["modules_ModuleApplication"], next_page_token: Optional[str] = None) -> None:
+        self._results = results
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def results(self) -> List["modules_ModuleApplication"]:
+        return self._results
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+modules_SearchModuleApplicationsResponse.__name__ = "SearchModuleApplicationsResponse"
+modules_SearchModuleApplicationsResponse.__qualname__ = "SearchModuleApplicationsResponse"
+modules_SearchModuleApplicationsResponse.__module__ = "nominal_api.modules"
+
+
+class modules_SearchModulesQuery(ConjureUnionType):
+    _search_text: Optional[str] = None
+    _created_by: Optional[str] = None
+    _last_updated_by: Optional[str] = None
+    _and_: Optional[List["modules_SearchModulesQuery"]] = None
+    _or_: Optional[List["modules_SearchModulesQuery"]] = None
+    _not_: Optional["modules_SearchModulesQuery"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'search_text': ConjureFieldDefinition('searchText', str),
+            'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
+            'last_updated_by': ConjureFieldDefinition('lastUpdatedBy', scout_rids_api_UserRid),
+            'and_': ConjureFieldDefinition('and', List[modules_SearchModulesQuery]),
+            'or_': ConjureFieldDefinition('or', List[modules_SearchModulesQuery]),
+            'not_': ConjureFieldDefinition('not', modules_SearchModulesQuery)
+        }
+
+    def __init__(
+            self,
+            search_text: Optional[str] = None,
+            created_by: Optional[str] = None,
+            last_updated_by: Optional[str] = None,
+            and_: Optional[List["modules_SearchModulesQuery"]] = None,
+            or_: Optional[List["modules_SearchModulesQuery"]] = None,
+            not_: Optional["modules_SearchModulesQuery"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (search_text is not None) + (created_by is not None) + (last_updated_by is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if search_text is not None:
+                self._search_text = search_text
+                self._type = 'searchText'
+            if created_by is not None:
+                self._created_by = created_by
+                self._type = 'createdBy'
+            if last_updated_by is not None:
+                self._last_updated_by = last_updated_by
+                self._type = 'lastUpdatedBy'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
+
+        elif type_of_union == 'searchText':
+            if search_text is None:
+                raise ValueError('a union value must not be None')
+            self._search_text = search_text
+            self._type = 'searchText'
+        elif type_of_union == 'createdBy':
+            if created_by is None:
+                raise ValueError('a union value must not be None')
+            self._created_by = created_by
+            self._type = 'createdBy'
+        elif type_of_union == 'lastUpdatedBy':
+            if last_updated_by is None:
+                raise ValueError('a union value must not be None')
+            self._last_updated_by = last_updated_by
+            self._type = 'lastUpdatedBy'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
+
+    @builtins.property
+    def search_text(self) -> Optional[str]:
+        return self._search_text
+
+    @builtins.property
+    def created_by(self) -> Optional[str]:
+        return self._created_by
+
+    @builtins.property
+    def last_updated_by(self) -> Optional[str]:
+        return self._last_updated_by
+
+    @builtins.property
+    def and_(self) -> Optional[List["modules_SearchModulesQuery"]]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional[List["modules_SearchModulesQuery"]]:
+        return self._or_
+
+    @builtins.property
+    def not_(self) -> Optional["modules_SearchModulesQuery"]:
+        return self._not_
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, modules_SearchModulesQueryVisitor):
+            raise ValueError('{} is not an instance of modules_SearchModulesQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'searchText' and self.search_text is not None:
+            return visitor._search_text(self.search_text)
+        if self._type == 'createdBy' and self.created_by is not None:
+            return visitor._created_by(self.created_by)
+        if self._type == 'lastUpdatedBy' and self.last_updated_by is not None:
+            return visitor._last_updated_by(self.last_updated_by)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
+
+
+modules_SearchModulesQuery.__name__ = "SearchModulesQuery"
+modules_SearchModulesQuery.__qualname__ = "SearchModulesQuery"
+modules_SearchModulesQuery.__module__ = "nominal_api.modules"
+
+
+class modules_SearchModulesQueryVisitor:
+
+    @abstractmethod
+    def _search_text(self, search_text: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _created_by(self, created_by: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _last_updated_by(self, last_updated_by: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: List["modules_SearchModulesQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: List["modules_SearchModulesQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "modules_SearchModulesQuery") -> Any:
+        pass
+
+
+modules_SearchModulesQueryVisitor.__name__ = "SearchModulesQueryVisitor"
+modules_SearchModulesQueryVisitor.__qualname__ = "SearchModulesQueryVisitor"
+modules_SearchModulesQueryVisitor.__module__ = "nominal_api.modules"
+
+
+class modules_SearchModulesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'query': ConjureFieldDefinition('query', modules_SearchModulesQuery),
+            'page_size': ConjureFieldDefinition('pageSize', int),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_query', '_page_size', '_next_page_token']
+
+    def __init__(self, page_size: int, query: "modules_SearchModulesQuery", next_page_token: Optional[str] = None) -> None:
+        self._query = query
+        self._page_size = page_size
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def query(self) -> "modules_SearchModulesQuery":
+        return self._query
+
+    @builtins.property
+    def page_size(self) -> int:
+        return self._page_size
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+modules_SearchModulesRequest.__name__ = "SearchModulesRequest"
+modules_SearchModulesRequest.__qualname__ = "SearchModulesRequest"
+modules_SearchModulesRequest.__module__ = "nominal_api.modules"
+
+
+class modules_SearchModulesResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[modules_ModuleSummary]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_results', '_next_page_token']
+
+    def __init__(self, results: List["modules_ModuleSummary"], next_page_token: Optional[str] = None) -> None:
+        self._results = results
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def results(self) -> List["modules_ModuleSummary"]:
+        return self._results
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+modules_SearchModulesResponse.__name__ = "SearchModulesResponse"
+modules_SearchModulesResponse.__qualname__ = "SearchModulesResponse"
+modules_SearchModulesResponse.__module__ = "nominal_api.modules"
+
+
+class modules_SemanticVersion(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'major': ConjureFieldDefinition('major', int),
+            'minor': ConjureFieldDefinition('minor', int),
+            'patch': ConjureFieldDefinition('patch', int)
+        }
+
+    __slots__: List[str] = ['_major', '_minor', '_patch']
+
+    def __init__(self, major: int, minor: int, patch: int) -> None:
+        self._major = major
+        self._minor = minor
+        self._patch = patch
+
+    @builtins.property
+    def major(self) -> int:
+        return self._major
+
+    @builtins.property
+    def minor(self) -> int:
+        return self._minor
+
+    @builtins.property
+    def patch(self) -> int:
+        return self._patch
+
+
+modules_SemanticVersion.__name__ = "SemanticVersion"
+modules_SemanticVersion.__qualname__ = "SemanticVersion"
+modules_SemanticVersion.__module__ = "nominal_api.modules"
+
+
+class modules_TypedModuleVariable(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'type': ConjureFieldDefinition('type', modules_ValueType),
+            'value': ConjureFieldDefinition('value', scout_compute_api_VariableValue)
+        }
+
+    __slots__: List[str] = ['_name', '_type', '_value']
+
+    def __init__(self, name: str, type: "modules_ValueType", value: "scout_compute_api_VariableValue") -> None:
+        self._name = name
+        self._type = type
+        self._value = value
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def type(self) -> "modules_ValueType":
+        return self._type
+
+    @builtins.property
+    def value(self) -> "scout_compute_api_VariableValue":
+        return self._value
+
+
+modules_TypedModuleVariable.__name__ = "TypedModuleVariable"
+modules_TypedModuleVariable.__qualname__ = "TypedModuleVariable"
+modules_TypedModuleVariable.__module__ = "nominal_api.modules"
+
+
+class modules_UnapplyModuleRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+        }
+
+    __slots__: List[str] = ['_module_rid', '_asset_rid']
+
+    def __init__(self, asset_rid: str, module_rid: str) -> None:
+        self._module_rid = module_rid
+        self._asset_rid = asset_rid
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+
+modules_UnapplyModuleRequest.__name__ = "UnapplyModuleRequest"
+modules_UnapplyModuleRequest.__qualname__ = "UnapplyModuleRequest"
+modules_UnapplyModuleRequest.__module__ = "nominal_api.modules"
+
+
+class modules_UnapplyModuleResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'success': ConjureFieldDefinition('success', bool)
+        }
+
+    __slots__: List[str] = ['_success']
+
+    def __init__(self, success: bool) -> None:
+        self._success = success
+
+    @builtins.property
+    def success(self) -> bool:
+        return self._success
+
+
+modules_UnapplyModuleResponse.__name__ = "UnapplyModuleResponse"
+modules_UnapplyModuleResponse.__qualname__ = "UnapplyModuleResponse"
+modules_UnapplyModuleResponse.__module__ = "nominal_api.modules"
+
+
+class modules_ValueType(ConjureEnumType):
+
+    NUMERIC_SERIES = 'NUMERIC_SERIES'
+    '''NUMERIC_SERIES'''
+    ENUM_SERIES = 'ENUM_SERIES'
+    '''ENUM_SERIES'''
+    RANGES_SERIES = 'RANGES_SERIES'
+    '''RANGES_SERIES'''
+    STRING_CONSTANT = 'STRING_CONSTANT'
+    '''STRING_CONSTANT'''
+    DURATION_CONSTANT = 'DURATION_CONSTANT'
+    '''DURATION_CONSTANT'''
+    TIMESTAMP_CONSTANT = 'TIMESTAMP_CONSTANT'
+    '''TIMESTAMP_CONSTANT'''
+    INTEGER_CONSTANT = 'INTEGER_CONSTANT'
+    '''INTEGER_CONSTANT'''
+    ASSET_RID = 'ASSET_RID'
+    '''ASSET_RID'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+modules_ValueType.__name__ = "ValueType"
+modules_ValueType.__qualname__ = "ValueType"
+modules_ValueType.__module__ = "nominal_api.modules"
 
 
 class persistent_compute_api_AppendResult(ConjureBeanType):
@@ -83850,6 +85459,8 @@ scout_compute_api_ErrorType = str
 scout_rids_api_FunctionLineageRid = str
 
 timeseries_logicalseries_api_DatabaseName = str
+
+modules_api_ModuleRid = str
 
 timeseries_logicalseries_api_SchemaName = str
 

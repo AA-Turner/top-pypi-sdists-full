@@ -3820,6 +3820,7 @@ class Route(ServiceResource):
     state: RouteStateType
     vpc_peering_connection_id: str
     core_network_arn: str
+    odb_network_arn: str
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

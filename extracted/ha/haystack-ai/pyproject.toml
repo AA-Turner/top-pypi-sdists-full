@@ -57,6 +57,7 @@ dependencies = [
   "numpy",
   "python-dateutil",
   "jsonschema",             # JsonSchemaValidator, Tool
+  "docstring-parser",       # ComponentTool
   "haystack-experimental",
 ]
 
@@ -75,10 +76,8 @@ dependencies = [
 
 [tool.hatch.envs.default.scripts]
 release-note = "reno new {args}"
-check = "ruff check {args}"
-fix = "ruff check --fix"
-format = "ruff format {args}"
-format-check = "ruff format --check {args}"
+fmt = "ruff check --fix {args} && ruff format {args}"
+fmt-check = "ruff check {args} && ruff format --check {args}"
 
 [tool.hatch.envs.test]
 
@@ -87,15 +86,15 @@ dependencies = [
   "numpy>=2", # Haystack is compatible both with numpy 1.x and 2.x, but we test with 2.x
   "numba>=0.54.0", # This pin helps uv resolve the dependency tree. See https://github.com/astral-sh/uv/issues/7881
 
-  "pandas",                                    # AzureOCRDocumentConverter, CSVDocumentCleaner, CSVDocumentSplitter,
-                                               # EvaluationRunResult, XLSXToDocument, and pipeline tests
+  "pandas",                                           # AzureOCRDocumentConverter, CSVDocumentCleaner, CSVDocumentSplitter,
+                                                      # EvaluationRunResult, XLSXToDocument, and pipeline tests
 
-  "transformers[torch, sentencepiece]>=4.51.1,<4.52", # ExtractiveReader, TransformersSimilarityRanker, LocalWhisperTranscriber, HFGenerators...
-  "huggingface_hub>=0.27.0",                   # Hugging Face API Generators and Embedders
-  "sentence-transformers>=4.1.0",              # Sentence Transformers Embedders, Rankers, and SASEvaluator
-  "langdetect",                                # TextLanguageRouter and DocumentLanguageClassifier
-  "openai-whisper>=20231106",                  # LocalWhisperTranscriber
-  "arrow>=1.3.0",                              # Jinja2TimeExtension
+  "transformers[torch, sentencepiece]>=4.52.4,<4.53", # ExtractiveReader, TransformersSimilarityRanker, LocalWhisperTranscriber, HFGenerators...
+  "huggingface_hub>=0.27.0",                          # Hugging Face API Generators and Embedders
+  "sentence-transformers>=4.1.0",                     # Sentence Transformers Embedders, Rankers, and SASEvaluator
+  "langdetect",                                       # TextLanguageRouter and DocumentLanguageClassifier
+  "openai-whisper>=20231106",                         # LocalWhisperTranscriber
+  "arrow>=1.3.0",                                     # Jinja2TimeExtension
 
 
   # Converters
@@ -128,9 +127,6 @@ dependencies = [
   # Structured logging
   "structlog",
 
-  # ComponentTool
-  "docstring-parser",
-
   # needed in link content fetcher tests
   "httpx[http2]",
 
@@ -155,6 +151,7 @@ unit = 'pytest --cov-report xml:coverage.xml --cov="haystack" -m "not integratio
 integration = 'pytest --maxfail=5 -m "integration" {args:test}'
 integration-only-fast = 'pytest --maxfail=5 -m "integration and not slow" {args:test}'
 integration-only-slow = 'pytest --maxfail=5 -m "integration and slow" {args:test}'
+all = 'pytest {args:test}'
 
 types = "mypy --install-types --non-interactive --cache-dir=.mypy_cache/ {args:haystack}"
 lint = "pylint -ry -j 0 {args:haystack}"
@@ -179,7 +176,7 @@ detached = true                         # To avoid installing the dependencies f
 dependencies = ["haystack-pydoc-tools"]
 
 [tool.hatch.envs.readme.scripts]
-sync = "./.github/utils/pydoc-markdown.sh"
+sync = "./.github/utils/pydoc-markdown.sh {args}"
 delete-outdated = "python ./.github/utils/delete_outdated_docs.py {args}"
 
 [project.urls]
@@ -210,61 +207,49 @@ skip = "./test,./e2e"
 [tool.pylint.'MESSAGES CONTROL']
 max-line-length = 120
 disable = [
-
   # To keep
   "fixme",
   "c-extension-no-member",
+  # we re-export symbols for correct type checking
+  # https://typing.python.org/en/latest/spec/distributing.html#import-conventions
+  "useless-import-alias",
 
   # To review:
   "missing-docstring",
   "unused-argument",
-  "no-member",
   "line-too-long",
   "protected-access",
   "too-few-public-methods",
   "raise-missing-from",
   "invalid-name",
   "duplicate-code",
-  "arguments-differ",
   "consider-using-f-string",
   "no-else-return",
   "attribute-defined-outside-init",
   "super-with-arguments",
   "redefined-builtin",
-  "abstract-method",
   "unspecified-encoding",
-  "unidiomatic-typecheck",
   "no-name-in-module",
-  "consider-using-with",
   "redefined-outer-name",
   "arguments-renamed",
   "unnecessary-pass",
   "broad-except",
-  "unnecessary-comprehension",
-  "subprocess-run-check",
-  "singleton-comparison",
   "consider-iterating-dictionary",
-  "undefined-loop-variable",
   "consider-using-in",
   "bare-except",
   "unexpected-keyword-arg",
-  "simplifiable-if-expression",
-  "use-list-literal",
   "broad-exception-raised",
-
-  # To review later
   "cyclic-import",
   "import-outside-toplevel",
-  "deprecated-method",
 ]
 [tool.pylint.'DESIGN']
-max-args = 38           # Default is 5
-max-attributes = 28     # Default is 7
-max-branches = 34       # Default is 12
-max-locals = 45         # Default is 15
-max-module-lines = 2468 # Default is 1000
-max-nested-blocks = 9   # Default is 5
-max-statements = 206    # Default is 50
+max-args = 20           # Default is 5
+max-attributes = 22     # Default is 7
+max-branches = 22       # Default is 12
+max-locals = 39         # Default is 15
+max-module-lines = 1500 # Default is 1000
+max-nested-blocks = 6   # Default is 5
+max-statements = 102    # Default is 50
 
 [tool.pylint.'SIMILARITIES']
 min-similarity-lines = 6
@@ -285,9 +270,16 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "class"
 
 [tool.mypy]
+python_version = "3.9"
+disallow_incomplete_defs = true
 warn_return_any = false
-warn_unused_configs = true
 ignore_missing_imports = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# TODO: Fix component typings
+module = ["haystack.components.*", "haystack.testing.*"]
+disallow_incomplete_defs = false
 
 [tool.ruff]
 line-length = 120
@@ -335,12 +327,9 @@ ignore = [
   "PERF203", # `try`-`except` within a loop incurs performance overhead
   "PERF401", # Use a list comprehension to create a transformed list
   "PLR1714", # repeated-equality-comparison
-  "PLR5501", # collapsible-else-if
   "PLW0603", # global-statement
-  "PLW1510", # subprocess-run-without-check
   "PLW2901", # redefined-loop-name
   "SIM108",  # if-else-block-instead-of-if-exp
-  "SIM115",  # open-file-with-context-handler
   "SIM118",  # in-dict-keys
   # we re-export symbols for correct type checking
   # https://typing.python.org/en/latest/spec/distributing.html#import-conventions
@@ -349,16 +338,16 @@ ignore = [
 ]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 28
+max-complexity = 20
 
 
 [tool.ruff.lint.pylint]
 allow-magic-value-types = ["float", "int", "str"]
-max-args = 14                                     # Default is 5
+max-args = 13                                     # Default is 5
 max-branches = 21                                 # Default is 12
 max-public-methods = 20                           # Default is 20
 max-returns = 7                                   # Default is 6
-max-statements = 60                               # Default is 50
+max-statements = 56                               # Default is 50
 
 [tool.coverage.run]
 omit = ["haystack/testing/*"]

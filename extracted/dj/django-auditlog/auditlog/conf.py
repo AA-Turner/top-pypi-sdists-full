@@ -55,3 +55,10 @@ settings.AUDITLOG_DISABLE_REMOTE_ADDR = getattr(
 settings.AUDITLOG_CHANGE_DISPLAY_TRUNCATE_LENGTH = getattr(
     settings, "AUDITLOG_CHANGE_DISPLAY_TRUNCATE_LENGTH", 140
 )
+
+# Use pure JSON for changes field
+settings.AUDITLOG_STORE_JSON_CHANGES = getattr(
+    settings, "AUDITLOG_STORE_JSON_CHANGES", False
+)
+
+settings.AUDITLOG_MASK_CALLABLE = getattr(settings, "AUDITLOG_MASK_CALLABLE", None)

@@ -6,7 +6,7 @@ try:
 except ImportError:
 	class DataFrameMapper(object):
 		pass
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_selection import SelectFromModel, SelectorMixin
@@ -111,7 +111,29 @@ class SelectorProxy(BaseEstimator):
 	def transform(self, X):
 		return self.selector.transform(X)
 
+def _is_extension_class(obj):
+	is_extension_module = "." not in obj.__module__ if (obj.__module__ != "__main__") else True
+	if not is_extension_module:
+		return (False, None)
+	clazz = obj.__class__
+	base_clazzes = clazz.__bases__
+	if len(base_clazzes) != 1:
+		return (False, None)
+	base_clazz = base_clazzes[0]
+	is_estimator = issubclass(base_clazz, BaseEstimator) and (base_clazz is not BaseEstimator)
+	is_transformer = issubclass(base_clazz, TransformerMixin) and (base_clazz is not TransformerMixin)
+	inherits_api = hasattr(base_clazz, "fit") and callable(getattr(base_clazz, "fit"))
+	overrides_api = "fit" in clazz.__dict__ or "predict" in clazz.__dict__ or "transform" in clazz.__dict__
+	if (is_estimator or is_transformer) and (inherits_api) and (not overrides_api):
+		return (True, "{}.{}".format(base_clazz.__module__, base_clazz.__name__))
+	return (False, None)
+
 def _escape(obj, escape_func):
+	if isinstance(obj, (BaseEstimator, TransformerMixin)):
+		is_extension_class, base_class = _is_extension_class(obj)
+		if is_extension_class:
+			obj.pmml_base_class_ = base_class
+
 	if isinstance(obj, DataFrameMapper):
 		obj.features = _escape_steps(obj.features, escape_func = escape_func)
 		if hasattr(obj, "built_features"):
@@ -135,7 +157,7 @@ def _escape(obj, escape_func):
 def _escape_steps(steps, escape_func):
 	return [(step[:1] + (escape_func(step[1], escape_func = escape_func), ) + step[2:]) for step in steps]
 
-def make_pmml_pipeline(estimator, active_fields = None, target_fields = None, escape_func = _escape):
+def make_pmml_pipeline(estimator, active_fields = None, target_fields = None):
 	"""Wraps a Scikit-Learn estimator or pipeline object into a PMML pipeline object.
 
 	Parameters:
@@ -155,7 +177,6 @@ def make_pmml_pipeline(estimator, active_fields = None, target_fields = None, es
 	pipeline = PMMLPipeline([
 		("estimator", estimator)
 	])
-	pipeline = _escape(pipeline, escape_func = escape_func)
 	if active_fields is not None:
 		pipeline.active_fields = numpy.asarray(active_fields)
 	if target_fields is not None:
@@ -268,7 +289,7 @@ def _is_supported(estimator):
 		return True
 	return isinstance(estimator, BaseEstimator)
 
-def sklearn2pmml(estimator, pmml_path, with_repr = False, pmml_schema = None, java_home = None, java_opts = None, user_classpath = [], dump_flavour = "joblib", debug = False):
+def sklearn2pmml(estimator, pmml_path, escape_func = _escape, with_repr = False, pmml_schema = None, java_home = None, java_opts = None, user_classpath = [], dump_flavour = "joblib", debug = False):
 	"""Converts a fitted estimator or pipeline object to PMML.
 
 	Parameters:
@@ -314,14 +335,19 @@ def sklearn2pmml(estimator, pmml_path, with_repr = False, pmml_schema = None, ja
 	dumps = []
 	try:
 		if isinstance(estimator, (str, Path)):
+			if escape_func:
+				warnings.warn("Ignoring 'escape_func' argument")
 			if with_repr:
-				warnings.warn("Ignoring 'with_repr' flag")
+				warnings.warn("Ignoring 'with_repr' argument")
 
 			pkl_path = str(estimator)
 		else:
 			if not _is_supported(estimator):
 				raise TypeError("The estimator object is not an instance of {0}".format(BaseEstimator.__name__))
 
+			# Escape first, capture the string representation second
+			if escape_func:
+				estimator = _escape(estimator, escape_func = escape_func)
 			if with_repr:
 				estimator.repr_ = repr(estimator)
 

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import overload
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, overload
 
 from rich.console import Console
-from rich.progress import MofNCompleteColumn, Progress, TimeElapsedColumn
-from rich.prompt import Prompt
 
 from reflex_cli.constants import LogLevel
 
@@ -42,6 +41,23 @@ def print(msg: str, **kwargs):
 
     """
     _console.print(msg, **kwargs)
+
+
+def print_table(
+    tabular_data: Mapping[Any, Iterable[Any]] | Iterable[Iterable[Any]],
+    headers: str | dict[str, str] | Sequence[str] = (),
+    **kwargs,
+) -> None:
+    """Print a table to the console.
+
+    Args:
+        tabular_data: The data to print in tabular format.
+        headers: The headers for the table.
+        **kwargs: Additional keyword arguments to pass to the tabulate function.
+    """
+    from tabulate import tabulate
+
+    print(tabulate(tabular_data, headers=headers, **kwargs))
 
 
 def debug(msg: str, **kwargs):
@@ -166,6 +182,8 @@ def ask(
         A string with the user input.
 
     """
+    from rich.prompt import Prompt
+
     return Prompt.ask(
         question, choices=choices, default=default, show_choices=show_choices
     )
@@ -179,6 +197,8 @@ def progress():
         A new progress bar.
 
     """
+    from rich.progress import MofNCompleteColumn, Progress, TimeElapsedColumn
+
     return Progress(
         *Progress.get_default_columns()[:-1],
         MofNCompleteColumn(),

@@ -236,3 +236,32 @@ fn invalid_inputs() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn invalid_input_not_strict() -> Result<()> {
+    for tc in ["invalid-workflow", "invalid-action-1/action"] {
+        insta::assert_snapshot!(
+            zizmor()
+                .expects_failure(true)
+                .input(input_under_test(&format!("invalid/{tc}.yml")))
+                .run()?
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn pr_960_backstop() -> Result<()> {
+    // Backstop test for PR #960.
+    // See: https://github.com/zizmorcore/zizmor/pull/960
+
+    insta::assert_snapshot!(
+        zizmor()
+            .output(OutputMode::Both)
+            .input(input_under_test("pr-960-backstop"))
+            .run()?
+    );
+
+    Ok(())
+}

@@ -7,20 +7,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-22.04]
     env:
       CIBW_ARCHS_LINUX: auto # aarch64
       CIBW_BUILD: "cp39-*"
+      CIBW_SKIP: "cp39-musl*"
       CIBW_ENVIRONMENT: 'PATH="$PATH:/usr/share/rust/.cargo/bin:$HOME/.cargo/bin"'
       CIBW_BEFORE_ALL_LINUX: >
-        yum install -y libffi-devel openssl-devel &&
-        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain 1.63.0 -y --profile=minimal &&
+        yum install -y libffi-devel openssl-devel libatomic &&
+        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain 1.71.1 -y --profile=minimal &&
         rustup show &&
         cargo install empty-library || true
       CIBW_BUILD_VERBOSITY: 1
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -36,8 +37,9 @@ jobs:
           python-version: 3.9
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.23.0
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
+          name: artifact-ubuntu
           path: ./wheelhouse/*.whl

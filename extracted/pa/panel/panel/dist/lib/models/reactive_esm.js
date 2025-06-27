@@ -9,6 +9,7 @@ import { transform } from "sucrase";
 import { ModelEvent, server_event } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { ImportedStyleSheet } from "@bokehjs/core/dom";
+import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { isArray } from "@bokehjs/core/util/types";
 import { serializeEvent } from "./event-to-object";
 import { DOMEvent } from "./html";
@@ -243,6 +244,7 @@ export class ReactiveESMView extends HTMLBoxView {
         this._child_callbacks = new Map();
         this.model.disconnect_watchers(this);
     }
+    _on_mounted() { }
     notify_mount(child, id, remove) {
         if (!this._mounted.has(child)) {
             this._mounted.set(child, new Set());
@@ -258,6 +260,7 @@ export class ReactiveESMView extends HTMLBoxView {
             children = [children];
         }
         if (children.every((model) => this._mounted.get(child)?.has(model.id))) {
+            this._on_mounted();
             for (const cb of this._lifecycle_handlers.get("mounted") || []) {
                 cb(child);
             }
@@ -336,6 +339,40 @@ export class ReactiveESMView extends HTMLBoxView {
             element_view.render_to(target);
         }
     }
+    get is_managed() {
+        return this.parent instanceof LayoutDOMView && !(this.parent instanceof ReactiveESMView);
+    }
+    compute_layout() {
+        if (this.is_managed) {
+            super.compute_layout();
+            return;
+        }
+        this.measure_layout();
+        this.update_bbox();
+        this._compute_layout();
+        this.after_layout();
+        // Override private property
+        this._layout_computed = true;
+    }
+    _update_bbox() {
+        const displayed = (() => {
+            // Consider using Element.checkVisibility() in the future.
+            // https://w3c.github.io/csswg-drafts/cssom-view-1/#dom-element-checkvisibility
+            if (!this.el.isConnected) {
+                return false;
+            }
+            else if (this.el.offsetParent != null) {
+                return true;
+            }
+            else {
+                const { position, display } = getComputedStyle(this.el);
+                return position == "fixed" && display != "none";
+            }
+        })();
+        // Override private property
+        this._is_displayed = displayed;
+        return true;
+    }
     after_rendered() {
         const handlers = (this._lifecycle_handlers.get("after_render") || []);
         for (const cb of handlers) {
@@ -379,6 +416,14 @@ export class ReactiveESMView extends HTMLBoxView {
         }
         this.after_render();
     }
+    invalidate_layout() {
+        if (this.is_managed) {
+            super.invalidate_layout();
+            return;
+        }
+        this.update_layout();
+        this.compute_layout();
+    }
     remove() {
         super.remove();
         for (const cb of (this._lifecycle_handlers.get("remove") || [])) {
@@ -389,8 +434,8 @@ export class ReactiveESMView extends HTMLBoxView {
         this._mounted.clear();
     }
     after_resize() {
-        super.after_resize();
         if (this._rendered && !this._changing) {
+            super.after_resize();
             for (const cb of (this._lifecycle_handlers.get("resize") || [])) {
                 cb();
             }
@@ -633,7 +678,7 @@ export class ReactiveESM extends HTMLBox {
             const render_url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
             // @ts-ignore
             this.render_module = importShim(render_url);
-            MODULE_CACHE.set(this.data.type, this.render_module);
+            MODULE_CACHE.set(this._render_cache_key, this.render_module);
         }
     }
     _render_code() {

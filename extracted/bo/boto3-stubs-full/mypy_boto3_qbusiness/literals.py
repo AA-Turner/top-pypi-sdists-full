@@ -37,6 +37,7 @@ __all__ = (
     "ChatModeType",
     "ContentTypeType",
     "CreatorModeControlType",
+    "DataAccessorAuthenticationTypeType",
     "DataSourceStatusType",
     "DataSourceSyncJobStatusType",
     "DocumentAttributeBoostingLevelType",
@@ -76,6 +77,7 @@ __all__ = (
     "NumberAttributeBoostingTypeType",
     "OrchestrationControlType",
     "PaginatorName",
+    "PermissionConditionOperatorType",
     "PersonalizationControlModeType",
     "PluginBuildStatusType",
     "PluginStateType",
@@ -131,6 +133,7 @@ ContentTypeType = Literal[
     "XSLT",
 ]
 CreatorModeControlType = Literal["DISABLED", "ENABLED"]
+DataAccessorAuthenticationTypeType = Literal["AWS_IAM_IDC_AUTH_CODE", "AWS_IAM_IDC_TTI"]
 DataSourceStatusType = Literal[
     "ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING_CREATION", "UPDATING"
 ]
@@ -209,6 +212,7 @@ MessageUsefulnessReasonType = Literal[
 MessageUsefulnessType = Literal["NOT_USEFUL", "USEFUL"]
 NumberAttributeBoostingTypeType = Literal["PRIORITIZE_LARGER_VALUES", "PRIORITIZE_SMALLER_VALUES"]
 OrchestrationControlType = Literal["DISABLED", "ENABLED"]
+PermissionConditionOperatorType = Literal["StringEquals"]
 PersonalizationControlModeType = Literal["DISABLED", "ENABLED"]
 PluginBuildStatusType = Literal[
     "CREATE_FAILED",
@@ -467,6 +471,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",

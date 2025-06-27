@@ -20,8 +20,11 @@ from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
 from chalk._gen.chalk.common.v1 import online_query_pb2, upload_features_pb2
 from chalk._gen.chalk.common.v1.online_query_pb2 import GenericSingleQuery, UploadFeaturesBulkRequest
+from chalk._gen.chalk.common.v2.execute_plan_pb2 import ExecutePlanRequest, ExecutePlanResponse
 from chalk._gen.chalk.engine.v1 import query_server_pb2
 from chalk._gen.chalk.engine.v1.query_server_pb2_grpc import QueryServiceStub
+from chalk._gen.chalk.engine.v2.dataframe_service_pb2_grpc import DataFrameServiceStub
+from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import Graph
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import ExecuteSqlQueryRequest, PlanSqlQueryRequest
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
@@ -216,6 +219,14 @@ class StubProvider:
             )
         return SqlServiceStub(self._engine_channel)
 
+    @cached_property
+    def dataframe_stub(self) -> DataFrameServiceStub:
+        if self._engine_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return DataFrameServiceStub(self._engine_channel)
+
     def __init__(
         self,
         token_config: TokenConfig,
@@ -399,6 +410,9 @@ class StubRefresher:
 
     def call_sql_stub(self, fn: Callable[[SqlServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.sql_stub)
+
+    def call_dataframe_stub(self, fn: Callable[[DataFrameServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.dataframe_stub)
 
     @property
     def environment_id(self) -> str | None:
@@ -1133,3 +1147,8 @@ class ChalkGRPCClient:
 
     def explain_sql(self, sql: str):
         return self._stub_refresher.call_sql_stub(lambda x: x.PlanSqlQuery(PlanSqlQueryRequest(query=sql)))
+
+    def execute_plan(self, *, lazy_frame_calls: expr_pb.LogicalExprNode) -> ExecutePlanResponse:
+        return self._stub_refresher.call_dataframe_stub(
+            lambda x: x.ExecutePlan(ExecutePlanRequest(lazy_frame_calls=lazy_frame_calls))
+        )

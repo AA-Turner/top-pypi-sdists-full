@@ -32,6 +32,7 @@ from neptune_fetcher.internal.composition import attribute_components as _compon
 from neptune_fetcher.internal.composition import (
     concurrency,
     type_inference,
+    validation,
 )
 from neptune_fetcher.internal.composition.attributes import AttributeDefinitionAggregation
 from neptune_fetcher.internal.filters import (
@@ -60,9 +61,10 @@ def fetch_table(
     type_suffix_in_column_names: bool,
     context: Optional[_context.Context] = None,
     container_type: search.ContainerType,
+    flatten_file_properties: bool = False,
 ) -> pd.DataFrame:
-    _validate_limit(limit)
-    _sort_direction = _validate_sort_direction(sort_direction)
+    validation.validate_limit(limit)
+    _sort_direction = validation.validate_sort_direction(sort_direction)
 
     valid_context = _context.validate_context(context or _context.get_context())
     client = _client.get_client(context=valid_context)
@@ -160,6 +162,7 @@ def fetch_table(
         selected_aggregations=selected_aggregations,
         type_suffix_in_column_names=type_suffix_in_column_names,
         index_column_name="experiment" if container_type == search.ContainerType.EXPERIMENT else "run",
+        flatten_file_properties=flatten_file_properties,
     )
     return dataframe
 
@@ -173,19 +176,3 @@ def _map_keys_preserving_order(
         label = sys_id_label_mapping[sys_id]
         result_by_name[label] = values
     return result_by_name
-
-
-def _validate_limit(limit: Optional[int]) -> None:
-    """Validate that limit is either None or a positive integer."""
-    if limit is not None:
-        if not isinstance(limit, int):
-            raise ValueError("limit must be None or an integer")
-        if limit <= 0:
-            raise ValueError("limit must be greater than 0")
-
-
-def _validate_sort_direction(sort_direction: Literal["asc", "desc"]) -> Literal["asc", "desc"]:
-    """Validate that sort_direction is either 'asc' or 'desc'."""
-    if sort_direction not in ("asc", "desc"):
-        raise ValueError("sort_direction must be either 'asc' or 'desc'")
-    return sort_direction

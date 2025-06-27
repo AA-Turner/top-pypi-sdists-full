@@ -220,6 +220,7 @@ def update_resource(
     rules_config_file=None,
     roles_config_file=None,
     published=None,
+    hide=None,
     **kwargs,
 ):
     org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
@@ -236,6 +237,11 @@ def update_resource(
                 continue
             resource.spec.resource_members.append(member)
 
+    config = resource.spec.config
+    if config is None:
+        config = agilicus.ResourceConfig()
+        resource.spec.config = config
+
     if resource_members is not None:
         for member in resource_members:
             resource.spec.resource_members.append(agilicus.ResourceMember(id=member))
@@ -247,6 +253,13 @@ def update_resource(
         resource.spec.config.roles_config = roles_config_file
     if published is not None:
         resource.spec.config.published = published
+
+    if hide:
+        display_info = config.display_info
+        if display_info is None:
+            display_info = agilicus.DisplayInfo(icons=[])
+            config.display_info = display_info
+        display_info.hide = hide
 
     return apiclient.resources_api.replace_resource(id, resource=resource).to_dict()
 

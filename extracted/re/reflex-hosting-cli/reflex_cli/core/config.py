@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, get_origin
 
-import yaml
-
 from reflex_cli import constants
 from reflex_cli.utils.exceptions import ConfigError, ConfigInvalidFieldValueError
 
@@ -56,14 +54,14 @@ VmType = Literal[
     "c1m.5",
     "c1m1",
     "c1m2",
-    "c2m.5",
     "c2m1",
-    "c2m2",
     "c2m4",
-    "c4m1",
-    "c4m2",
     "c4m4",
     "c4m8",
+    "pc1m2",
+    "pc2m4",
+    "pc2m8",
+    "pc4m8",
 ]
 
 
@@ -192,6 +190,13 @@ class Config:
             ConfigError: If the YAML file is not found.
 
         """
+        try:
+            import yaml
+        except ImportError as e:
+            raise ConfigError(
+                "YAML support is not available. Please install PyYAML to use this feature."
+            ) from e
+
         try:
             with yaml_path.open() as file:
                 data = yaml.safe_load(file)

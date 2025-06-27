@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 import pathspec
 
-from scikit_build_core.format import pyproject_format
+from .._logging import logger
+from ..format import pyproject_format
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -46,11 +47,12 @@ def each_unignored_file(
             global_exclude_lines += f.readlines()
 
     nested_excludes = {
-        p.parent: pathspec.GitIgnoreSpec.from_lines(
-            p.read_text(encoding="utf-8").splitlines()
+        Path(dirpath): pathspec.GitIgnoreSpec.from_lines(
+            (Path(dirpath) / filename).read_text(encoding="utf-8").splitlines()
         )
-        for p in Path().rglob("**/.gitignore")
-        if p != Path(".gitignore")
+        for dirpath, _, filenames in os.walk(".")
+        for filename in filenames
+        if filename == ".gitignore" and dirpath != "."
     }
 
     exclude_build_dir = build_dir.format(**pyproject_format(dummy=True))
@@ -71,19 +73,31 @@ def each_unignored_file(
         for p in all_paths:
             # Always include something included
             if include_spec.match_file(p):
+                logger.debug("Including {} because it is explicitly included.", p)
                 yield p
                 continue
 
             # Always exclude something excluded
             if user_exclude_spec.match_file(p):
+                logger.debug(
+                    "Excluding {} because it is explicitly excluded by the user.", p
+                )
                 continue
 
             # Ignore from global ignore
             if global_exclude_spec.match_file(p):
+                logger.debug(
+                    "Excluding {} because it is explicitly excluded by the global ignore.",
+                    p,
+                )
                 continue
 
             # Ignore built-in patterns
             if builtin_exclude_spec.match_file(p):
+                logger.debug(
+                    "Excluding {} because it is excluded by the built-in ignore patterns.",
+                    p,
+                )
                 continue
 
             # Check relative ignores (Python 3.9's is_relative_to workaround)
@@ -92,6 +106,10 @@ def each_unignored_file(
                 for np, nex in nested_excludes.items()
                 if dirpath == np or np in dirpath.parents
             ):
+                logger.debug(
+                    "Excluding {} because it is explicitly excluded by nested ignore.",
+                    p,
+                )
                 continue
 
             yield p

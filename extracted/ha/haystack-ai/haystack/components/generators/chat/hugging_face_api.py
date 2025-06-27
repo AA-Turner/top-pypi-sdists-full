@@ -7,8 +7,18 @@ from datetime import datetime
 from typing import Any, AsyncIterable, Dict, Iterable, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
-from haystack.dataclasses import ChatMessage, StreamingChunk, ToolCall, select_streaming_callback
-from haystack.dataclasses.streaming_chunk import StreamingCallbackT
+from haystack.components.generators.utils import _convert_streaming_chunks_to_chat_message
+from haystack.dataclasses import (
+    AsyncStreamingCallbackT,
+    ChatMessage,
+    ComponentInfo,
+    StreamingCallbackT,
+    StreamingChunk,
+    SyncStreamingCallbackT,
+    ToolCall,
+    select_streaming_callback,
+)
+from haystack.dataclasses.streaming_chunk import FinishReason
 from haystack.lazy_imports import LazyImport
 from haystack.tools import (
     Tool,
@@ -32,6 +42,7 @@ with LazyImport(message="Run 'pip install \"huggingface_hub[inference]>=0.27.0\"
         ChatCompletionOutput,
         ChatCompletionOutputToolCall,
         ChatCompletionStreamOutput,
+        ChatCompletionStreamOutputChoice,
         InferenceClient,
     )
 
@@ -99,6 +110,80 @@ def _convert_tools_to_hfapi_tools(
         )
 
     return hf_tools
+
+
+def _map_hf_finish_reason_to_haystack(choice: "ChatCompletionStreamOutputChoice") -> Optional[FinishReason]:
+    """
+    Map HuggingFace finish reasons to Haystack FinishReason literals.
+
+    Uses the full choice object to detect tool calls and provide accurate mapping.
+
+    HuggingFace finish reasons (can be found here https://huggingface.github.io/text-generation-inference/ under
+    FinishReason):
+    - "length": number of generated tokens == `max_new_tokens`
+    - "eos_token": the model generated its end of sequence token
+    - "stop_sequence": the model generated a text included in `stop_sequences`
+
+    Additionally detects tool calls from delta.tool_calls or delta.tool_call_id.
+
+    :param choice: The HuggingFace ChatCompletionStreamOutputChoice object.
+    :returns: The corresponding Haystack FinishReason or None.
+    """
+    if choice.finish_reason is None:
+        return None
+
+    # Check if this choice contains tool call information
+    has_tool_calls = choice.delta.tool_calls is not None or choice.delta.tool_call_id is not None
+
+    # If we detect tool calls, override the finish reason
+    if has_tool_calls:
+        return "tool_calls"
+
+    # Map HuggingFace finish reasons to Haystack standard ones
+    mapping: Dict[str, FinishReason] = {
+        "length": "length",  # Direct match
+        "eos_token": "stop",  # EOS token means natural stop
+        "stop_sequence": "stop",  # Stop sequence means natural stop
+    }
+
+    return mapping.get(choice.finish_reason, "stop")  # Default to "stop" for unknown reasons
+
+
+def _convert_chat_completion_stream_output_to_streaming_chunk(
+    chunk: "ChatCompletionStreamOutput",
+    previous_chunks: List[StreamingChunk],
+    component_info: Optional[ComponentInfo] = None,
+) -> StreamingChunk:
+    """
+    Converts the Hugging Face API ChatCompletionStreamOutput to a StreamingChunk.
+    """
+    # Choices is empty if include_usage is set to True where the usage information is returned.
+    if len(chunk.choices) == 0:
+        usage = None
+        if chunk.usage:
+            usage = {"prompt_tokens": chunk.usage.prompt_tokens, "completion_tokens": chunk.usage.completion_tokens}
+        return StreamingChunk(
+            content="",
+            meta={"model": chunk.model, "received_at": datetime.now().isoformat(), "usage": usage},
+            component_info=component_info,
+        )
+
+    # n is unused, so the API always returns only one choice
+    # the argument is probably allowed for compatibility with OpenAI
+    # see https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion.n
+    choice = chunk.choices[0]
+    mapped_finish_reason = _map_hf_finish_reason_to_haystack(choice) if choice.finish_reason else None
+    stream_chunk = StreamingChunk(
+        content=choice.delta.content or "",
+        meta={"model": chunk.model, "received_at": datetime.now().isoformat(), "finish_reason": choice.finish_reason},
+        component_info=component_info,
+        # Index must always be 0 since we don't allow tool calls in streaming mode.
+        index=0 if choice.finish_reason is None else None,
+        # start is True at the very beginning since first chunk contains role information + first part of the answer.
+        start=len(previous_chunks) == 0,
+        finish_reason=mapped_finish_reason,
+    )
+    return stream_chunk
 
 
 @component
@@ -194,6 +279,7 @@ class HuggingFaceAPIChatGenerator:
             - `model`: Hugging Face model ID. Required when `api_type` is `SERVERLESS_INFERENCE_API`.
             - `url`: URL of the inference endpoint. Required when `api_type` is `INFERENCE_ENDPOINTS` or
             `TEXT_GENERATION_INFERENCE`.
+            - Other parameters specific to the chosen API type, such as `timeout`, `headers`, `provider` etc.
         :param token:
             The Hugging Face token to use as HTTP bearer authorization.
             Check your HF token in your [account settings](https://huggingface.co/settings/tokens).
@@ -255,8 +341,14 @@ class HuggingFaceAPIChatGenerator:
         self.token = token
         self.generation_kwargs = generation_kwargs
         self.streaming_callback = streaming_callback
-        self._client = InferenceClient(model_or_url, token=token.resolve_value() if token else None)
-        self._async_client = AsyncInferenceClient(model_or_url, token=token.resolve_value() if token else None)
+
+        resolved_api_params: Dict[str, Any] = {k: v for k, v in api_params.items() if k != "model" and k != "url"}
+        self._client = InferenceClient(
+            model_or_url, token=token.resolve_value() if token else None, **resolved_api_params
+        )
+        self._async_client = AsyncInferenceClient(
+            model_or_url, token=token.resolve_value() if token else None, **resolved_api_params
+        )
         self.tools = tools
 
     def to_dict(self) -> Dict[str, Any]:
@@ -394,7 +486,10 @@ class HuggingFaceAPIChatGenerator:
         return await self._run_non_streaming_async(formatted_messages, generation_kwargs, hf_tools)
 
     def _run_streaming(
-        self, messages: List[Dict[str, str]], generation_kwargs: Dict[str, Any], streaming_callback: StreamingCallbackT
+        self,
+        messages: List[Dict[str, str]],
+        generation_kwargs: Dict[str, Any],
+        streaming_callback: SyncStreamingCallbackT,
     ):
         api_output: Iterable[ChatCompletionStreamOutput] = self._client.chat_completion(
             messages,
@@ -403,51 +498,19 @@ class HuggingFaceAPIChatGenerator:
             **generation_kwargs,
         )
 
-        generated_text = ""
-        first_chunk_time = None
-        finish_reason = None
-        usage = None
-        meta: Dict[str, Any] = {}
-
+        component_info = ComponentInfo.from_component(self)
+        streaming_chunks: List[StreamingChunk] = []
         for chunk in api_output:
-            # The chunk with usage returns an empty array for choices
-            if len(chunk.choices) > 0:
-                # n is unused, so the API always returns only one choice
-                # the argument is probably allowed for compatibility with OpenAI
-                # see https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion.n
-                choice = chunk.choices[0]
+            streaming_chunk = _convert_chat_completion_stream_output_to_streaming_chunk(
+                chunk=chunk, previous_chunks=streaming_chunks, component_info=component_info
+            )
+            streaming_chunks.append(streaming_chunk)
+            streaming_callback(streaming_chunk)
 
-                text = choice.delta.content or ""
-                generated_text += text
+        message = _convert_streaming_chunks_to_chat_message(chunks=streaming_chunks)
+        if message.meta.get("usage") is None:
+            message.meta["usage"] = {"prompt_tokens": 0, "completion_tokens": 0}
 
-                if choice.finish_reason:
-                    finish_reason = choice.finish_reason
-
-                stream_chunk = StreamingChunk(text, meta)
-                streaming_callback(stream_chunk)
-
-            if chunk.usage:
-                usage = chunk.usage
-
-            if first_chunk_time is None:
-                first_chunk_time = datetime.now().isoformat()
-
-        if usage:
-            usage_dict = {"prompt_tokens": usage.prompt_tokens, "completion_tokens": usage.completion_tokens}
-        else:
-            usage_dict = {"prompt_tokens": 0, "completion_tokens": 0}
-
-        meta.update(
-            {
-                "model": self._client.model,
-                "index": 0,
-                "finish_reason": finish_reason,
-                "usage": usage_dict,
-                "completion_start_time": first_chunk_time,
-            }
-        )
-
-        message = ChatMessage.from_assistant(text=generated_text, meta=meta)
         return {"replies": [message]}
 
     def _run_non_streaming(
@@ -490,7 +553,10 @@ class HuggingFaceAPIChatGenerator:
         return {"replies": [message]}
 
     async def _run_streaming_async(
-        self, messages: List[Dict[str, str]], generation_kwargs: Dict[str, Any], streaming_callback: StreamingCallbackT
+        self,
+        messages: List[Dict[str, str]],
+        generation_kwargs: Dict[str, Any],
+        streaming_callback: AsyncStreamingCallbackT,
     ):
         api_output: AsyncIterable[ChatCompletionStreamOutput] = await self._async_client.chat_completion(
             messages,
@@ -499,51 +565,19 @@ class HuggingFaceAPIChatGenerator:
             **generation_kwargs,
         )
 
-        generated_text = ""
-        first_chunk_time = None
-        finish_reason = None
-        usage = None
-        meta: Dict[str, Any] = {}
-
+        component_info = ComponentInfo.from_component(self)
+        streaming_chunks: List[StreamingChunk] = []
         async for chunk in api_output:
-            # The chunk with usage returns an empty array for choices
-            if len(chunk.choices) > 0:
-                # n is unused, so the API always returns only one choice
-                # the argument is probably allowed for compatibility with OpenAI
-                # see https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion.n
-                choice = chunk.choices[0]
+            stream_chunk = _convert_chat_completion_stream_output_to_streaming_chunk(
+                chunk=chunk, previous_chunks=streaming_chunks, component_info=component_info
+            )
+            streaming_chunks.append(stream_chunk)
+            await streaming_callback(stream_chunk)  # type: ignore
 
-                text = choice.delta.content or ""
-                generated_text += text
+        message = _convert_streaming_chunks_to_chat_message(chunks=streaming_chunks)
+        if message.meta.get("usage") is None:
+            message.meta["usage"] = {"prompt_tokens": 0, "completion_tokens": 0}
 
-                if choice.finish_reason:
-                    finish_reason = choice.finish_reason
-
-                stream_chunk = StreamingChunk(text, meta)
-                await streaming_callback(stream_chunk)  # type: ignore
-
-            if chunk.usage:
-                usage = chunk.usage
-
-            if first_chunk_time is None:
-                first_chunk_time = datetime.now().isoformat()
-
-        if usage:
-            usage_dict = {"prompt_tokens": usage.prompt_tokens, "completion_tokens": usage.completion_tokens}
-        else:
-            usage_dict = {"prompt_tokens": 0, "completion_tokens": 0}
-
-        meta.update(
-            {
-                "model": self._async_client.model,
-                "index": 0,
-                "finish_reason": finish_reason,
-                "usage": usage_dict,
-                "completion_start_time": first_chunk_time,
-            }
-        )
-
-        message = ChatMessage.from_assistant(text=generated_text, meta=meta)
         return {"replies": [message]}
 
     async def _run_non_streaming_async(

@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "maturin>=0.13,<0.15",
+    "maturin>=1,<2",
     "cffi",
 ]
 build-backend = "maturin"
@@ -20,7 +20,8 @@ maintainers = [
     { name = "Mathias Brossard", email = "mathias.brossard@arm.com" },
     { name = "Chris Reed", email = "flit@me.com" },
 ]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = [ "LICENSE" ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -30,12 +31,12 @@ classifiers = [
     "Operating System :: POSIX",
     "Operating System :: Unix",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development",
     "Topic :: Software Development :: Debuggers",
     "Topic :: Software Development :: Embedded Systems",
@@ -60,3 +61,6 @@ Changelog = "https://github.com/pyocd/cmsis-pack-manager/releases"
 
 [tool.maturin]
 bindings = "cffi"
+
+[tool.pytest.ini_options]
+python_files = "tests/*.py"

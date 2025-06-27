@@ -16,10 +16,10 @@ pub use server::{LspCompletion, LspOptions};
 pub use tombi_toml_version::TomlVersion;
 pub use types::*;
 
-pub const TOMBI_CONFIG_FILENAME: &str = "tombi.toml";
-pub const TOMBI_USER_CONFIG_FILENAME: &str = "config.toml";
-pub const PYPROJECT_FILENAME: &str = "pyproject.toml";
-pub const SUPPORTED_CONFIG_FILENAMES: [&str; 2] = [TOMBI_CONFIG_FILENAME, PYPROJECT_FILENAME];
+pub const TOMBI_TOML_FILENAME: &str = "tombi.toml";
+pub const CONFIG_TOML_FILENAME: &str = "config.toml";
+pub const PYPROJECT_TOML_FILENAME: &str = "pyproject.toml";
+pub const SUPPORTED_CONFIG_FILENAMES: [&str; 2] = [TOMBI_TOML_FILENAME, PYPROJECT_TOML_FILENAME];
 pub const TOMBI_CONFIG_TOML_VERSION: TomlVersion = TomlVersion::V1_1_0_Preview;
 
 /// # Tombi
@@ -41,22 +41,12 @@ pub struct Config {
     #[cfg_attr(feature = "jsonschema", schemars(default = "TomlVersion::default"))]
     pub toml_version: Option<TomlVersion>,
 
-    /// # File patterns to include.
-    ///
-    /// The file match pattern to include in formatting and linting.
-    /// Supports glob pattern.
-    ///
-    /// Deprecated. Use `files.include` instead.
+    /// # Deprecated. Use `files.include` instead.
     #[cfg_attr(feature = "jsonschema", deprecated)]
     #[cfg_attr(feature = "jsonschema", schemars(length(min = 1)))]
     include: Option<Vec<String>>,
 
-    /// # File patterns to exclude.
-    ///
-    /// The file match pattern to exclude from formatting and linting.
-    /// Supports glob pattern.
-    ///
-    /// Deprecated. Use `files.exclude` instead.
+    /// # Deprecated. Use `files.exclude` instead.
     #[cfg_attr(feature = "jsonschema", deprecated)]
     #[cfg_attr(feature = "jsonschema", schemars(length(min = 1)))]
     exclude: Option<Vec<String>>,

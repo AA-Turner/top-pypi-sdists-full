@@ -32,18 +32,20 @@ class QueryRequest(BaseModel):
 
     Parameters
     __________
-    columns : List[str]
-        List of columns to return.
     query : str, optional
         Unstructured text query.  Exactly one of 'query' or 'multi_index_query' must be specified.
     multi_index_query : object, optional
         A search query expressed as a collection of multiple column-level queries.  Exactly one of 'query' or 'multi_index_query' must be specified. A column/index can be queried with multiple queries.
+    columns : List[str], optional
+        List of columns to return.
     filter : object, optional
         Filter query.
     limit : int,  default 10
         Max number of results to return.
     scoring_config : ScoringConfig, optional
 
+    scoring_profile : str, optional
+        Mutually exclusive with scoring_config. Specifies the pre-defined name of a profile on the cortex search service that resolves to scoring_config.
     experimental : object, optional
         reserved
     """
@@ -52,7 +54,7 @@ class QueryRequest(BaseModel):
 
     multi_index_query: Optional[Dict[str, Any]] = None
 
-    columns: List[StrictStr]
+    columns: Optional[List[StrictStr]] = None
 
     filter: Optional[Dict[str, Any]] = None
 
@@ -60,11 +62,13 @@ class QueryRequest(BaseModel):
 
     scoring_config: Optional[ScoringConfig] = None
 
+    scoring_profile: Optional[StrictStr] = None
+
     experimental: Optional[Dict[str, Any]] = None
 
     __properties = [
         "query", "multi_index_query", "columns", "filter", "limit",
-        "scoring_config", "experimental"
+        "scoring_config", "scoring_profile", "experimental"
     ]
 
     class Config:
@@ -135,6 +139,8 @@ class QueryRequest(BaseModel):
             "scoring_config":
             ScoringConfig.from_dict(obj.get("scoring_config"))
             if obj.get("scoring_config") is not None else None,
+            "scoring_profile":
+            obj.get("scoring_profile"),
             "experimental":
             obj.get("experimental"),
         })
@@ -150,14 +156,14 @@ from snowflake.core.cortex.search_service._generated.models.scoring_config impor
 class QueryRequestModel():
 
     def __init__(
-        self,
-        columns: List[str],
-        # optional properties
+        self,  # optional properties
         query: Optional[str] = None,
         multi_index_query: Optional[object] = None,
+        columns: Optional[List[str]] = None,
         filter: Optional[object] = None,
         limit: Optional[int] = 10,
         scoring_config: Optional[ScoringConfig] = None,
+        scoring_profile: Optional[str] = None,
         experimental: Optional[object] = None,
     ):
         """A model object representing the QueryRequest resource.
@@ -166,18 +172,20 @@ class QueryRequestModel():
 
         Parameters
         __________
-        columns : List[str]
-            List of columns to return.
         query : str, optional
             Unstructured text query.  Exactly one of 'query' or 'multi_index_query' must be specified.
         multi_index_query : object, optional
             A search query expressed as a collection of multiple column-level queries.  Exactly one of 'query' or 'multi_index_query' must be specified. A column/index can be queried with multiple queries.
+        columns : List[str], optional
+            List of columns to return.
         filter : object, optional
             Filter query.
         limit : int,  default 10
             Max number of results to return.
         scoring_config : ScoringConfig, optional
 
+        scoring_profile : str, optional
+            Mutually exclusive with scoring_config. Specifies the pre-defined name of a profile on the cortex search service that resolves to scoring_config.
         experimental : object, optional
             reserved
         """
@@ -188,11 +196,12 @@ class QueryRequestModel():
         self.filter = filter
         self.limit = limit
         self.scoring_config = scoring_config
+        self.scoring_profile = scoring_profile
         self.experimental = experimental
 
     __properties = [
         "query", "multi_index_query", "columns", "filter", "limit",
-        "scoring_config", "experimental"
+        "scoring_config", "scoring_profile", "experimental"
     ]
 
     def __repr__(self) -> str:
@@ -207,6 +216,7 @@ class QueryRequestModel():
             limit=self.limit,
             scoring_config=self.scoring_config._to_model()
             if self.scoring_config is not None else None,
+            scoring_profile=self.scoring_profile,
             experimental=self.experimental,
         )
 
@@ -220,6 +230,7 @@ class QueryRequestModel():
             limit=model.limit,
             scoring_config=ScoringConfigModel._from_model(model.scoring_config)
             if model.scoring_config is not None else None,
+            scoring_profile=model.scoring_profile,
             experimental=model.experimental,
         )
 

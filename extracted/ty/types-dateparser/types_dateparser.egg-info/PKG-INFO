@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-dateparser
-Version: 1.2.0.20250601
+Version: 1.2.2.20250627
 Summary: Typing stubs for dateparser
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -26,7 +26,7 @@ It can be used by type-checking tools like
 [Pyre](https://pyre-check.org/),
 PyCharm, etc. to check code that uses `dateparser`. This version of
 `types-dateparser` aims to provide accurate annotations for
-`dateparser==1.2.*`.
+`dateparser~=1.2.2`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -36,8 +36,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
+mypy 1.16.0,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`5a3c495d2f6fa9b68cd99f39feba4426e4d17ea9`](https://github.com/python/typeshed/commit/5a3c495d2f6fa9b68cd99f39feba4426e4d17ea9).
+[`0c155fe92c82d68439843cbf39d7231cd452f737`](https://github.com/python/typeshed/commit/0c155fe92c82d68439843cbf39d7231cd452f737).

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex-hosting-cli
-Version: 0.1.50
+Version: 0.1.51
 Summary: Reflex Hosting CLI
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
@@ -12,7 +12,7 @@ License-File: LICENSE
 Keywords: framework,web
 Classifier: Development Status :: 4 - Beta
 Requires-Python: >=3.10
-Requires-Dist: click>=8
+Requires-Dist: click>=8.2
 Requires-Dist: httpx<1.0,>=0.25.1
 Requires-Dist: packaging>=24.2
 Requires-Dist: platformdirs<5.0,>=3.10.0

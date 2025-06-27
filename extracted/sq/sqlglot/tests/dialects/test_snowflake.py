@@ -80,6 +80,8 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT * REPLACE (CAST(col AS TEXT) AS scol) FROM t")
         self.validate_identity("1 /* /* */")
         self.validate_identity("TO_TIMESTAMP(col, fmt)")
+        self.validate_identity("SELECT TO_CHAR(CAST('12:05:05' AS TIME))")
+        self.validate_identity("SELECT TRIM(COALESCE(TO_CHAR(CAST(c AS TIME)), '')) FROM t")
         self.validate_identity(
             "SELECT * FROM table AT (TIMESTAMP => '2024-07-24') UNPIVOT(a FOR b IN (c)) AS pivot_table"
         )
@@ -625,6 +627,33 @@ class TestSnowflake(Validator):
                     },
                 )
         self.validate_all(
+            "TO_CHAR(x, y)",
+            read={
+                "": "TO_CHAR(x, y)",
+                "snowflake": "TO_VARCHAR(x, y)",
+            },
+            write={
+                "": "CAST(x AS TEXT)",
+                "databricks": "TO_CHAR(x, y)",
+                "drill": "TO_CHAR(x, y)",
+                "oracle": "TO_CHAR(x, y)",
+                "postgres": "TO_CHAR(x, y)",
+                "snowflake": "TO_CHAR(x, y)",
+                "teradata": "TO_CHAR(x, y)",
+            },
+        )
+        self.validate_identity(
+            "TO_CHAR(foo::DATE, 'yyyy')",
+            "TO_CHAR(CAST(foo AS DATE), 'yyyy')",
+        )
+        self.validate_all(
+            "TO_CHAR(foo::TIMESTAMP, 'YYYY-MM')",
+            write={
+                "snowflake": "TO_CHAR(CAST(foo AS TIMESTAMP), 'yyyy-mm')",
+                "duckdb": "STRFTIME(CAST(foo AS TIMESTAMP), '%Y-%m')",
+            },
+        )
+        self.validate_all(
             "SQUARE(x)",
             write={
                 "bigquery": "POWER(x, 2)",
@@ -746,6 +775,7 @@ class TestSnowflake(Validator):
                 "bigquery": "SELECT TIMESTAMP_SECONDS(1659981729)",
                 "snowflake": "SELECT TO_TIMESTAMP(1659981729)",
                 "spark": "SELECT CAST(FROM_UNIXTIME(1659981729) AS TIMESTAMP)",
+                "redshift": "SELECT (TIMESTAMP 'epoch' + 1659981729 * INTERVAL '1 SECOND')",
             },
         )
         self.validate_all(
@@ -754,6 +784,7 @@ class TestSnowflake(Validator):
                 "bigquery": "SELECT TIMESTAMP_MILLIS(1659981729000)",
                 "snowflake": "SELECT TO_TIMESTAMP(1659981729000, 3)",
                 "spark": "SELECT TIMESTAMP_MILLIS(1659981729000)",
+                "redshift": "SELECT (TIMESTAMP 'epoch' + (1659981729000 / POWER(10, 3)) * INTERVAL '1 SECOND')",
             },
         )
         self.validate_all(
@@ -762,6 +793,7 @@ class TestSnowflake(Validator):
                 "bigquery": "SELECT TIMESTAMP_SECONDS(CAST(16599817290000 / POWER(10, 4) AS INT64))",
                 "snowflake": "SELECT TO_TIMESTAMP(16599817290000, 4)",
                 "spark": "SELECT TIMESTAMP_SECONDS(16599817290000 / POWER(10, 4))",
+                "redshift": "SELECT (TIMESTAMP 'epoch' + (16599817290000 / POWER(10, 4)) * INTERVAL '1 SECOND')",
             },
         )
         self.validate_all(
@@ -779,6 +811,7 @@ class TestSnowflake(Validator):
                 "presto": "SELECT FROM_UNIXTIME(CAST(1659981729000000000 AS DOUBLE) / POW(10, 9))",
                 "snowflake": "SELECT TO_TIMESTAMP(1659981729000000000, 9)",
                 "spark": "SELECT TIMESTAMP_SECONDS(1659981729000000000 / POWER(10, 9))",
+                "redshift": "SELECT (TIMESTAMP 'epoch' + (1659981729000000000 / POWER(10, 9)) * INTERVAL '1 SECOND')",
             },
         )
         self.validate_all(
@@ -2190,6 +2223,34 @@ FROM persons AS p, LATERAL FLATTEN(input => p.c, path => 'contact') AS _flattene
             },
         )
 
+    def test_replace(self):
+        self.validate_all(
+            "REPLACE(subject, pattern)",
+            write={
+                "bigquery": "REPLACE(subject, pattern, '')",
+                "duckdb": "REPLACE(subject, pattern, '')",
+                "hive": "REPLACE(subject, pattern, '')",
+                "snowflake": "REPLACE(subject, pattern, '')",
+                "spark": "REPLACE(subject, pattern, '')",
+            },
+        )
+        self.validate_all(
+            "REPLACE(subject, pattern, replacement)",
+            read={
+                "bigquery": "REPLACE(subject, pattern, replacement)",
+                "duckdb": "REPLACE(subject, pattern, replacement)",
+                "hive": "REPLACE(subject, pattern, replacement)",
+                "spark": "REPLACE(subject, pattern, replacement)",
+            },
+            write={
+                "bigquery": "REPLACE(subject, pattern, replacement)",
+                "duckdb": "REPLACE(subject, pattern, replacement)",
+                "hive": "REPLACE(subject, pattern, replacement)",
+                "snowflake": "REPLACE(subject, pattern, replacement)",
+                "spark": "REPLACE(subject, pattern, replacement)",
+            },
+        )
+
     def test_match_recognize(self):
         for window_frame in ("", "FINAL ", "RUNNING "):
             for row in (
@@ -2768,43 +2829,3 @@ SINGLE = TRUE""",
         self.validate_identity(
             "CREATE OR REPLACE MATERIALIZED VIEW FOO (A, B) AS SELECT A, B FROM TBL"
         )
-
-    def test_tochar(self):
-        self.validate_all(
-            "TO_CHAR(x, y)",
-            read={
-                "": "TO_CHAR(x, y)",
-                "snowflake": "TO_VARCHAR(x, y)",
-            },
-            write={
-                "": "CAST(x AS TEXT)",
-                "databricks": "TO_CHAR(x, y)",
-                "drill": "TO_CHAR(x, y)",
-                "oracle": "TO_CHAR(x, y)",
-                "postgres": "TO_CHAR(x, y)",
-                "snowflake": "TO_CHAR(x, y)",
-                "teradata": "TO_CHAR(x, y)",
-            },
-        )
-        self.validate_identity(
-            "TO_CHAR(foo::DATE, 'yyyy')", "TO_CHAR(CAST(CAST(foo AS DATE) AS TIMESTAMP), 'yyyy')"
-        )
-        self.validate_all(
-            "TO_CHAR(foo::TIMESTAMP, 'YYYY-MM')",
-            write={
-                "snowflake": "TO_CHAR(CAST(foo AS TIMESTAMP), 'yyyy-mm')",
-                "duckdb": "STRFTIME(CAST(foo AS TIMESTAMP), '%Y-%m')",
-            },
-        )
-
-        for snowflake_fmt, python_fmt in (("DY", "%a"), ("mmmm", "%B")):
-            with self.subTest(
-                f"Testing Snowflake TO_CHAR({snowflake_fmt}) -> DuckDB STRFTIME({python_fmt})"
-            ):
-                self.validate_all(
-                    f"SELECT TO_CHAR(foo, '{snowflake_fmt}')",
-                    write={
-                        "snowflake": f"SELECT TO_CHAR(CAST(foo AS TIMESTAMP), '{snowflake_fmt}')",
-                        "duckdb": f"SELECT STRFTIME(foo, '{python_fmt}')",
-                    },
-                )

@@ -5,7 +5,7 @@
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Type
+from typing import Any, Dict, Iterable, Optional, Type, TypeVar
 
 from haystack import logging
 from haystack.core.component.component import _hook_component_init
@@ -13,6 +13,8 @@ from haystack.core.errors import DeserializationError, SerializationError
 from haystack.utils.type_serialization import thread_safe_import
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -87,7 +89,7 @@ def _validate_component_to_dict_output(component: Any, name: str, data: Dict[str
     def is_allowed_type(obj: Any) -> bool:
         return isinstance(obj, (str, int, float, bool, list, dict, set, tuple, type(None)))
 
-    def check_iterable(l: Iterable[Any]):
+    def check_iterable(l: Iterable[Any]) -> None:
         for v in l:
             if not is_allowed_type(v):
                 raise SerializationError(
@@ -99,8 +101,8 @@ def _validate_component_to_dict_output(component: Any, name: str, data: Dict[str
             elif isinstance(v, dict):
                 check_dict(v)
 
-    def check_dict(d: Dict[str, Any]):
-        if any(not isinstance(k, str) for k in data.keys()):
+    def check_dict(d: Dict[str, Any]) -> None:
+        if any(not isinstance(k, str) for k in data):
             raise SerializationError(
                 f"Component '{name}' of type '{type(component).__name__}' has a non-string key in the serialized data."
             )
@@ -169,7 +171,7 @@ def component_from_dict(
         return do_from_dict()
 
 
-def default_to_dict(obj: Any, **init_parameters) -> Dict[str, Any]:
+def default_to_dict(obj: Any, **init_parameters: Any) -> Dict[str, Any]:
     """
     Utility function to serialize an object to a dictionary.
 
@@ -210,7 +212,7 @@ def default_to_dict(obj: Any, **init_parameters) -> Dict[str, Any]:
     return {"type": generate_qualified_class_name(type(obj)), "init_parameters": init_parameters}
 
 
-def default_from_dict(cls: Type[object], data: Dict[str, Any]) -> Any:
+def default_from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
     """
     Utility function to deserialize a dictionary to an object.
 

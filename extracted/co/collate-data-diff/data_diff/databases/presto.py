@@ -154,7 +154,7 @@ class Presto(Database):
 
     def __init__(self, **kw) -> None:
         super().__init__()
-        if not len(kw):
+        if not len(kw) or kw.get("driver") == "trino":
             # this is a trino connection
             return
         self.default_schema = "public"

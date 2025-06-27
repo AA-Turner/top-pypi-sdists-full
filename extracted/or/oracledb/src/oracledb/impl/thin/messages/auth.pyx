@@ -271,10 +271,10 @@ cdef class AuthMessage(Message):
         # to a pool
         if description.purity == PURITY_DEFAULT \
                 and self.conn_impl._drcp_enabled:
-            if self.conn_impl._pool is None:
-                self.purity = PURITY_NEW
-            else:
+            if self.conn_impl._is_pooled:
                 self.purity = PURITY_SELF
+            else:
+                self.purity = PURITY_NEW
         else:
             self.purity = description.purity
 

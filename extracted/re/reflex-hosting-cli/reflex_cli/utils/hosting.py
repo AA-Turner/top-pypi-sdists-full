@@ -21,9 +21,6 @@ from typing import Any, TypedDict
 from urllib.parse import urljoin
 
 import click
-import httpx
-import yaml
-from tabulate import tabulate
 
 import reflex_cli.constants as constants
 from reflex_cli.core.config import Config, RegionOption
@@ -382,6 +379,8 @@ def validate_token(token: str) -> dict[str, Any]:
         Exception: if runs into timeout, failed requests, unexpected errors. These should be tried again.
 
     """
+    import httpx
+
     try:
         response = httpx.post(
             urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/authenticate/me"),
@@ -440,6 +439,44 @@ def save_token_to_config(token: str):
         console.warn(
             f"Unable to save token to {constants.Hosting.HOSTING_JSON} due to: {ex}"
         )
+
+
+def create_token(
+    name: str,
+    expiration: int,
+    client: AuthenticatedClient,
+) -> str:
+    """Create a new access token.
+
+    Args:
+        name: The name of the token.
+        expiration: The expiration time in seconds. If None, the token does not expire.
+        client: The authenticated client
+
+    Returns:
+        The created access token.
+
+    Raises:
+        NotAuthenticatedError: If the client is not authenticated.
+        Exception: If the token creation fails.
+
+    """
+    import httpx
+
+    if not isinstance(client, AuthenticatedClient):
+        raise NotAuthenticatedError("not authenticated")
+    try:
+        response = httpx.post(
+            urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/user/token"),
+            json={"name": name, "expiration": expiration},
+            headers=authorization_header(client.token),
+            timeout=constants.Hosting.TIMEOUT,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as ex:
+        raise Exception(f"Failed to create token: {ex.response.text}") from ex
+
+    return response.text
 
 
 def requires_access_token() -> str:
@@ -533,7 +570,7 @@ def interactive_resolve_project_or_app_name_conflicts(
 
     """
     console.warn(conflict_warn_msg)
-    console.print(tabulate(rows, headers=headers, **kwargs))
+    console.print_table(rows, headers=headers, **kwargs)
     option = console.ask(
         conflict_ask_msg,
         choices=[str(i) for i in range(len(rows))],
@@ -564,6 +601,8 @@ def search_app(
         Exit: If multiple apps are found and interactive is False.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     if project_id is None:
@@ -628,6 +667,8 @@ def search_project(
         Exit: If multiple projects are found and interactive is False.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
 
@@ -686,6 +727,8 @@ def get_app(app_id: str, client: AuthenticatedClient) -> dict:
         ValueError: If the app_id is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     if not isinstance(app_id, str) or not app_id:
@@ -727,6 +770,8 @@ def create_app(
         ValueError: If forbidden.
 
     """
+    import httpx
+
     if not isinstance(app_name, str) or not app_name:
         raise ValueError("app_name should be a string")
     if not isinstance(client, AuthenticatedClient):
@@ -764,6 +809,8 @@ def get_hostname(
         Exception: If deployment fails or the hostname is invalid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
 
@@ -832,6 +879,8 @@ def get_secrets(app_id: str, client: AuthenticatedClient) -> str:
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -870,6 +919,8 @@ def update_secrets(
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
@@ -904,6 +955,8 @@ def delete_secret(
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.delete(
@@ -939,6 +992,8 @@ def create_project(name: str, client: AuthenticatedClient) -> dict:
         ValueError: If the request to create the project fails.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
@@ -1010,6 +1065,8 @@ def get_projects(client: AuthenticatedClient) -> list[dict]:
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1036,6 +1093,8 @@ def get_project(project_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1062,6 +1121,8 @@ def get_project_roles(project_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1091,6 +1152,8 @@ def get_project_role_permissions(
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1120,6 +1183,8 @@ def get_project_role_users(project_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1149,6 +1214,8 @@ def invite_user_to_project(
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
@@ -1189,6 +1256,8 @@ def validate_deployment_args(
         The validation result as a string -- "success" if all checks pass.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         return "not authenticated"
 
@@ -1251,6 +1320,8 @@ def create_deployment(
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     cli_version = importlib.metadata.version("reflex-hosting-cli")
@@ -1325,6 +1396,8 @@ def stop_app(app_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
@@ -1353,6 +1426,8 @@ def start_app(app_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
@@ -1381,6 +1456,8 @@ def delete_app(app_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     app = get_app(app_id=app_id, client=client)
@@ -1424,6 +1501,8 @@ def get_app_logs(
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     app = get_app(app_id=app_id, client=client)
@@ -1463,6 +1542,8 @@ def list_apps(client: AuthenticatedClient, project: str | None = None) -> list[d
         Exception: when listing apps fails.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
 
@@ -1494,6 +1575,8 @@ def get_app_history(app_id: str, client: AuthenticatedClient) -> list:
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1532,6 +1615,8 @@ def get_app_status(app_id: str, client: AuthenticatedClient) -> str:
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     try:
@@ -1567,6 +1652,8 @@ def scale_app(app_id: str, scale_params: ScaleParams, client: AuthenticatedClien
         ResponseError: If the request to scale the app fails.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
@@ -1597,6 +1684,8 @@ def get_deployment_status(deployment_id: str, client: AuthenticatedClient) -> st
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1624,6 +1713,8 @@ def _get_deployment_status(deployment_id: str, token: str) -> str:
         str: The status of the deployment, or an error message if the request fails.
 
     """
+    import httpx
+
     try:
         response = httpx.get(
             urljoin(
@@ -1705,6 +1796,8 @@ def get_deployment_build_logs(deployment_id: str, client: AuthenticatedClient):
         NotAuthenticatedError: If the token is not valid.
 
     """
+    import httpx
+
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
@@ -1741,6 +1834,8 @@ def fetch_token(request_id: str) -> str:
         The access token if it exists, empty strings otherwise.
 
     """
+    import httpx
+
     access_token = ""
     try:
         resp = httpx.get(
@@ -1874,6 +1969,8 @@ def read_config(path: str) -> dict:
 
     """
     try:
+        import yaml
+
         with Path(path).open() as config_file:
             return yaml.safe_load(config_file)
     except Exception:
@@ -1882,6 +1979,8 @@ def read_config(path: str) -> dict:
 
 def generate_config():
     """Generate the config file."""
+    import yaml
+
     if Path("cloud.yml").exists():
         console.error("cloud.yml already exists.")
         return
@@ -1919,6 +2018,8 @@ def get_vm_types() -> list[dict]:
         list[dict]: A list of VM types as dictionaries.
 
     """
+    import httpx
+
     try:
         response = httpx.get(
             urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/deployments/vm_types"),
@@ -1950,6 +2051,8 @@ def get_regions() -> list[dict]:
         list[dict]: A list of dict representation of the region information.
 
     """
+    import httpx
+
     try:
         response = httpx.get(
             urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/deployments/regions"),

@@ -30,8 +30,6 @@ class CompleteRequestMessagesInner(BaseModel):
 
     Parameters
     __________
-    content : str
-        The text completion prompt, e.g. 'What is a Large Language Model?'.
     role : str,  default 'user'
         Indicates the role of the message, one of 'system', 'user' or 'assistant'.
 
@@ -41,13 +39,15 @@ class CompleteRequestMessagesInner(BaseModel):
           - If a 'assistant' message is specified, it must be immediately before a 'user' message in the list.
 
         Multiple 'assistant' and 'user' messages can be specified, but they must alternate in sequence.
+    content : str, optional
+        The text completion prompt, e.g. 'What is a Large Language Model?'.
     content_list : List[object], optional
         Contents of toolUse and toolResults
     """
 
     role: Optional[StrictStr] = 'user'
 
-    content: StrictStr
+    content: Optional[StrictStr] = None
 
     content_list: Optional[List[Any]] = None
 
@@ -121,10 +121,9 @@ from typing import Optional, List, Dict
 class CompleteRequestMessagesInnerModel():
 
     def __init__(
-        self,
-        content: str,
-        # optional properties
+        self,  # optional properties
         role: Optional[str] = 'user',
+        content: Optional[str] = None,
         content_list: Optional[List[object]] = None,
     ):
         """A model object representing the CompleteRequestMessagesInner resource.
@@ -133,8 +132,6 @@ class CompleteRequestMessagesInnerModel():
 
         Parameters
         __________
-        content : str
-            The text completion prompt, e.g. 'What is a Large Language Model?'.
         role : str,  default 'user'
             Indicates the role of the message, one of 'system', 'user' or 'assistant'.
 
@@ -145,6 +142,8 @@ Rules:
 
 Multiple 'assistant' and 'user' messages can be specified, but they must alternate in sequence.
 
+        content : str, optional
+            The text completion prompt, e.g. 'What is a Large Language Model?'.
         content_list : List[object], optional
             Contents of toolUse and toolResults
         """

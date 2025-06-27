@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs-full",
-    version="1.38.44",
+    version="1.38.45",
     packages=[
         "mypy_boto3_accessanalyzer",
         "mypy_boto3_account",
@@ -217,6 +217,7 @@ setup(
         "mypy_boto3_kendra",
         "mypy_boto3_kendra_ranking",
         "mypy_boto3_keyspaces",
+        "mypy_boto3_keyspacesstreams",
         "mypy_boto3_kinesis",
         "mypy_boto3_kinesis_video_archived_media",
         "mypy_boto3_kinesis_video_media",
@@ -426,7 +427,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.38.44 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.38.45 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -653,6 +654,7 @@ setup(
         "mypy_boto3_kendra": ["py.typed", "*.pyi"],
         "mypy_boto3_kendra_ranking": ["py.typed", "*.pyi"],
         "mypy_boto3_keyspaces": ["py.typed", "*.pyi"],
+        "mypy_boto3_keyspacesstreams": ["py.typed", "*.pyi"],
         "mypy_boto3_kinesis": ["py.typed", "*.pyi"],
         "mypy_boto3_kinesis_video_archived_media": ["py.typed", "*.pyi"],
         "mypy_boto3_kinesis_video_media": ["py.typed", "*.pyi"],

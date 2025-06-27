@@ -12,7 +12,7 @@ from haystack.core.pipeline.async_pipeline import AsyncPipeline
 from haystack.core.pipeline.pipeline import Pipeline
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import component_to_dict
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ChatRole
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
@@ -29,7 +29,7 @@ class Agent:
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
 
-    The component processes messages and executes tools until a exit_condition condition is met.
+    The component processes messages and executes tools until an exit_condition condition is met.
     The exit_condition can be triggered either by a direct text response or by invoking a specific designated tool.
 
     When you call an Agent without tools, it acts as a ChatGenerator, produces one response, then exits.
@@ -69,7 +69,7 @@ class Agent:
         max_agent_steps: int = 100,
         raise_on_tool_invocation_failure: bool = False,
         streaming_callback: Optional[StreamingCallbackT] = None,
-    ):
+    ) -> None:
         """
         Initialize the agent component.
 
@@ -221,10 +221,7 @@ class Agent:
         )
 
     def run(
-        self,
-        messages: List[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        **kwargs: Dict[str, Any],
+        self, messages: List[ChatMessage], streaming_callback: Optional[StreamingCallbackT] = None, **kwargs: Any
     ) -> Dict[str, Any]:
         """
         Process messages and execute tools until an exit condition is met.
@@ -240,12 +237,19 @@ class Agent:
             - "messages": List of all messages exchanged during the agent's run.
             - "last_message": The last message exchanged during the agent's run.
             - Any additional keys defined in the `state_schema`.
+        :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
         """
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
+
+        if all(m.is_from(ChatRole.SYSTEM) for m in messages):
+            logger.warning(
+                "All messages provided to the Agent component are system messages. This is not recommended as the "
+                "Agent will not perform any actions specific to user input. Consider adding user messages to the input."
+            )
 
         state = State(schema=self.state_schema, data=kwargs)
         state.set("messages", messages)
@@ -315,10 +319,7 @@ class Agent:
         return result
 
     async def run_async(
-        self,
-        messages: List[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        **kwargs: Dict[str, Any],
+        self, messages: List[ChatMessage], streaming_callback: Optional[StreamingCallbackT] = None, **kwargs: Any
     ) -> Dict[str, Any]:
         """
         Asynchronously process messages and execute tools until the exit condition is met.
@@ -338,12 +339,19 @@ class Agent:
             - "messages": List of all messages exchanged during the agent's run.
             - "last_message": The last message exchanged during the agent's run.
             - Any additional keys defined in the `state_schema`.
+        :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
         """
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run_async()'.")
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
+
+        if all(m.is_from(ChatRole.SYSTEM) for m in messages):
+            logger.warning(
+                "All messages provided to the Agent component are system messages. This is not recommended as the "
+                "Agent will not perform any actions specific to user input. Consider adding user messages to the input."
+            )
 
         state = State(schema=self.state_schema, data=kwargs)
         state.set("messages", messages)

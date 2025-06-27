@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor-wallet
-Version: 3.0.10
+Version: 3.0.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
@@ -16,9 +16,6 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: password-strength
-Requires-Dist: cryptography~=43.0.1
-Requires-Dist: py-bip39-bindings==0.1.11
 Requires-Dist: pytest==7.2.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio==0.23.7 ; extra == 'dev'
 Requires-Dist: pytest-mock==3.12.0 ; extra == 'dev'
@@ -34,20 +31,19 @@ Requires-Dist: mypy==1.8.0 ; extra == 'dev'
 Requires-Dist: types-retry==0.9.9.4 ; extra == 'dev'
 Requires-Dist: freezegun==1.5.0 ; extra == 'dev'
 Requires-Dist: httpx==0.27.0 ; extra == 'dev'
-Requires-Dist: ruff==0.4.7 ; extra == 'dev'
+Requires-Dist: ruff==0.11.5 ; extra == 'dev'
 Requires-Dist: aioresponses==0.7.6 ; extra == 'dev'
 Requires-Dist: factory-boy==3.3.0 ; extra == 'dev'
 Requires-Dist: maturin==1.8.3 ; extra == 'dev'
-Requires-Dist: py-bip39-bindings==0.1.11 ; extra == 'dev'
 Requires-Dist: ansible-vault~=2.1 ; extra == 'dev'
-Requires-Dist: bittensor>=9.0.1 ; extra == 'dev'
 Requires-Dist: substrate-interface==1.7.11 ; extra == 'dev'
 Requires-Dist: scalecodec~=1.2.11 ; extra == 'dev'
+Requires-Dist: bittensor>=9.7.0 ; extra == 'dev'
 Provides-Extra: dev
 License-File: LICENSE
 Summary: 
 Keywords: substrate,scale,codec,bittensor,wallet
-Author-email: Roman Chkhaidze <roman@opentensor.dev>
+Author-email: Roman Chkhaidze <r@latent.to>
 Maintainer-email: Cortex Team <cortex@opentensor.dev>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

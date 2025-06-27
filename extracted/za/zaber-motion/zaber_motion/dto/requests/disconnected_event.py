@@ -18,6 +18,11 @@ class DisconnectedEvent:
     The id of the interface that was disconnected.
     """
 
+    session_id: int = 0
+    """
+    The id of the connection session.
+    """
+
     error_type: Errors = next(first for first in Errors)
     """
     The type of error that caused the disconnection.
@@ -32,6 +37,7 @@ class DisconnectedEvent:
     def zero_values() -> 'DisconnectedEvent':
         return DisconnectedEvent(
             interface_id=0,
+            session_id=0,
             error_type=next(first for first in Errors),
             error_message="",
         )
@@ -50,6 +56,7 @@ class DisconnectedEvent:
     def to_dict(self) -> Dict[str, Any]:
         return {
             'interfaceId': int(self.interface_id),
+            'sessionId': int(self.session_id),
             'errorType': self.error_type.value,
             'errorMessage': str(self.error_message or ''),
         }
@@ -58,6 +65,7 @@ class DisconnectedEvent:
     def from_dict(data: Dict[str, Any]) -> 'DisconnectedEvent':
         return DisconnectedEvent(
             interface_id=data.get('interfaceId'),  # type: ignore
+            session_id=data.get('sessionId'),  # type: ignore
             error_type=Errors(data.get('errorType')),  # type: ignore
             error_message=data.get('errorMessage'),  # type: ignore
         )
@@ -72,6 +80,15 @@ class DisconnectedEvent:
 
         if int(self.interface_id) != self.interface_id:
             raise ValueError(f'Property "InterfaceId" of "DisconnectedEvent" is not integer value.')
+
+        if self.session_id is None:
+            raise ValueError(f'Property "SessionId" of "DisconnectedEvent" is None.')
+
+        if not isinstance(self.session_id, (int, float, decimal.Decimal)):
+            raise ValueError(f'Property "SessionId" of "DisconnectedEvent" is not a number.')
+
+        if int(self.session_id) != self.session_id:
+            raise ValueError(f'Property "SessionId" of "DisconnectedEvent" is not integer value.')
 
         if self.error_type is None:
             raise ValueError(f'Property "ErrorType" of "DisconnectedEvent" is None.')

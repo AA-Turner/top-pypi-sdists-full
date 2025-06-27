@@ -5806,6 +5806,10 @@ class CurrentTimestamp(Func):
     arg_types = {"this": False, "sysdate": False}
 
 
+class CurrentTimestampLTZ(Func):
+    arg_types = {}
+
+
 class CurrentSchema(Func):
     arg_types = {"this": False}
 
@@ -5846,8 +5850,6 @@ class DateTrunc(Func):
                 unit_name = TimeUnit.UNABBREVIATED_UNIT_NAME[unit_name]
 
             args["unit"] = Literal.string(unit_name)
-        elif isinstance(unit, Week):
-            unit.set("this", Literal.string(unit.this.name.upper()))
 
         super().__init__(**args)
 
@@ -6667,6 +6669,11 @@ class RegexpSplit(Func):
 
 class Repeat(Func):
     arg_types = {"this": True, "times": True}
+
+
+# Some dialects like Snowflake support two argument replace
+class Replace(Func):
+    arg_types = {"this": True, "expression": True, "replacement": False}
 
 
 # https://learn.microsoft.com/en-us/sql/t-sql/functions/round-transact-sql?view=sql-server-ver16

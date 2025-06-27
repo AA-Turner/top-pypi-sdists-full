@@ -37,6 +37,7 @@ export declare class ReactiveESMView extends HTMLBoxView {
     stylesheets(): StyleSheetLike[];
     connect_signals(): void;
     disconnect_signals(): void;
+    _on_mounted(): void;
     notify_mount(child: string, id: string, remove: boolean): void;
     on_event(callback: (data: unknown) => void): void;
     remove_on_event(callback: (data: unknown) => void): boolean;
@@ -45,9 +46,13 @@ export declare class ReactiveESMView extends HTMLBoxView {
     get child_models(): LayoutDOM[];
     render_error(error: SyntaxError): void;
     render(): void;
+    get is_managed(): boolean;
+    compute_layout(): void;
+    protected _update_bbox(): boolean;
     after_rendered(): void;
     render_esm(): void;
     render_children(): void;
+    invalidate_layout(): void;
     remove(): void;
     after_resize(): void;
     after_layout(): void;

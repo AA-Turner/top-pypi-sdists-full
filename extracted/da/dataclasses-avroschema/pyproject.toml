@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dataclasses-avroschema"
-version = "0.65.10"
+version = "0.65.11"
 description = "Generate Avro Schemas from Python classes. Serialize/Deserialize python instances with avro schemas"
 authors = ["Marcos Schroh <schrohm@gmail.com>"]
 license = "MIT"
@@ -40,7 +40,7 @@ pytest = ">=7,<9"
 pytest-cov = ">=4,<7"
 time-machine = ">=2,<3"
 tzdata = "*"
-types-pytz = ">=2023,<2025"
+types-pytz = ">=2023,<2026"
 types-python-dateutil = "^2.9.0.20240316"
 aiokafka = "^0.12.0"
 walrus = "^0.9.4"
@@ -115,7 +115,7 @@ unfixable = []
 "tests/model_generator/test_model_generator.py" = ["E501"]
 
 [tool.commitizen]
-version = "0.65.10"
+version = "0.65.11"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version",

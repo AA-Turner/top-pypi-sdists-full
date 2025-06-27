@@ -3,7 +3,9 @@ import io
 import random
 import re
 import string
+import sys
 import tempfile
+import weakref
 from os import environ as env
 
 import h5py
@@ -30,6 +32,7 @@ except ImportError:
 
 
 remote_h5 = ("http:", "hdf5:")
+python_version = version.parse(".".join(map(str, sys.version_info[:3])))
 
 
 @pytest.fixture
@@ -37,26 +40,30 @@ def tmp_local_netcdf(tmpdir):
     return str(tmpdir.join("testfile.nc"))
 
 
+@pytest.fixture()
+def setup_h5pyd_config(hsds_up):
+    env["HS_ENDPOINT"] = "http://127.0.0.1:5101"
+    env["HS_USERNAME"] = "h5netcdf-pytest"
+    env["HS_PASSWORD"] = "TestEarlyTestEverything"
+    env["HS_USE_HTTPS"] = "False"
+
+
 @pytest.fixture(params=["testfile.nc", "hdf5://testfile"])
-def tmp_local_or_remote_netcdf(request, tmpdir, hsds_up):
-    if request.param.startswith(remote_h5):
-        if without_h5pyd:
-            pytest.skip("h5pyd package not available")
-        elif not hsds_up:
-            pytest.skip("HSDS service not running")
-        rnd = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
-        return (
-            "hdf5://"
-            + "home"
-            + "/"
-            + env["HS_USERNAME"]
-            + "/"
-            + "testfile"
-            + rnd
-            + ".nc"
-        )
+def tmp_local_or_remote_netcdf(request, tmpdir):
+    param = request.param
+    if param.startswith(remote_h5):
+        try:
+            hsds_up = request.getfixturevalue("hsds_up")
+        except pytest.skip.Exception:
+            pytest.skip("HSDS not available")
+
+        if not hsds_up:
+            pytest.skip("HSDS fixture returned False (not running)")
+
+        rnd = "".join(random.choices(string.ascii_uppercase, k=5))
+        return f"hdf5://home/{env['HS_USERNAME']}/testfile{rnd}.nc"
     else:
-        return str(tmpdir.join(request.param))
+        return str(tmpdir.join(param))
 
 
 @pytest.fixture(params=[True, False])
@@ -1300,6 +1307,24 @@ def test_overwrite_existing_file(tmp_local_netcdf):
         assert ds.attrs._h5attrs.get("_NCProperties", False)
 
 
+def test_overwrite_existing_remote_file(tmp_local_or_remote_netcdf):
+    # create file with legacyapi
+    with legacyapi.Dataset(tmp_local_or_remote_netcdf, "w") as ds:
+        ds.createDimension("x", 10)
+
+    # check attribute
+    with h5netcdf.File(tmp_local_or_remote_netcdf, "r") as ds:
+        assert ds.attrs._h5attrs.get("_NCProperties", False)
+
+    # overwrite file with new api
+    with h5netcdf.File(tmp_local_or_remote_netcdf, "w") as ds:
+        ds.dimensions["x"] = 10
+
+    # check attribute
+    with h5netcdf.File(tmp_local_or_remote_netcdf, "r") as ds:
+        assert ds.attrs._h5attrs.get("_NCProperties", False)
+
+
 def test_scales_on_append(tmp_local_netcdf):
     # create file with _NCProperties attribute
     with netCDF4.Dataset(tmp_local_netcdf, "w") as ds:
@@ -1555,7 +1580,38 @@ def test_no_circular_references(tmp_local_or_remote_netcdf):
         refs = gc.get_referrers(ds)
         for ref in refs:
             print(ref)
-        assert len(refs) == 1
+        if python_version >= version.parse("3.14"):
+            assert len(refs) == 0
+        else:
+            assert len(refs) == 1
+
+
+def test_no_circular_references_py314(tmp_local_or_remote_netcdf):
+    # https://github.com/h5py/h5py/issues/2019
+    with h5netcdf.File(tmp_local_or_remote_netcdf, "w") as ds:
+        ds.dimensions["x"] = 2
+        ds.dimensions["y"] = 2
+
+    # clean up everything
+    gc.collect()
+    gc.garbage.clear()
+
+    # use weakref to hold on object
+    file_ref = None
+    with h5netcdf.File(tmp_local_or_remote_netcdf, "r") as ds:
+        file_ref = weakref.ref(ds)
+
+    # clean up
+    gc.collect()
+
+    # check garbage list
+    if file_ref() is not None:
+        print("Uncollectable object:", file_ref())
+        print("Potential GC garbage:")
+        for obj in gc.garbage:
+            print(repr(obj))
+
+    assert file_ref() is None or "<Closed h5netcdf.File>"
 
 
 def test_expanded_variables_netcdf4(tmp_local_netcdf, netcdf_write_module):
@@ -1693,7 +1749,7 @@ def test_track_order_specification(tmp_local_netcdf):
     # While netcdf4-c has historically only allowed track_order to be True
     # There doesn't seem to be a good reason for this
     # https://github.com/Unidata/netcdf-c/issues/2054 historically, h5netcdf
-    # has not specified this parameter (leaving it implicitely as False)
+    # has not specified this parameter (leaving it implicitly as False)
     # We want to make sure we allow both here
     with h5netcdf.File(tmp_local_netcdf, "w", track_order=False):
         pass
@@ -2773,3 +2829,19 @@ def test_h5pyd_nonchunked_scalars(hsds_up):
         assert ds["foo"]._h5ds.chunks == (1,)
         # However, since it is a scalar dataset, we should not expose the chunking
         assert ds["foo"].chunks is None
+
+
+def test_h5pyd_append(hsds_up):
+    if without_h5pyd:
+        pytest.skip("h5pyd package not available")
+    elif not hsds_up:
+        pytest.skip("HSDS service not running")
+    rnd = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
+    fname = f"hdf5://testfile{rnd}.nc"
+
+    with pytest.warns(UserWarning, match="Append mode for h5pyd"):
+        with h5netcdf.File(fname, "a", driver="h5pyd") as ds:
+            assert not ds._preexisting_file
+
+    with h5netcdf.File(fname, "a", driver="h5pyd") as ds:
+        assert ds._preexisting_file

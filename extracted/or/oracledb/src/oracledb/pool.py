@@ -487,9 +487,11 @@ class ConnectionPool(BaseConnectionPool):
         if not isinstance(connection, connection_module.Connection):
             message = "connection must be an instance of oracledb.Connection"
             raise TypeError(message)
+        connection._verify_connected()
         if tag is not None:
             connection.tag = tag
-        connection.close()
+        self._impl.return_connection(connection._impl)
+        connection._impl = None
 
     def reconfigure(
         self,
@@ -675,6 +677,7 @@ def create_pool(
     use_sni: Optional[bool] = None,
     thick_mode_dsn_passthrough: Optional[bool] = None,
     extra_auth_params: Optional[dict] = None,
+    pool_name: Optional[str] = None,
     handle: Optional[int] = None,
 ) -> ConnectionPool:
     """
@@ -959,6 +962,9 @@ def create_pool(
       necessary for Oracle Database authentication using plugins, such as the
       Azure and OCI cloud-native authentication plugins (default: None)
 
+    - pool_name: the name of the DRCP pool when using multi-pool DRCP with
+      Oracle Database 23.4 or higher (default: None)
+
     - handle: an integer representing a pointer to a valid service context
       handle. This value is only used in thick mode. It should be used with
       extreme caution (default: 0)
@@ -1096,7 +1102,8 @@ class AsyncConnectionPool(BaseConnectionPool):
             raise TypeError(message)
         if tag is not None:
             connection.tag = tag
-        await connection.close()
+        await self._impl.return_connection(connection._impl)
+        connection._impl = None
 
 
 def _async_pool_factory(
@@ -1206,6 +1213,7 @@ def create_pool_async(
     use_sni: Optional[bool] = None,
     thick_mode_dsn_passthrough: Optional[bool] = None,
     extra_auth_params: Optional[dict] = None,
+    pool_name: Optional[str] = None,
     handle: Optional[int] = None,
 ) -> AsyncConnectionPool:
     """
@@ -1490,6 +1498,9 @@ def create_pool_async(
     - extra_auth_params: a dictionary containing configuration parameters
       necessary for Oracle Database authentication using plugins, such as the
       Azure and OCI cloud-native authentication plugins (default: None)
+
+    - pool_name: the name of the DRCP pool when using multi-pool DRCP with
+      Oracle Database 23.4 or higher (default: None)
 
     - handle: an integer representing a pointer to a valid service context
       handle. This value is only used in thick mode. It should be used with

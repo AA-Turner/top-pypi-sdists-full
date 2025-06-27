@@ -18,6 +18,8 @@ from __future__ import absolute_import
 # import models into model package
 from snowflake.core.cortex_analyst._generated.models.confidence import Confidence
 from snowflake.core.cortex_analyst._generated.models.error_response import ErrorResponse
+from snowflake.core.cortex_analyst._generated.models.fast_generation_request import FastGenerationRequest
+from snowflake.core.cortex_analyst._generated.models.fast_generation_response import FastGenerationResponse
 from snowflake.core.cortex_analyst._generated.models.generate_verified_query_suggestions_request import GenerateVerifiedQuerySuggestionsRequest
 from snowflake.core.cortex_analyst._generated.models.generate_verified_query_suggestions_response import GenerateVerifiedQuerySuggestionsResponse
 from snowflake.core.cortex_analyst._generated.models.message_content import MessageContent
@@ -31,6 +33,8 @@ from snowflake.core.cortex_analyst._generated.models.message_content_sql_object 
 from snowflake.core.cortex_analyst._generated.models.message_content_suggestions_object import MessageContentSuggestionsObject
 from snowflake.core.cortex_analyst._generated.models.message_content_text_object import MessageContentTextObject
 from snowflake.core.cortex_analyst._generated.models.message_object import MessageObject
+from snowflake.core.cortex_analyst._generated.models.pre_selection_request import PreSelectionRequest
+from snowflake.core.cortex_analyst._generated.models.pre_selection_response import PreSelectionResponse
 from snowflake.core.cortex_analyst._generated.models.semantic_model_object import SemanticModelObject
 from snowflake.core.cortex_analyst._generated.models.semantic_model_selection import SemanticModelSelection
 from snowflake.core.cortex_analyst._generated.models.send_feedback_request import SendFeedbackRequest
@@ -40,6 +44,8 @@ from snowflake.core.cortex_analyst._generated.models.status_update import Status
 from snowflake.core.cortex_analyst._generated.models.streaming_error import StreamingError
 from snowflake.core.cortex_analyst._generated.models.success_response import SuccessResponse
 from snowflake.core.cortex_analyst._generated.models.suggestion_delta import SuggestionDelta
+from snowflake.core.cortex_analyst._generated.models.table_columns import TableColumns
+from snowflake.core.cortex_analyst._generated.models.tds_input import TdsInput
 from snowflake.core.cortex_analyst._generated.models.token_info import TokenInfo
 from snowflake.core.cortex_analyst._generated.models.verified_query import VerifiedQuery
 from snowflake.core.cortex_analyst._generated.models.verified_query_suggestion import VerifiedQuerySuggestion
@@ -49,6 +55,8 @@ from snowflake.core.cortex_analyst._generated.models.warnings import Warnings
 __all__ = [
     'Confidence',
     'ErrorResponse',
+    'FastGenerationRequest',
+    'FastGenerationResponse',
     'GenerateVerifiedQuerySuggestionsRequest',
     'GenerateVerifiedQuerySuggestionsResponse',
     'MessageContent',
@@ -62,6 +70,8 @@ __all__ = [
     'MessageContentSuggestionsObject',
     'MessageContentTextObject',
     'MessageObject',
+    'PreSelectionRequest',
+    'PreSelectionResponse',
     'SemanticModelObject',
     'SemanticModelSelection',
     'SendFeedbackRequest',
@@ -71,6 +81,8 @@ __all__ = [
     'StreamingError',
     'SuccessResponse',
     'SuggestionDelta',
+    'TableColumns',
+    'TdsInput',
     'TokenInfo',
     'VerifiedQuery',
     'VerifiedQuerySuggestion',

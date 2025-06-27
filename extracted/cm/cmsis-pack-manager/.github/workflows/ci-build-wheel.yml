@@ -12,10 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-22.04, macos-13, windows-latest]
     env:
       CIBW_ARCHS_LINUX: auto # aarch64
-      CIBW_ARCHS_MACOS: x86_64 universal2
+      CIBW_ARCHS_MACOS: universal2
       CIBW_ARCHS_WINDOWS: auto
       CIBW_ENVIRONMENT_LINUX: 'PATH="$PATH:/usr/share/rust/.cargo/bin:$HOME/.cargo/bin"'
       CIBW_ENVIRONMENT_MACOS: 'PATH="$PATH:/usr/share/rust/.cargo/bin:$HOME/.cargo/bin"'
@@ -23,33 +23,34 @@ jobs:
       CIBW_BUILD: "cp39-*"
       CIBW_SKIP: "cp39-musl*"
       CIBW_BEFORE_ALL_LINUX: >
-        yum install -y libffi-devel openssl-devel &&
-        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain 1.63.0 --profile=minimal -y &&
+        yum install -y libffi-devel openssl-devel libatomic &&
+        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain 1.71.1 --profile=minimal -y &&
         rustup show &&
         cargo install empty-library || true
       CIBW_BUILD_VERBOSITY: 1
+      MACOSX_DEPLOYMENT_TARGET: 10.12
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Install Rust
-        if: runner.os != 'Linux'
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.63.0
-          profile: minimal
+        run: |
+          rustup toolchain install --profile minimal 1.71.1
+          rustup default 1.71.1
 
-      - name: Install Rust aarch64-apple-darwin target
+      - name: Install Rust *-apple-darwin targets
         if: runner.os == 'macOS'
-        run: rustup target add aarch64-apple-darwin
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
 
-      # - name: Set up QEMU
-      #   if: runner.os == 'Linux'
-      #   uses: docker/setup-qemu-action@v2
-      #   with:
-      #     platforms: arm64,arm
+      - name: Install Rust *-pc-windows-msvc targets
+        if: runner.os == 'Windows'
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          rustup target add i686-pc-windows-msvc
 
       - uses: actions/setup-python@v4
         name: Install Python
@@ -57,30 +58,27 @@ jobs:
           python-version: 3.9
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.23.0
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   linux-armv6:
     name: Cross-build wheels for linux-armv6
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
           python-version: 3.9
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.63.0
-          profile: minimal
-          target: arm-unknown-linux-gnueabihf
-          default: true
+      - name: Install Rust
+        run: |
+          rustup toolchain install --profile minimal -t arm-unknown-linux-gnueabihf 1.71.1
+          rustup default 1.71.1
       - name: Install cross toolchain and build
         run: |
           brew tap messense/macos-cross-toolchains
@@ -92,28 +90,25 @@ jobs:
           pip3 install maturin cffi
           maturin build --release --target arm-unknown-linux-gnueabihf --out wheelhouse
       - name: Upload wheels
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-linux-armv6
           path: ./wheelhouse/*.whl
 
   linux-armv7:
     name: Cross-build wheels for linux-armv7
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
           python-version: 3.9
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.63.0
-          profile: minimal
-          target: armv7-unknown-linux-gnueabihf
-          default: true
+      - name: Install Rust
+        run: |
+          rustup toolchain install --profile minimal -t armv7-unknown-linux-gnueabihf 1.71.1
+          rustup default 1.71.1
       - name: Install cross toolchain and build
         run: |
           brew tap messense/macos-cross-toolchains
@@ -125,28 +120,25 @@ jobs:
           pip3 install maturin cffi
           maturin build --release --target armv7-unknown-linux-gnueabihf --out wheelhouse
       - name: Upload wheels
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-linux-armv7
           path: ./wheelhouse/*.whl
 
   linux-aarch64:
     name: Cross-build wheels for linux-aarch64
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
           python-version: 3.9
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.63.0
-          profile: minimal
-          target: aarch64-unknown-linux-gnu
-          default: true
+      - name: Install Rust
+        run: |
+          rustup toolchain install --profile minimal -t aarch64-unknown-linux-gnu 1.71.1
+          rustup default 1.71.1
       - name: Install cross toolchain and build
         run: |
           brew tap messense/macos-cross-toolchains
@@ -158,9 +150,9 @@ jobs:
           pip3 install maturin cffi
           maturin build --release --target aarch64-unknown-linux-gnu --out wheelhouse
       - name: Upload wheels
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-linux-aarch64
           path: ./wheelhouse/*.whl
 
   test-cross:
@@ -178,14 +170,15 @@ jobs:
             arch: armv6
     needs: [linux-armv6, linux-armv7, linux-aarch64]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
           path: ./wheelhouse
-      - uses: uraimo/run-on-arch-action@v2.3.0
+          pattern: wheels-*
+          merge-multiple: true
+      - uses: uraimo/run-on-arch-action@v2.8.1
         name: Install built wheel
         with:
           arch: ${{ matrix.platform.arch }}

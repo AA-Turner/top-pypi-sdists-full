@@ -41,7 +41,7 @@ class Stage(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     kind : str,  default 'PERMANENT'
         Specifies whether the stage is permanent or temporary.
     url : str, optional
@@ -49,7 +49,7 @@ class Stage(BaseModel):
     endpoint : str, optional
         The S3-compatible API endpoint associated with the stage; always NULL for stages that are not S3-compatible.
     storage_integration : str, optional
-        A Snowflake object identifier.
+        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     comment : str, optional
         Specifies a comment for the stage.
     credentials : Credentials, optional
@@ -292,7 +292,7 @@ class StageModel():
         Parameters
         __________
         name : str
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         kind : str,  default 'PERMANENT'
             Specifies whether the stage is permanent or temporary.
         url : str, optional
@@ -300,7 +300,7 @@ class StageModel():
         endpoint : str, optional
             The S3-compatible API endpoint associated with the stage; always NULL for stages that are not S3-compatible.
         storage_integration : str, optional
-            A Snowflake object identifier.
+            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         comment : str, optional
             Specifies a comment for the stage.
         credentials : Credentials, optional

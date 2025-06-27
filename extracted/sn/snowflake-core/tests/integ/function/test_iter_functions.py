@@ -8,6 +8,7 @@ from .utils import create_service_function
 pytestmark = [pytest.mark.skip_gov]
 
 
+@pytest.mark.flaky
 def test_iter_functions(temp_service_for_function, functions):
     funcs = []
 

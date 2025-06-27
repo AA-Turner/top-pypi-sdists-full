@@ -28,7 +28,11 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Optional
 
 from cyclonedx.model import Property
-from cyclonedx.model.component import Component, ComponentEvidence, ComponentType
+from cyclonedx.model.component import (  # type:ignore[attr-defined]  # ComponentEvidence was moved, but is still importable - ignore/wont-fix for backwards compatibility # noqa:E501
+    Component,
+    ComponentEvidence,
+    ComponentType,
+)
 from packageurl import PackageURL
 from packaging.requirements import Requirement
 
@@ -192,7 +196,7 @@ class EnvironmentBB(BomBuilder):
                 pep639_licenses = list(dist2licenses_pep639(dist, self._gather_license_texts, self._logger))
                 pep639_lexp = find_LicenseExpression(pep639_licenses)
                 if pep639_lexp is not None:
-                    component.licenses = (pep639_lexp,)  # type:ignore[assignment]
+                    component.licenses = (pep639_lexp,)
                     pep639_licenses.remove(pep639_lexp)
                 if len(pep639_licenses) > 0:
                     if find_LicenseExpression(component.licenses) is None:

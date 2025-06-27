@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.138.11
+Version: 0.138.14
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -12,7 +12,7 @@ Provides-Extra: logging
 Requires-Dist: coloredlogs<15.1,>=15.0.1; extra == 'logging'
 Provides-Extra: test
 Requires-Dist: dycw-pytest-only<2.2,>=2.1.1; extra == 'test'
-Requires-Dist: hypothesis<6.136,>=6.135.15; extra == 'test'
+Requires-Dist: hypothesis<6.136,>=6.135.16; extra == 'test'
 Requires-Dist: pudb<2025.2,>=2025.1; extra == 'test'
 Requires-Dist: pytest-asyncio<1.1,>=1.0.0; extra == 'test'
 Requires-Dist: pytest-cov<6.2,>=6.1.1; extra == 'test'

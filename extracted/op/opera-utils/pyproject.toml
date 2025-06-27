@@ -67,6 +67,7 @@ disp = [
   "h5netcdf",
   "s3fs",
   "tqdm",
+  "rasterio",
   "xarray",
   "zarr>=3",
 ]
@@ -84,6 +85,8 @@ test = [
   "ruff",
   "geopandas",
   "pyogrio",
+  "ipywidgets",
+  "matplotlib",
 ]
 docs = [
   "mkdocs",
@@ -150,10 +153,21 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"src/opera_utils/cli.py" = ["PLC0415"]
 "**/__init__.py" = ["F401", "F403"]
-"tests/**" = ["D", "N", "PTH", "ARG001", "PLR2004", "E501"]
-"src/opera_utils/datasets.py" = ["E501"]                    # Line too long
-"scripts/*" = ["F401"]
+"tests/**" = [
+  "D",
+  "N",
+  "PTH",
+  "ARG001",
+  "PLR2004",
+  "E501",
+  "PLC0415",
+  "PLC2701",
+]
+"src/opera_utils/datasets.py" = ["E501"] # Line too long
+"scripts/*" = ["F401", "PLC2701"]
+"docs/notebooks/*" = ["B018", "E402", "E501"]
 
 [tool.black]
 target-version = ["py39", "py310", "py311", "py312", "py313"]

@@ -64,8 +64,8 @@ class CortexSearchServiceResource(
     @api_telemetry
     def search(
         self,
-        query: str,
-        columns: list[str],
+        query: Optional[str] = None,
+        columns: Optional[list[str]] = None,
         filter: Optional[dict[str, Any]] = None,
         limit: int = 10,
         **kwargs: Any,
@@ -84,8 +84,8 @@ class CortexSearchServiceResource(
     @api_telemetry
     def search_async(
         self,
-        query: str,
-        columns: list[str],
+        query: Optional[str] = None,
+        columns: Optional[list[str]] = None,
         filter: Optional[dict[str, Any]] = None,
         limit: int = 10,
         **kwargs: Any,

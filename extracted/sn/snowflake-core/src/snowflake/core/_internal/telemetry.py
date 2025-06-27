@@ -98,9 +98,9 @@ def api_telemetry(func: Callable[Concatenate[Any, P], R]) -> Callable[Concatenat
         from ..cortex.lite_agent_service import CortexAgentService
         from ..task.dagv1 import DAGOperation
         if isinstance(self, (ObjectReferenceMixin, ObjectCollection)):
-            telemetry_client = self.root._telemetry_client  # type: ignore[misc,has-type]
+            telemetry_client = self.root._telemetry_client  # type: ignore[misc]
         elif isinstance(self, DAGOperation):
-            telemetry_client = self.schema.root._telemetry_client  # type: ignore[has-type]
+            telemetry_client = self.schema.root._telemetry_client
         elif isinstance(self, (CortexChatService, CortexInferenceService, CortexEmbedService, CortexAgentService)):
             telemetry_client = self._api._root._telemetry_client
         else:

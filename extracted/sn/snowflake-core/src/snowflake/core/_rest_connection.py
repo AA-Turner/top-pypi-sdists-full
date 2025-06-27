@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 from snowflake.connector import SnowflakeConnection
 
+from ._common import TokenType
 from ._internal.root_configuration import RootConfiguration
 from ._root import Root
 from ._utils import fix_hostname as _fix_hostname
@@ -24,13 +25,16 @@ class RESTConnection:
 
     def __init__(self, host: str,
                  port: int,
-                 session_token: str,
-                 is_sessionless: bool = False,
+                 token_type: TokenType,
+                 token: str,
+                 external_session_id: Optional[str] = None,
                  protocol: str = 'https') -> None:
         self.host = host
         self.port = port
-        self._session_token = session_token
-        self._is_sessionless = is_sessionless
+        self._token_type = token_type
+        self._session_token = token
+        # Only applicable when token_type is EXTERNAL_SESSION_WITH_PAT. Set to Spark session ID
+        self.external_session_id = external_session_id
         self.protocol = protocol
 
     @property
@@ -42,8 +46,8 @@ class RESTConnection:
         return self._session_token
 
     @property
-    def is_sessionless(self) -> bool:
-        return self._is_sessionless
+    def token_type(self) -> TokenType:
+        return self._token_type
 
 
 class RESTRoot(Root):
@@ -96,7 +100,13 @@ class RESTRoot(Root):
         return super()._master_token
 
     @property
-    def _is_sessionless(self) -> bool:
+    def token_type(self) -> TokenType:
         if self._restConnection is not None:
-            return self._restConnection.is_sessionless
-        return False
+            return self._restConnection.token_type
+        return super().token_type
+
+    @property
+    def external_session_id(self) -> Optional[str]:
+        if self._restConnection is not None:
+            return self._restConnection.external_session_id
+        return super().external_session_id

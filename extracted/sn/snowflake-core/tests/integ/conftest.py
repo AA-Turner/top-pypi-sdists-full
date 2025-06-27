@@ -1,6 +1,8 @@
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 import os
+import time
 import typing
+import uuid
 
 from contextlib import contextmanager, suppress
 from typing import Any
@@ -13,7 +15,6 @@ import snowflake.connector
 
 from snowflake.connector import SnowflakeConnection
 from snowflake.core import Root
-from snowflake.core._rest_connection import RESTConnection
 from snowflake.core.alert import AlertCollection
 from snowflake.core.api_integration import ApiIntegrationCollection
 from snowflake.core.catalog_integration import CatalogIntegration
@@ -44,7 +45,6 @@ from snowflake.core.schema import (
     SchemaResource,
 )
 from snowflake.core.service import ServiceCollection
-from snowflake.core.spark_connect import SparkConnectResource
 from snowflake.core.stage import StageCollection
 from snowflake.core.stream import StreamCollection
 from snowflake.core.table import TableCollection
@@ -193,8 +193,8 @@ def db_parameters() -> dict[str, str]:
         config = {}
         session = get_active_session()
         config["account"] = session.get_current_account()
-        config["schema"] = TEST_SCHEMA
-        config["database"] = TEST_DATABASE
+        config["schema"] = 'TESTSCHEMA'
+        config["database"] = 'TESTDB'
         config["warehouse"] = session.get_current_warehouse()
         #  for notebook run make sure the account you are running on is already set up for SPCS
         config["should_disable_setup_for_spcs"] = "true"
@@ -202,6 +202,8 @@ def db_parameters() -> dict[str, str]:
         return config
 
     config = connection_config(override_schema=TEST_SCHEMA, override_database=TEST_DATABASE)
+    config["schema"] = 'TESTSCHEMA'
+    config["database"] = 'TESTDB'
     return config
 
 
@@ -461,25 +463,40 @@ def imagerepo(connection, spcs_setup_objects) -> str:  # noqa: F811
                 f"SHOW IMAGE REPOSITORIES LIKE '{TEST_IMAGE_REPO} IN SCHEMA {TEST_IMAGE_REPO_QUALIFIED_SCHEMA}';"
             ).fetchone()[4]
 
-@pytest.fixture(scope="session")
-def rest_connection(request, connection) -> RESTConnection:
-    if RUNNING_IN_NOTEBOOK or RUNNING_IN_STOREDPROC:
-        return request.getfixturevalue("connection_notebook")
-    return RESTConnection(connection.host, connection.port, connection.rest.token, protocol=connection.rest._protocol)
 
 @pytest.fixture(scope="session")
-def spark_connect_session_resource(request, connection) -> SparkConnectResource:
-    if RUNNING_IN_NOTEBOOK or RUNNING_IN_STOREDPROC:
-        notebook_session = request.getfixturevalue("session_notebook")
-        return SparkConnectResource(notebook_session)
-    return SparkConnectResource(connection)
+def external_session_id() -> str:
+    return str(uuid.uuid4())
+
 
 @pytest.fixture(scope="session")
-def spark_connect_rest_resource(request, rest_connection) -> SparkConnectResource:
-    if RUNNING_IN_NOTEBOOK or RUNNING_IN_STOREDPROC:
-        notebook_session = request.getfixturevalue("session_notebook")
-        return SparkConnectResource(notebook_session)
-    return SparkConnectResource(rest_connection)
+def pat(connection, db_parameters) -> str:
+    pat_token_name = "SNOW_API_TEST_TOKEN_" + str(int(time.time() * 1000))
+    role = db_parameters.get('role', 'SYSADMIN')
+    try:
+        cursor = connection.cursor()
+        token_name, pat_token = cursor.execute(
+            f"ALTER USER ADD PROGRAMMATIC ACCESS TOKEN {pat_token_name} "
+            f"ROLE_RESTRICTION = {role} DAYS_TO_EXPIRY=1 COMMENT='PAT for SnowAPI tests'").fetchone()
+        assert token_name == pat_token_name
+        yield pat_token
+    finally:
+        connection.cursor().execute(
+            f"ALTER USER REMOVE PROGRAMMATIC ACCESS TOKEN {pat_token_name}")
+
+
+@pytest.fixture(scope="module")
+def pat_with_external_session_connection(request, db_parameters, pat, external_session_id) -> SnowflakeConnection:
+    _keys = connection_keys()
+    conn_parameters = {k: db_parameters[k] for k in _keys if k in db_parameters}
+    with snowflake.connector.connect(**conn_parameters) as conn:
+        conn._authenticator = "PAT_WITH_EXTERNAL_SESSION"
+        conn._token = pat
+        conn._external_session_id = external_session_id
+        conn._rest._token = pat
+        conn._rest._external_session_id = external_session_id
+        yield conn
+
 
 @pytest.fixture
 def setup_with_connector_execution(connection):
@@ -496,6 +513,11 @@ def setup_with_connector_execution(connection):
                     cursor.execute(sql)
 
     return _setup
+
+
+@pytest.fixture(scope="module")
+def spark_connection(request) -> SnowflakeConnection:
+    yield request.getfixturevalue(request.param)
 
 
 @pytest.fixture(autouse=True)

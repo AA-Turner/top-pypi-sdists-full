@@ -26,7 +26,14 @@ result = (
     .reset()
 )
 
-show(result)
+show(result, timeit=True)
+# %%
+from build123d import *
+
+result = Face(Polyline(((0, 0), (2, 0), (0, 2)), close=True))
+circle = Pos(0.6, 0.6) * Circle(0.4)
+result -= circle
+show(result, circle.edge(), Circle(0.1).edge(), timeit=True)
 # %%
 
 result = (

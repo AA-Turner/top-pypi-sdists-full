@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.9.0
+Version: 1.10.0
 License-File: LICENSE
 Summary: Static analysis for GitHub Actions
 Keywords: cli,github-actions,static-analysis,security
@@ -75,6 +75,20 @@ See [our contributing guide!](./CONTRIBUTING.md)
 <img src="https://avatars.githubusercontent.com/u/115962839?s=100&v=4" width="100px">
 <br>
 Astral
+</a>
+</td>
+<td align="center" valign="top" width="15%">
+<a href="https://grafana.com/">
+<img src="https://avatars.githubusercontent.com/u/7195757?s=100&v=4" width="100px">
+<br>
+Grafana Labs
+</a>
+</td>
+<td align="center" valign="top" width="15%">
+<a href="https://trailofbits.com/">
+<img src="https://avatars.githubusercontent.com/u/2314423?s=100&v=4" width="100px">
+<br>
+Trail of Bits
 </a>
 </td>
 </tr>

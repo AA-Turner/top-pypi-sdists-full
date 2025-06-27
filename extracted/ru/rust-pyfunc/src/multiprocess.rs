@@ -5,20 +5,21 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::env;
-use std::path::Path;
 use crossbeam::channel::{unbounded, Receiver as CrossbeamReceiver, Sender as CrossbeamSender};
 use std::time::{SystemTime, UNIX_EPOCH, Instant};
 use serde::{Serialize, Deserialize};
+use serde_json::Value;
 use crate::backup::BackupManager;
 use std::sync::OnceLock;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 
 /// 全局日志收集器
 static LOG_COLLECTOR: OnceLock<Arc<Mutex<Vec<String>>>> = OnceLock::new();
 
-/// 初始化日志收集器
-fn init_log_collector() -> Arc<Mutex<Vec<String>>> {
-    LOG_COLLECTOR.get_or_init(|| Arc::new(Mutex::new(Vec::new()))).clone()
-}
+
+
 
 /// 添加日志消息
 fn log_message(message: String) {
@@ -26,6 +27,13 @@ fn log_message(message: String) {
     if let Ok(mut logs) = collector.lock() {
         logs.push(message);
     }
+}
+
+/// 计算字符串的哈希值
+fn calculate_hash(input: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    input.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
 }
 
 /// 通过Python输出并清空所有日志
@@ -41,47 +49,57 @@ pub fn flush_logs_to_python(py: Python) {
     }
 }
 
-/// 智能检测Python解释器
-fn detect_python_interpreter() -> String {
-    // 1. 检查环境变量
-    if let Ok(python_path) = env::var("PYTHON_INTERPRETER") {
-        if Path::new(&python_path).exists() {
-            return python_path;
+/// 诊断工作进程状态的函数
+fn diagnose_process_status(worker_id: usize, child: &mut std::process::Child) {
+    match child.try_wait() {
+        Ok(Some(status)) => {
+            let status_msg = if status.success() {
+                format!("✅ 工作进程 {} 正常退出，退出码: {:?}", worker_id, status.code())
+            } else {
+                format!("❌ 工作进程 {} 异常退出，退出状态: {:?}", worker_id, status)
+            };
+            log_message(status_msg.clone());
+            eprintln!("{}", status_msg);
+            
+            // 尝试读取stderr获取错误信息
+            if let Some(ref mut stderr) = child.stderr.as_mut() {
+                use std::io::Read;
+                let mut stderr_output = String::new();
+                if let Ok(_) = stderr.read_to_string(&mut stderr_output) {
+                    if !stderr_output.trim().is_empty() {
+                        let stderr_msg = format!("🚨 工作进程 {} 错误输出:\n{}", worker_id, stderr_output.trim());
+                        log_message(stderr_msg.clone());
+                        eprintln!("{}", stderr_msg);
+                    } else {
+                        log_message(format!("📝 工作进程 {} 没有stderr输出", worker_id));
+                    }
+                } else {
+                    log_message(format!("⚠️ 无法读取工作进程 {} 的stderr", worker_id));
+                }
+            } else {
+                log_message(format!("⚠️ 工作进程 {} 没有stderr管道", worker_id));
+            }
+        }
+        Ok(None) => {
+            let running_msg = format!("🔄 工作进程 {} 仍在运行，可能卡住了", worker_id);
+            log_message(running_msg.clone());
+            eprintln!("{}", running_msg);
+            
+            // 尝试获取进程的PID和其他信息
+            let id = child.id();
+            let pid_msg = format!("🆔 工作进程 {} 的PID: {}", worker_id, id);
+            log_message(pid_msg.clone());
+            eprintln!("{}", pid_msg);
+        }
+        Err(e) => {
+            let err_msg = format!("🚫 无法检查工作进程 {} 状态: {}", worker_id, e);
+            log_message(err_msg.clone());
+            eprintln!("{}", err_msg);
         }
     }
-    
-    // 2. 检查是否在 conda 环境中
-    if let Ok(conda_prefix) = env::var("CONDA_PREFIX") {
-        let conda_python = format!("{}/bin/python", conda_prefix);
-        if Path::new(&conda_python).exists() {
-            return conda_python;
-        }
-    }
-    
-    // 3. 检查虚拟环境
-    if let Ok(virtual_env) = env::var("VIRTUAL_ENV") {
-        let venv_python = format!("{}/bin/python", virtual_env);
-        if Path::new(&venv_python).exists() {
-            return venv_python;
-        }
-    }
-    
-    // 4. 尝试常见的 Python 解释器
-    let candidates = ["python3", "python"];
-    for candidate in &candidates {
-        if Command::new("which")
-            .arg(candidate)
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
-        {
-            return candidate.to_string();
-        }
-    }
-    
-    // 5. 默认值
-    "python".to_string()
 }
+
+
 
 /// 任务数据结构
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -108,10 +126,11 @@ pub struct WorkerRequest {
     pub go_class_serialized: Option<String>,
 }
 
+
 /// 工作进程响应
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkerResponse {
-    pub results: Vec<Vec<Option<f64>>>,  // 支持null值
+    pub results: Vec<Vec<Value>>,  // 使用JSON Value来支持混合类型
     pub errors: Vec<String>,
     pub task_count: usize,
 }
@@ -155,6 +174,7 @@ pub struct WorkerProcess {
     stdin: std::process::ChildStdin,
     stdout_reader: BufReader<std::process::ChildStdout>,
     id: usize,
+    function_code_hash: Option<String>,  // 跟踪已发送的函数代码版本
 }
 
 /// 任务分发器状态
@@ -180,7 +200,8 @@ impl WorkerProcess {
         let mut script_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         script_path.push("python");
         script_path.push("worker_process.py");
-        // println!("script_path: {}", script_path.display());
+        
+        log_message(format!("工作进程 {} - 脚本路径: {}", id, script_path.display()));
         
         // 检查脚本文件是否存在
         if !script_path.exists() {
@@ -215,12 +236,34 @@ impl WorkerProcess {
             stdin,
             stdout_reader,
             id,
+            function_code_hash: None,  // 初始化为None，将在发送函数代码时更新
         };
 
         // 给工作进程一些时间启动
         std::thread::sleep(std::time::Duration::from_millis(100));
 
         Ok(worker)
+    }
+
+    /// 发送函数代码并更新哈希值
+    pub fn send_function_code(&mut self, function_code: &str) -> PyResult<()> {
+        let new_hash = calculate_hash(function_code);
+        
+        // 检查是否需要发送（函数代码未改变）
+        if let Some(ref current_hash) = self.function_code_hash {
+            if current_hash == &new_hash {
+                // 函数代码未改变，跳过发送
+                return Ok(());
+            }
+        }
+        
+        // 发送函数代码
+        self.send_command(&WorkerCommand::FunctionCode(function_code.to_string()))?;
+        
+        // 更新哈希值
+        self.function_code_hash = Some(new_hash);
+        
+        Ok(())
     }
 
     /// 向工作进程发送指令
@@ -342,9 +385,12 @@ impl ProcessPool {
         let mut workers = Vec::new();
         
         log_message(format!("创建 {} 个工作进程...", num_processes));
+        log_message(format!("使用Python解释器: {}", python_path));
         
         for i in 0..num_processes {
+            log_message(format!("正在创建工作进程 {}...", i));
             let worker = WorkerProcess::new(i, python_path)?;
+            log_message(format!("工作进程 {} 创建成功", i));
             workers.push(worker);
         }
         
@@ -396,7 +442,7 @@ impl ProcessPool {
                     format!("工作进程 {} 无响应: {}", i, e)
                 ));
             }
-            worker.send_command(&WorkerCommand::FunctionCode(function_code.to_string()))?;
+            worker.send_function_code(function_code)?;
         }
 
         // 2. 启动工作进程线程
@@ -471,30 +517,39 @@ impl ProcessPool {
                     let task_code = task.code.clone();
                     
                     // 发送任务给工作进程
+                    // log_message(format!("工作进程 {} 发送任务: date={}, code={}", worker_id, task_date, task_code));
                     if let Err(e) = worker.send_command(&WorkerCommand::Task(task)) {
                         eprintln!("工作进程 {} 发送任务失败: {}", worker_id, e);
                         break;
                     }
                     
+                    // log_message(format!("工作进程 {} 发送执行指令", worker_id));
                     if let Err(e) = worker.send_command(&WorkerCommand::Execute {}) {
                         eprintln!("工作进程 {} 发送执行指令失败: {}", worker_id, e);
                         break;
                     }
 
-                    // 接收结果
+                    // 接收结果（添加超时和详细日志）
+                    // log_message(format!("工作进程 {} 开始接收任务结果...", worker_id));
                     match worker.receive_result() {
                         Ok(response) => {
+                            log_message(format!("工作进程 {} 成功接收结果", worker_id));
                             if !response.errors.is_empty() {
-                                for error_msg in response.errors {
-                                    eprintln!("工作进程 {} 返回错误: {}", worker_id, error_msg);
+                                for error_msg in &response.errors {
+                                    log_message(format!("⚠️ 工作进程 {} 返回错误: {}", worker_id, error_msg));
+                                    eprintln!("⚠️ 工作进程 {} 返回错误: {}", worker_id, error_msg);
                                 }
                             }
 
                             // 处理结果（应该只有一个结果，因为我们一次只发送一个任务）
-                            let raw_facs = response.results.into_iter().next().unwrap_or_else(|| Vec::new());
-                            // 将Option<f64>转换为f64，None值转换为NaN
-                            let facs: Vec<f64> = raw_facs.into_iter()
-                                .map(|opt_val| opt_val.unwrap_or(f64::NAN))
+                            let raw_values = response.results.into_iter().next().unwrap_or_else(|| Vec::new());
+                            // 将JSON Value转换为f64，识别特殊的NaN标记
+                            let facs: Vec<f64> = raw_values.into_iter()
+                                .map(|value| match value {
+                                    Value::Number(n) => n.as_f64().unwrap_or(f64::NAN),
+                                    Value::String(s) if s == "__NaN__" => f64::NAN,
+                                    _ => f64::NAN,  // 其他类型都转为NaN
+                                })
                                 .collect();
                             let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
                             let result = ProcessResult {
@@ -510,7 +565,26 @@ impl ProcessPool {
                             }
                         }
                         Err(e) => {
-                            eprintln!("工作进程 {} 接收结果失败: {}", worker_id, e);
+                            let error_msg = format!("❌ 工作进程 {} 接收结果失败: {}", worker_id, e);
+                            eprintln!("{}", error_msg);
+                            log_message(error_msg.clone());
+                            
+                            // 使用诊断函数检查进程状态
+                            log_message(format!("🔍 检查工作进程 {} 的状态...", worker_id));
+                            diagnose_process_status(worker_id, &mut worker.child);
+                            
+                            // 尝试读取进程的stderr以获取更多错误信息
+                            if let Some(ref mut stderr) = worker.child.stderr.as_mut() {
+                                use std::io::Read;
+                                let mut stderr_output = String::new();
+                                if let Ok(_) = stderr.read_to_string(&mut stderr_output) {
+                                    if !stderr_output.trim().is_empty() {
+                                        let stderr_msg = format!("🚨 工作进程 {} stderr输出:\n{}", worker_id, stderr_output.trim());
+                                        eprintln!("{}", stderr_msg);
+                                        log_message(stderr_msg);
+                                    }
+                                }
+                            }
                             break;
                         }
                     }
@@ -596,6 +670,8 @@ impl Default for MultiProcessConfig {
     }
 }
 
+
+
 /// 多进程执行器
 pub struct MultiProcessExecutor {
     config: MultiProcessConfig,
@@ -676,7 +752,7 @@ impl MultiProcessExecutor {
         }
     }
 
-    /// 主要的多进程执行函数
+    /// 多进程执行
     pub fn run_multiprocess(
         &mut self,
         py: Python,
@@ -691,12 +767,19 @@ impl MultiProcessExecutor {
         // 保存原始参数用于最后读取
         let original_args = args.clone();
 
-        // 启动独立的进度监控进程（如果有进度回调且有备份文件）
-        let monitor_process = if progress_callback.is_some() && self.config.backup_file.is_some() {
-            self.start_progress_monitor(total_tasks, progress_callback)?
-        } else {
-            None
-        };
+        // 预估备份文件大小（基于820万行*266列=16.6GB的经验数据）
+        if let Some(ref backup_file) = self.config.backup_file {
+            let estimated_size_gb = Self::estimate_backup_size(total_tasks);
+            // 立即输出备份信息，而不是缓存到日志中
+            Python::with_gil(|py| {
+                let _ = py.import("builtins").and_then(|builtins| {
+                    builtins.call_method1("print", (format!("备份文件: {}", backup_file),))
+                });
+                let _ = py.import("builtins").and_then(|builtins| {
+                    builtins.call_method1("print", (format!("预估备份文件大小: {:.2}GB（基于 {} 个任务）", estimated_size_gb, total_tasks),))
+                });
+            });
+        }
 
         // 将参数转换为Task结构
         let tasks: Vec<Task> = args.into_iter().map(|(date, code)| Task { date, code }).collect();
@@ -770,12 +853,7 @@ impl MultiProcessExecutor {
             let _ = handle.join();
         }
 
-        // 清理进度监控进程
-        if let Some(mut child) = monitor_process {
-            log_message("正在停止进度监控进程...".to_string());
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        // 流式处理完成
 
         log_message(format!("多进程执行完成，总任务数: {}", total_tasks));
 
@@ -795,75 +873,17 @@ impl MultiProcessExecutor {
         }
     }
 
-    /// 启动独立的进度监控进程
-    fn start_progress_monitor(
-        &self,
-        total_tasks: usize,
-        progress_callback: Option<&PyAny>,
-    ) -> PyResult<Option<std::process::Child>> {
-        let backup_file = match &self.config.backup_file {
-            Some(file) => file,
-            None => return Ok(None),
-        };
-
-        // 提取任务名称和因子名称
-        let task_name = if let Some(callback) = progress_callback {
-            Python::with_gil(|_py| {
-                callback.getattr("task_name")
-                    .ok()
-                    .and_then(|name| name.extract::<String>().ok())
-                    .unwrap_or_else(|| "多进程计算".to_string())
-            })
-        } else {
-            "多进程计算".to_string()
-        };
-
-        let factor_names = if let Some(callback) = progress_callback {
-            Python::with_gil(|_py| {
-                callback.getattr("fac_names")
-                    .ok()
-                    .and_then(|names| names.extract::<Vec<String>>().ok())
-                    .unwrap_or_default()
-            })
-        } else {
-            Vec::new()
-        };
-
-        // 构建进度监控命令
-        let monitor_script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("progress_monitor.py");
+    /// 估算备份文件大小（基于820万行*266列=16.6GB的经验数据）
+    fn estimate_backup_size(total_tasks: usize) -> f64 {
+        // 经验数据：820万行 * 266列 = 16.6GB
+        let known_rows = 8_200_000f64;
+        let known_size_gb = 16.6f64;
         
-        // 优先使用配置的python_path，如果无效则智能检测
-        let python_interpreter = if Path::new(&self.config.python_path).exists() {
-            self.config.python_path.clone()
-        } else {
-            let detected = detect_python_interpreter();
-            log_message(format!("配置的Python路径无效，使用智能检测: {}", detected));
-            detected
-        };
+        // 计算每行的平均大小（GB）
+        let gb_per_row = known_size_gb / known_rows;
         
-        log_message(format!("使用Python解释器启动进度监控: {}", python_interpreter));
-        let mut cmd = std::process::Command::new(python_interpreter);
-        cmd.arg(monitor_script)
-            .arg("--backup-file").arg(backup_file)
-            .arg("--total-tasks").arg(total_tasks.to_string())
-            .arg("--task-name").arg(&task_name);
-
-        if !factor_names.is_empty() {
-            cmd.arg("--factor-names").args(&factor_names);
-        }
-
-        // 启动进程
-        match cmd.spawn() {
-            Ok(child) => {
-                log_message(format!("已启动独立进度监控进程 (PID: {})", child.id()));
-                Ok(Some(child))
-            }
-            Err(e) => {
-                log_message(format!("启动进度监控进程失败: {}，将跳过进度监控", e));
-                Ok(None)
-            }
-        }
+        // 估算总大小
+        total_tasks as f64 * gb_per_row
     }
 
     /// 备份工作线程（支持可配置的fsync频率）

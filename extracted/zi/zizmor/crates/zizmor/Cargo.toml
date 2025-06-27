@@ -1,11 +1,11 @@
 [package]
 name = "zizmor"
 description = "Static analysis for GitHub Actions"
-version = "1.9.0"
+version = "1.10.0"
 repository = "https://github.com/zizmorcore/zizmor"
 documentation = "https://docs.zizmor.sh"
 keywords = ["cli", "github-actions", "static-analysis", "security"]
-categories = ["command-line-utilities"]
+categories = ["command-line-utilities", "security"]
 rust-version = "1.85.0"
 
 homepage.workspace = true
@@ -13,6 +13,9 @@ license.workspace = true
 readme.workspace = true
 authors.workspace = true
 edition.workspace = true
+
+[lints]
+workspace = true
 
 [features]
 # Test-only: enable online audits that make use of a GitHub token via GH_TOKEN.

@@ -4,15 +4,6 @@ import typing_extensions
 import numpy.typing as npt
 import bpy.types
 
-class TIME_HT_editor_buttons:
-    @staticmethod
-    def draw_header(context, layout) -> None:
-        """
-
-        :param context:
-        :param layout:
-        """
-
 class TIME_MT_cache(bpy.types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -143,13 +134,6 @@ class TIME_PT_auto_keyframing(TimelinePanelButtons, bpy.types.Panel):
         :param context:
         """
 
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
 class TIME_PT_keyframing_settings(TimelinePanelButtons, bpy.types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
@@ -173,13 +157,6 @@ class TIME_PT_keyframing_settings(TimelinePanelButtons, bpy.types.Panel):
         """
 
     def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
         """
 
         :param context:
@@ -217,11 +194,5 @@ class TimelinePanelButtons:
     bl_region_type: typing.Any
     bl_space_type: typing.Any
 
-    @staticmethod
-    def has_timeline(context) -> None:
-        """
-
-        :param context:
-        """
-
 def marker_menu_generic(layout, context) -> None: ...
+def playback_controls(layout, context) -> None: ...
