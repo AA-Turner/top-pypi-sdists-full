@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-tke',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1406"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1411"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Tke SDK for Python',
     long_description=open('README.rst').read(),

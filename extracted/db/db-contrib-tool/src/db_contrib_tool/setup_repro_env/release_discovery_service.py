@@ -20,7 +20,7 @@ from db_contrib_tool.setup_repro_env.request_models import (
 )
 
 LOGGER = structlog.get_logger(__name__)
-DOWNLOADS_JSON_URL = "https://downloads.mongodb.org/full.json"
+DOWNLOADS_JSON_URL = "https://downloads.mongodb.org/cloud.json"
 
 
 class DownloadsJsonClient:

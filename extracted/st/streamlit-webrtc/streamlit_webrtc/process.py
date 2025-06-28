@@ -2,10 +2,8 @@ import asyncio
 import itertools
 import logging
 import queue
-import sys
 import threading
 import time
-import traceback
 from collections import deque
 from typing import Generic, List, Optional, Union
 
@@ -84,6 +82,15 @@ class AsyncMediaProcessTrack(MediaStreamTrack, Generic[ProcessorT, FrameT]):
 
         self._thread: Optional[threading.Thread] = None
 
+        self._worker_exception_lock = threading.Lock()
+        self._worker_exception: Optional[Exception] = None
+
+        def on_input_track_ended():
+            logger.debug("Input track %s ended. Stop self %s", self.track, self)
+            self.stop()
+
+        self.track.on("ended", on_input_track_ended)
+
     def _start(self) -> None:
         if self._thread:
             return
@@ -99,22 +106,13 @@ class AsyncMediaProcessTrack(MediaStreamTrack, Generic[ProcessorT, FrameT]):
         )
         self._thread.start()
 
-        def on_input_track_ended():
-            logger.debug("Input track %s ended. Stop self %s", self.track, self)
-            self.stop()
-
-        self.track.on("ended", on_input_track_ended)
-
     def _run_worker_thread(self):
         try:
             self._worker_thread()
-        except Exception:
-            logger.error("Error occurred in the WebRTC thread:")
-
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            for tb in traceback.format_exception(exc_type, exc_value, exc_traceback):
-                for tbline in tb.rstrip().splitlines():
-                    logger.error(tbline.rstrip())
+        except Exception as exc:
+            logger.error("Error occurred in the WebRTC thread: %s", exc, exc_info=True)
+            with self._worker_exception_lock:
+                self._worker_exception = exc
 
     async def _fallback_recv_queued(self, frames: List[FrameT]) -> List[FrameT]:
         """
@@ -223,6 +221,10 @@ class AsyncMediaProcessTrack(MediaStreamTrack, Generic[ProcessorT, FrameT]):
     async def recv(self):
         if self.readyState != "live":
             raise MediaStreamError
+
+        with self._worker_exception_lock:
+            if self._worker_exception:
+                raise self._worker_exception
 
         self._start()
 

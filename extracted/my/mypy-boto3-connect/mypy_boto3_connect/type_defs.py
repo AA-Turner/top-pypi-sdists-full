@@ -59,6 +59,7 @@ from .literals import (
     HierarchyGroupMatchTypeType,
     HistoricalMetricNameType,
     HoursOfOperationDaysType,
+    InitiateAsType,
     InstanceAttributeTypeType,
     InstanceReplicationStatusType,
     InstanceStatusType,
@@ -6284,7 +6285,7 @@ class CreateContactRequestTypeDef(TypedDict):
     References: NotRequired[Mapping[str, ReferenceTypeDef]]
     ExpiryDurationInMinutes: NotRequired[int]
     UserInfo: NotRequired[UserInfoTypeDef]
-    InitiateAs: NotRequired[Literal["CONNECTED_TO_USER"]]
+    InitiateAs: NotRequired[InitiateAsType]
     Name: NotRequired[str]
     Description: NotRequired[str]
     SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]

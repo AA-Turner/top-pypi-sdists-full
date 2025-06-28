@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: openai-agents
-Version: 0.0.19
+Version: 0.1.0
 Summary: OpenAI Agents SDK
-Project-URL: Homepage, https://github.com/openai/openai-agents-python
+Project-URL: Homepage, https://openai.github.io/openai-agents-python/
 Project-URL: Repository, https://github.com/openai/openai-agents-python
 Author-email: OpenAI <support@openai.com>
 License-Expression: MIT
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
@@ -56,14 +57,21 @@ Explore the [examples](examples) directory to see the SDK in action, and read ou
 
 1. Set up your Python environment
 
-```
+- Option A: Using venv (traditional method)
+```bash
 python -m venv env
-source env/bin/activate
+source env/bin/activate  # On Windows: env\Scripts\activate
+```
+
+- Option B: Using uv (recommended)
+```bash
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 2. Install Agents SDK
 
-```
+```bash
 pip install openai-agents
 ```
 
@@ -86,7 +94,7 @@ print(result.final_output)
 
 (_If running this, ensure you set the `OPENAI_API_KEY` environment variable_)
 
-(_For Jupyter notebook users, see [hello_world_jupyter.py](examples/basic/hello_world_jupyter.py)_)
+(_For Jupyter notebook users, see [hello_world_jupyter.ipynb](examples/basic/hello_world_jupyter.ipynb)_)
 
 ## Handoffs example
 

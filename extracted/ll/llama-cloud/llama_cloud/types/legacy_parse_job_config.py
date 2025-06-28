@@ -175,6 +175,16 @@ class LegacyParseJobConfig(pydantic.BaseModel):
     system_prompt: typing.Optional[str] = pydantic.Field(alias="systemPrompt")
     system_prompt_append: typing.Optional[str] = pydantic.Field(alias="systemPromptAppend")
     user_prompt: typing.Optional[str] = pydantic.Field(alias="userPrompt")
+    page_header_prefix: typing.Optional[str] = pydantic.Field(alias="pageHeaderPrefix")
+    page_header_suffix: typing.Optional[str] = pydantic.Field(alias="pageHeaderSuffix")
+    page_footer_prefix: typing.Optional[str] = pydantic.Field(alias="pageFooterPrefix")
+    page_footer_suffix: typing.Optional[str] = pydantic.Field(alias="pageFooterSuffix")
+    hide_headers: typing.Optional[bool] = pydantic.Field(
+        alias="hideHeaders", description="Whether to hide headers in the output."
+    )
+    hide_footers: typing.Optional[bool] = pydantic.Field(
+        alias="hideFooters", description="Whether to hide footers in the output."
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.2.12
+Version: 0.2.13
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -13,35 +13,38 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
 Requires-Dist: fastapi<1.0,>=0.115.0
 Requires-Dist: fire
 Requires-Dist: httpx
-Requires-Dist: huggingface-hub
+Requires-Dist: huggingface-hub<1.0,>=0.30.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: jsonschema
-Requires-Dist: llama-stack-client>=0.2.12
+Requires-Dist: llama-stack-client>=0.2.13
 Requires-Dist: openai>=1.66
 Requires-Dist: prompt-toolkit
 Requires-Dist: python-dotenv
 Requires-Dist: python-jose
 Requires-Dist: pydantic>=2
-Requires-Dist: requests
 Requires-Dist: rich
-Requires-Dist: setuptools
 Requires-Dist: starlette
 Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Requires-Dist: pillow
 Requires-Dist: h11>=0.16.0
 Requires-Dist: python-multipart>=0.0.20
+Requires-Dist: uvicorn>=0.34.0
+Requires-Dist: opentelemetry-sdk
+Requires-Dist: opentelemetry-exporter-otlp-proto-http
+Requires-Dist: aiosqlite>=0.21.0
+Requires-Dist: asyncpg
 Provides-Extra: ui
 Requires-Dist: streamlit; extra == "ui"
 Requires-Dist: pandas; extra == "ui"
-Requires-Dist: llama-stack-client>=0.2.12; extra == "ui"
+Requires-Dist: llama-stack-client>=0.2.13; extra == "ui"
 Requires-Dist: streamlit-option-menu; extra == "ui"
 Dynamic: license-file
 

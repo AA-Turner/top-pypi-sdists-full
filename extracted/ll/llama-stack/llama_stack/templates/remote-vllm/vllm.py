@@ -6,7 +6,7 @@
 
 from pathlib import Path
 
-from llama_stack.apis.models.models import ModelType
+from llama_stack.apis.models import ModelType
 from llama_stack.distribution.datatypes import (
     ModelInput,
     Provider,
@@ -44,7 +44,7 @@ def get_distribution_template() -> DistributionTemplate:
         provider_id="vllm-inference",
         provider_type="remote::vllm",
         config=VLLMInferenceAdapterConfig.sample_run_config(
-            url="${env.VLLM_URL:http://localhost:8000/v1}",
+            url="${env.VLLM_URL:=http://localhost:8000/v1}",
         ),
     )
     embedding_provider = Provider(

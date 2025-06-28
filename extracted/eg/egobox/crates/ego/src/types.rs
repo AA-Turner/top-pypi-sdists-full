@@ -1,7 +1,8 @@
+#![allow(deprecated)]
 use crate::gpmix::spec::*;
 use crate::{errors::Result, EgorState};
 use argmin::core::CostFunction;
-use egobox_moe::{Clustering, MixtureGpSurrogate, NbClusters, ThetaTuning};
+use egobox_moe::{Clustering, MixtureGpSurrogate, NbClusters, Recombination, ThetaTuning};
 use linfa::Float;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 use serde::{Deserialize, Serialize};
@@ -130,7 +131,10 @@ impl<O: GroupFunc, C: CstrFn> DomainConstraints<C> for ObjFunc<O, C> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum XType {
     /// Continuous variable in [lower bound, upper bound]
+    #[deprecated(note = "Use `Xtype::Float` instead", since = "0.30.0")]
     Cont(f64, f64),
+    /// Continuous variable in [lower bound, upper bound]
+    Float(f64, f64),
     /// Integer variable in lower bound .. upper bound
     Int(i32, i32),
     /// An Ordered variable in { float_1, float_2, ..., float_n }
@@ -158,6 +162,9 @@ pub trait SurrogateBuilder: Clone + Serialize + Sync {
 
     /// Sets the number of clusters used by the mixture of surrogate experts.
     fn set_n_clusters(&mut self, n_clusters: NbClusters);
+
+    /// Sets the mode of recombination to get the output prediction from experts prediction
+    fn set_recombination(&mut self, recombination: Recombination<f64>);
 
     /// Sets the hyperparameters tuning strategy
     fn set_theta_tunings(&mut self, theta_tunings: &[ThetaTuning<f64>]);

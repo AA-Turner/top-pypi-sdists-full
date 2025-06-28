@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pyworxcloud"
-version = "v4.1.37"
+version = "v4.1.38"
 description = "Landroid cloud (Positec) API library"
 authors = ["Malene Trab <malene@trab.dk>"]
 documentation = "https://github.com/mtrab/pyworxcloud"
@@ -20,6 +20,6 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-urllib3 = "^1.26.5"
+urllib3 = ">=1.26.5"
 requests = "^2.32.0"
 paho-mqtt = ">=1.6.1"

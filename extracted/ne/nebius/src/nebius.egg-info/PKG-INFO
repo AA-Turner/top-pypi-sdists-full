@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nebius
-Version: 0.2.34
+Version: 0.2.36
 Summary: Nebius Python SDK
 Author-email: Daniil Drizhuk <complynx@nebius.com>, Ivan Kornilov <ivan.kornilov@nebius.com>, Marat Reymers <marat-reymers@nebius.com>, Andrei Zenkov <andrei.zenkov@nebius.com>
 License: The MIT License (MIT)
@@ -37,6 +37,8 @@ Requires-Dist: PyJWT>=2.0.0
 Requires-Dist: certifi>=2022.6.15
 Requires-Dist: protobuf>=5.29.1
 Requires-Dist: grpcio-status>=1.56.2
+Requires-Dist: portalocker>=2.8.1
+Requires-Dist: aiohttp>=3.8.5
 Provides-Extra: windows
 Requires-Dist: certifi-win32; extra == "windows"
 Provides-Extra: dev

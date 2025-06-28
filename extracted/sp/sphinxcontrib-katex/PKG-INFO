@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxcontrib-katex
-Version: 0.9.10
+Version: 0.9.11
 Summary: A Sphinx extension for rendering math in HTML pages
 Author: sphinxcontrib-katex Development Team
 License: The MIT License
@@ -35,18 +35,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: sphinx>=1.6
+Dynamic: license-file
 
 sphinxcontrib-katex
 ===================
@@ -131,7 +132,7 @@ all configuration entries are listed and their default values are shown.
 .. code-block:: python
 
     katex_css_path = \
-        'https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css'
+        'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css'
     katex_js_path = 'katex.min.js'
     katex_autorender_path = 'auto-render.min.js'
     katex_inline = [r'\(', r'\)']

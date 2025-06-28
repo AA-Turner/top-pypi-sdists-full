@@ -14,12 +14,13 @@ use futures::{
     stream::{self, BoxStream},
 };
 use object_store::{
-    Attribute, AttributeValue, Attributes, CredentialProvider, GetOptions, ObjectMeta,
-    ObjectStore, PutMode, PutOptions, PutPayload, StaticCredentialProvider,
-    UpdateVersion,
+    Attribute, AttributeValue, Attributes, BackoffConfig, ClientConfigKey,
+    CredentialProvider, GetOptions, ObjectMeta, ObjectStore, PutMode, PutOptions,
+    PutPayload, RetryConfig, StaticCredentialProvider, UpdateVersion,
     aws::AmazonS3Builder,
     azure::{AzureConfigKey, MicrosoftAzureBuilder},
     gcp::{GcpCredential, GoogleCloudStorageBuilder, GoogleConfigKey},
+    http::HttpBuilder,
     local::LocalFileSystem,
     memory::InMemory,
     path::Path as ObjectPath,
@@ -45,8 +46,9 @@ use tracing::instrument;
 use super::{
     CHUNK_PREFIX, CONFIG_PATH, ConcurrencySettings, DeleteObjectsResult, ETag,
     FetchConfigResult, Generation, GetRefResult, ListInfo, MANIFEST_PREFIX, REF_PREFIX,
-    Reader, SNAPSHOT_PREFIX, Settings, Storage, StorageError, StorageErrorKind,
-    StorageResult, TRANSACTION_PREFIX, UpdateConfigResult, VersionInfo, WriteRefResult,
+    Reader, RetriesSettings, SNAPSHOT_PREFIX, Settings, Storage, StorageError,
+    StorageErrorKind, StorageResult, TRANSACTION_PREFIX, UpdateConfigResult, VersionInfo,
+    WriteRefResult,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,8 +67,7 @@ impl ObjectStorage {
     /// This implementation should not be used in production code.
     pub async fn new_in_memory() -> Result<ObjectStorage, StorageError> {
         let backend = Arc::new(InMemoryObjectStoreBackend);
-        let client = backend.mk_object_store()?;
-        let storage = ObjectStorage { backend, client: OnceCell::new_with(Some(client)) };
+        let storage = ObjectStorage { backend, client: OnceCell::new() };
         Ok(storage)
     }
 
@@ -78,8 +79,7 @@ impl ObjectStorage {
     ) -> Result<ObjectStorage, StorageError> {
         let backend =
             Arc::new(LocalFileSystemObjectStoreBackend { path: prefix.to_path_buf() });
-        let client = backend.mk_object_store()?;
-        let storage = ObjectStorage { backend, client: OnceCell::new_with(Some(client)) };
+        let storage = ObjectStorage { backend, client: OnceCell::new() };
         Ok(storage)
     }
 
@@ -91,8 +91,7 @@ impl ObjectStorage {
     ) -> Result<ObjectStorage, StorageError> {
         let backend =
             Arc::new(S3ObjectStoreBackend { bucket, prefix, credentials, config });
-        let client = backend.mk_object_store()?;
-        let storage = ObjectStorage { backend, client: OnceCell::new_with(Some(client)) };
+        let storage = ObjectStorage { backend, client: OnceCell::new() };
 
         Ok(storage)
     }
@@ -111,8 +110,7 @@ impl ObjectStorage {
             credentials,
             config,
         });
-        let client = backend.mk_object_store()?;
-        let storage = ObjectStorage { backend, client: OnceCell::new_with(Some(client)) };
+        let storage = ObjectStorage { backend, client: OnceCell::new() };
 
         Ok(storage)
     }
@@ -125,8 +123,7 @@ impl ObjectStorage {
     ) -> Result<ObjectStorage, StorageError> {
         let backend =
             Arc::new(GcsObjectStoreBackend { bucket, prefix, credentials, config });
-        let client = backend.mk_object_store()?;
-        let storage = ObjectStorage { backend, client: OnceCell::new_with(Some(client)) };
+        let storage = ObjectStorage { backend, client: OnceCell::new() };
 
         Ok(storage)
     }
@@ -135,12 +132,14 @@ impl ObjectStorage {
     /// client is not serializeable and must be initialized after deserialization. Under normal construction
     /// the original client is returned immediately.
     #[instrument(skip_all)]
-    async fn get_client(&self) -> &Arc<dyn ObjectStore> {
+    async fn get_client(&self, settings: &Settings) -> &Arc<dyn ObjectStore> {
         self.client
             .get_or_init(|| async {
                 // TODO: handle error better?
                 #[allow(clippy::expect_used)]
-                self.backend.mk_object_store().expect("failed to create object store")
+                self.backend
+                    .mk_object_store(settings)
+                    .expect("failed to create object store")
             })
             .await
     }
@@ -156,7 +155,7 @@ impl ObjectStorage {
     /// Intended for testing and debugging purposes only.
     pub async fn all_keys(&self) -> StorageResult<Vec<String>> {
         Ok(self
-            .get_client()
+            .get_client(&self.backend.default_settings())
             .await
             .list(None)
             .map_ok(|obj| obj.location.to_string())
@@ -209,11 +208,11 @@ impl ObjectStorage {
 
     async fn get_object_reader(
         &self,
-        _settings: &Settings,
+        settings: &Settings,
         path: &ObjectPath,
     ) -> StorageResult<impl AsyncRead + use<>> {
         Ok(self
-            .get_client()
+            .get_client(settings)
             .await
             .get(path)
             .await?
@@ -280,7 +279,7 @@ impl private::Sealed for ObjectStorage {}
 #[typetag::serde]
 impl Storage for ObjectStorage {
     fn can_write(&self) -> bool {
-        true
+        self.backend.can_write()
     }
 
     #[instrument(skip_all)]
@@ -291,10 +290,10 @@ impl Storage for ObjectStorage {
     #[instrument(skip_all)]
     async fn fetch_config(
         &self,
-        _settings: &Settings,
+        settings: &Settings,
     ) -> StorageResult<FetchConfigResult> {
         let path = self.get_config_path();
-        let response = self.get_client().await.get(&path).await;
+        let response = self.get_client(settings).await.get(&path).await;
 
         match response {
             Ok(result) => {
@@ -329,7 +328,8 @@ impl Storage for ObjectStorage {
         let mode = self.get_put_mode(settings, previous_version);
 
         let options = PutOptions { mode, attributes, ..PutOptions::default() };
-        let res = self.get_client().await.put_opts(&path, config.into(), options).await;
+        let res =
+            self.get_client(settings).await.put_opts(&path, config.into(), options).await;
         match res {
             Ok(res) => {
                 let new_version = VersionInfo {
@@ -398,7 +398,7 @@ impl Storage for ObjectStorage {
         let attributes = self.metadata_to_attributes(settings, metadata);
         let options = PutOptions { attributes, ..PutOptions::default() };
         // FIXME: use multipart
-        self.get_client().await.put_opts(&path, bytes.into(), options).await?;
+        self.get_client(settings).await.put_opts(&path, bytes.into(), options).await?;
         Ok(())
     }
 
@@ -414,7 +414,7 @@ impl Storage for ObjectStorage {
         let attributes = self.metadata_to_attributes(settings, metadata);
         let options = PutOptions { attributes, ..PutOptions::default() };
         // FIXME: use multipart
-        self.get_client().await.put_opts(&path, bytes.into(), options).await?;
+        self.get_client(settings).await.put_opts(&path, bytes.into(), options).await?;
         Ok(())
     }
 
@@ -430,7 +430,7 @@ impl Storage for ObjectStorage {
         let attributes = self.metadata_to_attributes(settings, metadata);
         let options = PutOptions { attributes, ..PutOptions::default() };
         // FIXME: use multipart
-        self.get_client().await.put_opts(&path, bytes.into(), options).await?;
+        self.get_client(settings).await.put_opts(&path, bytes.into(), options).await?;
         Ok(())
     }
 
@@ -448,26 +448,26 @@ impl Storage for ObjectStorage {
             .await
     }
 
-    #[instrument(skip(self, _settings, bytes))]
+    #[instrument(skip(self, settings, bytes))]
     async fn write_chunk(
         &self,
-        _settings: &Settings,
+        settings: &Settings,
         id: ChunkId,
         bytes: Bytes,
     ) -> Result<(), StorageError> {
         let path = self.get_chunk_path(&id);
-        self.get_client().await.put(&path, bytes.into()).await?;
+        self.get_client(settings).await.put(&path, bytes.into()).await?;
         Ok(())
     }
 
-    #[instrument(skip(self, _settings))]
+    #[instrument(skip(self, settings))]
     async fn get_ref(
         &self,
-        _settings: &Settings,
+        settings: &Settings,
         ref_key: &str,
     ) -> StorageResult<GetRefResult> {
         let key = self.ref_key(ref_key);
-        match self.get_client().await.get(&key).await {
+        match self.get_client(settings).await.get(&key).await {
             Ok(res) => {
                 let etag = res.meta.e_tag.clone().map(ETag);
                 let generation = res.meta.version.clone().map(Generation);
@@ -481,12 +481,12 @@ impl Storage for ObjectStorage {
         }
     }
 
-    #[instrument(skip(self, _settings))]
-    async fn ref_names(&self, _settings: &Settings) -> StorageResult<Vec<String>> {
+    #[instrument(skip(self, settings))]
+    async fn ref_names(&self, settings: &Settings) -> StorageResult<Vec<String>> {
         let prefix = &self.ref_key("");
 
         Ok(self
-            .get_client()
+            .get_client(settings)
             .await
             .list(Some(prefix.clone()).as_ref())
             .try_filter_map(|meta| async move {
@@ -513,7 +513,7 @@ impl Storage for ObjectStorage {
         let opts = PutOptions { mode, ..PutOptions::default() };
 
         match self
-            .get_client()
+            .get_client(settings)
             .await
             .put_opts(&key, PutPayload::from_bytes(bytes), opts)
             .await
@@ -527,15 +527,15 @@ impl Storage for ObjectStorage {
         }
     }
 
-    #[instrument(skip(self, _settings))]
+    #[instrument(skip(self, settings))]
     async fn list_objects<'a>(
         &'a self,
-        _settings: &Settings,
+        settings: &Settings,
         prefix: &str,
     ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>> {
         let prefix = ObjectPath::from(format!("{}/{}", self.backend.prefix(), prefix));
         let stream = self
-            .get_client()
+            .get_client(settings)
             .await
             .list(Some(&prefix))
             // TODO: we should signal error instead of filtering
@@ -553,6 +553,7 @@ impl Storage for ObjectStorage {
     #[instrument(skip(self, batch))]
     async fn delete_batch(
         &self,
+        settings: &Settings,
         prefix: &str,
         batch: Vec<(String, u64)>,
     ) -> StorageResult<DeleteObjectsResult> {
@@ -563,7 +564,8 @@ impl Storage for ObjectStorage {
             ids.push(Ok(path.clone()));
             sizes.insert(path, size);
         }
-        let results = self.get_client().await.delete_stream(stream::iter(ids).boxed());
+        let results =
+            self.get_client(settings).await.delete_stream(stream::iter(ids).boxed());
         let res = results
             .fold(DeleteObjectsResult::default(), |mut res, delete_result| {
                 if let Ok(deleted_path) = delete_result {
@@ -583,20 +585,21 @@ impl Storage for ObjectStorage {
         Ok(res)
     }
 
-    #[instrument(skip(self, _settings))]
+    #[instrument(skip(self, settings))]
     async fn get_snapshot_last_modified(
         &self,
-        _settings: &Settings,
+        settings: &Settings,
         snapshot: &SnapshotId,
     ) -> StorageResult<DateTime<Utc>> {
         let path = self.get_snapshot_path(snapshot);
-        let res = self.get_client().await.head(&path).await?;
+        let res = self.get_client(settings).await.head(&path).await?;
         Ok(res.last_modified)
     }
 
     #[instrument(skip(self))]
     async fn get_object_range_buf(
         &self,
+        settings: &Settings,
         key: &str,
         range: &Range<u64>,
     ) -> StorageResult<Box<dyn Buf + Unpin + Send>> {
@@ -604,12 +607,15 @@ impl Storage for ObjectStorage {
         let usize_range = range.start..range.end;
         let range = Some(usize_range.into());
         let opts = GetOptions { range, ..Default::default() };
-        Ok(Box::new(self.get_client().await.get_opts(&path, opts).await?.bytes().await?))
+        Ok(Box::new(
+            self.get_client(settings).await.get_opts(&path, opts).await?.bytes().await?,
+        ))
     }
 
     #[instrument(skip(self))]
     async fn get_object_range_read(
         &self,
+        settings: &Settings,
         key: &str,
         range: &Range<u64>,
     ) -> StorageResult<Box<dyn AsyncRead + Unpin + Send>> {
@@ -618,7 +624,7 @@ impl Storage for ObjectStorage {
         let range = Some(usize_range.into());
         let opts = GetOptions { range, ..Default::default() };
         let res: Box<dyn AsyncRead + Unpin + Send> = Box::new(
-            self.get_client()
+            self.get_client(settings)
                 .await
                 .get_opts(&path, opts)
                 .await?
@@ -633,7 +639,10 @@ impl Storage for ObjectStorage {
 
 #[typetag::serde(tag = "object_store_provider_type")]
 pub trait ObjectStoreBackend: Debug + Display + Sync + Send {
-    fn mk_object_store(&self) -> Result<Arc<dyn ObjectStore>, StorageError>;
+    fn mk_object_store(
+        &self,
+        settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError>;
 
     /// The prefix for the object store.
     fn prefix(&self) -> String;
@@ -645,6 +654,10 @@ pub trait ObjectStoreBackend: Debug + Display + Sync + Send {
     }
 
     fn default_settings(&self) -> Settings;
+
+    fn can_write(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -658,7 +671,10 @@ impl fmt::Display for InMemoryObjectStoreBackend {
 
 #[typetag::serde(name = "in_memory_object_store_provider")]
 impl ObjectStoreBackend for InMemoryObjectStoreBackend {
-    fn mk_object_store(&self) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    fn mk_object_store(
+        &self,
+        _settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError> {
         Ok(Arc::new(InMemory::new()))
     }
 
@@ -677,6 +693,12 @@ impl ObjectStoreBackend for InMemoryObjectStoreBackend {
                     NonZeroU64::new(1).unwrap_or(NonZeroU64::MIN),
                 ),
             }),
+            retries: Some(RetriesSettings {
+                max_tries: Some(NonZeroU16::MIN),
+                initial_backoff_ms: Some(0),
+                max_backoff_ms: Some(0),
+            }),
+
             ..Default::default()
         }
     }
@@ -695,7 +717,10 @@ impl fmt::Display for LocalFileSystemObjectStoreBackend {
 
 #[typetag::serde(name = "local_file_system_object_store_provider")]
 impl ObjectStoreBackend for LocalFileSystemObjectStoreBackend {
-    fn mk_object_store(&self) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    fn mk_object_store(
+        &self,
+        _settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError> {
         create_dir_all(&self.path).map_err(|e| StorageErrorKind::Other(e.to_string()))?;
 
         let path = std::fs::canonicalize(&self.path)
@@ -726,8 +751,87 @@ impl ObjectStoreBackend for LocalFileSystemObjectStoreBackend {
             }),
             unsafe_use_conditional_update: Some(false),
             unsafe_use_metadata: Some(false),
+            retries: Some(RetriesSettings {
+                max_tries: Some(NonZeroU16::new(1).unwrap_or(NonZeroU16::MIN)),
+                initial_backoff_ms: Some(0),
+                max_backoff_ms: Some(0),
+            }),
             ..Default::default()
         }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HttpObjectStoreBackend {
+    pub url: String,
+    pub config: Option<HashMap<ClientConfigKey, String>>,
+}
+
+impl fmt::Display for HttpObjectStoreBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "HttpObjectStoreBackend(url={}, config={})",
+            self.url,
+            self.config
+                .as_ref()
+                .map(|c| c
+                    .iter()
+                    .map(|(k, v)| format!("{:?}={}", k, v))
+                    .collect::<Vec<_>>()
+                    .join(", "))
+                .unwrap_or("None".to_string())
+        )
+    }
+}
+
+#[typetag::serde(name = "http_object_store_provider")]
+impl ObjectStoreBackend for HttpObjectStoreBackend {
+    fn mk_object_store(
+        &self,
+        settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError> {
+        let builder = HttpBuilder::new().with_url(&self.url);
+
+        // Add options
+        let builder = self
+            .config
+            .as_ref()
+            .unwrap_or(&HashMap::new())
+            .iter()
+            .fold(builder, |builder, (key, value)| builder.with_config(*key, value));
+
+        let builder = builder.with_retry(RetryConfig {
+            backoff: BackoffConfig {
+                init_backoff: core::time::Duration::from_millis(
+                    settings.retries().initial_backoff_ms() as u64,
+                ),
+                max_backoff: core::time::Duration::from_millis(
+                    settings.retries().max_backoff_ms() as u64,
+                ),
+                base: 2.,
+            },
+            max_retries: settings.retries().max_tries().get() as usize - 1,
+            retry_timeout: core::time::Duration::from_secs(5 * 60),
+        });
+
+        let store =
+            builder.build().map_err(|e| StorageErrorKind::Other(e.to_string()))?;
+
+        Ok(Arc::new(store))
+    }
+
+    fn prefix(&self) -> String {
+        "".to_string()
+    }
+
+    fn default_settings(&self) -> Settings {
+        Default::default()
+    }
+
+    fn can_write(&self) -> bool {
+        // TODO: Support write operations?
+        false
     }
 }
 
@@ -753,7 +857,10 @@ impl fmt::Display for S3ObjectStoreBackend {
 
 #[typetag::serde(name = "s3_object_store_provider")]
 impl ObjectStoreBackend for S3ObjectStoreBackend {
-    fn mk_object_store(&self) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    fn mk_object_store(
+        &self,
+        settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError> {
         let builder = AmazonS3Builder::new();
 
         let builder = match self.credentials.as_ref() {
@@ -762,14 +869,11 @@ impl ObjectStoreBackend for S3ObjectStoreBackend {
                     .with_access_key_id(credentials.access_key_id.clone())
                     .with_secret_access_key(credentials.secret_access_key.clone());
 
-                let builder =
-                    if let Some(session_token) = credentials.session_token.as_ref() {
-                        builder.with_token(session_token.clone())
-                    } else {
-                        builder
-                    };
-
-                builder
+                if let Some(session_token) = credentials.session_token.as_ref() {
+                    builder.with_token(session_token.clone())
+                } else {
+                    builder
+                }
             }
             Some(S3Credentials::Anonymous) => builder.with_skip_signature(true),
             // TODO: Support refreshable credentials
@@ -800,6 +904,20 @@ impl ObjectStoreBackend for S3ObjectStoreBackend {
         let builder = builder
             .with_bucket_name(&self.bucket)
             .with_conditional_put(object_store::aws::S3ConditionalPut::ETagMatch);
+
+        let builder = builder.with_retry(RetryConfig {
+            backoff: BackoffConfig {
+                init_backoff: core::time::Duration::from_millis(
+                    settings.retries().initial_backoff_ms() as u64,
+                ),
+                max_backoff: core::time::Duration::from_millis(
+                    settings.retries().max_backoff_ms() as u64,
+                ),
+                base: 2.,
+            },
+            max_retries: settings.retries().max_tries().get() as usize - 1,
+            retry_timeout: core::time::Duration::from_secs(5 * 60),
+        });
 
         let store =
             builder.build().map_err(|e| StorageErrorKind::Other(e.to_string()))?;
@@ -838,7 +956,10 @@ impl fmt::Display for AzureObjectStoreBackend {
 
 #[typetag::serde(name = "azure_object_store_provider")]
 impl ObjectStoreBackend for AzureObjectStoreBackend {
-    fn mk_object_store(&self) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    fn mk_object_store(
+        &self,
+        settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError> {
         let builder = MicrosoftAzureBuilder::new();
 
         let builder = match self.credentials.as_ref() {
@@ -864,6 +985,20 @@ impl ObjectStoreBackend for AzureObjectStoreBackend {
             .unwrap_or(&HashMap::new())
             .iter()
             .fold(builder, |builder, (key, value)| builder.with_config(*key, value));
+
+        let builder = builder.with_retry(RetryConfig {
+            backoff: BackoffConfig {
+                init_backoff: core::time::Duration::from_millis(
+                    settings.retries().initial_backoff_ms() as u64,
+                ),
+                max_backoff: core::time::Duration::from_millis(
+                    settings.retries().max_backoff_ms() as u64,
+                ),
+                base: 2.,
+            },
+            max_retries: settings.retries().max_tries().get() as usize - 1,
+            retry_timeout: core::time::Duration::from_secs(5 * 60),
+        });
 
         let store =
             builder.build().map_err(|e| StorageErrorKind::Other(e.to_string()))?;
@@ -900,7 +1035,10 @@ impl fmt::Display for GcsObjectStoreBackend {
 
 #[typetag::serde(name = "gcs_object_store_provider")]
 impl ObjectStoreBackend for GcsObjectStoreBackend {
-    fn mk_object_store(&self) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    fn mk_object_store(
+        &self,
+        settings: &Settings,
+    ) -> Result<Arc<dyn ObjectStore>, StorageError> {
         let builder = GoogleCloudStorageBuilder::new();
 
         let builder = match self.credentials.as_ref() {
@@ -932,9 +1070,8 @@ impl ObjectStoreBackend for GcsObjectStoreBackend {
                     GcsRefreshableCredentialProvider::new(Arc::clone(fetcher));
                 builder.with_credentials(Arc::new(credential_provider))
             }
-            None | Some(GcsCredentials::FromEnv) | Some(GcsCredentials::Anonymous) => {
-                GoogleCloudStorageBuilder::from_env()
-            }
+            Some(GcsCredentials::Anonymous) => builder.with_skip_signature(true),
+            None | Some(GcsCredentials::FromEnv) => GoogleCloudStorageBuilder::from_env(),
         };
 
         let builder = builder.with_bucket_name(&self.bucket);
@@ -947,6 +1084,19 @@ impl ObjectStoreBackend for GcsObjectStoreBackend {
             .iter()
             .fold(builder, |builder, (key, value)| builder.with_config(*key, value));
 
+        let builder = builder.with_retry(RetryConfig {
+            backoff: BackoffConfig {
+                init_backoff: core::time::Duration::from_millis(
+                    settings.retries().initial_backoff_ms() as u64,
+                ),
+                max_backoff: core::time::Duration::from_millis(
+                    settings.retries().max_backoff_ms() as u64,
+                ),
+                base: 2.,
+            },
+            max_retries: settings.retries().max_tries().get() as usize - 1,
+            retry_timeout: core::time::Duration::from_secs(5 * 60),
+        });
         let store =
             builder.build().map_err(|e| StorageErrorKind::Other(e.to_string()))?;
         Ok(Arc::new(store))

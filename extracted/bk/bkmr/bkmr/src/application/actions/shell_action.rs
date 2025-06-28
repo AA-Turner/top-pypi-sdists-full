@@ -36,7 +36,7 @@ impl ShellAction {
         let mut rl = self.create_configured_editor()?;
         
         // Present the script for interactive editing with pre-filled content
-        match rl.readline_with_initial("Execute: ", (script, "")) {
+        match rl.readline_with_initial("", (script, "")) {
             Ok(final_command) => {
                 if final_command.trim().is_empty() {
                     debug!("User provided empty command, skipping execution");
@@ -251,6 +251,9 @@ mod tests {
             embedding: None,
             content_hash: None,
             embeddable: false,
+            file_path: None,
+            file_mtime: None,
+            file_hash: None,
         };
 
         // Act
@@ -286,6 +289,9 @@ mod tests {
             embedding: None,
             content_hash: None,
             embeddable: false,
+            file_path: None,
+            file_mtime: None,
+            file_hash: None,
         };
 
         // Act
@@ -320,6 +326,9 @@ mod tests {
             embedding: None,
             content_hash: None,
             embeddable: false,
+            file_path: None,
+            file_mtime: None,
+            file_hash: None,
         };
 
         // Act

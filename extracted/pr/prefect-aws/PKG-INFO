@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-aws
-Version: 0.5.10
+Version: 0.5.11
 Summary: Prefect integrations for interacting with Amazon Web Services.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -24,7 +24,7 @@ Requires-Dist: boto3>=1.24.53
 Requires-Dist: botocore>=1.27.53
 Requires-Dist: mypy_boto3_s3>=1.24.94
 Requires-Dist: mypy_boto3_secretsmanager>=1.26.49
-Requires-Dist: prefect>=3.3.5
+Requires-Dist: prefect>=3.4.7
 Requires-Dist: pyparsing>=3.1.1
 Requires-Dist: tenacity>=8.0.0
 Dynamic: license-file

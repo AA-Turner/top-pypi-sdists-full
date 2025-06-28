@@ -6,12 +6,24 @@ import typing_extensions
 
 T = typing.TypeVar("T")
 
-async def _delete_bytes(
-    file: _FileIO, start: typing.Optional[int] = None, end: typing.Optional[int] = None
-) -> None: ...
+async def _delete_bytes(file: _FileIO, start: typing.Optional[int] = None, end: typing.Optional[int] = None) -> None:
+    """Delete a range of bytes from the file.
+
+    `start` and `end` are byte offsets. `start` is inclusive, `end` is exclusive.
+    If either is None, the start or end of the file is used, respectively.
+    """
+    ...
+
 async def _replace_bytes(
     file: _FileIO, data: bytes, start: typing.Optional[int] = None, end: typing.Optional[int] = None
-) -> None: ...
+) -> None:
+    """Replace a range of bytes in the file with new data. The length of the data does not
+    have to be the same as the length of the range being replaced.
+
+    `start` and `end` are byte offsets. `start` is inclusive, `end` is exclusive.
+    If either is None, the start or end of the file is used, respectively.
+    """
+    ...
 
 class FileWatchEventType(enum.Enum):
     Unknown = "Unknown"
@@ -21,20 +33,51 @@ class FileWatchEventType(enum.Enum):
     Remove = "Remove"
 
 class FileWatchEvent:
+    """FileWatchEvent(paths: list[str], type: modal.file_io.FileWatchEventType)"""
+
     paths: list[str]
     type: FileWatchEventType
 
-    def __init__(self, paths: list[str], type: FileWatchEventType) -> None: ...
-    def __repr__(self): ...
-    def __eq__(self, other): ...
+    def __init__(self, paths: list[str], type: FileWatchEventType) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
 
 class _FileIO(typing.Generic[T]):
+    """FileIO handle, used in the Sandbox filesystem API.
+
+    The API is designed to mimic Python's io.FileIO.
+
+    **Usage**
+
+    ```python
+    import modal
+
+    app = modal.App.lookup("my-app", create_if_missing=True)
+
+    sb = modal.Sandbox.create(app=app)
+    f = sb.open("/tmp/foo.txt", "w")
+    f.write("hello")
+    f.close()
+    ```
+    """
+
     _task_id: str
     _file_descriptor: str
     _client: modal.client._Client
     _watch_output_buffer: list[typing.Union[bytes, None, Exception]]
 
-    def __init__(self, client: modal.client._Client, task_id: str) -> None: ...
+    def __init__(self, client: modal.client._Client, task_id: str) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
     def _validate_mode(self, mode: str) -> None: ...
     def _consume_output(self, exec_id: str) -> typing.AsyncIterator[typing.Union[bytes, None, Exception]]: ...
     async def _consume_watch_output(self, exec_id: str) -> None: ...
@@ -49,21 +92,60 @@ class _FileIO(typing.Generic[T]):
         mode: typing.Union[_typeshed.OpenTextMode, _typeshed.OpenBinaryMode],
         client: modal.client._Client,
         task_id: str,
-    ) -> _FileIO: ...
+    ) -> _FileIO:
+        """Create a new FileIO handle."""
+        ...
+
     async def _make_read_request(self, n: typing.Optional[int]) -> bytes: ...
-    async def read(self, n: typing.Optional[int] = None) -> T: ...
-    async def readline(self) -> T: ...
-    async def readlines(self) -> typing.Sequence[T]: ...
-    async def write(self, data: typing.Union[bytes, str]) -> None: ...
-    async def flush(self) -> None: ...
+    async def read(self, n: typing.Optional[int] = None) -> T:
+        """Read n bytes from the current position, or the entire remaining file if n is None."""
+        ...
+
+    async def readline(self) -> T:
+        """Read a single line from the current position."""
+        ...
+
+    async def readlines(self) -> typing.Sequence[T]:
+        """Read all lines from the current position."""
+        ...
+
+    async def write(self, data: typing.Union[bytes, str]) -> None:
+        """Write data to the current position.
+
+        Writes may not appear until the entire buffer is flushed, which
+        can be done manually with `flush()` or automatically when the file is
+        closed.
+        """
+        ...
+
+    async def flush(self) -> None:
+        """Flush the buffer to disk."""
+        ...
+
     def _get_whence(self, whence: int): ...
-    async def seek(self, offset: int, whence: int = 0) -> None: ...
+    async def seek(self, offset: int, whence: int = 0) -> None:
+        """Move to a new position in the file.
+
+        `whence` defaults to 0 (absolute file positioning); other values are 1
+        (relative to the current position) and 2 (relative to the file's end).
+        """
+        ...
+
     @classmethod
-    async def ls(cls, path: str, client: modal.client._Client, task_id: str) -> list[str]: ...
+    async def ls(cls, path: str, client: modal.client._Client, task_id: str) -> list[str]:
+        """List the contents of the provided directory."""
+        ...
+
     @classmethod
-    async def mkdir(cls, path: str, client: modal.client._Client, task_id: str, parents: bool = False) -> None: ...
+    async def mkdir(cls, path: str, client: modal.client._Client, task_id: str, parents: bool = False) -> None:
+        """Create a new directory."""
+        ...
+
     @classmethod
-    async def rm(cls, path: str, client: modal.client._Client, task_id: str, recursive: bool = False) -> None: ...
+    async def rm(cls, path: str, client: modal.client._Client, task_id: str, recursive: bool = False) -> None:
+        """Remove a file or directory in the Sandbox."""
+        ...
+
     @classmethod
     def watch(
         cls,
@@ -75,7 +157,10 @@ class _FileIO(typing.Generic[T]):
         timeout: typing.Optional[int] = None,
     ) -> typing.AsyncIterator[FileWatchEvent]: ...
     async def _close(self) -> None: ...
-    async def close(self) -> None: ...
+    async def close(self) -> None:
+        """Flush the buffer and close the file."""
+        ...
+
     def _check_writable(self) -> None: ...
     def _check_readable(self) -> None: ...
     def _check_closed(self) -> None: ...
@@ -83,22 +168,46 @@ class _FileIO(typing.Generic[T]):
     async def __aexit__(self, exc_type, exc_value, traceback) -> None: ...
 
 class __delete_bytes_spec(typing_extensions.Protocol):
-    def __call__(
-        self, /, file: FileIO, start: typing.Optional[int] = None, end: typing.Optional[int] = None
-    ) -> None: ...
-    async def aio(
-        self, /, file: FileIO, start: typing.Optional[int] = None, end: typing.Optional[int] = None
-    ) -> None: ...
+    def __call__(self, /, file: FileIO, start: typing.Optional[int] = None, end: typing.Optional[int] = None) -> None:
+        """Delete a range of bytes from the file.
+
+        `start` and `end` are byte offsets. `start` is inclusive, `end` is exclusive.
+        If either is None, the start or end of the file is used, respectively.
+        """
+        ...
+
+    async def aio(self, /, file: FileIO, start: typing.Optional[int] = None, end: typing.Optional[int] = None) -> None:
+        """Delete a range of bytes from the file.
+
+        `start` and `end` are byte offsets. `start` is inclusive, `end` is exclusive.
+        If either is None, the start or end of the file is used, respectively.
+        """
+        ...
 
 delete_bytes: __delete_bytes_spec
 
 class __replace_bytes_spec(typing_extensions.Protocol):
     def __call__(
         self, /, file: FileIO, data: bytes, start: typing.Optional[int] = None, end: typing.Optional[int] = None
-    ) -> None: ...
+    ) -> None:
+        """Replace a range of bytes in the file with new data. The length of the data does not
+        have to be the same as the length of the range being replaced.
+
+        `start` and `end` are byte offsets. `start` is inclusive, `end` is exclusive.
+        If either is None, the start or end of the file is used, respectively.
+        """
+        ...
+
     async def aio(
         self, /, file: FileIO, data: bytes, start: typing.Optional[int] = None, end: typing.Optional[int] = None
-    ) -> None: ...
+    ) -> None:
+        """Replace a range of bytes in the file with new data. The length of the data does not
+        have to be the same as the length of the range being replaced.
+
+        `start` and `end` are byte offsets. `start` is inclusive, `end` is exclusive.
+        If either is None, the start or end of the file is used, respectively.
+        """
+        ...
 
 replace_bytes: __replace_bytes_spec
 
@@ -107,6 +216,24 @@ SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 T_INNER = typing.TypeVar("T_INNER", covariant=True)
 
 class FileIO(typing.Generic[T]):
+    """FileIO handle, used in the Sandbox filesystem API.
+
+    The API is designed to mimic Python's io.FileIO.
+
+    **Usage**
+
+    ```python
+    import modal
+
+    app = modal.App.lookup("my-app", create_if_missing=True)
+
+    sb = modal.Sandbox.create(app=app)
+    f = sb.open("/tmp/foo.txt", "w")
+    f.write("hello")
+    f.close()
+    ```
+    """
+
     _task_id: str
     _file_descriptor: str
     _client: modal.client.Client
@@ -154,7 +281,9 @@ class FileIO(typing.Generic[T]):
         mode: typing.Union[_typeshed.OpenTextMode, _typeshed.OpenBinaryMode],
         client: modal.client.Client,
         task_id: str,
-    ) -> FileIO: ...
+    ) -> FileIO:
+        """Create a new FileIO handle."""
+        ...
 
     class ___make_read_request_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, n: typing.Optional[int]) -> bytes: ...
@@ -163,49 +292,106 @@ class FileIO(typing.Generic[T]):
     _make_read_request: ___make_read_request_spec[typing_extensions.Self]
 
     class __read_spec(typing_extensions.Protocol[T_INNER, SUPERSELF]):
-        def __call__(self, /, n: typing.Optional[int] = None) -> T_INNER: ...
-        async def aio(self, /, n: typing.Optional[int] = None) -> T_INNER: ...
+        def __call__(self, /, n: typing.Optional[int] = None) -> T_INNER:
+            """Read n bytes from the current position, or the entire remaining file if n is None."""
+            ...
+
+        async def aio(self, /, n: typing.Optional[int] = None) -> T_INNER:
+            """Read n bytes from the current position, or the entire remaining file if n is None."""
+            ...
 
     read: __read_spec[T, typing_extensions.Self]
 
     class __readline_spec(typing_extensions.Protocol[T_INNER, SUPERSELF]):
-        def __call__(self, /) -> T_INNER: ...
-        async def aio(self, /) -> T_INNER: ...
+        def __call__(self, /) -> T_INNER:
+            """Read a single line from the current position."""
+            ...
+
+        async def aio(self, /) -> T_INNER:
+            """Read a single line from the current position."""
+            ...
 
     readline: __readline_spec[T, typing_extensions.Self]
 
     class __readlines_spec(typing_extensions.Protocol[T_INNER, SUPERSELF]):
-        def __call__(self, /) -> typing.Sequence[T_INNER]: ...
-        async def aio(self, /) -> typing.Sequence[T_INNER]: ...
+        def __call__(self, /) -> typing.Sequence[T_INNER]:
+            """Read all lines from the current position."""
+            ...
+
+        async def aio(self, /) -> typing.Sequence[T_INNER]:
+            """Read all lines from the current position."""
+            ...
 
     readlines: __readlines_spec[T, typing_extensions.Self]
 
     class __write_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, data: typing.Union[bytes, str]) -> None: ...
-        async def aio(self, /, data: typing.Union[bytes, str]) -> None: ...
+        def __call__(self, /, data: typing.Union[bytes, str]) -> None:
+            """Write data to the current position.
+
+            Writes may not appear until the entire buffer is flushed, which
+            can be done manually with `flush()` or automatically when the file is
+            closed.
+            """
+            ...
+
+        async def aio(self, /, data: typing.Union[bytes, str]) -> None:
+            """Write data to the current position.
+
+            Writes may not appear until the entire buffer is flushed, which
+            can be done manually with `flush()` or automatically when the file is
+            closed.
+            """
+            ...
 
     write: __write_spec[typing_extensions.Self]
 
     class __flush_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> None: ...
-        async def aio(self, /) -> None: ...
+        def __call__(self, /) -> None:
+            """Flush the buffer to disk."""
+            ...
+
+        async def aio(self, /) -> None:
+            """Flush the buffer to disk."""
+            ...
 
     flush: __flush_spec[typing_extensions.Self]
 
     def _get_whence(self, whence: int): ...
 
     class __seek_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, offset: int, whence: int = 0) -> None: ...
-        async def aio(self, /, offset: int, whence: int = 0) -> None: ...
+        def __call__(self, /, offset: int, whence: int = 0) -> None:
+            """Move to a new position in the file.
+
+            `whence` defaults to 0 (absolute file positioning); other values are 1
+            (relative to the current position) and 2 (relative to the file's end).
+            """
+            ...
+
+        async def aio(self, /, offset: int, whence: int = 0) -> None:
+            """Move to a new position in the file.
+
+            `whence` defaults to 0 (absolute file positioning); other values are 1
+            (relative to the current position) and 2 (relative to the file's end).
+            """
+            ...
 
     seek: __seek_spec[typing_extensions.Self]
 
     @classmethod
-    def ls(cls, path: str, client: modal.client.Client, task_id: str) -> list[str]: ...
+    def ls(cls, path: str, client: modal.client.Client, task_id: str) -> list[str]:
+        """List the contents of the provided directory."""
+        ...
+
     @classmethod
-    def mkdir(cls, path: str, client: modal.client.Client, task_id: str, parents: bool = False) -> None: ...
+    def mkdir(cls, path: str, client: modal.client.Client, task_id: str, parents: bool = False) -> None:
+        """Create a new directory."""
+        ...
+
     @classmethod
-    def rm(cls, path: str, client: modal.client.Client, task_id: str, recursive: bool = False) -> None: ...
+    def rm(cls, path: str, client: modal.client.Client, task_id: str, recursive: bool = False) -> None:
+        """Remove a file or directory in the Sandbox."""
+        ...
+
     @classmethod
     def watch(
         cls,
@@ -224,8 +410,13 @@ class FileIO(typing.Generic[T]):
     _close: ___close_spec[typing_extensions.Self]
 
     class __close_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> None: ...
-        async def aio(self, /) -> None: ...
+        def __call__(self, /) -> None:
+            """Flush the buffer and close the file."""
+            ...
+
+        async def aio(self, /) -> None:
+            """Flush the buffer and close the file."""
+            ...
 
     close: __close_spec[typing_extensions.Self]
 

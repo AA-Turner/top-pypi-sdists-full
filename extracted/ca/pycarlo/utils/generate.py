@@ -16,6 +16,8 @@ if __name__ == "__main__":
     headers = {"x-mcd-id": api_id, "x-mcd-token": api_token}
     endpoint = RequestsEndpoint(url=args.url, base_headers=headers)
     data = endpoint(query, variables(include_description=True, include_deprecated=True))
+    if "headers" in data:
+        del data["headers"]
 
     if data.get("errors"):
         raise SystemExit(f"Failed to retrieve schema with - {data.get('errors')}")

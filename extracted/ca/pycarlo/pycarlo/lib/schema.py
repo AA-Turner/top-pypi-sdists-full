@@ -626,7 +626,6 @@ class AssetFilterType(sgqlc.types.Enum):
     * `ACTIVITY_READ`None
     * `ACTIVITY_READ_WRITE`None
     * `ACTIVITY_WRITE`None
-    * `DOMAIN`None
     * `TABLE_NAME`None
     * `TABLE_TAG`None
     * `TABLE_TYPE`None
@@ -637,7 +636,6 @@ class AssetFilterType(sgqlc.types.Enum):
         "ACTIVITY_READ",
         "ACTIVITY_READ_WRITE",
         "ACTIVITY_WRITE",
-        "DOMAIN",
         "TABLE_NAME",
         "TABLE_TAG",
         "TABLE_TYPE",
@@ -3287,7 +3285,7 @@ class MetricMonitoringModelType(sgqlc.types.Enum):
     * `CATEGORIES`: Dimension
     * `HOURLY_STATS`: Statistical metrics over an hour interval
     * `JSON_SCHEMA`: JSON schema
-    * `METRIC_COMPARISON`: metric_comparison
+    * `METRIC_COMPARISON`: Comparison
     * `STATS`: Metric
     """
 
@@ -4967,7 +4965,7 @@ class UserDefinedMonitorModelMonitorType(sgqlc.types.Enum):
     * `FRESHNESS`: Freshness
     * `HOURLY_STATS`: Statistical metrics over an hour interval
     * `JSON_SCHEMA`: JSON schema
-    * `METRIC_COMPARISON`: metric_comparison
+    * `METRIC_COMPARISON`: Comparison
     * `QUERY_PERF`: Query performance
     * `STATS`: Metric
     * `TABLE_METRIC`: Table metric rule
@@ -5604,7 +5602,6 @@ class ApiCallReference(sgqlc.types.Input):
 class AssetFilterUnionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
-        "domains",
         "table_name",
         "table_name_operator",
         "table_type",
@@ -5614,10 +5611,6 @@ class AssetFilterUnionInput(sgqlc.types.Input):
         "type",
         "negated",
     )
-    domains = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
-    )
-
     table_name = sgqlc.types.Field(String, graphql_name="tableName")
 
     table_name_operator = sgqlc.types.Field(
@@ -6596,7 +6589,7 @@ class DatasetInput(sgqlc.types.Input):
     """Specifies base table + criteria for dashboard/widget"""
 
     __schema__ = schema
-    __field_names__ = ("mcon", "criteria", "base_where_clause")
+    __field_names__ = ("mcon", "criteria", "base_where_clause", "connection_id")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """MCON of underlying table"""
 
@@ -6605,6 +6598,9 @@ class DatasetInput(sgqlc.types.Input):
 
     base_where_clause = sgqlc.types.Field(String, graphql_name="baseWhereClause")
     """Base where clause"""
+
+    connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")
+    """Optional connection ID to use for queries"""
 
 
 class DateTimeRangeInput(sgqlc.types.Input):
@@ -12575,7 +12571,7 @@ class AssetSelection(sgqlc.types.Type):
 
 class AssetSelectionResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("name", "id", "type", "count", "count_unselected", "selected")
+    __field_names__ = ("name", "id", "type", "count", "count_unselected", "selected", "mcon")
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
     id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
@@ -12587,6 +12583,8 @@ class AssetSelectionResult(sgqlc.types.Type):
     count_unselected = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="countUnselected")
 
     selected = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="selected")
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
 
 
 class AssetUsageNode(sgqlc.types.Type):
@@ -19268,6 +19266,7 @@ class FHEvent(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "event_uuid",
+        "alert_uuid",
         "where_condition",
         "metric",
         "field",
@@ -19285,6 +19284,9 @@ class FHEvent(sgqlc.types.Type):
     )
     event_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="eventUuid")
     """UUID of the anomaly event"""
+
+    alert_uuid = sgqlc.types.Field(UUID, graphql_name="alertUuid")
+    """UUID of the alert associated with this event"""
 
     where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
     """Segmented where condition"""
@@ -22596,10 +22598,16 @@ class MetricValueByTable(sgqlc.types.Type):
 
 class Metrics(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("metrics", "is_partial_date_range")
+    __field_names__ = ("metrics", "is_partial_date_range", "metrics_json")
     metrics = sgqlc.types.Field(sgqlc.types.list_of("TableMetricV2"), graphql_name="metrics")
+    """List of metrics. Deprecated: Use metricsJson for better
+    performance
+    """
 
     is_partial_date_range = sgqlc.types.Field(Boolean, graphql_name="isPartialDateRange")
+
+    metrics_json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metricsJson")
+    """List of metrics, in JSON representation"""
 
 
 class MigrateCollectorResources(sgqlc.types.Type):
@@ -23764,6 +23772,7 @@ class Mutation(sgqlc.types.Type):
         "set_tutorial_state",
         "set_data_lake_catalog_mappings",
         "delete_integration",
+        "update_workspace_identifier",
         "test_snowflake_credentials_v2",
         "test_redshift_credentials_v2",
         "test_bq_credentials_v2",
@@ -23993,6 +24002,14 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="description", default=None
                     ),
                 ),
+                (
+                    "domain_restrictions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainRestrictions",
+                        default=None,
+                    ),
+                ),
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
                     "failure_audiences",
@@ -24021,6 +24038,7 @@ class Mutation(sgqlc.types.Type):
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String!]`): The monitor notification audiences
     * `description` (`String!`): Description of rule
+    * `domain_restrictions` (`[UUID!]`): The domains to restrict to
     * `dry_run` (`Boolean`): Dry run the monitor creation or update
       and return the YAML and queries. (default: `false`)
     * `failure_audiences` (`[String!]`): The audiences to notify on
@@ -36846,8 +36864,8 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Toggle mute for a set of tables and datasets. Regex
-    is no longer supported.
+    """(experimental) DEPRECATED. End of life: August 01, 2025. Toggle
+    mute for a set of tables and datasets.
 
     Arguments:
 
@@ -38179,6 +38197,27 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `integration_id` (`UUID!`): ID of the integration to delete
+    """
+
+    update_workspace_identifier = sgqlc.types.Field(
+        "UpdateWorkspaceIdentifier",
+        graphql_name="updateWorkspaceIdentifier",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "value",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="value", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Updates the workspace identifier for this account
+
+    Arguments:
+
+    * `value` (`String!`): A new workspace identifier
     """
 
     test_snowflake_credentials_v2 = sgqlc.types.Field(
@@ -42566,12 +42605,15 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="mcon", default=None
                     ),
                 ),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
             )
         ),
     )
     """Arguments:
 
     * `mcon` (`String!`)None
+    * `connection_id` (`UUID`): Optional connection ID to use for
+      queries
     """
 
     get_data_explorer_dashboard_for_table = sgqlc.types.Field(
@@ -55804,6 +55846,14 @@ class Query(sgqlc.types.Type):
                     "filter_by_schema_name",
                     sgqlc.types.Arg(String, graphql_name="filterBySchemaName", default=None),
                 ),
+                (
+                    "domain_restrictions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainRestrictions",
+                        default=None,
+                    ),
+                ),
                 ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 (
                     "search_full_table_id",
@@ -55825,6 +55875,7 @@ class Query(sgqlc.types.Type):
     * `include_unselected` (`Boolean`)None
     * `filter_by_database_name` (`String`)None
     * `filter_by_schema_name` (`String`)None
+    * `domain_restrictions` (`[UUID!]`)None
     * `search` (`String`)None
     * `search_full_table_id` (`String`)None
     * `limit` (`Int`)None (default: `100`)
@@ -59464,6 +59515,7 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
         "supports_schema",
         "supports_validation_monitor",
         "supports_stats_monitor",
+        "supports_comparison_monitor",
         "supports_categories_monitor",
         "supports_hourly_stats_monitor",
         "supports_json_schema_monitor",
@@ -59491,6 +59543,7 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
         "supports_delta_logs_with_reason",
         "supports_schema_with_reason",
         "supports_stats_monitor_with_reason",
+        "supports_comparison_monitor_with_reason",
         "supports_categories_monitor_with_reason",
         "supports_validation_monitor_with_reason",
         "supports_hourly_stats_monitor_with_reason",
@@ -59581,7 +59634,14 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
 
     supports_stats_monitor = sgqlc.types.Field(Boolean, graphql_name="supportsStatsMonitor")
     """indicates whether the table could possibly be used for defining
-    stats monitors
+    metric monitors
+    """
+
+    supports_comparison_monitor = sgqlc.types.Field(
+        Boolean, graphql_name="supportsComparisonMonitor"
+    )
+    """indicates whether the table could possibly be used for defining
+    comparison monitors
     """
 
     supports_categories_monitor = sgqlc.types.Field(
@@ -59750,7 +59810,14 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
         TableCapabilitesWithReasonField, graphql_name="supportsStatsMonitorWithReason"
     )
     """indicates whether the table could possibly be used for defining
-    stats monitors, and why
+    metric monitors, and why
+    """
+
+    supports_comparison_monitor_with_reason = sgqlc.types.Field(
+        TableCapabilitesWithReasonField, graphql_name="supportsComparisonMonitorWithReason"
+    )
+    """indicates whether the table could possibly be used for defining
+    comparison monitors, and why
     """
 
     supports_categories_monitor_with_reason = sgqlc.types.Field(
@@ -62751,6 +62818,13 @@ class UpdateWebexIntegration(sgqlc.types.Type):
     """The integration that was updated"""
 
 
+class UpdateWorkspaceIdentifier(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("value",)
+    value = sgqlc.types.Field(String, graphql_name="value")
+    """This account's workspace identifier"""
+
+
 class UpgradeAgent(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("upgrade_result",)
@@ -63356,6 +63430,7 @@ class Warehouse(sgqlc.types.Type):
         "supports_sampling",
         "supports_validation_monitors",
         "supports_metric_monitors",
+        "supports_comparison_monitors",
         "supports_custom_sql_rules",
         "supports_high_segment_count",
         "supports_activity_filters",
@@ -63643,6 +63718,11 @@ class Warehouse(sgqlc.types.Type):
 
     supports_metric_monitors = sgqlc.types.Field(Boolean, graphql_name="supportsMetricMonitors")
     """Indicates if the warehouse supports Metric monitors"""
+
+    supports_comparison_monitors = sgqlc.types.Field(
+        Boolean, graphql_name="supportsComparisonMonitors"
+    )
+    """Indicates if the warehouse supports Comparison monitors"""
 
     supports_custom_sql_rules = sgqlc.types.Field(Boolean, graphql_name="supportsCustomSqlRules")
     """Indicates if the warehouse supports SQL rules"""
@@ -64681,15 +64761,6 @@ class AssetFilterActivityWrite(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
     __field_names__ = ("days",)
     days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
-
-
-class AssetFilterDomain(sgqlc.types.Type, AssetFilterInterface):
-    __schema__ = schema
-    __field_names__ = ("domains",)
-    domains = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="domains",
-    )
 
 
 class AssetFilterTableName(sgqlc.types.Type, AssetFilterInterface):

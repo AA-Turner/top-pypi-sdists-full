@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sling
-Version: 1.4.10.post2
+Version: 1.4.11
 Summary: Slings data from a source to a target
 Home-page: https://github.com/slingdata-io/sling-python
 Download-URL: https://github.com/slingdata-io/sling-python/archive/master.zip
@@ -15,12 +15,6 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Unix
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
-Requires-Dist: sling-linux-arm64==1.4.10.post2; sys_platform == "linux" and platform_machine == "aarch64"
-Requires-Dist: sling-linux-amd64==1.4.10.post2; sys_platform == "linux" and platform_machine != "aarch64"
-Requires-Dist: sling-windows-amd64==1.4.10.post2; sys_platform == "win32" and platform_machine == "ARM64"
-Requires-Dist: sling-windows-amd64==1.4.10.post2; sys_platform == "win32" and platform_machine != "ARM64"
-Requires-Dist: sling-mac-arm64==1.4.10.post2; sys_platform == "darwin" and platform_machine == "arm64"
-Requires-Dist: sling-mac-amd64==1.4.10.post2; sys_platform == "darwin" and platform_machine != "arm64"
 Provides-Extra: arrow
 Requires-Dist: pyarrow; extra == "arrow"
 Provides-Extra: recommended
@@ -34,7 +28,6 @@ Dynamic: download-url
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: provides-extra
-Dynamic: requires-dist
 Dynamic: summary
 
 <p align="center"><img src="https://github.com/slingdata-io/sling-python/raw/main/logo-with-text.png" alt="logo" width="250"/></p>

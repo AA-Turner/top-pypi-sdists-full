@@ -1,5 +1,7 @@
 # module
 
+from typing import TypeAlias
+
 from icechunk._icechunk_python import (
     AzureCredentials,
     AzureStaticCredentials,
@@ -23,6 +25,9 @@ from icechunk._icechunk_python import (
     ManifestFileInfo,
     ManifestPreloadCondition,
     ManifestPreloadConfig,
+    ManifestSplitCondition,
+    ManifestSplitDimCondition,
+    ManifestSplittingConfig,
     ObjectStoreConfig,
     RebaseFailedError,
     RepositoryConfig,
@@ -32,12 +37,14 @@ from icechunk._icechunk_python import (
     SnapshotInfo,
     Storage,
     StorageConcurrencySettings,
+    StorageRetriesSettings,
     StorageSettings,
     VersionSelection,
     VirtualChunkContainer,
     VirtualChunkSpec,
     __version__,
     initialize_logs,
+    set_logs_filter,
     spec_version,
 )
 from icechunk.credentials import (
@@ -67,6 +74,8 @@ from icechunk.storage import (
     AnyObjectStoreConfig,
     azure_storage,
     gcs_storage,
+    gcs_store,
+    http_store,
     in_memory_storage,
     local_filesystem_storage,
     r2_storage,
@@ -107,6 +116,9 @@ __all__ = [
     "ManifestFileInfo",
     "ManifestPreloadCondition",
     "ManifestPreloadConfig",
+    "ManifestSplitCondition",
+    "ManifestSplitDimCondition",
+    "ManifestSplittingConfig",
     "ObjectStoreConfig",
     "RebaseFailedError",
     "Repository",
@@ -118,6 +130,7 @@ __all__ = [
     "SnapshotInfo",
     "Storage",
     "StorageConcurrencySettings",
+    "StorageRetriesSettings",
     "StorageSettings",
     "VersionSelection",
     "VirtualChunkContainer",
@@ -133,6 +146,8 @@ __all__ = [
     "gcs_refreshable_credentials",
     "gcs_static_credentials",
     "gcs_storage",
+    "gcs_store",
+    "http_store",
     "in_memory_storage",
     "initialize_logs",
     "local_filesystem_storage",
@@ -145,6 +160,7 @@ __all__ = [
     "s3_static_credentials",
     "s3_storage",
     "s3_store",
+    "set_logs_filter",
     "spec_version",
     "tigris_storage",
 ]
@@ -163,5 +179,30 @@ def print_debug_info() -> None:
         except ModuleNotFoundError:
             continue
 
+
+# This monkey patch is a bit annoying. Python dicts preserve insertion order
+# But this gets mapped to a Rust HashMap which does *not* preserve order
+# So on the python side, we can accept a dict as a nicer API, and immediately
+# convert it to tuples that preserve order, and pass those to Rust
+
+SplitSizesDict: TypeAlias = dict[
+    ManifestSplitCondition, dict[ManifestSplitDimCondition, int]
+]
+
+
+def from_dict(split_sizes: SplitSizesDict) -> ManifestSplittingConfig:
+    unwrapped = tuple((k, tuple(v.items())) for k, v in split_sizes.items())
+    return ManifestSplittingConfig(unwrapped)
+
+
+def to_dict(config: ManifestSplittingConfig) -> SplitSizesDict:
+    return {
+        split_condition: dict(dim_conditions)
+        for split_condition, dim_conditions in config.split_sizes
+    }
+
+
+ManifestSplittingConfig.from_dict = from_dict  # type: ignore[attr-defined]
+ManifestSplittingConfig.to_dict = to_dict  # type: ignore[attr-defined]
 
 initialize_logs()

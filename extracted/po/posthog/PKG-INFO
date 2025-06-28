@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 5.4.0
+Version: 6.0.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -28,6 +28,7 @@ Requires-Dist: six>=1.5
 Requires-Dist: python-dateutil>=2.2
 Requires-Dist: backoff>=1.10.0
 Requires-Dist: distro>=1.5.0
+Requires-Dist: typing-extensions>=4.2.0
 Provides-Extra: langchain
 Requires-Dist: langchain>=0.2.0; extra == "langchain"
 Provides-Extra: dev
@@ -119,7 +120,9 @@ Assuming you have a [local version of PostHog](https://posthog.com/docs/developi
 
 ### Releasing Versions
 
-Updates are released using GitHub Actions: after bumping `version.py` in `master` and adding to `CHANGELOG.md`, go to [our release workflow's page](https://github.com/PostHog/posthog-python/actions/workflows/release.yaml) and dispatch it manually, using workflow from `master`.
+Updates are released automatically using GitHub Actions when `version.py` is updated on `master`. After bumping `version.py` in `master` and adding to `CHANGELOG.md`, the [release workflow](https://github.com/PostHog/posthog-python/blob/master/.github/workflows/release.yaml) will automatically trigger and deploy the new version.
+
+If you need to check the latest runs or manually trigger a release, you can go to [our release workflow's page](https://github.com/PostHog/posthog-python/actions/workflows/release.yaml) and dispatch it manually, using workflow from `master`.
 
 
 ### Testing changes locally with the PostHog app

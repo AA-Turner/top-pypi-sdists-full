@@ -31,7 +31,7 @@ def batch_logs_cli(
     if not jobs:
         raise ValueError(f"No jobs assigned to cluster {cluster}")
 
-    if task:
+    if task is not None:
         job_id = None
         vm_id = None
 

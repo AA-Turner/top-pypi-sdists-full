@@ -15,7 +15,7 @@ else:
 
 setup(
     name='SoftLayer',
-    version='v6.2.6',
+    version='v6.2.7',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/x-rst',
@@ -38,7 +38,7 @@ setup(
         'prompt_toolkit >= 2',
         'pygments >= 2.0.0',
         'urllib3 >= 1.24',
-        'rich == 13.9.4'
+        'rich == 14.0.0'
     ],
     keywords=['softlayer', 'cloud', 'slcli', 'ibmcloud'],
     classifiers=[

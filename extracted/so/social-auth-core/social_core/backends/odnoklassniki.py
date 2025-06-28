@@ -6,7 +6,8 @@ Odnoklassniki OAuth2 and Iframe Application backends, docs at:
 from hashlib import md5
 from urllib.parse import unquote
 
-from ..exceptions import AuthFailed
+from social_core.exceptions import AuthFailed
+
 from .base import BaseAuth
 from .oauth import BaseOAuth2
 
@@ -150,7 +151,7 @@ class OdnoklassnikiApp(BaseAuth):
         )
         return {name: self.data[name] for name in fields if name in self.data}
 
-    def verify_auth_sig(self):
+    def verify_auth_sig(self) -> None:
         correct_key = self.get_auth_sig()
         key = self.data["auth_sig"].lower()
         if correct_key != key:

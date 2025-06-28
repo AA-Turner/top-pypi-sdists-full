@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: SoftLayer
-Version: 6.2.6
+Version: 6.2.7
 Summary: A library for SoftLayer's API
 Home-page: https://github.com/SoftLayer/softlayer-python
 Author: SoftLayer, Inc., an IBM Company
@@ -31,7 +31,7 @@ Requires-Dist: requests>=2.32.2
 Requires-Dist: prompt_toolkit>=2
 Requires-Dist: pygments>=2.0.0
 Requires-Dist: urllib3>=1.24
-Requires-Dist: rich==13.9.4
+Requires-Dist: rich==14.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -40,6 +40,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

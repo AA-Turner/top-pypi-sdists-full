@@ -46,7 +46,6 @@ from .cloud_box_data_source import CloudBoxDataSource
 from .cloud_confluence_data_source import CloudConfluenceDataSource
 from .cloud_document import CloudDocument
 from .cloud_document_create import CloudDocumentCreate
-from .cloud_google_drive_data_source import CloudGoogleDriveDataSource
 from .cloud_jira_data_source import CloudJiraDataSource
 from .cloud_milvus_vector_store import CloudMilvusVectorStore
 from .cloud_mongo_db_atlas_vector_search import CloudMongoDbAtlasVectorSearch
@@ -400,7 +399,6 @@ __all__ = [
     "CloudConfluenceDataSource",
     "CloudDocument",
     "CloudDocumentCreate",
-    "CloudGoogleDriveDataSource",
     "CloudJiraDataSource",
     "CloudMilvusVectorStore",
     "CloudMongoDbAtlasVectorSearch",

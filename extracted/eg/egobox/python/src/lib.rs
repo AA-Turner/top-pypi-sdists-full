@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+pub(crate) mod domain;
 mod egor;
+mod gp_config;
 mod gp_mix;
 mod sampling;
 mod sparse_gp_mix;
@@ -14,6 +16,7 @@ use types::*;
 
 use env_logger::{Builder, Env};
 use pyo3::prelude::*;
+use pyo3_stub_gen::define_stub_info_gatherer;
 
 #[doc(hidden)]
 #[pymodule]
@@ -32,6 +35,7 @@ fn egobox(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // types
     m.add_class::<sampling::Sampling>()?;
+    m.add_class::<gp_config::GpConfig>()?;
     m.add_class::<RegressionSpec>()?;
     m.add_class::<CorrelationSpec>()?;
     m.add_class::<InfillStrategy>()?;
@@ -56,3 +60,6 @@ fn egobox(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
+
+// Define a function to gather stub information.
+define_stub_info_gatherer!(stub_info);

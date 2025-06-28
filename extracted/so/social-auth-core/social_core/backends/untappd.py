@@ -1,7 +1,8 @@
 import requests
 
-from ..exceptions import AuthFailed
-from ..utils import handle_http_errors
+from social_core.exceptions import AuthFailed
+from social_core.utils import handle_http_errors
+
 from .oauth import BaseOAuth2
 
 
@@ -36,7 +37,7 @@ class UntappdOAuth2(BaseOAuth2):
             "response_type": self.RESPONSE_TYPE,
         }
 
-    def process_error(self, data):
+    def process_error(self, data) -> None:
         """
         All errors from Untappd are contained in the 'meta' key of the
         response.

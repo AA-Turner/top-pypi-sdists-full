@@ -295,6 +295,21 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentUpdateRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.EnvironmentListItem.FromString,
                 )
+        self.FlashContainerDeregister = channel.unary_unary(
+                '/modal.client.ModalClient/FlashContainerDeregister',
+                request_serializer=modal__proto_dot_api__pb2.FlashContainerDeregisterRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.FlashContainerList = channel.unary_unary(
+                '/modal.client.ModalClient/FlashContainerList',
+                request_serializer=modal__proto_dot_api__pb2.FlashContainerListRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FlashContainerListResponse.FromString,
+                )
+        self.FlashContainerRegister = channel.unary_unary(
+                '/modal.client.ModalClient/FlashContainerRegister',
+                request_serializer=modal__proto_dot_api__pb2.FlashContainerRegisterRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FlashContainerRegisterResponse.FromString,
+                )
         self.FunctionAsyncInvoke = channel.unary_unary(
                 '/modal.client.ModalClient/FunctionAsyncInvoke',
                 request_serializer=modal__proto_dot_api__pb2.FunctionAsyncInvokeRequest.SerializeToString,
@@ -1128,6 +1143,25 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def EnvironmentUpdate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FlashContainerDeregister(self, request, context):
+        """Modal Flash (experimental)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FlashContainerList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FlashContainerRegister(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2015,6 +2049,21 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.EnvironmentUpdate,
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentUpdateRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.EnvironmentListItem.SerializeToString,
+            ),
+            'FlashContainerDeregister': grpc.unary_unary_rpc_method_handler(
+                    servicer.FlashContainerDeregister,
+                    request_deserializer=modal__proto_dot_api__pb2.FlashContainerDeregisterRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'FlashContainerList': grpc.unary_unary_rpc_method_handler(
+                    servicer.FlashContainerList,
+                    request_deserializer=modal__proto_dot_api__pb2.FlashContainerListRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FlashContainerListResponse.SerializeToString,
+            ),
+            'FlashContainerRegister': grpc.unary_unary_rpc_method_handler(
+                    servicer.FlashContainerRegister,
+                    request_deserializer=modal__proto_dot_api__pb2.FlashContainerRegisterRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FlashContainerRegisterResponse.SerializeToString,
             ),
             'FunctionAsyncInvoke': grpc.unary_unary_rpc_method_handler(
                     servicer.FunctionAsyncInvoke,
@@ -3460,6 +3509,57 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentUpdate',
             modal__proto_dot_api__pb2.EnvironmentUpdateRequest.SerializeToString,
             modal__proto_dot_api__pb2.EnvironmentListItem.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FlashContainerDeregister(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FlashContainerDeregister',
+            modal__proto_dot_api__pb2.FlashContainerDeregisterRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FlashContainerList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FlashContainerList',
+            modal__proto_dot_api__pb2.FlashContainerListRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FlashContainerListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FlashContainerRegister(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FlashContainerRegister',
+            modal__proto_dot_api__pb2.FlashContainerRegisterRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FlashContainerRegisterResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

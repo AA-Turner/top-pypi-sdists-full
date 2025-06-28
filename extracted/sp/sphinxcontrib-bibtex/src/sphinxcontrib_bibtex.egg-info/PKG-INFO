@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-bibtex
-Version: 2.6.4
+Version: 2.6.5
 Summary: Sphinx extension for BibTeX style citations.
 Author: Matthias C. M. Troffaes
 Author-email: matthias.troffaes@gmail.com
@@ -27,10 +27,9 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: Sphinx>=3.5
 Requires-Dist: docutils!=0.18.*,!=0.19.*,>=0.8
-Requires-Dist: pybtex>=0.24
+Requires-Dist: pybtex>=0.25
 Requires-Dist: pybtex-docutils>=1.0.0
 Requires-Dist: importlib_metadata>=3.6; python_version < "3.10"
-Requires-Dist: setuptools
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

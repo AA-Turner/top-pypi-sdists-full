@@ -2,7 +2,7 @@ import abc
 import datetime
 from collections.abc import AsyncGenerator, AsyncIterator
 from enum import Enum
-from typing import Any
+from typing import Any, TypeAlias
 
 class S3Options:
     """Options for accessing an S3-compatible storage backend"""
@@ -45,13 +45,16 @@ class ObjectStoreConfig:
         def __init__(self, options: S3Options) -> None: ...
 
     class Gcs:
-        def __init__(self) -> None: ...
+        def __init__(self, opts: dict[str, str] | None = None) -> None: ...
 
     class Azure:
-        def __init__(self) -> None: ...
+        def __init__(self, opts: dict[str, str] | None = None) -> None: ...
 
     class Tigris:
-        def __init__(self) -> None: ...
+        def __init__(self, opts: S3Options) -> None: ...
+
+    class Http:
+        def __init__(self, opts: dict[str, str] | None = None) -> None: ...
 
 AnyObjectStoreConfig = (
     ObjectStoreConfig.InMemory
@@ -61,6 +64,7 @@ AnyObjectStoreConfig = (
     | ObjectStoreConfig.Gcs
     | ObjectStoreConfig.Azure
     | ObjectStoreConfig.Tigris
+    | ObjectStoreConfig.Http
 )
 
 class VirtualChunkContainer:
@@ -482,12 +486,122 @@ class ManifestPreloadConfig:
         """
         ...
 
+class ManifestSplitCondition:
+    """Configuration for conditions under which manifests will be split into splits"""
+
+    @staticmethod
+    def or_conditions(
+        conditions: list[ManifestSplitCondition],
+    ) -> ManifestSplitCondition:
+        """Create a splitting condition that matches if any of `conditions` matches"""
+        ...
+    @staticmethod
+    def and_conditions(
+        conditions: list[ManifestSplitCondition],
+    ) -> ManifestSplitCondition:
+        """Create a splitting condition that matches only if all passed `conditions` match"""
+        ...
+    @staticmethod
+    def path_matches(regex: str) -> ManifestSplitCondition:
+        """Create a splitting condition that matches if the full path to the array matches the passed regex.
+
+        Array paths are absolute, as in `/path/to/my/array`
+        """
+        ...
+    @staticmethod
+    def name_matches(regex: str) -> ManifestSplitCondition:
+        """Create a splitting condition that matches if the array's name matches the passed regex.
+
+        Example, for an array  `/model/outputs/temperature`, the following will match:
+        ```
+        name_matches(".*temp.*")
+        ```
+        """
+        ...
+
+    @staticmethod
+    def AnyArray() -> ManifestSplitCondition:
+        """Create a splitting condition that matches any array."""
+        ...
+
+class ManifestSplitDimCondition:
+    """Conditions for specifying dimensions along which to shard manifests."""
+    class Axis:
+        """Split along specified integer axis."""
+        def __init__(self, axis: int) -> None: ...
+
+    class DimensionName:
+        """Split along specified named dimension."""
+        def __init__(self, regex: str) -> None: ...
+
+    class Any:
+        """Split along any other unspecified dimension."""
+        def __init__(self) -> None: ...
+
+DimSplitSize: TypeAlias = int
+SplitSizes: TypeAlias = tuple[
+    tuple[
+        ManifestSplitCondition, tuple[tuple[ManifestSplitDimCondition, DimSplitSize], ...]
+    ],
+    ...,
+]
+
+class ManifestSplittingConfig:
+    """Configuration for manifest splitting."""
+
+    def __init__(self, split_sizes: SplitSizes) -> None:
+        """Configuration for how Icechunk manifests will be split.
+
+        Parameters
+        ----------
+        split_sizes: tuple[tuple[ManifestSplitCondition, tuple[tuple[ManifestSplitDimCondition, int], ...]], ...]
+            The configuration for how Icechunk manifests will be preloaded.
+
+        Examples
+        --------
+
+        Split manifests for the `temperature` array, with 3 chunks per shard along the `longitude` dimension.
+        >>> ManifestSplittingConfig.from_dict(
+        ...     {
+        ...         ManifestSplitCondition.name_matches("temperature"): {
+        ...             ManifestSplitDimCondition.DimensionName("longitude"): 3
+        ...         }
+        ...     }
+        ... )
+        """
+        pass
+
+    @property
+    def split_sizes(self) -> SplitSizes:
+        """
+        Configuration for how Icechunk manifests will be split.
+
+        Returns
+        -------
+        tuple[tuple[ManifestSplitCondition, tuple[tuple[ManifestSplitDimCondition, int], ...]], ...]
+            The configuration for how Icechunk manifests will be preloaded.
+        """
+        ...
+
+    @split_sizes.setter
+    def split_sizes(self, value: SplitSizes) -> None:
+        """
+        Set the sizes for how Icechunk manifests will be split.
+
+        Parameters
+        ----------
+        value: tuple[tuple[ManifestSplitCondition, tuple[tuple[ManifestSplitDimCondition, int], ...]], ...]
+            The configuration for how Icechunk manifests will be preloaded.
+        """
+        ...
+
 class ManifestConfig:
     """Configuration for how Icechunk manifests"""
 
     def __init__(
         self,
         preload: ManifestPreloadConfig | None = None,
+        splitting: ManifestSplittingConfig | None = None,
     ) -> None:
         """
         Create a new `ManifestConfig` object
@@ -496,6 +610,8 @@ class ManifestConfig:
         ----------
         preload: ManifestPreloadConfig | None
             The configuration for how Icechunk manifests will be preloaded.
+        splitting: ManifestSplittingConfig | None
+            The configuration for how Icechunk manifests will be split.
         """
         ...
     @property
@@ -518,6 +634,121 @@ class ManifestConfig:
         ----------
         value: ManifestPreloadConfig | None
             The configuration for how Icechunk manifests will be preloaded.
+        """
+        ...
+
+    @property
+    def splitting(self) -> ManifestSplittingConfig | None:
+        """
+        The configuration for how Icechunk manifests will be split.
+
+        Returns
+        -------
+        ManifestSplittingConfig | None
+            The configuration for how Icechunk manifests will be split.
+        """
+        ...
+
+    @splitting.setter
+    def splitting(self, value: ManifestSplittingConfig | None) -> None:
+        """
+        Set the configuration for how Icechunk manifests will be split.
+
+        Parameters
+        ----------
+        value: ManifestSplittingConfig | None
+            The configuration for how Icechunk manifests will be split.
+        """
+        ...
+
+class StorageRetriesSettings:
+    """Configuration for how Icechunk retries requests.
+
+    Icechunk retries failed requests with an exponential backoff algorithm."""
+
+    def __init__(
+        self,
+        max_tries: int | None = None,
+        initial_backoff_ms: int | None = None,
+        max_backoff_ms: int | None = None,
+    ) -> None:
+        """
+        Create a new `StorageRetriesSettings` object
+
+        Parameters
+        ----------
+        max_tries: int | None
+            The maximum number of tries, including the initial one. Set to 1 to disable retries
+        initial_backoff_ms: int | None
+            The initial backoff duration in milliseconds
+        max_backoff_ms: int | None
+            The limit to backoff duration in milliseconds
+        """
+        ...
+    @property
+    def max_tries(self) -> int | None:
+        """
+        The maximum number of tries, including the initial one.
+
+        Returns
+        -------
+        int | None
+            The maximum number of tries.
+        """
+        ...
+    @max_tries.setter
+    def max_tries(self, value: int | None) -> None:
+        """
+        Set the maximum number of tries. Set to 1 to disable retries.
+
+        Parameters
+        ----------
+        value: int | None
+            The maximum number of tries
+        """
+        ...
+    @property
+    def initial_backoff_ms(self) -> int | None:
+        """
+        The initial backoff duration in milliseconds.
+
+        Returns
+        -------
+        int | None
+            The initial backoff duration in milliseconds.
+        """
+        ...
+    @initial_backoff_ms.setter
+    def initial_backoff_ms(self, value: int | None) -> None:
+        """
+        Set the initial backoff duration in milliseconds.
+
+        Parameters
+        ----------
+        value: int | None
+            The initial backoff duration in milliseconds.
+        """
+        ...
+    @property
+    def max_backoff_ms(self) -> int | None:
+        """
+        The maximum backoff duration in milliseconds.
+
+        Returns
+        -------
+        int | None
+            The maximum backoff duration in milliseconds.
+        """
+        ...
+    @max_backoff_ms.setter
+    def max_backoff_ms(self, value: int | None) -> None:
+        """
+        Set the maximum backoff duration in milliseconds.
+
+        Parameters
+        ----------
+        value: int | None
+            The maximum backoff duration in milliseconds.
         """
         ...
 
@@ -591,6 +822,7 @@ class StorageSettings:
     def __init__(
         self,
         concurrency: StorageConcurrencySettings | None = None,
+        retries: StorageRetriesSettings | None = None,
         unsafe_use_conditional_create: bool | None = None,
         unsafe_use_conditional_update: bool | None = None,
         unsafe_use_metadata: bool | None = None,
@@ -606,6 +838,9 @@ class StorageSettings:
         ----------
         concurrency: StorageConcurrencySettings | None
             The configuration for how Icechunk uses its Storage instance.
+
+        retries: StorageRetriesSettings | None
+            The configuration for how Icechunk retries failed requests.
 
         unsafe_use_conditional_update: bool | None
             If set to False, Icechunk loses some of its consistency guarantees.
@@ -652,6 +887,17 @@ class StorageSettings:
         -------
         StorageConcurrencySettings | None
             The configuration for how Icechunk uses its Storage instance.
+        """
+
+    @property
+    def retries(self) -> StorageRetriesSettings | None:
+        """
+        The configuration for how Icechunk retries failed requests.
+
+        Returns
+        -------
+        StorageRetriesSettings | None
+            The configuration for how Icechunk retries failed requests.
         """
 
     @property
@@ -1052,6 +1298,9 @@ class PyRepository:
     def garbage_collect(
         self, delete_object_older_than: datetime.datetime
     ) -> GCSummary: ...
+    def rewrite_manifests(
+        self, message: str, *, branch: str, metadata: dict[str, Any] | None = None
+    ) -> str: ...
     def total_chunks_storage(self) -> int: ...
 
 class PySession:
@@ -1106,6 +1355,8 @@ class PyStore:
     async def exists(self, key: str) -> bool: ...
     @property
     def supports_writes(self) -> bool: ...
+    @property
+    def supports_consolidated_metadata(self) -> bool: ...
     @property
     def supports_deletes(self) -> bool: ...
     async def set(self, key: str, value: bytes) -> None: ...
@@ -1709,7 +1960,29 @@ def initialize_logs() -> None:
     """
     Initialize the logging system for the library.
 
-    This should be called before any other Icechunk functions are called.
+    Reads the value of the environment variable ICECHUNK_LOG to obtain the filters.
+    This is autamtically called on `import icechunk`.
+    """
+    ...
+
+def set_logs_filter(log_filter_directive: str | None) -> None:
+    """
+    Set filters and log levels for the different modules.
+
+    Examples:
+      - set_logs_filter("trace")  # trace level for all modules
+      - set_logs_filter("error")  # error level for all modules
+      - set_logs_filter("icechunk=debug,info")  # debug level for icechunk, info for everything else
+
+    Full spec for the log_filter_directive syntax is documented in
+    https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives
+
+    Parameters
+    ----------
+    log_filter_directive: str | None
+        The comma separated list of directives for modules and log levels.
+        If None, the directive will be read from the environment variable
+        ICECHUNK_LOG
     """
     ...
 

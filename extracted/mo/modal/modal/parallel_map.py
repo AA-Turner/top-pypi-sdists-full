@@ -1,6 +1,7 @@
 # Copyright Modal Labs 2024
 import asyncio
 import enum
+import inspect
 import time
 import typing
 from asyncio import FIRST_COMPLETED
@@ -9,6 +10,7 @@ from typing import Any, Callable, Optional
 
 from grpclib import Status
 
+import modal.exception
 from modal._runtime.execution_context import current_input_id
 from modal._utils.async_utils import (
     AsyncOrSyncIterable,
@@ -26,6 +28,7 @@ from modal._utils.async_utils import (
     warn_if_generator_is_not_consumed,
 )
 from modal._utils.blob_utils import BLOB_MAX_PARALLELISM
+from modal._utils.deprecation import deprecation_warning
 from modal._utils.function_utils import (
     ATTEMPT_TIMEOUT_GRACE_PERIOD,
     OUTPUTS_TIMEOUT,
@@ -89,6 +92,7 @@ async def _map_invocation(
     client: "modal.client._Client",
     order_outputs: bool,
     return_exceptions: bool,
+    wrap_returned_exceptions: bool,
     count_update_callback: Optional[Callable[[int, int], None]],
     function_call_invocation_type: "api_pb2.FunctionCallInvocationType.ValueType",
 ):
@@ -278,17 +282,19 @@ async def _map_invocation(
                 )
             )
             map_done_task = asyncio.create_task(map_done_event.wait())
-            done, pending = await asyncio.wait([get_response_task, map_done_task], return_when=FIRST_COMPLETED)
-            if get_response_task in done:
-                map_done_task.cancel()
-                response = get_response_task.result()
-            else:
-                assert map_done_event.is_set()
-                # map is done, cancel the pending call
+            try:
+                done, pending = await asyncio.wait([get_response_task, map_done_task], return_when=FIRST_COMPLETED)
+                if get_response_task in done:
+                    map_done_task.cancel()
+                    response = get_response_task.result()
+                else:
+                    assert map_done_event.is_set()
+                    # map is done - no more outputs, so return early
+                    return
+            finally:
+                # clean up tasks, in case of cancellations etc.
                 get_response_task.cancel()
-                # not strictly necessary - don't leave dangling task
-                await asyncio.gather(get_response_task, return_exceptions=True)
-                return
+                map_done_task.cancel()
 
             last_entry_id = response.last_entry_id
             now_seconds = int(time.time())
@@ -339,7 +345,13 @@ async def _map_invocation(
             output = await _process_result(item.result, item.data_format, client.stub, client)
         except Exception as e:
             if return_exceptions:
-                output = e
+                if wrap_returned_exceptions:
+                    # Prior to client 1.0.4 there was a bug where return_exceptions would wrap
+                    # any returned exceptions in a synchronicity.UserCodeException. This adds
+                    # deprecated non-breaking compatibility bandaid for migrating away from that:
+                    output = modal.exception.UserCodeException(e)
+                else:
+                    output = e
             else:
                 raise e
         return (item.idx, output)
@@ -399,7 +411,7 @@ async def _map_invocation(
         async_merge(drain_input_generator(), pump_inputs(), poll_outputs(), retry_inputs())
     ) as streamer:
         async for response in streamer:
-            if response is not None:
+            if response is not None:  # type: ignore[unreachable]
                 yield response.value
     log_debug_stats_task.cancel()
     await log_debug_stats_task
@@ -411,6 +423,7 @@ async def _map_helper(
     kwargs={},  # any extra keyword arguments for the function
     order_outputs: bool = True,  # return outputs in order
     return_exceptions: bool = False,  # propagate exceptions (False) or aggregate them in the results list (True)
+    wrap_returned_exceptions: bool = True,
 ) -> typing.AsyncGenerator[Any, None]:
     """Core implementation that supports `_map_async()`, `_starmap_async()` and `_for_each_async()`.
 
@@ -423,7 +436,6 @@ async def _map_helper(
     We could make this explicit as an improvement or even let users decide what they
     prefer: throughput (prioritize queueing inputs) or latency (prioritize yielding results)
     """
-
     raw_input_queue: Any = SynchronizedQueue()  # type: ignore
     await raw_input_queue.init.aio()
 
@@ -441,10 +453,39 @@ async def _map_helper(
     # synchronicity-wrapped, since they accept executable code in the form of iterators that we don't want to run inside
     # the synchronicity thread. Instead, we delegate to `._map()` with a safer Queue as input.
     async with aclosing(
-        async_merge(self._map.aio(raw_input_queue, order_outputs, return_exceptions), feed_queue())
+        async_merge(
+            self._map.aio(raw_input_queue, order_outputs, return_exceptions, wrap_returned_exceptions), feed_queue()
+        )
     ) as map_output_stream:
         async for output in map_output_stream:
             yield output
+
+
+def _maybe_warn_about_exceptions(func_name: str, return_exceptions: bool, wrap_returned_exceptions: bool):
+    if return_exceptions and wrap_returned_exceptions:
+        deprecation_warning(
+            (2025, 6, 27),
+            (
+                f"Function.{func_name} currently leaks an internal exception wrapping type "
+                "(modal.exceptions.UserCodeException) when `return_exceptions=True` is set. "
+                "In the future, this will change, and the underlying exception will be returned directly.\n"
+                "To opt into the future behavior and silence this warning, add `wrap_returned_exceptions=False`:\n\n"
+                f"    f.{func_name}(..., return_exceptions=True, wrap_returned_exceptions=False)"
+            ),
+        )
+
+
+def _invoked_from_sync_wrapper() -> bool:
+    """Check whether the calling function was called from a sync wrapper."""
+    # This is temporary: we only need it to avoind double-firing the wrap_returned_exceptions warning.
+    # (We don't want to push the warning lower in the stack beacuse then we can't attribute to the user's code.)
+    try:
+        frame = inspect.currentframe()
+        caller_function_name = frame.f_back.f_back.f_code.co_name
+        # Embeds some assumptions about how the current calling stack works, but this is just temporary.
+        return caller_function_name == "asend"
+    except Exception:
+        return False
 
 
 @warn_if_generator_is_not_consumed(function_name="Function.map.aio")
@@ -456,10 +497,18 @@ async def _map_async(
     kwargs={},  # any extra keyword arguments for the function
     order_outputs: bool = True,  # return outputs in order
     return_exceptions: bool = False,  # propagate exceptions (False) or aggregate them in the results list (True)
+    wrap_returned_exceptions: bool = True,  # wrap returned exceptions in modal.exception.UserCodeException
 ) -> typing.AsyncGenerator[Any, None]:
+    if not _invoked_from_sync_wrapper():
+        _maybe_warn_about_exceptions("map.aio", return_exceptions, wrap_returned_exceptions)
     async_input_gen = async_zip(*[sync_or_async_iter(it) for it in input_iterators])
     async for output in _map_helper(
-        self, async_input_gen, kwargs=kwargs, order_outputs=order_outputs, return_exceptions=return_exceptions
+        self,
+        async_input_gen,
+        kwargs=kwargs,
+        order_outputs=order_outputs,
+        return_exceptions=return_exceptions,
+        wrap_returned_exceptions=wrap_returned_exceptions,
     ):
         yield output
 
@@ -472,13 +521,17 @@ async def _starmap_async(
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
+    wrap_returned_exceptions: bool = True,
 ) -> typing.AsyncIterable[Any]:
+    if not _invoked_from_sync_wrapper():
+        _maybe_warn_about_exceptions("starmap.aio", return_exceptions, wrap_returned_exceptions)
     async for output in _map_helper(
         self,
         sync_or_async_iter(input_iterator),
         kwargs=kwargs,
         order_outputs=order_outputs,
         return_exceptions=return_exceptions,
+        wrap_returned_exceptions=wrap_returned_exceptions,
     ):
         yield output
 
@@ -488,7 +541,12 @@ async def _for_each_async(self, *input_iterators, kwargs={}, ignore_exceptions: 
     # rather than iterating over the result
     async_input_gen = async_zip(*[sync_or_async_iter(it) for it in input_iterators])
     async for _ in _map_helper(
-        self, async_input_gen, kwargs=kwargs, order_outputs=False, return_exceptions=ignore_exceptions
+        self,
+        async_input_gen,
+        kwargs=kwargs,
+        order_outputs=False,
+        return_exceptions=ignore_exceptions,
+        wrap_returned_exceptions=False,
     ):
         pass
 
@@ -500,6 +558,7 @@ def _map_sync(
     kwargs={},  # any extra keyword arguments for the function
     order_outputs: bool = True,  # return outputs in order
     return_exceptions: bool = False,  # propagate exceptions (False) or aggregate them in the results list (True)
+    wrap_returned_exceptions: bool = True,
 ) -> AsyncOrSyncIterable:
     """Parallel map over a set of inputs.
 
@@ -537,10 +596,16 @@ def _map_sync(
         print(list(my_func.map(range(3), return_exceptions=True)))
     ```
     """
+    _maybe_warn_about_exceptions("map", return_exceptions, wrap_returned_exceptions)
 
     return AsyncOrSyncIterable(
         _map_async(
-            self, *input_iterators, kwargs=kwargs, order_outputs=order_outputs, return_exceptions=return_exceptions
+            self,
+            *input_iterators,
+            kwargs=kwargs,
+            order_outputs=order_outputs,
+            return_exceptions=return_exceptions,
+            wrap_returned_exceptions=wrap_returned_exceptions,
         ),
         nested_async_message=(
             "You can't iter(Function.map()) from an async function. Use async for ... in Function.map.aio() instead."
@@ -620,6 +685,7 @@ def _starmap_sync(
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
+    wrap_returned_exceptions: bool = True,
 ) -> AsyncOrSyncIterable:
     """Like `map`, but spreads arguments over multiple function arguments.
 
@@ -637,9 +703,15 @@ def _starmap_sync(
         assert list(my_func.starmap([(1, 2), (3, 4)])) == [3, 7]
     ```
     """
+    _maybe_warn_about_exceptions("starmap", return_exceptions, wrap_returned_exceptions)
     return AsyncOrSyncIterable(
         _starmap_async(
-            self, input_iterator, kwargs=kwargs, order_outputs=order_outputs, return_exceptions=return_exceptions
+            self,
+            input_iterator,
+            kwargs=kwargs,
+            order_outputs=order_outputs,
+            return_exceptions=return_exceptions,
+            wrap_returned_exceptions=wrap_returned_exceptions,
         ),
         nested_async_message=(
             "You can't `iter(Function.starmap())` from an async function. "
@@ -716,6 +788,7 @@ class _MapItemContext:
         Return True if input state was changed to COMPLETE, otherwise False.
         """
         # If the item is already complete, this is a duplicate output and can be ignored.
+
         if self.state == _MapItemState.COMPLETE:
             logger.debug(
                 f"Received output for input marked as complete. Must be duplicate, so ignoring. "
@@ -761,11 +834,12 @@ class _MapItemContext:
             delay_ms = 0
 
         # None means the maximum number of retries has been reached, so output the error
-        if delay_ms is None:
+        if delay_ms is None or item.result.status == api_pb2.GenericResult.GENERIC_STATUS_TERMINATED:
             self.state = _MapItemState.COMPLETE
             return _OutputType.FAILED_COMPLETION
 
         self.state = _MapItemState.WAITING_TO_RETRY
+
         await retry_queue.put(now_seconds + (delay_ms / 1000), item.idx)
 
         return _OutputType.RETRYING

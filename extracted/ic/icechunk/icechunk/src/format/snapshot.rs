@@ -37,6 +37,25 @@ impl DimensionShape {
 pub struct ArrayShape(Vec<DimensionShape>);
 
 impl ArrayShape {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn get(&self, ax: usize) -> Option<DimensionShape> {
+        if ax > self.len() - 1 { None } else { Some(self.0[ax].clone()) }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &DimensionShape> {
+        self.0.iter()
+    }
+
+    pub fn num_chunks(&self) -> impl Iterator<Item = u32> {
+        self.max_chunk_indices_permitted().map(|x| x + 1)
+    }
+
     pub fn new<I>(it: I) -> Option<Self>
     where
         I: IntoIterator<Item = (u64, u64)>,
@@ -98,6 +117,15 @@ impl From<Option<&str>> for DimensionName {
         match value {
             Some(s) => s.into(),
             None => DimensionName::NotSpecified,
+        }
+    }
+}
+
+impl From<DimensionName> for Option<String> {
+    fn from(value: DimensionName) -> Option<String> {
+        match value {
+            DimensionName::NotSpecified => None,
+            DimensionName::Name(name) => Some(name),
         }
     }
 }
@@ -312,6 +340,10 @@ static ROOT_OPTIONS: VerifierOptions = VerifierOptions {
 
 impl Snapshot {
     pub const INITIAL_COMMIT_MESSAGE: &'static str = "Repository initialized";
+    pub const INITIAL_SNAPSHOT_ID: SnapshotId = SnapshotId::new([
+        0x0b, 0x1c, 0xc8, 0xd6, 0x78, 0x75, 0x80, 0xf0, 0xe3, 0x3a, 0x65,
+        0x34, // Decodes as 1CECHNKREP0F1RSTCMT0
+    ]);
 
     pub fn from_buffer(buffer: Vec<u8>) -> IcechunkResult<Snapshot> {
         let _ = flatbuffers::root_with_opts::<generated::Snapshot>(
@@ -401,7 +433,7 @@ impl Snapshot {
         let properties = [("__root".to_string(), serde_json::Value::from(true))].into();
         let nodes: Vec<Result<NodeSnapshot, Infallible>> = Vec::new();
         Self::from_iter(
-            None,
+            Some(Self::INITIAL_SNAPSHOT_ID),
             None,
             Self::INITIAL_COMMIT_MESSAGE.to_string(),
             Some(properties),

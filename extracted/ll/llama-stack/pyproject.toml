@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llama_stack"
-version = "0.2.12"
+version = "0.2.13"
 authors = [{ name = "Meta Llama", email = "llama-oss@meta.com" }]
 description = "Llama Stack"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { "text" = "MIT" }
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -22,34 +22,37 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp",
-    "fastapi>=0.115.0,<1.0",
-    "fire",
+    "fastapi>=0.115.0,<1.0",                  # server
+    "fire",                                   # for MCP in LLS client
     "httpx",
-    "huggingface-hub",
+    "huggingface-hub>=0.30.0,<1.0",
     "jinja2>=3.1.6",
     "jsonschema",
-    "llama-stack-client>=0.2.12",
+    "llama-stack-client>=0.2.13",
     "openai>=1.66",
     "prompt-toolkit",
     "python-dotenv",
     "python-jose",
     "pydantic>=2",
-    "requests",
     "rich",
-    "setuptools",
     "starlette",
     "termcolor",
     "tiktoken",
     "pillow",
     "h11>=0.16.0",
-    "python-multipart>=0.0.20",
+    "python-multipart>=0.0.20",               # For fastapi Form
+    "uvicorn>=0.34.0",                        # server
+    "opentelemetry-sdk",                      # server
+    "opentelemetry-exporter-otlp-proto-http", # server
+    "aiosqlite>=0.21.0",                      # server - for metadata store
+    "asyncpg",                                # for metadata store
 ]
 
 [project.optional-dependencies]
 ui = [
     "streamlit",
     "pandas",
-    "llama-stack-client>=0.2.12",
+    "llama-stack-client>=0.2.13",
     "streamlit-option-menu",
 ]
 
@@ -67,7 +70,6 @@ dev = [
     "types-requests",
     "types-setuptools",
     "pre-commit",
-    "uvicorn",
     "ruamel.yaml",        # needed for openapi generator
 ]
 # These are the dependencies required for running unit tests.
@@ -80,11 +82,10 @@ unit = [
     "mcp",
     "chardet",
     "qdrant-client",
-    "opentelemetry-exporter-otlp-proto-http",
     "sqlalchemy",
     "sqlalchemy[asyncio]>=2.0.41",
     "blobfile",
-    "faiss-cpu"
+    "faiss-cpu",
 ]
 # These are the core dependencies required for running integration tests. They are shared across all
 # providers. If a provider requires additional dependencies, please add them to your environment
@@ -96,8 +97,6 @@ test = [
     "aiohttp",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
-    "opentelemetry-sdk",
-    "opentelemetry-exporter-otlp-proto-http",
     "chardet",
     "pypdf",
     "mcp",
@@ -106,6 +105,7 @@ test = [
     "transformers",
     "sqlalchemy",
     "sqlalchemy[asyncio]>=2.0.41",
+    "requests",
 ]
 docs = [
     "sphinx-autobuild",
@@ -122,6 +122,7 @@ docs = [
     "tomli",
     "linkify",
     "sphinxcontrib.openapi",
+    "requests",
 ]
 codegen = ["rich", "pydantic", "jinja2>=3.1.6"]
 
@@ -204,6 +205,9 @@ unfixable = [
     "RUF001",
     "PLE2515",
 ]
+"llama_stack/apis/**/__init__.py" = [
+    "F403",
+] # Using import * is acceptable (or at least tolerated) in an __init__.py of a package API
 
 [tool.mypy]
 mypy_path = ["llama_stack"]

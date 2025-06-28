@@ -594,6 +594,7 @@ mod completion_labels {
                 "poe",
                 "poetry",
                 "pyright",
+                "pytest",
                 "repo-review",
                 "ruff",
                 "scikit-build",
@@ -602,6 +603,7 @@ mod completion_labels {
                 "taskipy",
                 "tombi",
                 "tox",
+                "ty",
                 "uv",
             ]);
         }
@@ -976,6 +978,7 @@ mod completion_labels {
                 "local-date",
                 "local-date-time",
                 "local-time",
+                "object",
                 "offset-date-time",
             ]);
         }
@@ -997,6 +1000,7 @@ mod completion_labels {
                 "local-date",
                 "local-date-time",
                 "local-time",
+                "object",
                 "offset-date-time",
             ]);
         }

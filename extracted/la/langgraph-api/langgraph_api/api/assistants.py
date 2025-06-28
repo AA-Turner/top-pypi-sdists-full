@@ -214,11 +214,21 @@ async def get_assistant_graph(
 
         if isinstance(graph, BaseRemotePregel):
             drawable_graph = await graph.fetch_graph(xray=xray)
-            return ApiResponse(drawable_graph.to_json())
+            json_graph = drawable_graph.to_json()
+            for node in json_graph.get("nodes", []):
+                if data := node.get("data"):
+                    if isinstance(data, dict):
+                        data.pop("id", None)
+            return ApiResponse(json_graph)
 
         try:
             drawable_graph = await graph.aget_graph(xray=xray)
-            return ApiResponse(drawable_graph.to_json())
+            json_graph = drawable_graph.to_json()
+            for node in json_graph.get("nodes", []):
+                if data := node.get("data"):
+                    if isinstance(data, dict):
+                        data.pop("id", None)
+            return ApiResponse(json_graph)
         except NotImplementedError:
             raise HTTPException(
                 422, detail="The graph does not support visualization"

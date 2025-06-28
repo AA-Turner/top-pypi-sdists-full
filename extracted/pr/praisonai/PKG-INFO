@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: PraisonAI
-Version: 2.2.34
+Version: 2.2.35
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -64,7 +64,7 @@ Requires-Dist: playwright (>=1.47.0) ; extra == "code"
 Requires-Dist: plotly (>=5.24.0) ; extra == "realtime"
 Requires-Dist: praisonai-tools (>=0.0.15) ; extra == "autogen"
 Requires-Dist: praisonai-tools (>=0.0.15) ; extra == "crewai"
-Requires-Dist: praisonaiagents (>=0.0.107)
+Requires-Dist: praisonaiagents (>=0.0.108)
 Requires-Dist: pyautogen (>=0.2.19) ; extra == "autogen"
 Requires-Dist: pydantic (<=2.10.1) ; extra == "chat"
 Requires-Dist: pydantic (<=2.10.1) ; extra == "code"

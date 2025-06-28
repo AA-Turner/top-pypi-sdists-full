@@ -95,6 +95,18 @@ jobs:
           POSTGRES_USER: ${{ env.PGUSER }}
           POSTGRES_DB: ${{ env.PGDATABASE }}
           POSTGRES_PASSWORD: ${{ env.PGPASSWORD }}
+          POSTGRES_INITDB_ARGS: >
+            --encoding=UTF8
+            -c jit=off
+            -c synchronous_commit=off
+            -c full_page_writes=off
+            -c fsync=off
+            -c checkpoint_timeout=30min
+            -c max_wal_size=4GB
+            -c checkpoint_completion_target=0.9
+            -c shared_buffers=256MB
+            -c vacuum_buffer_usage_limit=8MB
+            -c autovacuum_naptime=5s
         ports:
           - 5432:5432
         options: >-
@@ -113,10 +125,14 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
 
+      - name: Check that JIT is off
+        run: psql -h localhost -U $PGUSER -d $PGDATABASE -c "SHOW jit;"
+
       - name: Install PGQueuer
         run: |
           uv sync --all-extras --frozen
           uv run --frozen pgq install
+          uv run --frozen pgq autovac
 
       - name: Set ISO Timestamp
         id: timestamp
@@ -306,6 +322,29 @@ jobs:
       - name: Run Full Test Suite
         run: PYTHONASYNCIODEBUG=1 PYTHONDEBUG=1 PYTHONFAULTHANDLER=1 uv run pytest -v
 
+  run-windows-tests:
+    if: github.event_name != 'schedule'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install PGQueuer
+        run: uv sync --all-extras --frozen
+
+      - name: Run Windows Shutdown Test
+        run: uv run pytest test/windows/test_shutdown.py -v
+
   run-ruff:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
@@ -352,7 +391,15 @@ jobs:
 
   complete-pipeline:
     if: github.event_name != 'schedule'
-    needs: [validate-benchmark, run-tests, run-ruff, run-mypy, run-example]
+    needs:
+      [
+        validate-benchmark,
+        run-tests,
+        run-windows-tests,
+        run-ruff,
+        run-mypy,
+        run-example,
+      ]
     runs-on: ubuntu-24.04
     steps:
       - name: Confirm All Tests Completed

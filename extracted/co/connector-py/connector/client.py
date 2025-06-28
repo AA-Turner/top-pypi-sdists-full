@@ -1,4 +1,4 @@
-from .httpx_rewrite import GqlHTTPXAsyncTransport, HTTPXAsyncTransport
+from .httpx_rewrite import AsyncClient, GqlHTTPXAsyncTransport, HTTPXAsyncTransport
 from .oai.base_clients import BaseGraphQLSession, BaseIntegrationClient
 from .oai.capability import (
     get_basic_auth,
@@ -39,4 +39,5 @@ __all__ = [
     "PaginationBase",
     "create_next_page_token",
     "sync_to_async",
+    "AsyncClient",
 ]

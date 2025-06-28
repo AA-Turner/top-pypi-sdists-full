@@ -1,6 +1,7 @@
 # coding=utf-8
 from .._impl import (
     scout_compute_resolved_api_AbsoluteThreshold as AbsoluteThreshold,
+    scout_compute_resolved_api_AbsoluteTimestampSeriesNode as AbsoluteTimestampSeriesNode,
     scout_compute_resolved_api_AggregateEnumSeriesNode as AggregateEnumSeriesNode,
     scout_compute_resolved_api_AggregateNumericSeriesNode as AggregateNumericSeriesNode,
     scout_compute_resolved_api_ArithmeticSeriesNode as ArithmeticSeriesNode,
@@ -150,6 +151,7 @@ from .._impl import (
 
 __all__ = [
     'AbsoluteThreshold',
+    'AbsoluteTimestampSeriesNode',
     'AggregateEnumSeriesNode',
     'AggregateNumericSeriesNode',
     'ArithmeticSeriesNode',

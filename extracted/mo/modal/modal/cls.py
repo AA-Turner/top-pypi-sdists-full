@@ -54,7 +54,7 @@ def _get_class_constructor_signature(user_cls: type) -> inspect.Signature:
         return inspect.signature(user_cls)
     else:
         constructor_parameters = []
-        for name, annotation_value in user_cls.__dict__.get("__annotations__", {}).items():
+        for name, annotation_value in typing.get_type_hints(user_cls).items():
             if hasattr(user_cls, name):
                 parameter_spec = getattr(user_cls, name)
                 if is_parameter(parameter_spec):
@@ -438,11 +438,11 @@ Obj = synchronize_api(_Obj)
 
 class _Cls(_Object, type_prefix="cs"):
     """
-    Cls adds method pooling and [lifecycle hook](/docs/guide/lifecycle-functions) behavior
-    to [modal.Function](/docs/reference/modal.Function).
+    Cls adds method pooling and [lifecycle hook](https://modal.com/docs/guide/lifecycle-functions) behavior
+    to [modal.Function](https://modal.com/docs/reference/modal.Function).
 
     Generally, you will not construct a Cls directly.
-    Instead, use the [`@app.cls()`](/docs/reference/modal.App#cls) decorator on the App object.
+    Instead, use the [`@app.cls()`](https://modal.com/docs/reference/modal.App#cls) decorator on the App object.
     """
 
     _class_service_function: Optional[_Function]  # The _Function (read "service") serving *all* methods of the class
@@ -617,9 +617,9 @@ More information on class parameterization can be found here: https://modal.com/
     ) -> "_Cls":
         """Reference a Cls from a deployed App by its name.
 
-        In contrast to `modal.Cls.lookup`, this is a lazy method
-        that defers hydrating the local object with metadata from
-        Modal servers until the first time it is actually used.
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
 
         ```python
         Model = modal.Cls.from_name("other-app", "Model")

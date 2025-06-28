@@ -1,6 +1,4 @@
 import abc
-import io
-import json
 import os
 import uuid
 from abc import ABC
@@ -16,13 +14,10 @@ from typing import Union
 from typing import overload
 from urllib.parse import urljoin
 
-import pandas as pd
 from requests import HTTPError
 from requests import Response
 
 from evidently._pydantic_compat import BaseModel
-from evidently._pydantic_compat import parse_obj_as
-from evidently.core.datasets import DataDefinition
 from evidently.core.datasets import Dataset
 from evidently.core.report import Snapshot
 from evidently.core.serialization import SnapshotModel
@@ -39,10 +34,10 @@ from evidently.legacy.ui.type_aliases import ProjectID
 from evidently.legacy.ui.type_aliases import SnapshotID
 from evidently.legacy.ui.workspace.cloud import ACCESS_TOKEN_COOKIE
 from evidently.legacy.ui.workspace.cloud import TOKEN_HEADER_NAME
-from evidently.legacy.ui.workspace.cloud import NamedBytesIO
-from evidently.legacy.ui.workspace.cloud import read_multipart_response
 from evidently.legacy.ui.workspace.remote import RemoteBase
 from evidently.legacy.ui.workspace.remote import T
+from evidently.sdk.datasets import DatasetList
+from evidently.sdk.datasets import RemoteDatasetsManager
 from evidently.sdk.models import DashboardModel
 from evidently.sdk.models import DashboardPanelPlot
 from evidently.sdk.models import DashboardTabModel
@@ -309,14 +304,33 @@ class WorkspaceBase(ABC):
     def _get_snapshot_url(self, project_id: STR_UUID, snapshot_id: STR_UUID) -> str:
         raise NotImplementedError
 
-    def add_run(self, project_id: STR_UUID, run: Snapshot, include_data: bool = False) -> SnapshotRef:
+    def add_run(
+        self,
+        project_id: STR_UUID,
+        run: Snapshot,
+        include_data: bool = False,
+        name: Optional[str] = None,
+    ) -> SnapshotRef:
+        """
+        Args:
+            project_id: project ID
+            run: Run object for upload
+            include_data: if set to True - input data will be uploaded to server (if supported)
+            name: new name for run
+        Returns:
+            snapshot reference object with ID of uploaded snapshot
+        """
+        if name is not None:
+            run.set_name(name)
         snapshot_id = self._add_run(project_id, run)
+        current_dataset_name = run.get_name() or f"run-current-{snapshot_id}"
+        reference_dataset_name = f"{run.get_name()}: reference" or f"run-reference-{snapshot_id}"
         if include_data:
             current, reference = run.context._input_data
             self.add_dataset(
                 project_id,
                 current,
-                f"run-current-{snapshot_id}",
+                current_dataset_name,
                 None,
                 link=SnapshotLink(snapshot_id=snapshot_id, dataset_type="output", dataset_subtype="current"),
             )
@@ -324,7 +338,7 @@ class WorkspaceBase(ABC):
                 self.add_dataset(
                     project_id,
                     reference,
-                    f"run-reference-{snapshot_id}",
+                    reference_dataset_name,
                     None,
                     link=SnapshotLink(snapshot_id=snapshot_id, dataset_type="output", dataset_subtype="reference"),
                 )
@@ -576,6 +590,7 @@ class CloudWorkspace(RemoteWorkspace):
         self._logged_in: bool = False
         super().__init__(base_url=url if url is not None else self.URL)
         self.prompts = RemotePromptManager(self)
+        self.datasets = RemoteDatasetsManager(self)
 
     def _get_jwt_token(self):
         return super()._request("/api/users/login", "GET", headers={TOKEN_HEADER_NAME: self.token}).text
@@ -711,39 +726,13 @@ class CloudWorkspace(RemoteWorkspace):
         description: Optional[str],
         link: Optional[SnapshotLink] = None,
     ) -> DatasetID:
-        data_definition = dataset.data_definition.json(exclude_none=True)
-        file = NamedBytesIO(b"", "data.parquet")
-        dataset.as_dataframe().to_parquet(file)
-        file.seek(0)
-        qp = {"project_id": project_id}
-        if link is not None:
-            qp["snapshot_id"] = link.snapshot_id
-            qp["dataset_type"] = link.dataset_type
-            qp["dataset_subtype"] = link.dataset_subtype
-        response: Response = self._request(
-            "/api/v2/datasets/upload",
-            "POST",
-            body={
-                "name": name,
-                "description": description,
-                "file": file,
-                "data_definition_str": data_definition,
-                "metadata_str": json.dumps(dataset.metadata),
-                "tags_str": json.dumps(dataset.tags),
-            },
-            query_params=qp,
-            form_data=True,
-        )
-        return DatasetID(response.json()["dataset"]["id"])
+        return self.datasets.add(project_id=project_id, dataset=dataset, name=name, description=description, link=link)
 
     def load_dataset(self, dataset_id: DatasetID) -> Dataset:
-        response: Response = self._request(f"/api/v2/datasets/{dataset_id}/download", "GET")
+        return self.datasets.load(dataset_id)
 
-        metadata, file_content = read_multipart_response(response)
-
-        df = pd.read_parquet(io.BytesIO(file_content))
-        data_def = parse_obj_as(DataDefinition, metadata["data_definition"])
-        return Dataset.from_pandas(df, data_definition=data_def)
+    def list_datasets(self, project: STR_UUID, origins: Optional[List[str]] = None) -> DatasetList:
+        return self.datasets.list(project, origins=origins)
 
     def _get_snapshot_url(self, project_id: STR_UUID, snapshot_id: STR_UUID) -> str:
         return urljoin(self.base_url, f"/v2/projects/{project_id}/explore/{snapshot_id}")

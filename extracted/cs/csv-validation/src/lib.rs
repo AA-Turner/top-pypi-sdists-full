@@ -76,6 +76,26 @@ struct ColumnValidationsSummary {
     validation_summaries: Vec<ValidationSummary>
 }
 
+#[derive(Serialize, Deserialize)]
+struct FileValidationSummary {
+    file_path: String,
+    total_rows: usize,
+    total_columns: usize,
+    correct_columns: Vec<ColumnValidationsSummary>,
+    wrong_columns: Vec<ColumnValidationsSummary>
+}
+
+impl ValidationSummary {
+    fn get_wrong_values_details(&self) -> String {
+        let wrong_samples = &self.wrong_values_sample
+            .iter()
+            .map(|s| format!("'{}'", s))
+            .collect::<Vec<String>>()
+            .join(",");
+        format!("Wrong Rows: {} | Sample: {}", self.wrong_rows, wrong_samples)
+    }
+}
+
 fn build_validation_summaries_map(validations: &Vec<ColumnValidations>) -> HashMap<String, Vec<ValidationSummary>> {
     let mut validation_summaries_map = HashMap::new();
     for validation in validations {
@@ -107,7 +127,7 @@ fn regex_escape(text: &str) -> String {
     escaped
 }
 
-/// Infers the file compression type and returns the corresponding buffered reader
+/// Infers the file compression status and returns the corresponding buffered reader
 fn get_reader_from(path: &str, separator: u8) -> PyResult<Reader<Box<dyn Read>>> {
     let buf_reader = BufReader::new(File::open(Path::new(path))?);
     if is_gzip_file(path)? {
@@ -266,6 +286,7 @@ fn get_regex_for_format(format: &str) -> PyResult<String> {
 }
 
 fn validate_column_names(reader: &mut Reader<Box<dyn Read>>, validations: &Vec<ColumnValidations>) -> PyResult<bool> {
+    info!("Validating column names and order...");
     let expected_column_names = validations.iter()
         .map(|v| v.column_name.clone())
         .collect::<Vec<String>>();
@@ -317,12 +338,28 @@ impl CSVValidator {
     }
 
     #[staticmethod]
+    #[pyo3(text_signature = "(definition_path)")]
+    /// Create a new CSVValidator from a YAML file with the validation definition.
+    ///
+    /// Args:
+    ///     definition_path (str): The path to the YAML file with the validation definition.
+    ///
+    /// Returns:
+    ///     a CSVValidation instance
     fn from_file(definition_path: &str) -> PyResult<Self> {
         let definition_string = fs::read_to_string(definition_path)?;
         Self::from_string(&definition_string)
     }
 
     #[staticmethod]
+    #[pyo3(text_signature = "(definition_string)")]
+    /// Create a new CSVValidator from a YAML string with the validation definition.
+    ///
+    /// Args:
+    ///     definition_string (str): A string with the YAML validations definition.
+    ///
+    /// Returns:
+    ///     a CSVValidation instance
     fn from_string(definition_string: &str) -> PyResult<Self> {
         let validations = get_validations(definition_string)?;
         let mut regex_map = HashMap::new();
@@ -346,6 +383,13 @@ impl CSVValidator {
         Ok(CSVValidator { validations, regex_map, separator: DEFAULT_COLUMN_SEPARATOR, decimal_separator: DEFAULT_DECIMAL_SEPARATOR })
     }
 
+    #[pyo3(text_signature = "(self, separator)")]
+    /// Set the CSV separator (also known as delimiter):
+    ///
+    /// The separator is ',' by default. If your file has a different one, you can modify it here.
+    ///
+    /// Args:
+    ///     separator (str): A string with only one character that is the CSV file separator.
     fn set_separator(&mut self, separator: String)  -> PyResult<()> {
         if separator.len() == 1 {
             self.separator = separator.chars().next().unwrap() as u8;
@@ -356,6 +400,14 @@ impl CSVValidator {
         }
     }
 
+    #[pyo3(text_signature = "(self, decimal_separator)")]
+    /// Set the decimal number separator
+    ///
+    /// The default decimals separator for float numbers is '.'.
+    /// If your file uses a different one, you can modify it here.
+    ///
+    /// Args:
+    ///     decimal_separator (str): A string with only one character that is the decimal separator.
     fn set_decimal_separator(&mut self, decimal_separator: String)  -> PyResult<()> {
         if decimal_separator.len() == 1 {
             self.decimal_separator = decimal_separator.chars().next().unwrap();
@@ -366,6 +418,15 @@ impl CSVValidator {
         }
     }
 
+    #[pyo3(text_signature = "(self, file_path)")]
+    /// Validates the CSV file against the validations defined in this CSVValidator.
+    /// When finished, it will log a comprehensive summary with the details of the Validation.
+    ///
+    /// Args:
+    ///     file_path (str): The path with the CSV file to validate.
+    ///
+    /// Returns:
+    ///     bool: True if the file fully complies with all the validations, False otherwise
     fn validate(&self, file_path: &str) -> PyResult<bool> {
         // Build the CSV reader
         let mut rdr = get_reader_from(file_path, self.separator)?;
@@ -375,7 +436,7 @@ impl CSVValidator {
             info!("Columns names and order are correct");
         }
         else {
-            error!("Expected columns != CSV file columns. Cannot continue with the validations");
+            error!("Expected columns != File columns. Cannot continue with rest of the validations");
             return Ok(false);
         }
 
@@ -383,6 +444,8 @@ impl CSVValidator {
         let mut validation_summaries_map = build_validation_summaries_map(&self.validations);
         let mut is_valid_file = true;
         let mut validated_rows = 0;
+
+        // Iterate over the CSV file and validate each row
         for result in rdr.records() {
             let record = result.unwrap();
             for next_column in zip(record.iter(), self.validations.iter()) {
@@ -420,45 +483,57 @@ impl CSVValidator {
             column_validation_summaries.push(column_validation_summary);
         }
 
-        // TODO: Decide how to return the results of the validations
-        let _validation_result_json = serde_json::to_string(&column_validation_summaries).unwrap();
+        let validation_process_summary =
+            &self.create_validation_process_summary(column_validation_summaries, validated_rows, file_path);
 
-        let mut failed_columns = HashMap::new();
+        // TODO: Decide how to return the results of the validations in JSON
+        //let _validation_result_json = serde_json::to_string(&validation_process_summary).unwrap();
+
+        info!("");
         info!("VALIDATIONS SUMMARY");
-        info!("==================================================================================");
-        info!("Rows: {} | Columns: {}", validated_rows, column_validation_summaries.len());
-        for column_validation_summary in column_validation_summaries {
-            info!("Column: '{}'", column_validation_summary.column_name);
-            for validation_summary in column_validation_summary.validation_summaries {
-                let wrong_values_sample = if validation_summary.wrong_values_sample.len() > 0 {
-                        format!(" | Wrong Values Sample: {:?}", validation_summary.wrong_values_sample)
-                } else {
-                    String::from("" )
-                };
-                info!("\tValidation {:?} => Wrong Rows: {}{}", validation_summary.validation,
-                    validation_summary.wrong_rows, wrong_values_sample);
+        info!("==================================================");
+        info!("FILE: {}", file_path);
+        info!("Rows: {} | Columns: {}", validation_process_summary.total_rows, validation_process_summary.total_columns);
+
+        let correct_columns = validation_process_summary.correct_columns.len();
+        let wrong_columns = validation_process_summary.wrong_columns.len();
+
+        info!("");
+        info!("CORRECT COLUMNS: {}/{}", correct_columns, validation_process_summary.total_columns);
+        info!("--------------------------------------------------");
+        for column_validation_summary in &validation_process_summary.correct_columns {
+            info!("  - {}: [✔] OK", column_validation_summary.column_name);
+            for validation_summary in column_validation_summary.validation_summaries.iter() {
+                info!("      ✔ - {:?}", validation_summary.validation);
+            }
+        }
+
+        info!("");
+        info!("WRONG COLUMNS: {}/{}", wrong_columns, validation_process_summary.total_columns);
+        info!("--------------------------------------------------");
+        for column_validation_summary in &validation_process_summary.wrong_columns {
+            info!("  - {}: [✖] FAIL", column_validation_summary.column_name);
+            for validation_summary in column_validation_summary.validation_summaries.iter() {
                 if validation_summary.wrong_rows > 0 {
-                    let column_name = &column_validation_summary.column_name;
-                    if !failed_columns.contains_key(column_name) {
-                        failed_columns.insert(column_name.clone(), vec!());
-                    }
-                    failed_columns.get_mut(column_name).unwrap().push(validation_summary);
+                    info!("      ✖ - {:?}", validation_summary.validation);
+                    info!("          {:?}", validation_summary.get_wrong_values_details());
+                }
+                else {
+                    info!("      ✔ - {:?}", validation_summary.validation);
                 }
             }
         }
 
+        info!("");
+        info!("VALIDATION RESULT");
+        info!("--------------------------------------------------");
         if is_valid_file {
-            info!("OK: File matches the validations");
+            info!("[✔] OK - File matches the validations");
         }
         else {
-            info!("NO OK: File DOESN'T match validations. Failed Validations:");
-            for (column_name, failed_validations) in failed_columns.into_iter() {
-                info!("COLUMN '{}' :", column_name);
-                for validation_summary in failed_validations {
-                    info!("\tValidation {:?} => Wrong Rows: {}", validation_summary.validation, validation_summary.wrong_rows)
-                }
-            }
+            info!("[✖] FAIL: File DOESN'T match all validations");
         }
+        info!("");
         Ok(is_valid_file)
     }
 }
@@ -501,6 +576,40 @@ impl CSVValidator {
                 Ok(regex.is_match(value))
             }
             Validation::None => Err(PyRuntimeError::new_err("'None' validation has no implementation"))
+        }
+    }
+
+    fn create_validation_process_summary(&self, column_validation_summaries: Vec<ColumnValidationsSummary>, validated_rows: usize, file_path: &str) -> FileValidationSummary {
+        let total_rows = validated_rows;
+        let total_columns = column_validation_summaries.len();
+
+        let mut failed_columns = HashSet::new();
+        let mut correct_columns = vec![];
+        let mut wrong_columns = vec![];
+        for column_validation_summary in column_validation_summaries {
+            for validation_summary in &column_validation_summary.validation_summaries {
+                if validation_summary.wrong_rows > 0 {
+                    let column_name = &column_validation_summary.column_name;
+                    if !failed_columns.contains(column_name) {
+                        failed_columns.insert(column_name.clone());
+                    }
+                }
+            }
+
+            if failed_columns.contains(&column_validation_summary.column_name)  {
+                wrong_columns.push(column_validation_summary);
+            }
+            else {
+                correct_columns.push(column_validation_summary);
+            }
+        }
+
+        FileValidationSummary {
+            file_path: file_path.parse().unwrap(),
+            total_rows,
+            total_columns,
+            correct_columns,
+            wrong_columns
         }
     }
 }

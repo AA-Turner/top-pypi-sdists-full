@@ -4,7 +4,7 @@ import os
 import re
 import sys
 
-import shipyard_bp_utils as shipyard
+import shipyard_bp_utils as utils
 from shipyard_templates import ShipyardLogger, ExitCodeException
 
 from shipyard_bigquery import BigQueryClient
@@ -58,16 +58,13 @@ def main():
         upload_type = args.upload_type
         file_name = args.source_file_name
         folder_name = args.source_folder_name
-        full_path = shipyard.files.combine_folder_and_file_name(
-            folder_name=f"{os.getcwd()}/{folder_name}", file_name=file_name
-        )
-        match_type = args.source_file_name_match_type
-        schema = None if args.schema == "" else ast.literal_eval(args.schema)
-        quoted_newline = args.quoted_newline.strip().upper() == "TRUE"
 
-        skip_header_rows = (
-            None if args.skip_header_rows == "" else args.skip_header_rows
-        )
+        if args.schema:
+            schema = ast.literal_eval(args.schema)
+        else:
+            schema = None
+        quoted_newline = utils.args.convert_to_boolean(args.quoted_newline)
+        skip_header_rows = args.skip_header_rows or None
 
         creds = get_credentials()
         if args.project_id:
@@ -87,33 +84,24 @@ def main():
 
         client = BigQueryClient(**creds)
         logger.info("Successfully connected to BigQuery")
+        local_files = utils.files.find_all_local_file_names(args.source_folder_name)
 
-        if match_type == "regex_match":
-            file_names = shipyard.files.find_all_local_file_names(folder_name)
-            matching_file_names = shipyard.files.find_all_file_matches(
-                file_names, re.compile(file_name)
-            )
-            if not matching_file_names:
-                raise FileNotFoundError(f"No files found matching {file_name}")
-            logger.info(
-                f"{len(matching_file_names)} files found. Preparing to upload..."
+        found_files = utils.files.file_match(
+            search_term=args.source_file_name,
+            match_type=args.source_file_name_match_type,
+            files=local_files,
+            source_directory=args.source_folder_name,
+        )
+        if not found_files:
+            raise FileNotFoundError(
+                f"No files found matching {file_name} in {folder_name}"
             )
 
-            for index, file_name in enumerate(matching_file_names, start=1):
-                logger.info(f"Uploading file {index} of {len(matching_file_names)}")
-                client.upload(
-                    file=file_name,
-                    dataset=dataset,
-                    table=table,
-                    upload_type=upload_type,
-                    skip_header_rows=skip_header_rows,
-                    schema=schema,
-                    quoted_newline=quoted_newline,
-                )
-                upload_type = "append"
-        else:
+        for index, file in enumerate(found_files, start=1):
+            logger.info(f"Uploading file {index} of {len(found_files)}")
+            filename = file["source_path"]
             client.upload(
-                file=full_path,
+                file=filename,
                 dataset=dataset,
                 table=table,
                 upload_type=upload_type,
@@ -121,7 +109,8 @@ def main():
                 schema=schema,
                 quoted_newline=quoted_newline,
             )
-            logger.info(f"Successfully loaded {full_path} to {dataset}.{table}")
+            upload_type = "append"
+            logger.info(f"Successfully loaded {filename} to {dataset}.{table}")
     except FileNotFoundError as fe:
         logger.error(str(fe))
         sys.exit(BigQueryClient.EXIT_CODE_FILE_NOT_FOUND)

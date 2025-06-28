@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.164
+Version: 0.3.169
 Summary: SDK for building langchain agents using resources from Alita
-Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedjik@gmail.com>
+Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedjik@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://projectalita.ai
 Project-URL: Issues, https://github.com/ProjectAlita/alita-sdk/issues
@@ -32,7 +32,7 @@ Requires-Dist: langchain-openai~=0.3.0; extra == "runtime"
 Requires-Dist: langgraph-checkpoint-sqlite~=2.0.0; extra == "runtime"
 Requires-Dist: langgraph-checkpoint-postgres~=2.0.1; extra == "runtime"
 Requires-Dist: langsmith>=0.3.45; extra == "runtime"
-Requires-Dist: langgraph>=0.4.8; extra == "runtime"
+Requires-Dist: langgraph<0.5,>=0.4.8; extra == "runtime"
 Requires-Dist: langchain_chroma~=0.2.2; extra == "runtime"
 Requires-Dist: langchain-unstructured~=0.1.6; extra == "runtime"
 Requires-Dist: langchain-postgres~=0.0.13; extra == "runtime"

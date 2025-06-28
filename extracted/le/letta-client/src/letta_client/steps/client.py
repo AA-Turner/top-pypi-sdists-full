@@ -12,7 +12,7 @@ from ..types.http_validation_error import HttpValidationError
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
 from ..core.jsonable_encoder import jsonable_encoder
-from .types.add_feedback_request_feedback import AddFeedbackRequestFeedback
+from ..types.feedback_type import FeedbackType
 from ..core.client_wrapper import AsyncClientWrapper
 from .feedback.client import AsyncFeedbackClient
 
@@ -35,6 +35,7 @@ class StepsClient:
         agent_id: typing.Optional[str] = None,
         trace_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         feedback: typing.Optional[StepsListRequestFeedback] = None,
+        has_feedback: typing.Optional[bool] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.List[Step]:
@@ -74,6 +75,9 @@ class StepsClient:
         feedback : typing.Optional[StepsListRequestFeedback]
             Filter by feedback
 
+        has_feedback : typing.Optional[bool]
+            Filter by whether steps have feedback (true) or not (false)
+
         tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter by tags
 
@@ -108,6 +112,7 @@ class StepsClient:
                 "agent_id": agent_id,
                 "trace_ids": trace_ids,
                 "feedback": feedback,
+                "has_feedback": has_feedback,
                 "tags": tags,
             },
             request_options=request_options,
@@ -196,7 +201,7 @@ class StepsClient:
         self,
         step_id: str,
         *,
-        feedback: typing.Optional[AddFeedbackRequestFeedback] = None,
+        feedback: typing.Optional[FeedbackType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Step:
         """
@@ -206,7 +211,7 @@ class StepsClient:
         ----------
         step_id : str
 
-        feedback : typing.Optional[AddFeedbackRequestFeedback]
+        feedback : typing.Optional[FeedbackType]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -278,6 +283,7 @@ class AsyncStepsClient:
         agent_id: typing.Optional[str] = None,
         trace_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         feedback: typing.Optional[StepsListRequestFeedback] = None,
+        has_feedback: typing.Optional[bool] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.List[Step]:
@@ -316,6 +322,9 @@ class AsyncStepsClient:
 
         feedback : typing.Optional[StepsListRequestFeedback]
             Filter by feedback
+
+        has_feedback : typing.Optional[bool]
+            Filter by whether steps have feedback (true) or not (false)
 
         tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter by tags
@@ -359,6 +368,7 @@ class AsyncStepsClient:
                 "agent_id": agent_id,
                 "trace_ids": trace_ids,
                 "feedback": feedback,
+                "has_feedback": has_feedback,
                 "tags": tags,
             },
             request_options=request_options,
@@ -455,7 +465,7 @@ class AsyncStepsClient:
         self,
         step_id: str,
         *,
-        feedback: typing.Optional[AddFeedbackRequestFeedback] = None,
+        feedback: typing.Optional[FeedbackType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Step:
         """
@@ -465,7 +475,7 @@ class AsyncStepsClient:
         ----------
         step_id : str
 
-        feedback : typing.Optional[AddFeedbackRequestFeedback]
+        feedback : typing.Optional[FeedbackType]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

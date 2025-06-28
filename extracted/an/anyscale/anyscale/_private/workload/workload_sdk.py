@@ -183,7 +183,7 @@ class WorkloadSDK(BaseSDK):
         return new_runtime_envs
 
     def _resolve_compute_config_id(
-        self, compute_config: Union[str, ComputeConfig]
+        self, compute_config: Union[str, ComputeConfig], cloud: Optional[str] = None,
     ) -> str:
         """Resolve the passed compute config to its ID.
 
@@ -195,7 +195,7 @@ class WorkloadSDK(BaseSDK):
         """
         if isinstance(compute_config, str):
             compute_config_id = self._client.get_compute_config_id(
-                compute_config_name=compute_config,
+                compute_config_name=compute_config, cloud=cloud,
             )
             if compute_config_id is None:
                 raise ValueError(
@@ -252,7 +252,8 @@ class WorkloadSDK(BaseSDK):
                 compute_config = replace(compute_config, cloud=cloud)
 
             compute_config_id = self._resolve_compute_config_id(
-                compute_config=compute_config  # type: ignore
+                compute_config=compute_config,  # type: ignore
+                cloud=cloud,
             )
             cloud_id_from_cc = self.client.get_cloud_id(
                 compute_config_id=compute_config_id

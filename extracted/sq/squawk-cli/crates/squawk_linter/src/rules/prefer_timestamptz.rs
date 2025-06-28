@@ -1,10 +1,10 @@
 use squawk_syntax::{
-    ast::{self, AstNode},
     Parse, SourceFile,
+    ast::{self, AstNode},
 };
 
-use crate::{text::trim_quotes, visitors::check_not_allowed_types};
 use crate::{Linter, Rule, Violation};
+use crate::{text::trim_quotes, visitors::check_not_allowed_types};
 
 pub fn is_not_allowed_timestamp(ty: &ast::Type) -> bool {
     match ty {
@@ -32,10 +32,10 @@ pub fn is_not_allowed_timestamp(ty: &ast::Type) -> bool {
         ast::Type::BitType(_) => false,
         ast::Type::DoubleType(_) => false,
         ast::Type::TimeType(time_type) => {
-            if let Some(ty_name) = time_type.name_ref() {
-                if ty_name.text() == "timestamp" && time_type.with_timezone().is_none() {
-                    return true;
-                }
+            if time_type.timestamp_token().is_some()
+                && !matches!(time_type.timezone(), Some(ast::Timezone::WithTimezone(_)))
+            {
+                return true;
             }
             false
         }

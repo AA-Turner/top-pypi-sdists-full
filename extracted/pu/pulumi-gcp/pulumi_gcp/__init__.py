@@ -97,6 +97,8 @@ if typing.TYPE_CHECKING:
     compute = __compute
     import pulumi_gcp.config as __config
     config = __config
+    import pulumi_gcp.contactcenterinsights as __contactcenterinsights
+    contactcenterinsights = __contactcenterinsights
     import pulumi_gcp.container as __container
     container = __container
     import pulumi_gcp.containeranalysis as __containeranalysis
@@ -315,6 +317,7 @@ else:
     composer = _utilities.lazy_import('pulumi_gcp.composer')
     compute = _utilities.lazy_import('pulumi_gcp.compute')
     config = _utilities.lazy_import('pulumi_gcp.config')
+    contactcenterinsights = _utilities.lazy_import('pulumi_gcp.contactcenterinsights')
     container = _utilities.lazy_import('pulumi_gcp.container')
     containeranalysis = _utilities.lazy_import('pulumi_gcp.containeranalysis')
     databasemigrationservice = _utilities.lazy_import('pulumi_gcp.databasemigrationservice')
@@ -992,6 +995,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "apihub/pluginInstance",
+  "fqn": "pulumi_gcp.apihub",
+  "classes": {
+   "gcp:apihub/pluginInstance:PluginInstance": "PluginInstance"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "appengine/application",
   "fqn": "pulumi_gcp.appengine",
   "classes": {
@@ -1604,6 +1615,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.bigquerydatapolicy",
   "classes": {
    "gcp:bigquerydatapolicy/dataPolicyIamPolicy:DataPolicyIamPolicy": "DataPolicyIamPolicy"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "bigtable/appProfile",
+  "fqn": "pulumi_gcp.bigtable",
+  "classes": {
+   "gcp:bigtable/appProfile:AppProfile": "AppProfile"
   }
  },
  {
@@ -3896,6 +3915,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "contactcenterinsights/view",
+  "fqn": "pulumi_gcp.contactcenterinsights",
+  "classes": {
+   "gcp:contactcenterinsights/view:View": "View"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "container/attachedCluster",
   "fqn": "pulumi_gcp.container",
   "classes": {
@@ -4848,6 +4875,14 @@ _utilities.register(
  },
  {
   "pkg": "gcp",
+  "mod": "dataproc/sessionTemplate",
+  "fqn": "pulumi_gcp.dataproc",
+  "classes": {
+   "gcp:dataproc/sessionTemplate:SessionTemplate": "SessionTemplate"
+  }
+ },
+ {
+  "pkg": "gcp",
   "mod": "dataproc/workflowTemplate",
   "fqn": "pulumi_gcp.dataproc",
   "classes": {
@@ -5004,6 +5039,14 @@ _utilities.register(
   "fqn": "pulumi_gcp.diagflow",
   "classes": {
    "gcp:diagflow/cxWebhook:CxWebhook": "CxWebhook"
+  }
+ },
+ {
+  "pkg": "gcp",
+  "mod": "diagflow/encryptionSpec",
+  "fqn": "pulumi_gcp.diagflow",
+  "classes": {
+   "gcp:diagflow/encryptionSpec:EncryptionSpec": "EncryptionSpec"
   }
  },
  {

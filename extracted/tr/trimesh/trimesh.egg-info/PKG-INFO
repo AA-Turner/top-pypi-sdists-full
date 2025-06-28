@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trimesh
-Version: 4.6.12
+Version: 4.6.13
 Summary: Import, export, process, analyze and view triangular meshes.
 Author-email: Michael Dawson-Haggerty <mikedh@kerfed.com>
 License: The MIT License (MIT)

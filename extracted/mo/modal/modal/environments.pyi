@@ -7,20 +7,42 @@ import typing
 import typing_extensions
 
 class EnvironmentSettings:
+    """EnvironmentSettings(image_builder_version: str, webhook_suffix: str)"""
+
     image_builder_version: str
     webhook_suffix: str
 
-    def __init__(self, image_builder_version: str, webhook_suffix: str) -> None: ...
-    def __repr__(self): ...
-    def __eq__(self, other): ...
-    def __setattr__(self, name, value): ...
-    def __delattr__(self, name): ...
-    def __hash__(self): ...
+    def __init__(self, image_builder_version: str, webhook_suffix: str) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
 
 class _Environment(modal._object._Object):
     _settings: EnvironmentSettings
 
-    def __init__(self): ...
+    def __init__(self):
+        """mdmd:hidden"""
+        ...
+
     def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
     @staticmethod
     def from_name(name: str, *, create_if_missing: bool = False): ...
@@ -32,7 +54,10 @@ class _Environment(modal._object._Object):
 class Environment(modal.object.Object):
     _settings: EnvironmentSettings
 
-    def __init__(self): ...
+    def __init__(self):
+        """mdmd:hidden"""
+        ...
+
     def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
     @staticmethod
     def from_name(name: str, *, create_if_missing: bool = False): ...
@@ -93,6 +118,13 @@ class __list_environments_spec(typing_extensions.Protocol):
 
 list_environments: __list_environments_spec
 
-def ensure_env(environment_name: typing.Optional[str] = None) -> str: ...
+def ensure_env(environment_name: typing.Optional[str] = None) -> str:
+    """Override config environment with environment from environment_name
+
+    This is necessary since a cli command that runs Modal code, without explicit
+    environment specification wouldn't pick up the environment specified in a
+    command line flag otherwise, e.g. when doing `modal run --env=foo`
+    """
+    ...
 
 ENVIRONMENT_CACHE: dict[str, _Environment]

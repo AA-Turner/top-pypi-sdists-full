@@ -17,7 +17,10 @@ def main() -> None:
     parser.add_argument("--sigma", default=3.0, type=float, help="The use sigma")
     parser.add_argument("--num-peaks", default=20, type=int, help="The used number of peaks")
     parser.add_argument(
-        "--num-angles", default=180, type=int, help="The used number of angle (determine the precision)"
+        "--num-angles",
+        default=180,
+        type=int,
+        help="The used number of angle (determine the precision)",
     )
     parser.add_argument("--background", help="The used background color")
     parser.add_argument(default=None, dest="input", help="Input file name")
@@ -26,7 +29,10 @@ def main() -> None:
     image = io.imread(options.input)
     grayscale = image if len(image.shape) == 2 else rgb2gray(image)
     angle = determine_skew(
-        grayscale, sigma=options.sigma, num_peaks=options.num_peaks, num_angles=options.num_angles
+        grayscale,
+        sigma=options.sigma,
+        num_peaks=options.num_peaks,
+        num_angles=options.num_angles,
     )
     if options.output is None:
         print(f"Estimated angle: {angle}")
@@ -45,14 +51,14 @@ def main() -> None:
                 print("Wrong background color, should be r,g,b")
                 sys.exit(1)
 
-            rotated = rotate(image, angle, resize=True, cval=-1) * 255
+            rotated = rotate(image, angle, resize=True, cval=-1) * 255  # type: ignore[no-untyped-call]
             pos = np.where(rotated == -255)
             if len(image.shape) == 2:
-                rotated[pos[0], pos[1]] = int(round(np.mean(background)))
+                rotated[pos[0], pos[1]] = round(np.mean(background))
             else:
                 rotated[pos[0], pos[1], :] = background
         else:
-            rotated = rotate(image, angle, resize=True) * 255
+            rotated = rotate(image, angle, resize=True) * 255  # type: ignore[no-untyped-call]
         io.imsave(options.output, rotated.astype(np.uint8))
 
 

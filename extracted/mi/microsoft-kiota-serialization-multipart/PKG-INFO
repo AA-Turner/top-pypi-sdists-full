@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: microsoft-kiota-serialization-multipart
-Version: 1.9.3
+Version: 1.9.4
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 Keywords: kiota,openAPI,Microsoft,Graph
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: microsoft-kiota-abstractions (>=1.9.3,<1.10.0)
+Requires-Dist: microsoft-kiota-abstractions (>=1.9.4,<1.10.0)
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/
 Project-URL: Homepage, https://github.com/microsoft/kiota#readme
 Project-URL: Repository, https://github.com/microsoft/kiota-python

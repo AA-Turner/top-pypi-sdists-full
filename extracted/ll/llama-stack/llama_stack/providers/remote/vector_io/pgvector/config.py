@@ -13,17 +13,17 @@ from llama_stack.schema_utils import json_schema_type
 
 @json_schema_type
 class PGVectorVectorIOConfig(BaseModel):
-    host: str = Field(default="localhost")
-    port: int = Field(default=5432)
-    db: str = Field(default="postgres")
-    user: str = Field(default="postgres")
-    password: str = Field(default="mysecretpassword")
+    host: str | None = Field(default="localhost")
+    port: int | None = Field(default=5432)
+    db: str | None = Field(default="postgres")
+    user: str | None = Field(default="postgres")
+    password: str | None = Field(default="mysecretpassword")
 
     @classmethod
     def sample_run_config(
         cls,
-        host: str = "${env.PGVECTOR_HOST:localhost}",
-        port: int = "${env.PGVECTOR_PORT:5432}",
+        host: str = "${env.PGVECTOR_HOST:=localhost}",
+        port: int = "${env.PGVECTOR_PORT:=5432}",
         db: str = "${env.PGVECTOR_DB}",
         user: str = "${env.PGVECTOR_USER}",
         password: str = "${env.PGVECTOR_PASSWORD}",

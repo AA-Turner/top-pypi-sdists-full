@@ -92,6 +92,9 @@ __all__ = (
     "GlueServiceName",
     "HudiTargetCompressionTypeType",
     "HyperTargetCompressionTypeType",
+    "IcebergNullOrderType",
+    "IcebergSortDirectionType",
+    "IcebergStructTypeEnumType",
     "IcebergTargetCompressionTypeType",
     "InclusionAnnotationValueType",
     "IntegrationStatusType",
@@ -384,6 +387,9 @@ GlueRecordTypeType = Literal[
 ]
 HudiTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 HyperTargetCompressionTypeType = Literal["uncompressed"]
+IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
+IcebergSortDirectionType = Literal["asc", "desc"]
+IcebergStructTypeEnumType = Literal["struct"]
 IcebergTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 InclusionAnnotationValueType = Literal["EXCLUDE", "INCLUDE"]
 IntegrationStatusType = Literal[
@@ -753,6 +759,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",

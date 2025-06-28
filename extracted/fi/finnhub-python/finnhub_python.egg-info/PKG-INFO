@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: finnhub-python
-Version: 2.4.23
+Version: 2.4.24
 Summary: Finnhub API
 Home-page: https://finnhub.io/docs/api
 Author: Finnhub
@@ -17,6 +17,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
@@ -24,7 +25,7 @@ Dynamic: summary
 
 - API documentation: https://finnhub.io/docs/api
 - API version: 1.0.0
-- Package version: 2.4.23
+- Package version: 2.4.24
 
 ## Installation
 
@@ -330,6 +331,9 @@ print(finnhub_client.price_metrics(symbol="AAPL", date="2022-01-01"))
 ## Market Holday / Status
 print(finnhub_client.market_holiday(exchange='US'))
 print(finnhub_client.market_status(exchange='US'))
+
+# Bank Branch
+print(finnhub_client.bank_branch("JPM"))
 
 ```
 

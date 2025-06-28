@@ -225,7 +225,9 @@ def are_files_too_large(file_paths: str, max_size_bytes: int) -> bool:
     return total_size >= max_size_bytes
 
 
-def find_all_local_file_names(source_folder_name: str = "") -> List[str]:
+def find_all_local_file_names(
+    source_folder_name: str = "", base_directory: str = "."
+) -> List[str]:
     """
     Returns a list of all files that exist in the current working directory,
     filtered by source_folder_name if provided.
@@ -238,9 +240,10 @@ def find_all_local_file_names(source_folder_name: str = "") -> List[str]:
     """
     logger.debug(f"Finding all local file names in {source_folder_name}...")
 
-    cwd = os.getcwd()
     source_folder_name = clean_folder_name(source_folder_name)
-    search_pattern = os.path.normpath(os.path.join(cwd, source_folder_name, "**"))
+    search_pattern = os.path.normpath(
+        os.path.join(base_directory, source_folder_name, "**")
+    )
     all_paths = glob.glob(search_pattern, recursive=True)
 
     return remove_directories_from_path_list(all_paths)
@@ -296,8 +299,7 @@ def find_matching_files(search_term: str, directory: str, match_type: str) -> li
     list: A list of all matching_file_names that matched the regular expression.
     """
     if match_type == "exact_match":
-        cwd = os.getcwd()
-        full_path = os.path.normpath(f"{cwd}/{directory}/{search_term}")
+        full_path = combine_folder_and_file_name(directory, search_term)
         return [full_path] if os.path.exists(full_path) else []
 
     filenames = find_all_local_file_names(directory)

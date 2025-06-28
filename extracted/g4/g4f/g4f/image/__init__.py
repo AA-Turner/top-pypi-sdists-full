@@ -7,16 +7,17 @@ import base64
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 try:
     from PIL import Image, ImageOps
-    from PIL import open as open_image
     has_requirements = True
 except ImportError:
     has_requirements = False
 
-from ..typing import ImageType, Image
+from ..typing import ImageType
 from ..errors import MissingRequirementsError
+from ..files import get_bucket_dir
 
 EXTENSIONS_MAP: dict[str, str] = {
     # Image
@@ -41,7 +42,7 @@ EXTENSIONS_MAP: dict[str, str] = {
 MEDIA_TYPE_MAP: dict[str, str] = {value: key for key, value in EXTENSIONS_MAP.items()}
 MEDIA_TYPE_MAP["audio/webm"] = "webm"
 
-def to_image(image: ImageType, is_svg: bool = False) -> Image:
+def to_image(image: ImageType, is_svg: bool = False) -> Image.Image:
     """
     Converts the input image to a PIL Image object.
 
@@ -67,13 +68,13 @@ def to_image(image: ImageType, is_svg: bool = False) -> Image:
             image = image.read()
         buffer = BytesIO()
         cairosvg.svg2png(image, write_to=buffer)
-        return open_image(buffer)
+        return Image.open(buffer)
 
     if isinstance(image, bytes):
         is_accepted_format(image)
-        return open_image(BytesIO(image))
-    elif not isinstance(image, Image):
-        image = open_image(image)
+        return Image.open(BytesIO(image))
+    elif not isinstance(image, Image.Image):
+        image = Image.open(image)
         image.load()
         return image
 
@@ -163,6 +164,7 @@ def is_data_uri_an_image(data_uri: str) -> bool:
     # Check if the image format is one of the allowed formats (jpg, jpeg, png, gif)
     if image_format not in EXTENSIONS_MAP and image_format != "svg+xml":
         raise ValueError("Invalid image format (from mime file type).")
+    return True
 
 def is_accepted_format(binary_data: bytes) -> str:
     """
@@ -203,7 +205,7 @@ def extract_data_uri(data_uri: str) -> bytes:
     data = base64.b64decode(data)
     return data
 
-def process_image(image: Image, new_width: int = 800, new_height: int = 400, save: str = None) -> Image:
+def process_image(image: Image.Image, new_width: int = 800, new_height: int = 400, save: str = None) -> Image.Image:
     """
     Processes the given image by adjusting its orientation and resizing it.
 
@@ -220,7 +222,7 @@ def process_image(image: Image, new_width: int = 800, new_height: int = 400, sav
     # Remove transparency
     if image.mode == "RGBA":
         image.load()
-        white = open_image('RGB', image.size, (255, 255, 255))
+        white = Image.open('RGB', image.size, (255, 255, 255))
         white.paste(image, mask=image.split()[-1])
         return white
     # Convert to RGB for jpg format
@@ -242,15 +244,26 @@ def to_bytes(image: ImageType) -> bytes:
     """
     if isinstance(image, bytes):
         return image
-    elif isinstance(image, str) and image.startswith("data:"):
-        is_data_an_media(image)
-        return extract_data_uri(image)
-    elif isinstance(image, Image):
+    elif isinstance(image, str):
+        if image.startswith("data:"):
+            is_data_uri_an_image(image)
+            return extract_data_uri(image)
+        elif image.startswith("http://") or image.startswith("https://"):
+            path: str = urlparse(image).path
+            if path.startswith("/files/"):
+                path = get_bucket_dir(path.split(path, "/")[1:])
+                if os.path.exists(path):
+                    return Path(path).read_bytes()
+                else:
+                    raise FileNotFoundError(f"File not found: {path}")
+        else:
+            raise ValueError("Invalid image format. Expected bytes, str, or PIL Image.")
+    elif isinstance(image, Image.Image):
         bytes_io = BytesIO()
         image.save(bytes_io, image.format)
         image.seek(0)
         return bytes_io.getvalue()
-    elif isinstance(image, (str, os.PathLike)):
+    elif isinstance(image, os.PathLike):
         return Path(image).read_bytes()
     elif isinstance(image, Path):
         return image.read_bytes()

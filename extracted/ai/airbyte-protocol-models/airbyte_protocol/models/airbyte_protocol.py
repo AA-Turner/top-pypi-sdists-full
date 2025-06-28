@@ -96,6 +96,10 @@ class AirbyteStateStats(BaseModel):
         None,
         description='the number of records which were emitted for this state message, for this stream or global. While the value should always be a round number, it is defined as a double to account for integer overflows, and the value should always have a decimal point for proper serialization.',
     )
+    rejectedRecordCount: Optional[float] = Field(
+        None,
+        description='the number of records which were rejected for this state message, for this stream or global. While the value should always be a round number, it is defined as a double to account for integer overflows, and the value should always have a decimal point for proper serialization.\n',
+    )
 
 
 class Level(Enum):

@@ -640,6 +640,7 @@ class AnyscaleClient(AnyscaleClientInterface):
     def get_compute_config_id(
         self,
         compute_config_name: Optional[str] = None,
+        cloud: Optional[str] = None,
         *,
         include_archived: bool = False,
     ) -> Optional[str]:
@@ -648,6 +649,11 @@ class AnyscaleClient(AnyscaleClientInterface):
             if version is None:
                 # Setting `version=-1` will return only the latest version if there are multiple.
                 version = -1
+
+            cloud_id = (
+                self.get_cloud_id(cloud_name=cloud) if cloud is not None else None
+            )
+
             cluster_computes = self._internal_api_client.search_compute_templates_api_v2_compute_templates_search_post(
                 ComputeTemplateQuery(
                     orgwide=True,
@@ -657,6 +663,7 @@ class AnyscaleClient(AnyscaleClientInterface):
                     if include_archived
                     else ArchiveStatus.NOT_ARCHIVED,
                     version=version,
+                    cloud_id=cloud_id,
                 )
             ).results
 

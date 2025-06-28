@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 0.23.1
+Version: 0.23.2
 Summary: Pgqueuer is a Python library leveraging PostgreSQL for efficient job queuing.
 Author: JeyBee
 License: MIT License
@@ -64,6 +64,7 @@ Provides-Extra: docs
 Requires-Dist: myst-parser; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: sphinxcontrib-mermaid; extra == "docs"
 Dynamic: license-file
 
 # 🚀 PGQueuer - Building Smoother Workflows One Queue at a Time 🚀
@@ -199,6 +200,18 @@ Example output:
 - **Built for Scale**: Handles thousands of jobs per second, making it ideal for high-throughput applications.
 - **PostgreSQL Native**: Utilizes advanced PostgreSQL features for robust job handling.
 - **Flexible Concurrency**: Offers rate and concurrency limiting to cater to different use-cases, from bursty workloads to critical resource-bound tasks.
+
+### Improving Notification Reliability
+
+Use ``--shutdown-on-listener-failure`` so a failing listener triggers a restart.
+To disable the periodic status poll, pass ``refresh_interval=None`` to
+``CompletionWatcher`` when your notification channel is stable.
+
+### Windows Support
+
+PGQueuer is validated on Windows through GitHub Actions. The worker runs with the
+default asyncio event loop and shuts down gracefully with ``Ctrl+C`` even when
+signal handlers cannot be registered.
 
 ## License
 

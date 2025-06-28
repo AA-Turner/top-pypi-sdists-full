@@ -131,10 +131,11 @@ async def worker(
         try:
             await consume(stream, run_id, resumable)
         except Exception as e:
-            logger.error(
-                f"Run encountered an error in graph: {type(e)}({e})",
-                exc_info=e,
-            )
+            if not isinstance(e, UserRollback | UserInterrupt):
+                logger.error(
+                    f"Run encountered an error in graph: {type(e)}({e})",
+                    exc_info=e,
+                )
             # TimeoutError is a special case where we rely on asyncio.wait_for to timeout runs
             # Convert user TimeoutErrors to a custom class so we can distinguish and later convert back
             if isinstance(e, TimeoutError):

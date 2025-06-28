@@ -247,6 +247,19 @@ class ModalClientStub:
         modal_proto.api_pb2.EnvironmentUpdateRequest,
         modal_proto.api_pb2.EnvironmentListItem,
     ]
+    FlashContainerDeregister: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FlashContainerDeregisterRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    """Modal Flash (experimental)"""
+    FlashContainerList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FlashContainerListRequest,
+        modal_proto.api_pb2.FlashContainerListResponse,
+    ]
+    FlashContainerRegister: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FlashContainerRegisterRequest,
+        modal_proto.api_pb2.FlashContainerRegisterResponse,
+    ]
     FunctionAsyncInvoke: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionAsyncInvokeRequest,
         modal_proto.api_pb2.FunctionAsyncInvokeResponse,
@@ -1004,6 +1017,25 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.EnvironmentUpdateRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.EnvironmentListItem: ...
+    @abc.abstractmethod
+    def FlashContainerDeregister(
+        self,
+        request: modal_proto.api_pb2.FlashContainerDeregisterRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty:
+        """Modal Flash (experimental)"""
+    @abc.abstractmethod
+    def FlashContainerList(
+        self,
+        request: modal_proto.api_pb2.FlashContainerListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FlashContainerListResponse: ...
+    @abc.abstractmethod
+    def FlashContainerRegister(
+        self,
+        request: modal_proto.api_pb2.FlashContainerRegisterRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FlashContainerRegisterResponse: ...
     @abc.abstractmethod
     def FunctionAsyncInvoke(
         self,

@@ -657,14 +657,17 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         identity = self._identity(key)
         hash_ = hash(identity)
         res = []
-
+        restore = []
         for slot, idx, e in self._keys.iter_hash(hash_):
             if e.identity == identity:  # pragma: no branch
                 res.append(e.value)
                 e.hash = -1
-        self._keys.restore_hash(hash_)
+                restore.append(idx)
 
         if res:
+            entries = self._keys.entries
+            for idx in restore:
+                entries[idx].hash = hash_  # type: ignore[union-attr]
             return res
         if not res and default is not sentinel:
             return default
@@ -985,7 +988,7 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         return ret
 
     def update(self, arg: MDArg[_V] = None, /, **kwargs: _V) -> None:
-        """Update the dictionary from *other*, overwriting existing keys."""
+        """Update the dictionary, overwriting existing keys."""
         items = self._parse_args(arg, kwargs)
         newsize = self._used + len(items)
         log2_size = estimate_log2_keysize(newsize)
@@ -996,10 +999,9 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         if log2_size > self._keys.log2_size:
             self._resize(log2_size, False)
         self._update_items(items)
+        self._post_update()
 
     def _update_items(self, items: list[_Entry[_V]]) -> None:
-        if not items:
-            return
         for entry in items:
             found = False
             hash_ = entry.hash
@@ -1016,6 +1018,7 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
             if not found:
                 self._add_with_hash_for_upd(entry)
 
+    def _post_update(self) -> None:
         keys = self._keys
         indices = keys.indices
         entries = keys.entries
@@ -1025,13 +1028,37 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
                 e2 = entries[idx]
                 assert e2 is not None
                 if e2.key is None:
-                    entries[idx] = None  # type: ignore[unreachable]
+                    entries[idx] = None
                     indices[slot] = -2
                     self._used -= 1
                 if e2.hash == -1:
                     e2.hash = hash(e2.identity)
 
         self._incr_version()
+
+    def merge(self, arg: MDArg[_V] = None, /, **kwargs: _V) -> None:
+        """Merge into the dictionary, adding non-existing keys."""
+        items = self._parse_args(arg, kwargs)
+        newsize = self._used + len(items)
+        log2_size = estimate_log2_keysize(newsize)
+        if log2_size > 17:  # pragma: no cover
+            # Don't overallocate really huge keys space in update,
+            # duplicate keys could reduce the resulting anount of entries
+            log2_size = 17
+        if log2_size > self._keys.log2_size:
+            self._resize(log2_size, False)
+        self._merge_items(items)
+        self._post_update()
+
+    def _merge_items(self, items: list[_Entry[_V]]) -> None:
+        for entry in items:
+            hash_ = entry.hash
+            identity = entry.identity
+            for slot, idx, e in self._keys.iter_hash(hash_):
+                if e.identity == identity:  # pragma: no branch
+                    break
+            else:
+                self._add_with_hash_for_upd(entry)
 
     def _incr_version(self) -> None:
         v = _version

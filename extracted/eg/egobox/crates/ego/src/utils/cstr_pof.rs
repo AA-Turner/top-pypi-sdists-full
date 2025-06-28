@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_pof_gradients() {
-        let xtypes = vec![XType::Cont(0., 25.)];
+        let xtypes = vec![XType::Float(0., 25.)];
 
         let mixi = MixintContext::new(&xtypes);
 
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_pofs_grad() {
-        let xtypes = vec![XType::Cont(0., 25.)];
+        let xtypes = vec![XType::Float(0., 25.)];
 
         let mixi = MixintContext::new(&xtypes);
 
@@ -193,9 +193,9 @@ mod tests {
         let term2 =
             pof_grad(&x, &*cstr_models[1], cstr_tols[1]) * pof(&x, &*cstr_models[0], cstr_tols[0]);
         let expected = term1 + term2;
-        println!("expected = {:?}", expected);
-        println!("grad = {:?}", grad);
-        println!("grad_central = {:?}", grad_central);
+        println!("expected = {expected:?}");
+        println!("grad = {grad:?}");
+        println!("grad_central = {grad_central:?}");
         assert_abs_diff_eq!(grad[0], grad_central[0], epsilon = 1e-6);
     }
 }

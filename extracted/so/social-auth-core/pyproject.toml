@@ -7,17 +7,17 @@ dev = [
   "coverage>=3.6",
   "flake8>=5.0.4",
   "google-auth-stubs==0.3.0",
-  "mypy==1.15.0",
-  "pyright==1.1.400",
+  "mypy==1.16.1",
+  "pyright==1.1.402",
   "pytest-cov>=2.7.1",
   "pytest-xdist>=3.6.1",
   "pytest>=4.5",
   "responses==0.25.7",
-  "types-defusedxml==0.7.0.20240218",
-  "types-oauthlib==3.2.0.20250408",
-  "types-python-jose==3.4.0.20250224",
-  "types-requests-oauthlib==2.0.0.20250306",
-  "types-requests==2.32.0.20250328"
+  "types-defusedxml==0.7.0.20250516",
+  "types-oauthlib==3.3.0.20250622",
+  "types-python-jose==3.5.0.20250531",
+  "types-requests-oauthlib==2.0.0.20250516",
+  "types-requests==2.32.4.20250611"
 ]
 
 [project]
@@ -54,7 +54,7 @@ license-files = ["LICENSE"]
 name = "social-auth-core"
 readme = "README.md"
 requires-python = ">=3.9"
-version = "4.6.1"
+version = "4.7.0"
 
 [project.optional-dependencies]
 all = [
@@ -75,20 +75,20 @@ dev = [
   "coverage>=3.6",
   "flake8>=5.0.4",
   "google-auth-stubs==0.3.0",
-  "mypy==1.15.0",
-  "pyright==1.1.400",
+  "mypy==1.16.1",
+  "pyright==1.1.402",
   "pytest-cov>=2.7.1",
   "pytest-xdist>=3.6.1",
   "pytest>=4.5",
   "responses==0.25.7",
-  "types-defusedxml==0.7.0.20240218",
-  "types-oauthlib==3.2.0.20250408",
-  "types-python-jose==3.4.0.20250224",
-  "types-requests-oauthlib==2.0.0.20250306",
-  "types-requests==2.32.0.20250328"
+  "types-defusedxml==0.7.0.20250516",
+  "types-oauthlib==3.3.0.20250622",
+  "types-python-jose==3.5.0.20250531",
+  "types-requests-oauthlib==2.0.0.20250516",
+  "types-requests==2.32.4.20250611"
 ]
 google-onetap = [
-  "google-auth~=2.39.0"
+  "google-auth~=2.40.0"
 ]
 ping = [
   "python-jose>=3.4.0,<4.0"
@@ -101,6 +101,8 @@ shopify = [
 ]
 
 [project.urls]
+Changelog = "https://github.com/python-social-auth/social-core/blob/master/CHANGELOG.md"
+Funding = "https://opencollective.com/python-social-auth"
 Homepage = "https://github.com/python-social-auth/social-core"
 
 [tool.check-manifest]
@@ -147,17 +149,12 @@ extend-safe-fixes = [
   "UP"
 ]
 ignore = [
-  "A001",  # TODO: Variable is shadowing a Python builtin
-  "A002",  # TODO: Function argument is shadowing a Python builtin
   "ANN",  # TODO: Missing type annotations
   "ARG001",  # TODO: Unused function argument (mostly for API compatibility)
   "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
   "ARG003",  # TODO: Unused class method argument
-  "ARG005",  # TODO: Unused lambda argument
-  "B018",  # TODO: Found useless expression.
   "B026",  # TODO: Star-arg unpacking after a keyword argument is strongly discouraged
   "B904",  # TODO: use raise from
-  "BLE001",  # TODO: Do not catch blind exception: `Exception`
   "COM",  # CONFIG: No trailing commas
   "D",  # TODO: Missing documentation
   "D203",  # CONFIG: incompatible with D211
@@ -174,18 +171,14 @@ ignore = [
   "N",  # TODO: Naming issues
   "PERF203",  # WONTFIX: This rule is only enforced for Python versions prior to 3.11
   "PLR2004",  # TODO: Magic value used in comparison
-  "PLW0603",  # TODO: Using the global statement to update `BACKENDSCACHE` is discouraged
   "PLW2901",  # TODO: loop variable overwritten by assignment target
   "PT",  # CONFIG: Not using pytest
   "RUF012",  # TODO: Type annotations
   "S101",  # TODO: Use of `assert` detected
   "S105",  # TODO: Possible hardcoded password assigned
-  "S110",  # TODO: `try`-`except`-`pass` detected, consider logging the exception
   "S301",  # TODO: `pickle` and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue
-  "S318",  # TODO: Using `xml` to parse untrusted data is known to be vulnerable to XML attacks; use `defusedxml` equivalents
   "TD002",  # CONFIG: no detailed TODO documentation is required
   "TD003",  # CONFIG: no detailed TODO documentation is required
-  "TID252",  # TODO: Prefer absolute imports over relative imports from parent modules
   "TRY003",  # TODO: Avoid specifying long messages outside the exception class
   "TRY301",  # TODO: Abstract `raise` to an inner function
   'ISC001'  # CONFIG: formatter

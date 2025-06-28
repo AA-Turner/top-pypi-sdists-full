@@ -63,9 +63,7 @@ from slugify import slugify
 from tenacity import retry, stop_after_attempt, wait_fixed, wait_random
 from typing_extensions import Literal, Self
 
-from prefect.client.orchestration import PrefectClient
 from prefect.client.schemas.objects import FlowRun
-from prefect.client.utilities import inject_client
 from prefect.utilities.asyncutils import run_sync_in_worker_thread
 from prefect.utilities.dockerutils import get_prefect_image_name
 from prefect.utilities.templating import find_placeholders
@@ -74,9 +72,6 @@ from prefect.workers.base import (
     BaseVariables,
     BaseWorker,
     BaseWorkerResult,
-    apply_values,
-    resolve_block_document_references,
-    resolve_variables,
 )
 from prefect_aws.credentials import AwsCredentials, ClientType
 
@@ -388,39 +383,6 @@ class ECSJobConfiguration(BaseJobConfiguration):
             )
         return self
 
-    @classmethod
-    @inject_client
-    async def from_template_and_values(
-        cls,
-        base_job_template: dict,
-        values: dict,
-        client: Optional[PrefectClient] = None,
-    ):
-        """Creates a valid worker configuration object from the provided base
-        configuration and overrides.
-
-        Important: this method expects that the base_job_template was already
-        validated server-side.
-        """
-
-        job_config: Dict[str, Any] = base_job_template["job_configuration"]
-        variables_schema = base_job_template["variables"]
-        variables = cls._get_base_config_defaults(
-            variables_schema.get("properties", {})
-        )
-        variables.update(values)
-
-        _drop_empty_keys_from_dict(variables)  # TODO: investigate why this is necessary
-
-        populated_configuration = apply_values(template=job_config, values=variables)
-        populated_configuration = await resolve_block_document_references(
-            template=populated_configuration, client=client
-        )
-        populated_configuration = await resolve_variables(
-            template=populated_configuration, client=client
-        )
-        return cls(**populated_configuration)
-
 
 class ECSVariables(BaseVariables):
     """
@@ -656,6 +618,28 @@ class ECSWorker(BaseWorker):
     _display_name = "AWS Elastic Container Service"
     _documentation_url = "https://docs.prefect.io/integrations/prefect-aws/"
     _logo_url = "https://cdn.sanity.io/images/3ugk85nk/production/d74b16fe84ce626345adf235a47008fea2869a60-225x225.png"  # noqa
+
+    async def _initiate_run(
+        self,
+        flow_run: "FlowRun",
+        configuration: ECSJobConfiguration,
+    ):
+        """
+        Initiates a flow run on AWS ECS. This method does not wait for the flow run to complete.
+        """
+        ecs_client = await run_sync_in_worker_thread(
+            self._get_client, configuration, "ecs"
+        )
+
+        logger = self.get_flow_run_logger(flow_run)
+
+        await run_sync_in_worker_thread(
+            self._create_task_and_wait_for_start,
+            logger,
+            ecs_client,
+            configuration,
+            flow_run,
+        )
 
     async def run(
         self,
@@ -1429,6 +1413,8 @@ class ECSWorker(BaseWorker):
         if task_definition.get("memory"):
             task_definition["memory"] = str(task_definition["memory"])
 
+        _drop_empty_keys_from_dict(task_definition)
+
         return task_definition
 
     def _load_network_configuration(
@@ -1738,6 +1724,27 @@ class ECSWorker(BaseWorker):
                 container_definitions[0].setdefault("essential", True)
 
             taskdef.setdefault("networkMode", "bridge")
+
+            # Normalize ordering of lists that ECS considers unordered
+            # ECS stores these in unordered data structures, so order shouldn't matter for comparison
+            for container in container_definitions:
+                # Sort environment variables by name for consistent comparison
+                if "environment" in container:
+                    container["environment"] = sorted(
+                        container["environment"], key=lambda x: x.get("name", "")
+                    )
+
+                # Sort secrets by name for consistent comparison
+                if "secrets" in container:
+                    container["secrets"] = sorted(
+                        container["secrets"], key=lambda x: x.get("name", "")
+                    )
+
+                # Sort environmentFiles by value as they don't have names
+                if "environmentFiles" in container:
+                    container["environmentFiles"] = sorted(
+                        container["environmentFiles"], key=lambda x: x.get("value", "")
+                    )
 
         _drop_empty_keys_from_dict(taskdef_1)
         _drop_empty_keys_from_dict(taskdef_2)

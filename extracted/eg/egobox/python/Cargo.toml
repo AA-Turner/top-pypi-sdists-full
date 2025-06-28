@@ -11,7 +11,8 @@ readme = "README.md"
 
 [lib]
 name = "egobox"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+doctest = false                 # do not doctest as doc uses Python style for Python API doc
 
 [features]
 default = []
@@ -22,16 +23,16 @@ persistent-moe = ["egobox-moe/persistent"]
 blas = ["ndarray/blas", "egobox-gp/blas", "egobox-moe/blas", "egobox-ego/blas"]
 
 [dependencies]
-egobox-doe = { version = "0.29.1", path = "../crates/doe" }
-egobox-gp = { version = "0.29.1", path = "../crates/gp" }
-egobox-moe = { version = "0.29.1", path = "../crates/moe", features = [
+egobox-doe = { version = "0.30.0", path = "../crates/doe" }
+egobox-gp = { version = "0.30.0", path = "../crates/gp" }
+egobox-moe = { version = "0.30.0", path = "../crates/moe", features = [
   "persistent",
 ] }
-egobox-ego = { version = "0.29.1", path = "../crates/ego", features = [
+egobox-ego = { version = "0.30.0", path = "../crates/ego", features = [
   "persistent",
 ] }
 
-pyo3 = { version = "0.25", features = ["extension-module"] }
+pyo3 = { version = "0.25" }
 pyo3-log = "0.12"
 numpy = "0.25"
 
@@ -48,3 +49,8 @@ serde_json.workspace = true
 ctrlc.workspace = true
 
 argmin_testfunctions.workspace = true
+pyo3-stub-gen = { version = "0.9", features = ["numpy"] }
+
+[[bin]]
+name = "stub_gen"
+doc = false

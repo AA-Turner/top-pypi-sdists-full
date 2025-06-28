@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icechunk
-Version: 0.2.16
+Version: 0.2.17
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -33,8 +33,40 @@ Requires-Dist: pooch ; extra == 'benchmark'
 Requires-Dist: tqdm ; extra == 'benchmark'
 Requires-Dist: humanize ; extra == 'benchmark'
 Requires-Dist: platformdirs ; extra == 'benchmark'
+Requires-Dist: ipdb ; extra == 'benchmark'
+Requires-Dist: coiled ; extra == 'benchmark'
+Requires-Dist: scipy ; extra == 'docs'
+Requires-Dist: cftime ; extra == 'docs'
+Requires-Dist: pooch ; extra == 'docs'
+Requires-Dist: dask>=2024.11.0 ; extra == 'docs'
+Requires-Dist: distributed>=2024.11.0 ; extra == 'docs'
+Requires-Dist: xarray>=2025.1.2 ; extra == 'docs'
+Requires-Dist: myst-nb ; extra == 'docs'
+Requires-Dist: pydata-sphinx-theme ; extra == 'docs'
+Requires-Dist: mkdocs-awesome-pages-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-mermaid2-plugin ; extra == 'docs'
+Requires-Dist: markdown-exec ; extra == 'docs'
+Requires-Dist: mkdocs-breadcrumbs-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-minify-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-open-in-new-tab ; extra == 'docs'
+Requires-Dist: mkdocs ; extra == 'docs'
+Requires-Dist: mkdocs-material[imaging] ; extra == 'docs'
+Requires-Dist: mkdocstrings[python] ; extra == 'docs'
+Requires-Dist: mkdocs-jupyter ; extra == 'docs'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-git-committers-plugin-2 ; extra == 'docs'
+Requires-Dist: mkdocs-macros-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-include-markdown-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-redirects ; extra == 'docs'
+Requires-Dist: mkdocs-git-authors-plugin ; extra == 'docs'
+Requires-Dist: sphinx ; extra == 'docs'
+Requires-Dist: sphinx-copybutton ; extra == 'docs'
+Requires-Dist: sphinx-design ; extra == 'docs'
+Requires-Dist: sphinx-togglebutton ; extra == 'docs'
+Requires-Dist: sphinx-autodoc-typehints ; extra == 'docs'
 Provides-Extra: test
 Provides-Extra: benchmark
+Provides-Extra: docs
 Summary: Icechunk Python
 Keywords: zarr,xarray,database
 Home-Page: https://icechunk.io

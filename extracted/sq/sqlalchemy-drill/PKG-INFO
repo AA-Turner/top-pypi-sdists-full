@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sqlalchemy_drill
-Version: 1.1.8
+Version: 1.1.9
 Summary: Apache Drill for SQLAlchemy
 Home-page: https://github.com/JohnOmernik/sqlalchemy-drill
-Download-URL: https://github.com/JohnOmernik/sqlalchemy-drill/archive/1.1.8.tar.gz
+Download-URL: https://github.com/JohnOmernik/sqlalchemy-drill/archive/1.1.9.tar.gz
 Author: John Omernik, Charles Givre, Davide Miceli, Massimo Martiradonna, James Turton
 Author-email: john@omernik.com, cgivre@thedataist.com, davide.miceli.dap@gmail.com, massimo.martiradonna.dap@gmail.com, james@somecomputer.xyz
 License: MIT
@@ -31,6 +31,19 @@ Requires-Dist: JPype1; extra == "jdbc"
 Requires-Dist: JayDeBeApi; extra == "jdbc"
 Provides-Extra: odbc
 Requires-Dist: pyodbc; extra == "odbc"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # Apache Drill dialect for SQLAlchemy.
 

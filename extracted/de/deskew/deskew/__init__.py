@@ -1,9 +1,10 @@
 import subprocess  # nosec
 import tempfile
 import warnings
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 from skimage.color import rgb2gray, rgba2rgb
 from skimage.feature import canny
 from skimage.transform import hough_line, hough_line_peaks
@@ -11,9 +12,11 @@ from skimage.transform import hough_line, hough_line_peaks
 if TYPE_CHECKING:
     from typing import TypeAlias
 
-    ImageType: TypeAlias = np.ndarray[np.uint8, Any]
-    ImageTypeUint64: TypeAlias = np.ndarray[np.uint8, Any]
-    ImageTypeFloat64: TypeAlias = np.ndarray[np.float64, Any]
+    import matplotlib.projections.polar
+
+    ImageType: TypeAlias = npt.NDArray[np.integer[Any] | np.floating[Any]]
+    ImageTypeUint64: TypeAlias = npt.NDArray[np.uint8]
+    ImageTypeFloat64: TypeAlias = npt.NDArray[np.float64]
 else:
     ImageType = np.ndarray
     ImageTypeUint64 = np.ndarray
@@ -24,12 +27,12 @@ def determine_skew_dev(
     image: ImageType,
     sigma: float = 3.0,
     num_peaks: int = 20,
-    min_angle: Optional[float] = None,  # -np.pi / 2,
-    max_angle: Optional[float] = None,  # np.pi / 2,
+    min_angle: float | None = None,  # -np.pi / 2,
+    max_angle: float | None = None,  # np.pi / 2,
     min_deviation: float = np.pi / 180,
     angle_pm_90: bool = False,
 ) -> tuple[
-    Optional[np.float64],
+    np.float64 | None,
     tuple[
         tuple[ImageTypeUint64, list[list[np.float64]], ImageTypeFloat64],
         tuple[list[Any], list[np.float64], list[np.float64]],
@@ -37,16 +40,19 @@ def determine_skew_dev(
     ],
 ]:
     """Calculate skew angle."""
-
     num_angles = round(np.pi / min_deviation)
-    imagergb = rgba2rgb(image) if len(image.shape) == 3 and image.shape[2] == 4 else image
+    imagergb = rgba2rgb(image) if len(image.shape) == 3 and image.shape[2] == 4 else image  # type: ignore[no-untyped-call]
     img = rgb2gray(imagergb) if len(imagergb.shape) == 3 else imagergb
-    edges = canny(img, sigma=sigma)
-    out, angles, distances = hough_line(edges, np.linspace(-np.pi / 2, np.pi / 2, num_angles, endpoint=False))
+    edges = canny(img, sigma=sigma)  # type: ignore[no-untyped-call]
+    out, angles, distances = hough_line(edges, np.linspace(-np.pi / 2, np.pi / 2, num_angles, endpoint=False))  # type: ignore[no-untyped-call]
     hough_line_out = (out, angles, distances)
 
-    hspace, angles_peaks, dists = hough_line_peaks(
-        out, angles, distances, num_peaks=num_peaks, threshold=0.05 * np.max(out)
+    hspace, angles_peaks, dists = hough_line_peaks(  # type: ignore[no-untyped-call]
+        out,
+        angles,
+        distances,
+        num_peaks=num_peaks,
+        threshold=0.05 * np.max(out),
     )
     hough_line_peaks_out = (hspace, angles_peaks, dists)
 
@@ -78,13 +84,8 @@ def determine_skew_dev(
         freqs.setdefault(peak, 0)
         freqs[peak] += 1
 
-    sorted_keys = sorted(freqs.keys(), key=freqs.get, reverse=True)  # type: ignore
+    sorted_keys = sorted(freqs.keys(), key=freqs.get, reverse=True)  # type: ignore[arg-type]
     max_freq = freqs[sorted_keys[0]]
-
-    max_arr = []
-    for sorted_key in sorted_keys:
-        if freqs[sorted_key] == max_freq:
-            max_arr.append(sorted_key)
 
     angle = None
     for sorted_key in sorted_keys:
@@ -103,10 +104,10 @@ def determine_skew_debug_images(
     sigma: float = 3.0,
     num_peaks: int = 20,
     angle_pm_90: bool = False,
-    min_angle: Optional[float] = None,
-    max_angle: Optional[float] = None,
+    min_angle: float | None = None,
+    max_angle: float | None = None,
     min_deviation: float = 1.0,
-) -> tuple[Optional[np.float64], list[tuple[str, ImageType]]]:
+) -> tuple[np.float64 | None, list[tuple[str, ImageType]]]:
     """Calculate skew angle, and return images useful for debugging."""
     import cv2  # pylint: disable=import-outside-toplevel
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
@@ -205,7 +206,7 @@ def determine_skew_debug_images(
     with tempfile.NamedTemporaryFile(suffix=".png") as file:
         plt.savefig(file.name)
         try:
-            subprocess.run(["gm", "convert", "-flatten", file.name, file.name], check=True)  # nosec
+            subprocess.run(["gm", "convert", "-flatten", file.name, file.name], check=True)  # noqa: S603, S607
         except FileNotFoundError:
             print("Install graphicsmagick to don't have transparent background")
 
@@ -219,7 +220,7 @@ def determine_skew_debug_images(
     axe.set_axis_off()
     axe.set_title("Detected lines")
 
-    for _, line_angle, dist in zip(*hough_line_peaks_data):
+    for _, line_angle, dist in zip(*hough_line_peaks_data, strict=False):
         (coord0x, coord0y) = dist * np.array([np.cos(line_angle), np.sin(line_angle)])
         angle2 = (
             (line_angle % np.pi - np.pi / 2)
@@ -229,14 +230,17 @@ def determine_skew_debug_images(
         diff = float(abs(angle2 - skew_angle)) if skew_angle is not None else 999.0
         if diff < 0.001:
             axe.axline(
-                (coord0x, coord0y), slope=np.tan(line_angle + np.pi / 2), linewidth=1, color="lightgreen"
+                (coord0x, coord0y),
+                slope=np.tan(line_angle + np.pi / 2),
+                linewidth=1,
+                color="lightgreen",
             )
         else:
             axe.axline((coord0x, coord0y), slope=np.tan(line_angle + np.pi / 2), linewidth=1)
             axe.text(
                 coord0x,
                 coord0y,
-                f"{round(np.rad2deg(line_angle)*1000)/1000}",
+                f"{round(np.rad2deg(line_angle) * 1000) / 1000}",
                 rotation=np.rad2deg(line_angle - np.pi / 2),
                 rotation_mode="anchor",
                 transform_rotates_text=True,
@@ -246,27 +250,27 @@ def determine_skew_debug_images(
     with tempfile.NamedTemporaryFile(suffix=".png") as file:
         plt.savefig(file.name)
         try:
-            subprocess.run(["gm", "convert", "-flatten", file.name, file.name], check=True)  # nosec
+            subprocess.run(["gm", "convert", "-flatten", file.name, file.name], check=True)  # noqa: S603, S607
         except FileNotFoundError:
             print("Install graphicsmagick to don't have transparent background")
         image = cv2.imread(file.name)
         debug_images.append(("detected_lines", cv2.imread(file.name)))
 
-    _, axe = plt.subplots(1, 2, figsize=(15, 6), subplot_kw={"polar": True})
+    _, (axe0, axe1) = plt.subplots(1, 2, figsize=(15, 6), subplot_kw={"polar": True})
 
-    axe[0].set_title("Original detected angles")
-    axe[1].set_title("Corrected angles")
+    axe0.set_title("Original detected angles")
+    axe1.set_title("Corrected angles")
 
     def fill_polar(
-        axe: Any,
+        axe: "matplotlib.projections.polar.PolarAxes",
         freqs: dict[np.float64, int],
         angles: list[float],
         limits: list[tuple[float, float]],
         half: bool = False,
     ) -> None:
-        axe.scatter(freqs.keys(), freqs.values())
+        axe.scatter(list(freqs.keys()), list(freqs.values()))
         axe.set_theta_zero_location("N")
-        axe.grid(True)
+        axe.grid(visible=True)
         if half:
             axe.set_thetamin(-45)
             axe.set_thetamax(45)
@@ -283,14 +287,14 @@ def determine_skew_debug_images(
             if limit_max != np.pi / 2 and (not half or -np.pi / 4 < limit_max < np.pi / 4):
                 axe.axvline(limit_max)
 
-    fill_polar(axe[0], freqs0, skew_angles0, limits2)
-    fill_polar(axe[1], freqs, [] if skew_angle is None else [float(skew_angle)], limits, not angle_pm_90)
+    fill_polar(axe0, freqs0, skew_angles0, limits2)
+    fill_polar(axe1, freqs, [] if skew_angle is None else [float(skew_angle)], limits, not angle_pm_90)
 
     plt.tight_layout()
     with tempfile.NamedTemporaryFile(suffix=".png") as file:
         plt.savefig(file.name)
         try:
-            subprocess.run(["gm", "convert", "-flatten", file.name, file.name], check=True)  # nosec
+            subprocess.run(["gm", "convert", "-flatten", file.name, file.name], check=True)  # noqa: S603, S607
         except FileNotFoundError:
             print("Install graphicsmagick to don't have transparent background")
         image = cv2.imread(file.name)
@@ -303,20 +307,42 @@ def determine_skew(
     image: ImageType,
     sigma: float = 3.0,
     num_peaks: int = 20,
-    num_angles: Optional[int] = None,
+    num_angles: int | None = None,
     angle_pm_90: bool = False,
-    min_angle: Optional[float] = None,
-    max_angle: Optional[float] = None,
+    min_angle: float | None = None,
+    max_angle: float | None = None,
     min_deviation: float = 1.0,
-) -> Optional[np.float64]:
+) -> np.float64 | None:
     """
     Calculate skew angle.
 
-    Return None if no skew will be found
+    Parameters
+    ----------
+    image: np.ndarray
+        Input image
+    sigma: float
+        Standard deviation of Gaussian filter
+    num_peaks: int
+        Number of peaks to detect
+    num_angles: int
+        Number of angles to consider
+    angle_pm_90: bool
+        Consider angles in the range [-180, 180] instead of [-90, 90]
+    min_angle: float
+        Minimum angle to consider
+    max_angle: float
+        Maximum angle to consider
+    min_deviation: float
+        Minimum deviation between angles
+
+    Returns
+    -------
+    float
+        Skew angle in degrees, None if no skew will be found
     """
     if num_angles is not None:
         min_deviation = 180 / num_angles
-        warnings.warn("num_angles is deprecated, please use min_deviation", DeprecationWarning)
+        warnings.warn("num_angles is deprecated, please use min_deviation", DeprecationWarning, stacklevel=2)
 
     angle, _ = determine_skew_dev(
         image,

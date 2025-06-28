@@ -63,9 +63,11 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                         await send(
                             {
                                 "type": "http.response.body",
-                                "body": json_to_sse(*data)
-                                if isinstance(data, tuple)
-                                else data,
+                                "body": (
+                                    json_to_sse(*data)
+                                    if isinstance(data, tuple)
+                                    else data
+                                ),
                                 "more_body": True,
                             }
                         )
@@ -90,14 +92,9 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
 
 async def sse_heartbeat(send: Send) -> None:
     payload = sse_starlette.ServerSentEvent(comment="heartbeat").encode()
-    try:
-        while True:
-            await asyncio.sleep(5)
-            await send(
-                {"type": "http.response.body", "body": payload, "more_body": True}
-            )
-    except asyncio.CancelledError:
-        pass
+    while True:
+        await asyncio.sleep(5)
+        await send({"type": "http.response.body", "body": payload, "more_body": True})
 
 
 SEP = b"\r\n"

@@ -13,6 +13,7 @@ from llama_stack.apis.common.content_types import (
     InterleavedContent,
     InterleavedContentItem,
 )
+from llama_stack.apis.common.errors import UnsupportedModelError
 from llama_stack.apis.inference import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -23,6 +24,13 @@ from llama_stack.apis.inference import (
     JsonSchemaResponseFormat,
     LogProbConfig,
     Message,
+    OpenAIChatCompletion,
+    OpenAIChatCompletionChunk,
+    OpenAICompletion,
+    OpenAIEmbeddingsResponse,
+    OpenAIEmbeddingUsage,
+    OpenAIMessageParam,
+    OpenAIResponseFormatParam,
     ResponseFormat,
     SamplingParams,
     TextTruncation,
@@ -31,16 +39,7 @@ from llama_stack.apis.inference import (
     ToolDefinition,
     ToolPromptFormat,
 )
-from llama_stack.apis.inference.inference import (
-    OpenAIChatCompletion,
-    OpenAIChatCompletionChunk,
-    OpenAICompletion,
-    OpenAIEmbeddingsResponse,
-    OpenAIEmbeddingUsage,
-    OpenAIMessageParam,
-    OpenAIResponseFormatParam,
-)
-from llama_stack.apis.models.models import Model
+from llama_stack.apis.models import Model
 from llama_stack.distribution.request_headers import NeedsRequestProviderData
 from llama_stack.log import get_logger
 from llama_stack.providers.utils.inference.model_registry import ModelRegistryHelper
@@ -94,7 +93,7 @@ class LiteLLMOpenAIMixin(
     async def register_model(self, model: Model) -> Model:
         model_id = self.get_provider_model_id(model.provider_resource_id)
         if model_id is None:
-            raise ValueError(f"Unsupported model: {model.provider_resource_id}")
+            raise UnsupportedModelError(model.provider_resource_id, self.alias_to_provider_id_map.keys())
         return model
 
     def get_litellm_model_name(self, model_id: str) -> str:

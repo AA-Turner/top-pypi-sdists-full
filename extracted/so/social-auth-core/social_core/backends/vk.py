@@ -10,8 +10,9 @@ from hashlib import md5
 from time import time
 from typing import Any, cast
 
-from ..exceptions import AuthException, AuthTokenRevoked
-from ..utils import parse_qs
+from social_core.exceptions import AuthException, AuthTokenRevoked
+from social_core.utils import parse_qs
+
 from .base import BaseAuth
 from .oauth import BaseOAuth2
 
@@ -49,7 +50,7 @@ class VKontakteOpenAPI(BaseAuth):
     def user_data(self, access_token, *args, **kwargs):
         return self.data
 
-    def auth_html(self):
+    def auth_html(self) -> str:
         """Returns local VK authentication page, not necessary for
         VK to authenticate.
         """
@@ -73,14 +74,14 @@ class VKontakteOpenAPI(BaseAuth):
         )
 
         key, secret = self.get_key_and_secret()
-        hash = vk_sig(check_str + secret)
-        if hash != mapping["sig"] or int(mapping["expire"]) < time():
+        vk_hash = vk_sig(check_str + secret)
+        if vk_hash != mapping["sig"] or int(mapping["expire"]) < time():
             raise ValueError("VK.com authentication failed: Invalid Hash")
 
         kwargs.update({"backend": self, "response": self.user_data(mapping["mid"])})
         return self.strategy.authenticate(*args, **kwargs)
 
-    def uses_redirect(self):
+    def uses_redirect(self) -> bool:
         """VK.com does not require visiting server url in order
         to do authentication, so auth_xxx methods are not needed to be called.
         Their current implementation is just an example"""

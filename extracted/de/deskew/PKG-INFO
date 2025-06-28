@@ -1,28 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: deskew
-Version: 1.5.1
+Version: 1.5.3
 Summary: Skew detection and correction in images containing text
-Home-page: https://github.com/sbrunner/deskew
 License: MIT
 Author: Stéphane Brunner
 Author-email: stephane.brunner@gmail.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Provides-Extra: debug-images
 Requires-Dist: matplotlib ; extra == "debug-images"
 Requires-Dist: numpy
 Requires-Dist: opencv-python-headless ; extra == "debug-images"
 Requires-Dist: scikit-image
+Project-URL: Bug Tracker, https://github.com/sbrunner/deskew/issues
 Project-URL: Repository, https://github.com/sbrunner/deskew
 Description-Content-Type: text/markdown
 

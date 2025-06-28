@@ -1,15 +1,16 @@
 import requests
 import responses
 
-from ...actions import do_disconnect
-from ...exceptions import NotAllowedToDisconnect
-from ...utils import parse_qs
-from ..models import TestUserSocialAuth, User
+from social_core.actions import do_disconnect
+from social_core.exceptions import NotAllowedToDisconnect
+from social_core.tests.models import TestUserSocialAuth, User
+from social_core.utils import parse_qs
+
 from .actions import BaseActionTest
 
 
 class DisconnectActionTest(BaseActionTest):
-    def test_not_allowed_to_disconnect(self):
+    def test_not_allowed_to_disconnect(self) -> None:
         self.do_login()
         user = User.get(self.expected_username)
         with self.assertRaisesRegex(
@@ -17,14 +18,14 @@ class DisconnectActionTest(BaseActionTest):
         ):
             do_disconnect(self.backend, user)
 
-    def test_disconnect(self):
+    def test_disconnect(self) -> None:
         self.do_login()
         user = User.get(self.expected_username)
         user.password = "password"
         do_disconnect(self.backend, user)
         self.assertEqual(len(user.social), 0)
 
-    def test_disconnect_with_association_id(self):
+    def test_disconnect_with_association_id(self) -> None:
         self.do_login()
         user = User.get(self.expected_username)
         user.password = "password"
@@ -35,7 +36,7 @@ class DisconnectActionTest(BaseActionTest):
         self.assertEqual(len(user.social), 1)
         self.assertEqual(user.social[0], second_usa)
 
-    def test_disconnect_with_partial_pipeline(self):
+    def test_disconnect_with_partial_pipeline(self) -> None:
         self.strategy.set_settings(
             {
                 "SOCIAL_AUTH_DISCONNECT_PIPELINE": (

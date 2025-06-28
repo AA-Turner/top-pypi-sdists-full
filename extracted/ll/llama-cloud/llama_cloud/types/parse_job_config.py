@@ -103,6 +103,12 @@ class ParseJobConfig(pydantic.BaseModel):
     strict_mode_reconstruction: typing.Optional[bool]
     strict_mode_buggy_font: typing.Optional[bool]
     save_images: typing.Optional[bool]
+    hide_headers: typing.Optional[bool]
+    hide_footers: typing.Optional[bool]
+    page_header_prefix: typing.Optional[str]
+    page_header_suffix: typing.Optional[str]
+    page_footer_prefix: typing.Optional[str]
+    page_footer_suffix: typing.Optional[str]
     ignore_document_elements_for_layout_detection: typing.Optional[bool]
     output_tables_as_html: typing.Optional[bool] = pydantic.Field(alias="output_tables_as_HTML")
     internal_is_screenshot_job: typing.Optional[bool]

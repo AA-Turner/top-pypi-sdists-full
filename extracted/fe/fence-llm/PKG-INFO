@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fence-llm
-Version: 1.0.17
+Version: 2.0.1
 Summary: The bloat moat! - A lightweight LLM and Agent interaction library
 Project-URL: Repository, https://github.com/WouterDurnez/fence
 Project-URL: Homepage, https://github.com/WouterDurnez/fence
@@ -22,6 +22,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Requires-Python: >=3.11
 Requires-Dist: boto3>=1.34.100
+Requires-Dist: mcp>=1.9.4
 Requires-Dist: numexpr>=2.10.1
 Requires-Dist: pydantic>=2.11.4
 Requires-Dist: requests>=2.32.3

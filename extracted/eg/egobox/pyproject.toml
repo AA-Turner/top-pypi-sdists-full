@@ -21,6 +21,7 @@ build-backend = "maturin"
 requires = ["maturin>=1.0, <2.0"]
 
 [tool.maturin]
+module-name = "egobox"
 features = ["pyo3/extension-module"]
 manifest-path = "python/Cargo.toml"
 # Optional usage of BLAS backend 

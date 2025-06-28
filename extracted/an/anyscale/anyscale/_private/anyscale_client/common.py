@@ -200,7 +200,11 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def get_compute_config_id(
-        self, compute_config_name: Optional[str] = None, *, include_archived=False
+        self,
+        compute_config_name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        *,
+        include_archived=False,
     ) -> Optional[str]:
         """Get the compute config ID for the provided name.
 

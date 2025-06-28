@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.2
 Name: awsebcli
-Version: 3.24.1
+Version: 3.25
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -42,7 +42,6 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
-Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
@@ -125,6 +124,12 @@ in the *AWS Elastic Beanstalk Developer Guide*.
 
 Changelog
 =========
+--------------------
+3.25 (2025-06-27)
+--------------------
+- Added me-central-1 elasticbeanstalk-env-resources bucket
+- Added il-central-1 and me-central-1 to regions list
+
 --------------------
 3.24.1 (2025-05-20)
 --------------------

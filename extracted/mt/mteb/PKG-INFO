@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 1.38.32
+Version: 1.38.33
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, nouamane@huggingface.co, info@nils-reimers.de
 License:                                  Apache License
@@ -262,6 +262,10 @@ Provides-Extra: flagembedding
 Requires-Dist: FlagEmbedding==1.3.4; extra == "flagembedding"
 Provides-Extra: jina
 Requires-Dist: einops>=0.8.0; extra == "jina"
+Provides-Extra: jina-v4
+Requires-Dist: peft>=0.15.2; extra == "jina-v4"
+Requires-Dist: transformers>=4.52.0; extra == "jina-v4"
+Requires-Dist: torchvision>=0.22.1; extra == "jina-v4"
 Provides-Extra: flash-attention
 Requires-Dist: flash-attn>=2.6.3; extra == "flash-attention"
 Provides-Extra: openai

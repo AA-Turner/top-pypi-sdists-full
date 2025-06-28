@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dify_plugin
-Version: 0.3.5
+Version: 0.4.0
 Summary: Dify Plugin SDK
 Keywords: dify,plugin,sdk
 Author-Email: langgenius <hello@dify.ai>
@@ -10,7 +10,7 @@ Requires-Python: >=3.11
 Requires-Dist: Flask~=3.0.3
 Requires-Dist: Werkzeug~=3.0.3
 Requires-Dist: dpkt~=1.9.8
-Requires-Dist: gevent~=24.11.1
+Requires-Dist: gevent~=25.5.1
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: pydantic_settings<3.0.0,>=2.5.0
 Requires-Dist: pydantic>=2.8.2
@@ -37,12 +37,12 @@ This SDK follows Semantic Versioning (a.b.c):
 ### For SDK Users
 
 When depending on this SDK, it's recommended to specify version constraints that:
+
 - Allow patch and minor updates for bug fixes and new features
 - Prevent major version updates to avoid breaking changes
 
 Example in your project's dependency management:
 
-```
+```python
 dify_plugin>=0.3.0,<0.4.0
 ```
-

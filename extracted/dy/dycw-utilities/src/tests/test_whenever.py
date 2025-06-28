@@ -74,6 +74,7 @@ from utilities.whenever import (
     _MinMaxDateMaxDateError,
     _MinMaxDateMinDateError,
     _MinMaxDatePeriodError,
+    add_year_month,
     datetime_utc,
     diff_year_month,
     format_compact,
@@ -86,12 +87,14 @@ from utilities.whenever import (
     get_today_local,
     mean_datetime,
     min_max_date,
+    sub_year_month,
     to_date,
     to_date_time_delta,
     to_days,
     to_local_plain,
     to_months,
     to_nanos,
+    to_py_date_or_date_time,
     to_py_time_delta,
     to_time_delta,
     to_zoned_date_time,
@@ -104,6 +107,37 @@ if TYPE_CHECKING:
 
     from utilities.sentinel import Sentinel
     from utilities.types import MaybeCallableDate, MaybeCallableZonedDateTime
+
+
+class TestAddAndSubYearMonth:
+    x: ClassVar[YearMonth] = YearMonth(2005, 7)
+    cases: ClassVar[list[tuple[int, int, YearMonth, YearMonth]]] = [
+        (1, 0, YearMonth(2006, 7), YearMonth(2004, 7)),
+        (0, 11, YearMonth(2006, 6), YearMonth(2004, 8)),
+        (0, 6, YearMonth(2006, 1), YearMonth(2005, 1)),
+        (0, 2, YearMonth(2005, 9), YearMonth(2005, 5)),
+        (0, 1, YearMonth(2005, 8), YearMonth(2005, 6)),
+        (0, 0, YearMonth(2005, 7), YearMonth(2005, 7)),
+        (0, -1, YearMonth(2005, 6), YearMonth(2005, 8)),
+        (0, -2, YearMonth(2005, 5), YearMonth(2005, 9)),
+        (0, -6, YearMonth(2005, 1), YearMonth(2006, 1)),
+        (0, -11, YearMonth(2004, 8), YearMonth(2006, 6)),
+        (-1, 0, YearMonth(2004, 7), YearMonth(2006, 7)),
+    ]
+
+    @mark.parametrize(
+        ("years", "months", "expected"), [param(y, m, e) for y, m, e, _ in cases]
+    )
+    def test_add(self, *, years: int, months: int, expected: YearMonth) -> None:
+        result = add_year_month(self.x, years=years, months=months)
+        assert result == expected
+
+    @mark.parametrize(
+        ("years", "months", "expected"), [param(y, m, e) for y, m, _, e in cases]
+    )
+    def test_sub(self, *, years: int, months: int, expected: YearMonth) -> None:
+        result = sub_year_month(self.x, years=years, months=months)
+        assert result == expected
 
 
 class TestDatetimeUTC:
@@ -575,6 +609,28 @@ class TestToMonths:
             _ = to_months(delta)
 
 
+class TestToPyDateOrDateTime:
+    @mark.parametrize(
+        ("date_or_date_time", "expected"),
+        [
+            param(Date(2000, 1, 1), dt.date(2000, 1, 1)),
+            param(
+                ZonedDateTime(2000, 1, 1, tz=UTC.key),
+                dt.datetime(2000, 1, 1, tzinfo=UTC),
+            ),
+            param(None, None),
+        ],
+    )
+    def test_main(
+        self,
+        *,
+        date_or_date_time: Date | ZonedDateTime | None,
+        expected: dt.date | None,
+    ) -> None:
+        result = to_py_date_or_date_time(date_or_date_time)
+        assert result == expected
+
+
 class TestToPyTimeDelta:
     @mark.parametrize(
         ("delta", "expected"),
@@ -585,10 +641,14 @@ class TestToPyTimeDelta:
                 DateTimeDelta(days=1, microseconds=1),
                 dt.timedelta(days=1, microseconds=1),
             ),
+            param(None, None),
         ],
     )
     def test_main(
-        self, *, delta: DateDelta | TimeDelta | DateTimeDelta, expected: dt.timedelta
+        self,
+        *,
+        delta: DateDelta | TimeDelta | DateTimeDelta | None,
+        expected: dt.timedelta | None,
     ) -> None:
         result = to_py_time_delta(delta)
         assert result == expected

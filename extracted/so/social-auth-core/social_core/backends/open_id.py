@@ -4,14 +4,15 @@ from openid.consumer.consumer import CANCEL, FAILURE, SUCCESS, Consumer
 from openid.consumer.discover import DiscoveryFailure
 from openid.extensions import ax, pape, sreg
 
-from ..exceptions import (
+from social_core.exceptions import (
     AuthCanceled,
     AuthException,
     AuthFailed,
     AuthMissingParameter,
     AuthUnknownError,
 )
-from ..utils import url_add_parameters
+from social_core.utils import url_add_parameters
+
 from .base import BaseAuth
 
 # OpenID configuration
@@ -144,20 +145,25 @@ class OpenIdAuth(BaseAuth):
         values.update(from_details)
         return values
 
+    def get_return_to(self) -> str:
+        params: dict[str, str] = {}
+        if session_id := self.strategy.get_session_id():
+            params[self.strategy.SESSION_SAVE_KEY] = session_id
+
+        return url_add_parameters(self.strategy.absolute_uri(self.redirect_uri), params)
+
     def auth_url(self):
         """Return auth URL returned by service"""
         openid_request = self.setup_request(self.auth_extra_arguments())
         # Construct completion URL, including page we should redirect to
-        return_to = self.strategy.absolute_uri(self.redirect_uri)
-        return openid_request.redirectURL(self.trust_root(), return_to)
+        return openid_request.redirectURL(self.trust_root(), self.get_return_to())
 
     def auth_html(self):
         """Return auth HTML returned by service"""
         openid_request = self.setup_request(self.auth_extra_arguments())
-        return_to = self.strategy.absolute_uri(self.redirect_uri)
         form_tag = {"id": "openid_message"}
         return openid_request.htmlMarkup(
-            self.trust_root(), return_to, form_tag_attrs=form_tag
+            self.trust_root(), self.get_return_to(), form_tag_attrs=form_tag
         )
 
     def trust_root(self):
@@ -167,7 +173,7 @@ class OpenIdAuth(BaseAuth):
     def continue_pipeline(self, partial):
         """Continue previous halted pipeline"""
         response = self.consumer().complete(
-            dict(self.data.items()), self.strategy.absolute_uri(self.redirect_uri)
+            dict(self.data.items()), self.get_return_to()
         )
         return self.strategy.authenticate(
             self,
@@ -180,12 +186,14 @@ class OpenIdAuth(BaseAuth):
     def auth_complete(self, *args, **kwargs):
         """Complete auth process"""
         response = self.consumer().complete(
-            dict(self.data.items()), self.strategy.absolute_uri(self.redirect_uri)
+            dict(self.data.items()), self.get_return_to()
         )
         self.process_error(response)
+        if session_id := self.data.get(self.strategy.SESSION_SAVE_KEY):
+            self.strategy.restore_session(session_id, kwargs)
         return self.strategy.authenticate(self, response=response, *args, **kwargs)
 
-    def process_error(self, data):
+    def process_error(self, data) -> None:
         if not data:
             raise AuthException(self, "OpenID relying party endpoint")
         if data.status == FAILURE:

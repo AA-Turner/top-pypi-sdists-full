@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyreadstat
-Version: 1.2.9
+Version: 1.3.0
 Summary: Reads and Writes SAS, SPSS and Stata files into/from pandas data frames.
 Home-page: https://github.com/Roche/pyreadstat
 Download-URL: https://github.com/Roche/pyreadstat/dist

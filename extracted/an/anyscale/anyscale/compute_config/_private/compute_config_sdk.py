@@ -386,15 +386,16 @@ class PrivateComputeConfigSDK(BaseSDK):
     def _resolve_id(
         self,
         *,
-        name: Optional[str] = None,
         id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
         include_archived: bool = False,
     ) -> str:
         if id is not None:
             compute_config_id = id
         elif name is not None:
             compute_config_id = self.client.get_compute_config_id(
-                compute_config_name=name, include_archived=include_archived
+                compute_config_name=name, cloud=cloud, include_archived=include_archived
             )
             if compute_config_id is None:
                 raise RuntimeError(f"Compute config '{name}' not found.")
@@ -408,6 +409,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         *,
         name: Optional[str] = None,
         id: Optional[str] = None,  # noqa: A002
+        cloud: Optional[str] = None,
         include_archived: bool = False,
     ) -> ComputeConfigVersion:
         """Get the compute config for the provided name.
@@ -416,7 +418,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         If no version is provided, the latest one will be returned.
         """
         compute_config_id = self._resolve_id(
-            name=name, id=id, include_archived=include_archived
+            id=id, name=name, cloud=cloud, include_archived=include_archived
         )
         compute_config = self.client.get_compute_config(compute_config_id)
         if compute_config is None:
@@ -426,8 +428,12 @@ class PrivateComputeConfigSDK(BaseSDK):
         return self._convert_api_model_to_compute_config_version(compute_config)
 
     def archive_compute_config(
-        self, *, name: Optional[str] = None, id: Optional[str] = None  # noqa: A002
+        self,
+        *,
+        name: Optional[str] = None,
+        id: Optional[str] = None,  # noqa: A002
+        cloud: Optional[str] = None,
     ):
-        compute_config_id = self._resolve_id(name=name, id=id)
+        compute_config_id = self._resolve_id(id=id, name=name, cloud=cloud)
         self.client.archive_compute_config(compute_config_id=compute_config_id)
         self.logger.info("Compute config is successfully archived.")

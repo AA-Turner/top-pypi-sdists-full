@@ -19,16 +19,16 @@ class Releases(NamedTuple):
     git_hashes: Dict[str, Release]
 
     @classmethod
-    def from_json(cls, full_json: Dict[str, Any]) -> Releases:
+    def from_json(cls, downloads_json: Dict[str, Any]) -> Releases:
         """
         Make list of releases from the given json.
 
-        :param full_json: Downloads json as dict.
+        :param downloads_json: Downloads json as dict.
         :return: Releases.
         """
         versions = [
             Release.from_json(version_json)
-            for version_json in full_json.get("versions", [])
+            for version_json in downloads_json.get("versions", [])
             if Release.is_parsable(version_json)
         ]
         return cls(

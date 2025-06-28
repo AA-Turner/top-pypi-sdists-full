@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gluonts
-Version: 0.16.1
+Version: 0.16.2
 Summary: Probabilistic time series modeling in Python.
 Home-page: https://github.com/awslabs/gluonts/
 Author: Amazon

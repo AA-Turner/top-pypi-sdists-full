@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict, Any, Callable, Optional, Type
+from typing import List, Dict, Any, Callable, Optional, Type, Union
 from pydantic import SkipValidation
 
 # Result class used by Tool Resolvers
@@ -60,8 +60,33 @@ class UseRAGTool(BaseTool):
     server_name: str
     query: str
 
-class ListPackageInfoTool(BaseTool):
+class ACModReadTool(BaseTool):
     path: str  # 源码包目录，相对路径或绝对路径
+
+class ACModWriteTool(BaseTool):
+    """
+    Tool for creating or updating an AC Module's .ac.mod.md file.
+    """
+    path: str  # AC Module directory path, relative or absolute path
+    diff: str  # diff content to edit the .ac.mod.md file
+
+class TodoReadTool(BaseTool):
+    """
+    Tool for reading the current todo list.
+    Takes no parameters.
+    """
+    pass  # No parameters needed
+
+class TodoWriteTool(BaseTool):
+    """
+    Tool for creating and managing a structured task list.
+    """
+    action: str  # 'create', 'update', 'mark_progress', 'mark_completed', 'add_task'
+    task_id: Optional[str] = None  # Task ID for update/mark operations
+    content: Optional[str] = None  # Task content for create/add operations
+    priority: Optional[str] = None  # 'high', 'medium', 'low'
+    status: Optional[str] = None  # 'pending', 'in_progress', 'completed'
+    notes: Optional[str] = None  # Additional notes for the task
 
 # Event Types for Rich Output Streaming
 class LLMOutputEvent(BaseModel):
@@ -109,6 +134,20 @@ class WindowLengthChangeEvent(BaseModel):
     """Represents the token usage in the conversation window."""
     tokens_used: int
 
+# Base event class for all agent events
+class AgentEvent(BaseModel):
+    """Base class for all agent events."""
+    pass
+
+# Metadata for token usage tracking
+class SingleOutputMeta(BaseModel):
+    """Metadata for tracking token usage for a single LLM output."""
+    model_name: str
+    input_tokens: int
+    output_tokens: int
+    input_cost: float
+    output_cost: float
+
 # Deprecated: Will be replaced by specific Event types
 # class PlainTextOutput(BaseModel):
 #     text: str
@@ -127,8 +166,11 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "attempt_completion": AttemptCompletionTool,
     "plan_mode_respond": PlanModeRespondTool,
     "use_mcp_tool": UseMcpTool,
-    "use_rag_tool": UseRAGTool,
-    "list_package_info": ListPackageInfoTool,    
+    "use_rag_tool": UseRAGTool,    
+    "todo_read": TodoReadTool,
+    "todo_write": TodoWriteTool,
+    "ac_mod_read": ACModReadTool,
+    "ac_mod_write": ACModWriteTool,
 }
 
 class FileChangeEntry(BaseModel):

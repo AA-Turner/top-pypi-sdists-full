@@ -12,24 +12,17 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any
 
-from llama_stack.apis.files import Files
-from llama_stack.apis.files.files import OpenAIFileObject
+from llama_stack.apis.files import Files, OpenAIFileObject
 from llama_stack.apis.vector_dbs import VectorDB
 from llama_stack.apis.vector_io import (
+    Chunk,
     QueryChunksResponse,
     SearchRankingOptions,
-    VectorStoreContent,
-    VectorStoreDeleteResponse,
-    VectorStoreListResponse,
-    VectorStoreObject,
-    VectorStoreSearchResponse,
-    VectorStoreSearchResponsePage,
-)
-from llama_stack.apis.vector_io.vector_io import (
-    Chunk,
     VectorStoreChunkingStrategy,
     VectorStoreChunkingStrategyAuto,
     VectorStoreChunkingStrategyStatic,
+    VectorStoreContent,
+    VectorStoreDeleteResponse,
     VectorStoreFileContentsResponse,
     VectorStoreFileCounts,
     VectorStoreFileDeleteResponse,
@@ -37,6 +30,10 @@ from llama_stack.apis.vector_io.vector_io import (
     VectorStoreFileObject,
     VectorStoreFileStatus,
     VectorStoreListFilesResponse,
+    VectorStoreListResponse,
+    VectorStoreObject,
+    VectorStoreSearchResponse,
+    VectorStoreSearchResponsePage,
 )
 from llama_stack.providers.utils.memory.vector_store import content_from_data_and_mime_type, make_overlapped_chunks
 
@@ -44,6 +41,12 @@ logger = logging.getLogger(__name__)
 
 # Constants for OpenAI vector stores
 CHUNK_MULTIPLIER = 5
+
+VERSION = "v3"
+VECTOR_DBS_PREFIX = f"vector_dbs:{VERSION}::"
+OPENAI_VECTOR_STORES_PREFIX = f"openai_vector_stores:{VERSION}::"
+OPENAI_VECTOR_STORES_FILES_PREFIX = f"openai_vector_stores_files:{VERSION}::"
+OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX = f"openai_vector_stores_files_contents:{VERSION}::"
 
 
 class OpenAIVectorStoreMixin(ABC):
@@ -144,7 +147,6 @@ class OpenAIVectorStoreMixin(ABC):
         provider_vector_db_id: str | None = None,
     ) -> VectorStoreObject:
         """Creates a vector store."""
-        # store and vector_db have the same id
         store_id = name or str(uuid.uuid4())
         created_at = int(time.time())
 
@@ -318,7 +320,7 @@ class OpenAIVectorStoreMixin(ABC):
         await self._delete_openai_vector_store_from_storage(vector_store_id)
 
         # Delete from in-memory cache
-        del self.openai_vector_stores[vector_store_id]
+        self.openai_vector_stores.pop(vector_store_id, None)
 
         # Also delete the underlying vector DB
         try:
@@ -339,12 +341,15 @@ class OpenAIVectorStoreMixin(ABC):
         max_num_results: int | None = 10,
         ranking_options: SearchRankingOptions | None = None,
         rewrite_query: bool | None = False,
-        # search_mode: Literal["keyword", "vector", "hybrid"] = "vector",
+        search_mode: str | None = "vector",  # Using str instead of Literal due to OpenAPI schema generator limitations
     ) -> VectorStoreSearchResponsePage:
         """Search for chunks in a vector store."""
-        # TODO: Add support in the API for this
-        search_mode = "vector"
         max_num_results = max_num_results or 10
+
+        # Validate search_mode
+        valid_modes = {"keyword", "vector", "hybrid"}
+        if search_mode not in valid_modes:
+            raise ValueError(f"search_mode must be one of {valid_modes}, got {search_mode}")
 
         if vector_store_id not in self.openai_vector_stores:
             raise ValueError(f"Vector store {vector_store_id} not found")
@@ -574,6 +579,7 @@ class OpenAIVectorStoreMixin(ABC):
 
         # Save vector store file to persistent storage (provider-specific)
         dict_chunks = [c.model_dump() for c in chunks]
+        # This should be updated to include chunk_id
         await self._save_openai_vector_store_file(vector_store_id, file_id, file_info, dict_chunks)
 
         # Update file_ids and file_counts in vector store metadata

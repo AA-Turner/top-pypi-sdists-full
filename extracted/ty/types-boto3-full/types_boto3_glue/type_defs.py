@@ -72,6 +72,8 @@ from .literals import (
     FilterValueTypeType,
     GlueRecordTypeType,
     HudiTargetCompressionTypeType,
+    IcebergNullOrderType,
+    IcebergSortDirectionType,
     IcebergTargetCompressionTypeType,
     InclusionAnnotationValueType,
     IntegrationStatusType,
@@ -343,6 +345,7 @@ __all__ = (
     "CreateDevEndpointRequestTypeDef",
     "CreateDevEndpointResponseTypeDef",
     "CreateGrokClassifierRequestTypeDef",
+    "CreateIcebergTableInputTypeDef",
     "CreateIntegrationRequestTypeDef",
     "CreateIntegrationResourcePropertyRequestTypeDef",
     "CreateIntegrationResourcePropertyResponseTypeDef",
@@ -731,8 +734,15 @@ __all__ = (
     "IcebergInputTypeDef",
     "IcebergOrphanFileDeletionConfigurationTypeDef",
     "IcebergOrphanFileDeletionMetricsTypeDef",
+    "IcebergPartitionFieldTypeDef",
+    "IcebergPartitionSpecTypeDef",
     "IcebergRetentionConfigurationTypeDef",
     "IcebergRetentionMetricsTypeDef",
+    "IcebergSchemaTypeDef",
+    "IcebergSortFieldTypeDef",
+    "IcebergSortOrderTypeDef",
+    "IcebergStructFieldTypeDef",
+    "IcebergTableUpdateTypeDef",
     "IcebergTargetOutputTypeDef",
     "IcebergTargetTypeDef",
     "ImportCatalogToGlueRequestTypeDef",
@@ -1191,6 +1201,8 @@ __all__ = (
     "UpdateDatabaseRequestTypeDef",
     "UpdateDevEndpointRequestTypeDef",
     "UpdateGrokClassifierRequestTypeDef",
+    "UpdateIcebergInputTypeDef",
+    "UpdateIcebergTableInputTypeDef",
     "UpdateIntegrationResourcePropertyRequestTypeDef",
     "UpdateIntegrationResourcePropertyResponseTypeDef",
     "UpdateIntegrationTablePropertiesRequestTypeDef",
@@ -1201,6 +1213,7 @@ __all__ = (
     "UpdateJsonClassifierRequestTypeDef",
     "UpdateMLTransformRequestTypeDef",
     "UpdateMLTransformResponseTypeDef",
+    "UpdateOpenTableFormatInputTypeDef",
     "UpdatePartitionRequestTypeDef",
     "UpdateRegistryInputTypeDef",
     "UpdateRegistryResponseTypeDef",
@@ -1535,6 +1548,7 @@ class CatalogImportStatusTypeDef(TypedDict):
 class FederatedCatalogTypeDef(TypedDict):
     Identifier: NotRequired[str]
     ConnectionName: NotRequired[str]
+    ConnectionType: NotRequired[str]
 
 
 class TargetRedshiftCatalogTypeDef(TypedDict):
@@ -2437,6 +2451,7 @@ class DatabaseIdentifierTypeDef(TypedDict):
 class FederatedDatabaseTypeDef(TypedDict):
     Identifier: NotRequired[str]
     ConnectionName: NotRequired[str]
+    ConnectionType: NotRequired[str]
 
 
 class DatatypeTypeDef(TypedDict):
@@ -2733,6 +2748,7 @@ class FederatedTableTypeDef(TypedDict):
     Identifier: NotRequired[str]
     DatabaseIdentifier: NotRequired[str]
     ConnectionName: NotRequired[str]
+    ConnectionType: NotRequired[str]
 
 
 class FillMissingValuesTypeDef(TypedDict):
@@ -3211,11 +3227,6 @@ class S3SourceAdditionalOptionsTypeDef(TypedDict):
     BoundedFiles: NotRequired[int]
 
 
-class IcebergInputTypeDef(TypedDict):
-    MetadataOperation: Literal["CREATE"]
-    Version: NotRequired[str]
-
-
 class IcebergOrphanFileDeletionConfigurationTypeDef(TypedDict):
     orphanFileRetentionPeriodInDays: NotRequired[int]
     location: NotRequired[str]
@@ -3226,6 +3237,13 @@ class IcebergOrphanFileDeletionMetricsTypeDef(TypedDict):
     DpuHours: NotRequired[float]
     NumberOfDpus: NotRequired[int]
     JobDurationInHour: NotRequired[float]
+
+
+class IcebergPartitionFieldTypeDef(TypedDict):
+    SourceId: int
+    Transform: str
+    Name: str
+    FieldId: NotRequired[int]
 
 
 class IcebergRetentionConfigurationTypeDef(TypedDict):
@@ -3241,6 +3259,25 @@ class IcebergRetentionMetricsTypeDef(TypedDict):
     DpuHours: NotRequired[float]
     NumberOfDpus: NotRequired[int]
     JobDurationInHour: NotRequired[float]
+
+
+IcebergStructFieldTypeDef = TypedDict(
+    "IcebergStructFieldTypeDef",
+    {
+        "Id": int,
+        "Name": str,
+        "Type": Mapping[str, Any],
+        "Required": bool,
+        "Doc": NotRequired[str],
+    },
+)
+
+
+class IcebergSortFieldTypeDef(TypedDict):
+    SourceId: int
+    Transform: str
+    Direction: IcebergSortDirectionType
+    NullOrder: IcebergNullOrderType
 
 
 class ImportCatalogToGlueRequestTypeDef(TypedDict):
@@ -5974,10 +6011,6 @@ class S3CatalogSourceTypeDef(TypedDict):
     AdditionalOptions: NotRequired[S3SourceAdditionalOptionsTypeDef]
 
 
-class OpenTableFormatInputTypeDef(TypedDict):
-    IcebergInput: NotRequired[IcebergInputTypeDef]
-
-
 class OrphanFileDeletionConfigurationTypeDef(TypedDict):
     icebergConfiguration: NotRequired[IcebergOrphanFileDeletionConfigurationTypeDef]
 
@@ -5986,12 +6019,33 @@ class OrphanFileDeletionMetricsTypeDef(TypedDict):
     IcebergMetrics: NotRequired[IcebergOrphanFileDeletionMetricsTypeDef]
 
 
+class IcebergPartitionSpecTypeDef(TypedDict):
+    Fields: Sequence[IcebergPartitionFieldTypeDef]
+    SpecId: NotRequired[int]
+
+
 class RetentionConfigurationTypeDef(TypedDict):
     icebergConfiguration: NotRequired[IcebergRetentionConfigurationTypeDef]
 
 
 class RetentionMetricsTypeDef(TypedDict):
     IcebergMetrics: NotRequired[IcebergRetentionMetricsTypeDef]
+
+
+IcebergSchemaTypeDef = TypedDict(
+    "IcebergSchemaTypeDef",
+    {
+        "Fields": Sequence[IcebergStructFieldTypeDef],
+        "SchemaId": NotRequired[int],
+        "IdentifierFieldIds": NotRequired[Sequence[int]],
+        "Type": NotRequired[Literal["struct"]],
+    },
+)
+
+
+class IcebergSortOrderTypeDef(TypedDict):
+    OrderId: int
+    Fields: Sequence[IcebergSortFieldTypeDef]
 
 
 class TargetTableConfigOutputTypeDef(TypedDict):
@@ -7302,6 +7356,22 @@ class TableOptimizerRunTypeDef(TypedDict):
     orphanFileDeletionMetrics: NotRequired[OrphanFileDeletionMetricsTypeDef]
 
 
+class CreateIcebergTableInputTypeDef(TypedDict):
+    Location: str
+    Schema: IcebergSchemaTypeDef
+    PartitionSpec: NotRequired[IcebergPartitionSpecTypeDef]
+    WriteOrder: NotRequired[IcebergSortOrderTypeDef]
+    Properties: NotRequired[Mapping[str, str]]
+
+
+class IcebergTableUpdateTypeDef(TypedDict):
+    Schema: IcebergSchemaTypeDef
+    Location: str
+    PartitionSpec: NotRequired[IcebergPartitionSpecTypeDef]
+    SortOrder: NotRequired[IcebergSortOrderTypeDef]
+    Properties: NotRequired[Mapping[str, str]]
+
+
 class GetIntegrationTablePropertiesResponseTypeDef(TypedDict):
     ResourceArn: str
     TableName: str
@@ -8027,6 +8097,16 @@ TableOptimizerTypeDef = TypedDict(
 )
 
 
+class IcebergInputTypeDef(TypedDict):
+    MetadataOperation: Literal["CREATE"]
+    Version: NotRequired[str]
+    CreateIcebergTableInput: NotRequired[CreateIcebergTableInputTypeDef]
+
+
+class UpdateIcebergTableInputTypeDef(TypedDict):
+    Updates: Sequence[IcebergTableUpdateTypeDef]
+
+
 class CreateIntegrationTablePropertiesRequestTypeDef(TypedDict):
     ResourceArn: str
     TableName: str
@@ -8520,6 +8600,14 @@ class GetTableOptimizerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class OpenTableFormatInputTypeDef(TypedDict):
+    IcebergInput: NotRequired[IcebergInputTypeDef]
+
+
+class UpdateIcebergInputTypeDef(TypedDict):
+    UpdateIcebergTableInput: UpdateIcebergTableInputTypeDef
+
+
 class GetConnectionResponseTypeDef(TypedDict):
     Connection: ConnectionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8751,6 +8839,10 @@ class BatchGetTableOptimizerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateOpenTableFormatInputTypeDef(TypedDict):
+    UpdateIcebergInput: NotRequired[UpdateIcebergInputTypeDef]
+
+
 class BatchGetJobsResponseTypeDef(TypedDict):
     Jobs: List[JobTypeDef]
     JobsNotFound: List[str]
@@ -8808,20 +8900,10 @@ class CreateTableRequestTypeDef(TypedDict):
     DatabaseName: str
     TableInput: TableInputTypeDef
     CatalogId: NotRequired[str]
+    Name: NotRequired[str]
     PartitionIndexes: NotRequired[Sequence[PartitionIndexTypeDef]]
     TransactionId: NotRequired[str]
     OpenTableFormatInput: NotRequired[OpenTableFormatInputTypeDef]
-
-
-class UpdateTableRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableInput: TableInputTypeDef
-    CatalogId: NotRequired[str]
-    SkipArchive: NotRequired[bool]
-    TransactionId: NotRequired[str]
-    VersionId: NotRequired[str]
-    ViewUpdateAction: NotRequired[ViewUpdateActionType]
-    Force: NotRequired[bool]
 
 
 class GetTableVersionsResponsePaginatorTypeDef(TypedDict):
@@ -8858,6 +8940,19 @@ class WorkflowRunTypeDef(TypedDict):
     Statistics: NotRequired[WorkflowRunStatisticsTypeDef]
     Graph: NotRequired[WorkflowGraphTypeDef]
     StartingEventBatchCondition: NotRequired[StartingEventBatchConditionTypeDef]
+
+
+class UpdateTableRequestTypeDef(TypedDict):
+    DatabaseName: str
+    CatalogId: NotRequired[str]
+    Name: NotRequired[str]
+    TableInput: NotRequired[TableInputTypeDef]
+    SkipArchive: NotRequired[bool]
+    TransactionId: NotRequired[str]
+    VersionId: NotRequired[str]
+    ViewUpdateAction: NotRequired[ViewUpdateActionType]
+    Force: NotRequired[bool]
+    UpdateOpenTableFormatInput: NotRequired[UpdateOpenTableFormatInputTypeDef]
 
 
 CodeGenConfigurationNodeTypeDef = TypedDict(

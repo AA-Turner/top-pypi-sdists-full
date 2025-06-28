@@ -252,11 +252,13 @@ class RerankModel:
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+            enable_flash_attn = self._model_config.get("enable_flash_attn", True)
             model_kwargs = {"device_map": "auto"}
-            if flash_attn_installed:
+            if flash_attn_installed and enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = torch.float16
+            model_kwargs.update(self._model_config)
+            logger.debug("Loading qwen3 rerank with kwargs %s", model_kwargs)
             model = self._model = AutoModelForCausalLM.from_pretrained(
                 self._model_path, **model_kwargs
             ).eval()
@@ -368,13 +370,18 @@ class RerankModel:
                 )
                 return output
 
-            pairs = [
-                format_instruction(kwargs.get("instruction", None), query, doc)
-                for doc in documents
-            ]
-            # Tokenize the input texts
-            inputs = self.process_inputs(pairs)
-            similarity_scores = self.compute_logits(inputs)
+            # reduce memory usage.
+            micro_bs = 4
+            similarity_scores = []
+            for i in range(0, len(documents), micro_bs):
+                sub_docs = documents[i : i + micro_bs]
+                pairs = [
+                    format_instruction(kwargs.get("instruction", None), query, doc)
+                    for doc in sub_docs
+                ]
+                # Tokenize the input texts
+                inputs = self.process_inputs(pairs)
+                similarity_scores.extend(self.compute_logits(inputs))
         else:
             # Related issue: https://github.com/xorbitsai/inference/issues/1775
             similarity_scores = self._model.compute_score(

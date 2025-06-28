@@ -385,7 +385,7 @@ HoursOfOperationDaysType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
 InboundMessageSourceTypeType = Literal["RAW"]
-InitiateAsType = Literal["CONNECTED_TO_USER"]
+InitiateAsType = Literal["COMPLETED", "CONNECTED_TO_USER"]
 InstanceAttributeTypeType = Literal[
     "AUTO_RESOLVE_BEST_VOICES",
     "CONTACTFLOW_LOGS",
@@ -914,6 +914,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -1054,6 +1055,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -1111,6 +1113,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -1166,6 +1169,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -1310,6 +1314,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

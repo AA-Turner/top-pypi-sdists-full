@@ -37,6 +37,7 @@ dependencies = [
     "python-dateutil>=2.2",
     "backoff>=1.10.0",
     "distro>=1.5.0",
+    "typing-extensions>=4.2.0",
 ]
 
 [project.license]
@@ -99,7 +100,6 @@ packages = [
     "posthoganalytics.ai.anthropic",
     "posthoganalytics.ai.gemini",
     "posthoganalytics.test",
-    "posthoganalytics.exception_integrations",
     "posthoganalytics.integrations",
 ]
 

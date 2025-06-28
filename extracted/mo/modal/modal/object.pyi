@@ -32,7 +32,10 @@ class Object:
     _is_hydrated: bool
     _is_rehydrated: bool
 
-    def __init__(self, *args, **kwargs): ...
+    def __init__(self, *args, **kwargs):
+        """mdmd:hidden"""
+        ...
+
     @classmethod
     def __init_subclass__(cls, type_prefix: typing.Optional[str] = None): ...
 
@@ -85,7 +88,10 @@ class Object:
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
     def _validate_is_hydrated(self): ...
-    def clone(self) -> typing_extensions.Self: ...
+    def clone(self) -> typing_extensions.Self:
+        """mdmd:hidden Clone a given hydrated object."""
+        ...
+
     @classmethod
     def _from_loader(
         cls,
@@ -114,18 +120,51 @@ class Object:
     def _hydrate_from_other(self, other: typing_extensions.Self): ...
     def __repr__(self): ...
     @property
-    def local_uuid(self): ...
+    def local_uuid(self):
+        """mdmd:hidden"""
+        ...
+
     @property
-    def object_id(self) -> str: ...
+    def object_id(self) -> str:
+        """mdmd:hidden"""
+        ...
+
     @property
-    def client(self) -> modal.client.Client: ...
+    def client(self) -> modal.client.Client:
+        """mdmd:hidden"""
+        ...
+
     @property
-    def is_hydrated(self) -> bool: ...
+    def is_hydrated(self) -> bool:
+        """mdmd:hidden"""
+        ...
+
     @property
-    def deps(self) -> collections.abc.Callable[..., collections.abc.Sequence[Object]]: ...
+    def deps(self) -> collections.abc.Callable[..., collections.abc.Sequence[Object]]:
+        """mdmd:hidden"""
+        ...
 
     class __hydrate_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF: ...
-        async def aio(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF: ...
+        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF:
+            """Synchronize the local object with its identity on the Modal server.
+
+            It is rarely necessary to call this method explicitly, as most operations
+            will lazily hydrate when needed. The main use case is when you need to
+            access object metadata, such as its ID.
+
+            *Added in v0.72.39*: This method replaces the deprecated `.resolve()` method.
+            """
+            ...
+
+        async def aio(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF:
+            """Synchronize the local object with its identity on the Modal server.
+
+            It is rarely necessary to call this method explicitly, as most operations
+            will lazily hydrate when needed. The main use case is when you need to
+            access object metadata, such as its ID.
+
+            *Added in v0.72.39*: This method replaces the deprecated `.resolve()` method.
+            """
+            ...
 
     hydrate: __hydrate_spec[typing_extensions.Self]

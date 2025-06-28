@@ -90,9 +90,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         elif "qwen3" in self._model_spec.model_name.lower():
             # qwen3 embedding
             flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+            flash_attn_enabled = self._kwargs.get("enable_flash_attn", True)
             model_kwargs = {"device_map": "auto"}
             tokenizer_kwargs = {}
-            if flash_attn_installed:
+            if flash_attn_installed and flash_attn_enabled:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = "bfloat16"
                 tokenizer_kwargs["padding_side"] = "left"
@@ -254,8 +255,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
                 if "clip" in self._model_spec.model_name.lower():
-                    all_token_nums += features["input_ids"].numel()
-                    all_token_nums += features["pixel_values"].numel()
+                    if "input_ids" in features and hasattr(
+                        features["input_ids"], "numel"
+                    ):
+                        all_token_nums += features["input_ids"].numel()
+                    if "pixel_values" in features and hasattr(
+                        features["pixel_values"], "numel"
+                    ):
+                        all_token_nums += features["pixel_values"].numel()
                 else:
                     all_token_nums += features["attention_mask"].sum().item()
 
@@ -340,24 +347,32 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 img = Image.open(image_data)
                 return img
 
-            objs: list[dict[str, str]] = []
-            for item in sentences:
-                if isinstance(item, dict):
-                    if item.get("text") is not None:
-                        objs.append(item["text"])
-                    elif item.get("image") is not None:
-                        if re.match(r"^data:image/.+;base64,", item["image"]):
-                            image = base64_to_image(item["image"])
-                            objs.append(image)
+            objs: list[str] = []
+            if isinstance(sentences, str):
+                objs.append(sentences)
+            else:
+                for item in sentences:
+                    if isinstance(item, dict):
+                        if item.get("text") is not None:
+                            objs.append(item["text"])
+                        elif item.get("image") is not None:
+                            if re.match(r"^data:image/.+;base64,", item["image"]):
+                                image = base64_to_image(item["image"])
+                                objs.append(image)
+                            else:
+                                objs.append(item["image"])
                         else:
-                            objs.append(item["image"])
+                            raise ValueError("Please check the input data.")
+                    elif isinstance(item, str):
+                        objs.append(item)
                     else:
-                        logger.error("Please check the input data.")
+                        raise ValueError("Please check the input data.")
+
             all_embeddings, all_token_nums = encode(
                 self._model,
                 objs,
                 convert_to_numpy=False,
-                **self._kwargs,
+                **kwargs,
             )
         else:
             all_embeddings, all_token_nums = encode(

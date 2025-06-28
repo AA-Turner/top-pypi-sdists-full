@@ -1,9 +1,12 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, TimeDelta, Timelike, Utc};
+use icechunk::storage::RetriesSettings;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::{
     collections::HashMap,
     fmt::Display,
+    hash::DefaultHasher,
     num::{NonZeroU16, NonZeroU64},
     path::PathBuf,
     sync::Arc,
@@ -15,8 +18,9 @@ use icechunk::{
         AzureCredentials, AzureStaticCredentials, CachingConfig, CompressionAlgorithm,
         CompressionConfig, Credentials, GcsBearerCredential, GcsCredentials,
         GcsCredentialsFetcher, GcsStaticCredentials, ManifestConfig,
-        ManifestPreloadCondition, ManifestPreloadConfig, S3Credentials,
-        S3CredentialsFetcher, S3Options, S3StaticCredentials,
+        ManifestPreloadCondition, ManifestPreloadConfig, ManifestSplitCondition,
+        ManifestSplitDim, ManifestSplitDimCondition, ManifestSplittingConfig,
+        S3Credentials, S3CredentialsFetcher, S3Options, S3StaticCredentials,
     },
     storage::{self, ConcurrencySettings},
     virtual_chunks::VirtualChunkContainer,
@@ -455,8 +459,9 @@ pub enum PyObjectStoreConfig {
     S3Compatible(PyS3Options),
     S3(PyS3Options),
     Gcs(Option<HashMap<String, String>>),
-    Azure(HashMap<String, String>),
+    Azure(Option<HashMap<String, String>>),
     Tigris(PyS3Options),
+    Http(Option<HashMap<String, String>>),
 }
 
 impl From<&PyObjectStoreConfig> for ObjectStoreConfig {
@@ -473,8 +478,13 @@ impl From<&PyObjectStoreConfig> for ObjectStoreConfig {
             PyObjectStoreConfig::Gcs(opts) => {
                 ObjectStoreConfig::Gcs(opts.clone().unwrap_or_default())
             }
-            PyObjectStoreConfig::Azure(opts) => ObjectStoreConfig::Azure(opts.clone()),
+            PyObjectStoreConfig::Azure(opts) => {
+                ObjectStoreConfig::Azure(opts.clone().unwrap_or_default())
+            }
             PyObjectStoreConfig::Tigris(opts) => ObjectStoreConfig::Tigris(opts.into()),
+            PyObjectStoreConfig::Http(opts) => {
+                ObjectStoreConfig::Http(opts.clone().unwrap_or_default())
+            }
         }
     }
 }
@@ -491,8 +501,9 @@ impl From<ObjectStoreConfig> for PyObjectStoreConfig {
             }
             ObjectStoreConfig::S3(opts) => PyObjectStoreConfig::S3(opts.into()),
             ObjectStoreConfig::Gcs(opts) => PyObjectStoreConfig::Gcs(Some(opts)),
-            ObjectStoreConfig::Azure(opts) => PyObjectStoreConfig::Azure(opts),
+            ObjectStoreConfig::Azure(opts) => PyObjectStoreConfig::Azure(Some(opts)),
             ObjectStoreConfig::Tigris(opts) => PyObjectStoreConfig::Tigris(opts.into()),
+            ObjectStoreConfig::Http(opts) => PyObjectStoreConfig::Http(Some(opts)),
         }
     }
 }
@@ -691,6 +702,63 @@ impl From<CachingConfig> for PyCachingConfig {
     }
 }
 
+#[pyclass(name = "StorageRetriesSettings", eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PyStorageRetriesSettings {
+    #[pyo3(get, set)]
+    pub max_tries: Option<NonZeroU16>,
+    #[pyo3(get, set)]
+    pub initial_backoff_ms: Option<u32>,
+    #[pyo3(get, set)]
+    pub max_backoff_ms: Option<u32>,
+}
+
+impl From<RetriesSettings> for PyStorageRetriesSettings {
+    fn from(value: RetriesSettings) -> Self {
+        Self {
+            max_tries: value.max_tries,
+            initial_backoff_ms: value.initial_backoff_ms,
+            max_backoff_ms: value.max_backoff_ms,
+        }
+    }
+}
+
+impl From<&PyStorageRetriesSettings> for RetriesSettings {
+    fn from(value: &PyStorageRetriesSettings) -> Self {
+        Self {
+            max_tries: value.max_tries,
+            initial_backoff_ms: value.initial_backoff_ms,
+            max_backoff_ms: value.max_backoff_ms,
+        }
+    }
+}
+
+#[pymethods]
+impl PyStorageRetriesSettings {
+    #[pyo3(signature = (max_tries=None, initial_backoff_ms=None, max_backoff_ms=None))]
+    #[new]
+    pub fn new(
+        max_tries: Option<NonZeroU16>,
+        initial_backoff_ms: Option<u32>,
+        max_backoff_ms: Option<u32>,
+    ) -> Self {
+        Self { max_tries, initial_backoff_ms, max_backoff_ms }
+    }
+
+    pub fn __repr__(&self) -> String {
+        storage_retries_settings_repr(self)
+    }
+}
+
+fn storage_retries_settings_repr(s: &PyStorageRetriesSettings) -> String {
+    format!(
+        r#"StorageRetriesSettings(max_tries={max}, initial_backoff_ms={init}, max_backoff_ms={max_back})"#,
+        max = format_option_to_string(s.max_tries),
+        init = format_option_to_string(s.initial_backoff_ms),
+        max_back = format_option_to_string(s.max_backoff_ms),
+    )
+}
+
 #[pyclass(name = "StorageConcurrencySettings", eq)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyStorageConcurrencySettings {
@@ -748,6 +816,8 @@ pub struct PyStorageSettings {
     #[pyo3(get, set)]
     pub concurrency: Option<Py<PyStorageConcurrencySettings>>,
     #[pyo3(get, set)]
+    pub retries: Option<Py<PyStorageRetriesSettings>>,
+    #[pyo3(get, set)]
     pub unsafe_use_conditional_update: Option<bool>,
     #[pyo3(get, set)]
     pub unsafe_use_conditional_create: Option<bool>,
@@ -771,6 +841,12 @@ impl From<storage::Settings> for PyStorageSettings {
                 Py::new(py, Into::<PyStorageConcurrencySettings>::into(c))
                     .expect("Cannot create instance of StorageConcurrencySettings")
             }),
+            #[allow(clippy::expect_used)]
+            retries: value.retries.map(|c| {
+                Py::new(py, Into::<PyStorageRetriesSettings>::into(c))
+                    .expect("Cannot create instance of StorageRetriesSettings")
+            }),
+
             unsafe_use_conditional_create: value.unsafe_use_conditional_create,
             unsafe_use_conditional_update: value.unsafe_use_conditional_update,
             unsafe_use_metadata: value.unsafe_use_metadata,
@@ -786,6 +862,7 @@ impl From<&PyStorageSettings> for storage::Settings {
     fn from(value: &PyStorageSettings) -> Self {
         Python::with_gil(|py| Self {
             concurrency: value.concurrency.as_ref().map(|c| (&*c.borrow(py)).into()),
+            retries: value.retries.as_ref().map(|c| (&*c.borrow(py)).into()),
             unsafe_use_conditional_create: value.unsafe_use_conditional_create,
             unsafe_use_conditional_update: value.unsafe_use_conditional_update,
             unsafe_use_metadata: value.unsafe_use_metadata,
@@ -809,11 +886,12 @@ impl Eq for PyStorageSettings {}
 
 #[pymethods]
 impl PyStorageSettings {
-    #[pyo3(signature = ( concurrency=None, unsafe_use_conditional_create=None, unsafe_use_conditional_update=None, unsafe_use_metadata=None, storage_class=None, metadata_storage_class=None, chunks_storage_class=None, minimum_size_for_multipart_upload=None))]
+    #[pyo3(signature = ( concurrency=None, retries=None, unsafe_use_conditional_create=None, unsafe_use_conditional_update=None, unsafe_use_metadata=None, storage_class=None, metadata_storage_class=None, chunks_storage_class=None, minimum_size_for_multipart_upload=None))]
     #[new]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         concurrency: Option<Py<PyStorageConcurrencySettings>>,
+        retries: Option<Py<PyStorageRetriesSettings>>,
         unsafe_use_conditional_create: Option<bool>,
         unsafe_use_conditional_update: Option<bool>,
         unsafe_use_metadata: Option<bool>,
@@ -824,6 +902,7 @@ impl PyStorageSettings {
     ) -> Self {
         Self {
             concurrency,
+            retries,
             unsafe_use_conditional_create,
             unsafe_use_metadata,
             unsafe_use_conditional_update,
@@ -835,7 +914,7 @@ impl PyStorageSettings {
     }
 
     pub fn __repr__(&self) -> String {
-        let inner = match &self.concurrency {
+        let inner_conc = match &self.concurrency {
             None => "None".to_string(),
             Some(conc) => Python::with_gil(|py| {
                 let conc = &*conc.borrow(py);
@@ -843,9 +922,17 @@ impl PyStorageSettings {
             }),
         };
 
+        let inner_retries = match &self.retries {
+            None => "None".to_string(),
+            Some(retries) => Python::with_gil(|py| {
+                let conc = &*retries.borrow(py);
+                storage_retries_settings_repr(conc)
+            }),
+        };
         format!(
-            r#"StorageSettings(concurrency={conc}, unsafe_use_conditional_create={cr}, unsafe_use_conditional_update={up}, unsafe_use_metadata={me}, storage_class={sc}, metadata_storage_class={msc}, chunks_storage_class={csc})"#,
-            conc = inner,
+            r#"StorageSettings(concurrency={conc}, retries={retr}, unsafe_use_conditional_create={cr}, unsafe_use_conditional_update={up}, unsafe_use_metadata={me}, storage_class={sc}, metadata_storage_class={msc}, chunks_storage_class={csc})"#,
+            conc = inner_conc,
+            retr = inner_retries,
             cr = format_option(self.unsafe_use_conditional_create.map(format_bool)),
             up = format_option(self.unsafe_use_conditional_update.map(format_bool)),
             me = format_option(self.unsafe_use_metadata.map(format_bool)),
@@ -1013,26 +1100,260 @@ impl From<ManifestPreloadConfig> for PyManifestPreloadConfig {
     }
 }
 
+#[pyclass(name = "ManifestSplitCondition", eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum PyManifestSplitCondition {
+    Or(Vec<PyManifestSplitCondition>),
+    And(Vec<PyManifestSplitCondition>),
+    PathMatches { regex: String },
+    NameMatches { regex: String },
+    AnyArray(),
+}
+
+#[pymethods]
+impl PyManifestSplitCondition {
+    #[staticmethod]
+    pub fn or_conditions(conditions: Vec<PyManifestSplitCondition>) -> Self {
+        Self::Or(conditions)
+    }
+    #[staticmethod]
+    pub fn and_conditions(conditions: Vec<PyManifestSplitCondition>) -> Self {
+        Self::And(conditions)
+    }
+    #[staticmethod]
+    pub fn path_matches(regex: String) -> Self {
+        Self::PathMatches { regex }
+    }
+    #[staticmethod]
+    pub fn name_matches(regex: String) -> Self {
+        Self::NameMatches { regex }
+    }
+
+    pub fn __repr__(&self) -> String {
+        use PyManifestSplitCondition::*;
+        match self {
+            Or(conditions) => {
+                let mut res =
+                    conditions.iter().fold("Or(".to_string(), |mut state, condition| {
+                        state.push_str(&condition.__repr__());
+                        state
+                    });
+                res.push(')');
+                res
+            }
+            And(conditions) => {
+                let mut res =
+                    conditions.iter().fold("And(".to_string(), |mut state, condition| {
+                        state.push_str(&condition.__repr__());
+                        state
+                    });
+                res.push(')');
+                res
+            }
+            PathMatches { regex } => format!("PathMatches('{}')", regex),
+            NameMatches { regex } => format!("NameMatches('{}')", regex),
+            AnyArray() => "AnyArray".to_string(),
+        }
+    }
+
+    fn __hash__(&self) -> usize {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish() as usize
+    }
+}
+
+impl From<&PyManifestSplitCondition> for ManifestSplitCondition {
+    fn from(value: &PyManifestSplitCondition) -> Self {
+        use PyManifestSplitCondition::*;
+        match value {
+            Or(vec) => Self::Or(vec.iter().map(|c| c.into()).collect()),
+            And(vec) => Self::And(vec.iter().map(|c| c.into()).collect()),
+            PathMatches { regex } => Self::PathMatches { regex: regex.clone() },
+            NameMatches { regex } => Self::NameMatches { regex: regex.clone() },
+            AnyArray() => Self::AnyArray,
+        }
+    }
+}
+
+impl From<ManifestSplitCondition> for PyManifestSplitCondition {
+    fn from(value: ManifestSplitCondition) -> Self {
+        use ManifestSplitCondition::*;
+        match value {
+            AnyArray => Self::AnyArray(),
+            Or(vec) => Self::Or(vec.into_iter().map(|c| c.into()).collect()),
+            And(vec) => Self::And(vec.into_iter().map(|c| c.into()).collect()),
+            PathMatches { regex } => Self::PathMatches { regex },
+            NameMatches { regex } => Self::NameMatches { regex },
+        }
+    }
+}
+
+#[pyclass(name = "ManifestSplitDimCondition")]
+#[derive(Clone, Debug, Hash)]
+pub enum PyManifestSplitDimCondition {
+    Axis(usize),
+    DimensionName(String),
+    Any(),
+}
+
+#[pymethods]
+impl PyManifestSplitDimCondition {
+    pub fn __repr__(&self) -> String {
+        use PyManifestSplitDimCondition::*;
+        match self {
+            Axis(axis) => format!("Axis({})", axis),
+            DimensionName(name) => format!(r#"DimensionName("{}")"#, name),
+            Any() => "Any".to_string(),
+        }
+    }
+
+    fn __hash__(&self) -> usize {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish() as usize
+    }
+}
+
+impl From<&PyManifestSplitDimCondition> for ManifestSplitDimCondition {
+    fn from(value: &PyManifestSplitDimCondition) -> Self {
+        use PyManifestSplitDimCondition::*;
+        match value {
+            Axis(axis) => ManifestSplitDimCondition::Axis(*axis),
+            DimensionName(name) => ManifestSplitDimCondition::DimensionName(name.clone()),
+            Any() => ManifestSplitDimCondition::Any,
+        }
+    }
+}
+impl From<ManifestSplitDimCondition> for PyManifestSplitDimCondition {
+    fn from(value: ManifestSplitDimCondition) -> Self {
+        use ManifestSplitDimCondition::*;
+        match value {
+            Axis(a) => PyManifestSplitDimCondition::Axis(a),
+            DimensionName(name) => PyManifestSplitDimCondition::DimensionName(name),
+            Any => PyManifestSplitDimCondition::Any(),
+        }
+    }
+}
+
+type DimConditions = Vec<(PyManifestSplitDimCondition, u32)>;
+
+#[pyclass(name = "ManifestSplittingConfig", eq)]
+#[derive(Debug)]
+pub struct PyManifestSplittingConfig {
+    #[pyo3(get, set)]
+    pub split_sizes: Option<Vec<(PyManifestSplitCondition, DimConditions)>>,
+}
+
+#[pymethods]
+impl PyManifestSplittingConfig {
+    #[new]
+    #[pyo3(signature = (split_sizes=None))]
+    fn new(split_sizes: Option<Vec<(PyManifestSplitCondition, DimConditions)>>) -> Self {
+        Self { split_sizes }
+    }
+
+    pub fn __repr__(&self) -> String {
+        match &self.split_sizes {
+            Some(split_sizes) => {
+                let reprs: Vec<String> = split_sizes
+                    .iter()
+                    .map(|(condition, dims)| {
+                        let condition_repr = format!("{:?}", condition); // Using Debug for PyManifestSplitCondition
+                        let dims_repr: Vec<String> = dims
+                            .iter()
+                            .map(|(dim_condition, num)| {
+                                format!("({:?}, {})", dim_condition, num)
+                            })
+                            .collect();
+                        format!("({}, [{}])", condition_repr, dims_repr.join(", "))
+                    })
+                    .collect();
+
+                format!("ManifestSplittingConfig({})", reprs.join(", "))
+            }
+            None => "ManifestSplittingConfig(None)".to_string(),
+        }
+    }
+}
+
+impl PartialEq for PyManifestSplittingConfig {
+    fn eq(&self, other: &Self) -> bool {
+        let x: ManifestSplittingConfig = self.into();
+        let y: ManifestSplittingConfig = other.into();
+        x == y
+    }
+}
+
+impl From<ManifestSplittingConfig> for PyManifestSplittingConfig {
+    fn from(value: ManifestSplittingConfig) -> Self {
+        Self {
+            split_sizes: value.split_sizes.map(|c| {
+                c.into_iter()
+                    .map(|(x, v)| {
+                        (
+                            x.into(),
+                            v.into_iter()
+                                .map(|split_dim| {
+                                    (split_dim.condition.into(), split_dim.num_chunks)
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl From<&PyManifestSplittingConfig> for ManifestSplittingConfig {
+    fn from(value: &PyManifestSplittingConfig) -> Self {
+        Self {
+            split_sizes: value.split_sizes.as_ref().map(|c| {
+                c.iter()
+                    .map(|(x, v)| {
+                        (
+                            x.into(),
+                            v.iter()
+                                .map(|(cond, size)| ManifestSplitDim {
+                                    condition: cond.into(),
+                                    num_chunks: *size,
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect()
+            }),
+        }
+    }
+}
+
 #[pyclass(name = "ManifestConfig", eq)]
 #[derive(Debug, Default)]
 pub struct PyManifestConfig {
     #[pyo3(get, set)]
     pub preload: Option<Py<PyManifestPreloadConfig>>,
+    #[pyo3(get, set)]
+    pub splitting: Option<Py<PyManifestSplittingConfig>>,
 }
 
 #[pymethods]
 impl PyManifestConfig {
     #[new]
-    #[pyo3(signature = (preload=None))]
-    fn new(preload: Option<Py<PyManifestPreloadConfig>>) -> Self {
-        Self { preload }
+    #[pyo3(signature = (preload=None, splitting=None))]
+    fn new(
+        preload: Option<Py<PyManifestPreloadConfig>>,
+        splitting: Option<Py<PyManifestSplittingConfig>>,
+    ) -> Self {
+        Self { preload, splitting }
     }
 
     pub fn __repr__(&self) -> String {
         // TODO: improve repr
         format!(
-            r#"ManifestConfig(preload={pre})"#,
+            r#"ManifestConfig(preload={pre}, splitting={sha})"#,
             pre = format_option_to_string(self.preload.as_ref().map(|l| l.to_string())),
+            sha = format_option_to_string(self.splitting.as_ref().map(|l| l.to_string())),
         )
     }
 }
@@ -1049,6 +1370,7 @@ impl From<&PyManifestConfig> for ManifestConfig {
     fn from(value: &PyManifestConfig) -> Self {
         Python::with_gil(|py| Self {
             preload: value.preload.as_ref().map(|c| (&*c.borrow(py)).into()),
+            splitting: value.splitting.as_ref().map(|c| (&*c.borrow(py)).into()),
         })
     }
 }
@@ -1060,6 +1382,10 @@ impl From<ManifestConfig> for PyManifestConfig {
             preload: value.preload.map(|c| {
                 Py::new(py, Into::<PyManifestPreloadConfig>::into(c))
                     .expect("Cannot create instance of ManifestPreloadConfig")
+            }),
+            splitting: value.splitting.map(|c| {
+                Py::new(py, Into::<PyManifestSplittingConfig>::into(c))
+                    .expect("Cannot create instance of ManifestSplittingConfig")
             }),
         })
     }

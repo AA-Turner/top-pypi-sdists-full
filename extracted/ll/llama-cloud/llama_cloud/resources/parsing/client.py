@@ -283,6 +283,12 @@ class ParsingClient:
         parsing_instruction: str,
         fast_mode: bool,
         formatting_instruction: str,
+        hide_headers: bool,
+        hide_footers: bool,
+        page_header_prefix: str,
+        page_header_suffix: str,
+        page_footer_prefix: str,
+        page_footer_suffix: str,
     ) -> ParsingJob:
         """
         Parameters:
@@ -463,6 +469,18 @@ class ParsingClient:
             - fast_mode: bool.
 
             - formatting_instruction: str.
+
+            - hide_headers: bool.
+
+            - hide_footers: bool.
+
+            - page_header_prefix: str.
+
+            - page_header_suffix: str.
+
+            - page_footer_prefix: str.
+
+            - page_footer_suffix: str.
         """
         _request: typing.Dict[str, typing.Any] = {
             "adaptive_long_table": adaptive_long_table,
@@ -548,6 +566,12 @@ class ParsingClient:
             "parsing_instruction": parsing_instruction,
             "fast_mode": fast_mode,
             "formatting_instruction": formatting_instruction,
+            "hide_headers": hide_headers,
+            "hide_footers": hide_footers,
+            "page_header_prefix": page_header_prefix,
+            "page_header_suffix": page_header_suffix,
+            "page_footer_prefix": page_footer_prefix,
+            "page_footer_suffix": page_footer_suffix,
         }
         if file is not OMIT:
             _request["file"] = file
@@ -1415,6 +1439,12 @@ class AsyncParsingClient:
         parsing_instruction: str,
         fast_mode: bool,
         formatting_instruction: str,
+        hide_headers: bool,
+        hide_footers: bool,
+        page_header_prefix: str,
+        page_header_suffix: str,
+        page_footer_prefix: str,
+        page_footer_suffix: str,
     ) -> ParsingJob:
         """
         Parameters:
@@ -1595,6 +1625,18 @@ class AsyncParsingClient:
             - fast_mode: bool.
 
             - formatting_instruction: str.
+
+            - hide_headers: bool.
+
+            - hide_footers: bool.
+
+            - page_header_prefix: str.
+
+            - page_header_suffix: str.
+
+            - page_footer_prefix: str.
+
+            - page_footer_suffix: str.
         """
         _request: typing.Dict[str, typing.Any] = {
             "adaptive_long_table": adaptive_long_table,
@@ -1680,6 +1722,12 @@ class AsyncParsingClient:
             "parsing_instruction": parsing_instruction,
             "fast_mode": fast_mode,
             "formatting_instruction": formatting_instruction,
+            "hide_headers": hide_headers,
+            "hide_footers": hide_footers,
+            "page_header_prefix": page_header_prefix,
+            "page_header_suffix": page_header_suffix,
+            "page_footer_prefix": page_footer_prefix,
+            "page_footer_suffix": page_footer_suffix,
         }
         if file is not OMIT:
             _request["file"] = file

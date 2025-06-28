@@ -16,14 +16,19 @@ from jwt import (
 from jwt.utils import base64url_decode
 
 from social_core.backends.oauth import BaseOAuth2
-from social_core.exceptions import AuthMissingParameter, AuthTokenError
+from social_core.exceptions import (
+    AuthInvalidParameter,
+    AuthMissingParameter,
+    AuthNotImplementedParameter,
+    AuthTokenError,
+)
 from social_core.utils import cache
 
 
 class OpenIdConnectAssociation:
     """Use Association model to save the nonce by force."""
 
-    def __init__(self, handle, secret="", issued=0, lifetime=0, assoc_type=""):
+    def __init__(self, handle, secret="", issued=0, lifetime=0, assoc_type="") -> None:
         self.handle = handle  # as nonce
         self.secret = secret.encode()  # not use
         self.issued = issued  # not use
@@ -56,6 +61,7 @@ class OpenIdConnectAuth(BaseOAuth2):
     USERNAME_KEY = "preferred_username"
     JWT_ALGORITHMS = ["RS256"]
     JWT_DECODE_OPTIONS: dict[str, Any] = {}
+    JWT_LEEWAY: float = 1.0  # seconds
     # When these options are unspecified, server will choose via openid autoconfiguration
     ID_TOKEN_ISSUER = ""
     ACCESS_TOKEN_URL = ""
@@ -64,8 +70,16 @@ class OpenIdConnectAuth(BaseOAuth2):
     USERINFO_URL = ""
     JWKS_URI = ""
     TOKEN_ENDPOINT_AUTH_METHOD = ""
+    # Optional parameters for Authentication Request
+    DISPLAY = None
+    PROMPT = None
+    MAX_AGE = None
+    UI_LOCALES = None
+    ID_TOKEN_HINT = None
+    LOGIN_HINT = None
+    ACR_VALUES = None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.id_token = None
         super().__init__(*args, **kwargs)
 
@@ -136,10 +150,59 @@ class OpenIdConnectAuth(BaseOAuth2):
         response = self.request(self.jwks_uri())
         return json.loads(response.text)["keys"]
 
-    def auth_params(self, state=None):
+    def auth_params(self, state=None):  # noqa: C901
         """Return extra arguments needed on auth process."""
         params = super().auth_params(state)
         params["nonce"] = self.get_and_store_nonce(self.authorization_url(), state)
+
+        display = self.setting("DISPLAY", default=self.DISPLAY)
+        if display is not None:
+            if not display:
+                raise AuthMissingParameter(
+                    self, "OpenID Connect display value cannot be empty string."
+                )
+
+            if display not in ("page", "popup", "touch", "wap"):
+                raise AuthMissingParameter(
+                    self, f"Invalid OpenID Connect display value: {display}"
+                )
+
+            params["display"] = display
+
+        prompt = self.setting("PROMPT", default=self.PROMPT)
+        if prompt is not None:
+            if not prompt:
+                raise AuthInvalidParameter(self, "prompt")
+
+            for prompt_token in prompt.split():
+                if prompt_token not in ("none", "login", "consent", "select_account"):
+                    raise AuthInvalidParameter(self, "prompt")
+
+            params["prompt"] = prompt
+
+        max_age = self.setting("MAX_AGE", default=self.MAX_AGE)
+        if max_age is not None:
+            if max_age < 0:
+                raise AuthInvalidParameter(self, "max_age")
+
+            params["max_age"] = max_age
+
+        ui_locales = self.setting("UI_LOCALES", default=self.UI_LOCALES)
+        if ui_locales is not None:
+            raise AuthNotImplementedParameter(self, "ui_locales")
+
+        id_token_hint = self.setting("ID_TOKEN_HINT", default=self.ID_TOKEN_HINT)
+        if id_token_hint is not None:
+            raise AuthNotImplementedParameter(self, "id_token_hint")
+
+        login_hint = self.setting("LOGIN_HINT", default=self.LOGIN_HINT)
+        if login_hint is not None:
+            raise AuthNotImplementedParameter(self, "login_hint")
+
+        acr_values = self.setting("ACR_VALUES", default=self.ACR_VALUES)
+        if acr_values is not None:
+            raise AuthNotImplementedParameter(self, "acr_values")
+
         return params
 
     def get_and_store_nonce(self, url, state):
@@ -158,10 +221,10 @@ class OpenIdConnectAuth(BaseOAuth2):
         except IndexError:
             pass
 
-    def remove_nonce(self, nonce_id):
+    def remove_nonce(self, nonce_id) -> None:
         self.strategy.storage.association.remove([nonce_id])
 
-    def validate_claims(self, id_token):
+    def validate_claims(self, id_token) -> None:
         utc_timestamp = timegm(datetime.datetime.now(datetime.timezone.utc).timetuple())
 
         if "nbf" in id_token and utc_timestamp < id_token["nbf"]:
@@ -233,6 +296,7 @@ class OpenIdConnectAuth(BaseOAuth2):
                 audience=client_id,
                 issuer=self.id_token_issuer(),
                 options=self.setting("JWT_DECODE_OPTIONS", self.JWT_DECODE_OPTIONS),
+                leeway=self.setting("JWT_LEEWAY", self.JWT_LEEWAY),
             )
         except ExpiredSignatureError:
             raise AuthTokenError(self, "Signature has expired")

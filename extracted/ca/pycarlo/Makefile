@@ -47,6 +47,8 @@ generate: install
 	sh $(ENV_UTIL) python $(SCHEMA_GEN_UTIL) $(MCD_URL) $(SCHEMA_FROM_INTROSPECTION); \
 	echo "Generating types."; \
 	sgqlc-codegen schema --docstrings $(SCHEMA_FROM_INTROSPECTION) $(SCHEMA_PY) ; \
+	echo "Formatting python code."; \
+	ruff format $(SCHEMA_PY) ; \
 	echo "Executing sanity check."; \
 	sed -i '' 's/class Connection(sgqlc.types.relay.Connection):/class Connection(sgqlc.types.Type):/g' $(SCHEMA_PY); \
 	$(MAKE) sanity-check; \

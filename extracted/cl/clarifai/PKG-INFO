@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clarifai
-Version: 11.5.4
+Version: 11.5.5
 Home-page: https://github.com/Clarifai/clarifai-python
 Author: Clarifai
 Author-email: support@clarifai.com
@@ -32,7 +32,7 @@ Requires-Dist: click>=8.1.7
 Requires-Dist: requests>=2.32.3
 Requires-Dist: aiohttp>=3.10.0
 Requires-Dist: uv==0.7.12
-Requires-Dist: ruff==0.11.4
+Requires-Dist: psutil==7.0.0
 Provides-Extra: all
 Requires-Dist: pycocotools>=2.0.7; extra == "all"
 Dynamic: author

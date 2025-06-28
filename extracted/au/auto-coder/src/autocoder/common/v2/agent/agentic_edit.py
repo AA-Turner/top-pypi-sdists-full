@@ -1,56 +1,34 @@
 import json
 import os
 import time
-from pydantic import BaseModel, Field
 import byzerllm
-from typing import List, Dict, Any, Union, Callable, Optional, Tuple
+from typing import List, Dict, Any, Union, Optional, Tuple
 from autocoder.common.printer import Printer
-from rich.console import Console
-from rich.panel import Panel
-from pydantic import SkipValidation
-from byzerllm.utils.types import SingleOutputMeta
 
-from byzerllm.utils import (        
-    format_str_jinja2
-)
-
-from autocoder.common import AutoCoderArgs, git_utils, SourceCodeList, SourceCode
+from autocoder.common import AutoCoderArgs, git_utils, SourceCodeList
 from autocoder.common.global_cancel import global_cancel
 from autocoder.common import detect_env
 from autocoder.common import shells
 from loguru import logger
-from autocoder.utils import llms as llms_utils
-from autocoder.common.auto_configure import config_readme
 from autocoder.utils.auto_project_type import ProjectTypeAnalyzer
-from rich.text import Text
+
 from autocoder.common.mcp_server import get_mcp_server, McpServerInfoRequest
 from autocoder.common import SourceCodeList
 from autocoder.common.utils_code_auto_generate import stream_chat_with_continue  # Added import
 import re
 import xml.sax.saxutils
 import time  # Added for sleep
-from typing import Iterator, Union, Type, Generator
-from xml.etree import ElementTree as ET
-from rich.console import Console  # Added
-from rich.panel import Panel  # Added
-from rich.syntax import Syntax  # Added
-from rich.markdown import Markdown  # Added
+from typing import Union, Type, Generator
 from autocoder.events.event_manager_singleton import get_event_manager
-from autocoder.events.event_types import Event, EventType, EventMetadata
+from autocoder.events.event_types import EventMetadata
 from autocoder.memory.active_context_manager import ActiveContextManager
 from autocoder.events import event_content as EventContentCreator
-from autocoder.shadows.shadow_manager import ShadowManager
-from autocoder.linters.shadow_linter import ShadowLinter
-from autocoder.compilers.shadow_compiler import ShadowCompiler
 from autocoder.common.action_yml_file_manager import ActionYmlFileManager
 from autocoder.common.auto_coder_lang import get_message
 from autocoder.common.save_formatted_log import save_formatted_log
-# Import the new display function
-from autocoder.common.v2.agent.agentic_tool_display import get_tool_display_message
 from autocoder.common.v2.agent.agentic_edit_types import FileChangeEntry
 from autocoder.utils.llms import get_single_llm
 
-from autocoder.common.file_checkpoint.models import FileChange as CheckpointFileChange
 from autocoder.common.file_checkpoint.manager import FileChangeManager as CheckpointFileChangeManager
 from autocoder.linters.normal_linter import NormalLinter
 from autocoder.compilers.normal_compiler import NormalCompiler
@@ -60,7 +38,8 @@ from autocoder.common.v2.agent.agentic_edit_tools import (  # Import specific re
     ReplaceInFileToolResolver, SearchFilesToolResolver, ListFilesToolResolver,
     ListCodeDefinitionNamesToolResolver, AskFollowupQuestionToolResolver,
     AttemptCompletionToolResolver, PlanModeRespondToolResolver, UseMcpToolResolver,
-    UseRAGToolResolver, ListPackageInfoToolResolver
+    UseRAGToolResolver, ACModReadToolResolver, ACModWriteToolResolver, TodoReadToolResolver,
+    TodoWriteToolResolver
 )
 from autocoder.common.llm_friendly_package import LLMFriendlyPackageManager
 from autocoder.common.rulefiles.autocoderrules_utils import get_rules,auto_select_rules,get_required_and_index_rules
@@ -73,7 +52,8 @@ from autocoder.common.v2.agent.agentic_edit_types import (AgenticEditRequest, To
                                                           ListFilesTool,
                                                           ListCodeDefinitionNamesTool, AskFollowupQuestionTool,
                                                           AttemptCompletionTool, PlanModeRespondTool, UseMcpTool,
-                                                          UseRAGTool, ListPackageInfoTool,
+                                                          UseRAGTool, ACModReadTool, ACModWriteTool, TodoReadTool,
+                                                          TodoWriteTool,
                                                           TOOL_MODEL_MAP,
                                                           # Event Types
                                                           LLMOutputEvent, LLMThinkingEvent, ToolCallEvent,
@@ -98,21 +78,21 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     SearchFilesTool: SearchFilesToolResolver,
     ListFilesTool: ListFilesToolResolver,
     ListCodeDefinitionNamesTool: ListCodeDefinitionNamesToolResolver,
-    ListPackageInfoTool: ListPackageInfoToolResolver,
+    ACModReadTool: ACModReadToolResolver,
+    ACModWriteTool: ACModWriteToolResolver,
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
     PlanModeRespondTool: PlanModeRespondToolResolver,
     UseMcpTool: UseMcpToolResolver,
-    UseRAGTool: UseRAGToolResolver
+    UseRAGTool: UseRAGToolResolver,
+    TodoReadTool: TodoReadToolResolver,
+    TodoWriteTool: TodoWriteToolResolver
 }
-from autocoder.common.conversations.get_conversation_manager import (
-    get_conversation_manager,
-    get_conversation_manager_config,
-    reset_conversation_manager
-)
-from autocoder.common.conversations import ConversationManagerConfig
-from autocoder.common.pull_requests import create_pull_request, detect_platform_from_repo
+from autocoder.common.conversations.get_conversation_manager import get_conversation_manager 
+from autocoder.common.pull_requests import create_pull_request
 from autocoder.common.auto_coder_lang import get_message, get_message_with_format
+from autocoder.common.pruner.agentic_conversation_pruner import AgenticConversationPruner
+from copy import deepcopy
 
 
 # --- Tool Display Customization is now handled by agentic_tool_display.py ---
@@ -197,6 +177,9 @@ class AgenticEdit:
         # 对话管理器
         self.conversation_config =conversation_config
         self.conversation_manager = get_conversation_manager()
+        
+        # Agentic 对话修剪器
+        self.agentic_pruner = AgenticConversationPruner(args=args, llm=self.context_prune_llm)
 
         if self.conversation_config.action == "new":
             conversation_id = self.conversation_manager.create_conversation(name=self.conversation_config.query or "New Conversation",
@@ -344,14 +327,37 @@ class AgenticEdit:
         <requires_approval>true or false</requires_approval>
         </execute_command>
 
-        ## list_package_info
-        Description: Request to retrieve information about a source code package, such as recent changes or documentation summary, to better understand the code context. It accepts a directory path (absolute or relative to the current project).
+        ## ac_mod_read
+        Description: Request to retrieve information about an AC Module - a language-agnostic module containing a .ac.mod.md file that provides complete functionality and can be used as an API. The .ac.mod.md file contains usage examples, core components, component dependencies, references to other AC modules, and testing information. It accepts a directory path (absolute or relative to the current project).
         Parameters:
-        - path: (required) The source code package directory path.
+        - path: (required) The AC Module directory path (directory containing .ac.mod.md file).
         Usage:
-        <list_package_info>
-        <path>relative/or/absolute/package/path</path>
-        </list_package_info>
+        <ac_mod_read>
+        <path>relative/or/absolute/ac/module/path</path>
+        </ac_mod_read>
+
+        ## ac_mod_write
+        Description: Request to create or update an AC Module's .ac.mod.md file. This tool allows you to define a new AC Module or modify an existing one by writing to its .ac.mod.md file. The file contains usage examples, core components, component dependencies, references to other AC modules, and testing information.
+        Parameters:
+        - path: (required) The AC Module directory path (directory where .ac.mod.md file should be created or updated).
+        - diff: (required) One or more SEARCH/REPLACE blocks following this exact format:
+        ```
+        <<<<<<< SEARCH
+        [exact content to find]
+        =======
+        [new content to replace with]
+        >>>>>>> REPLACE
+
+        This tool have the same usage as the replace_in_file tool, but it is used to update the AC Module's .ac.mod.md file.
+        
+        Usage:
+        
+        <ac_mod_write>
+        <path>relative/or/absolute/ac/module/path</path>
+        <diff>
+        Search and replace blocks here
+        </diff>
+        </ac_mod_write>
 
         ## read_file
         Description: Request to read the contents of a file at the specified path. Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string.
@@ -455,7 +461,36 @@ class AgenticEdit:
         <options>
         Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
         </options>
-        </ask_followup_question>        
+        </ask_followup_question>    
+
+        ## todo_read
+        Description: Request to read the current todo list for the session. This tool helps you track progress, organize complex tasks, and understand the current status of ongoing work. Use this tool proactively to stay aware of task progress and demonstrate thoroughness.
+        Parameters:
+        - No parameters required
+        Usage:
+        <todo_read>
+        </todo_read>
+
+        ## todo_write
+        Description: Request to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user. It also helps the user understand the progress of the task and overall progress of their request. Use this tool proactively for complex multi-step tasks, when explicitly requested by the user, or when you need to organize multiple operations.
+        Parameters:
+        - action: (required) The action to perform: 'create' (create new todo list), 'add_task' (add single task), 'update' (update existing task), 'mark_progress' (mark task as in progress), 'mark_completed' (mark task as completed)
+        - task_id: (optional) The ID of the task to update (required for update, mark_progress, mark_completed actions)
+        - content: (optional) The task content or description (required for create, add_task actions)
+        - priority: (optional) Task priority level: 'high', 'medium', 'low' (default: 'medium')
+        - status: (optional) Task status: 'pending', 'in_progress', 'completed' (default: 'pending')
+        - notes: (optional) Additional notes or details about the task
+        Usage:
+        <todo_write>
+        <action>create</action>
+        <content> 
+        <task>Read the configuration file</task>
+        <task>Update the database settings</task>
+        <task>Test the connection</task>
+        <task>Deploy the changes</task>
+        </content>
+        <priority>high</priority>
+        </todo_write>           
 
         ## attempt_completion
         Description: After each tool use, the user will respond with the result of that tool use, i.e. if it succeeded or failed, along with any reasons for failure. Once you've received the results of tool uses and can confirm that the task is complete, use this tool to present the result of your work to the user. Optionally you may provide a CLI command to showcase the result of your work. The user may respond with feedback if they are not satisfied with the result, which you can use to make improvements and try again.
@@ -505,7 +540,7 @@ class AgenticEdit:
         {%if rag_server_info %}
         ### RAG_SERVER_LIST
         {{rag_server_info}}
-        {%endif%}
+        {%endif%}        
 
         # Tool Use Examples
 
@@ -579,7 +614,35 @@ class AgenticEdit:
         <server_name>github</server_name>
         <tool_name>create_issue</tool_name>
         <query>ower is octocat, repo is hello-world, title is Found a bug, body is I'm having a problem with this. labels is "bug" and "help wanted",assignees is "octocat"</query>        
-        </use_mcp_tool>                
+        </use_mcp_tool>
+
+        ## Example 5: Reading the current todo list
+
+        <todo_read>
+        </todo_read>
+
+        ## Example 6: Creating a new todo list for a complex task
+
+        <todo_write>
+        <action>create</action>
+        <content>
+        <task>Analyze the existing codebase structure</task>
+        <task>Design the new feature architecture</task>
+        <task>Implement the core functionality</task>
+        <task>Add comprehensive tests</task>
+        <task>Update documentation</task>
+        <task>Review and refactor code</task>
+        </content>
+        <priority>high</priority>
+        </todo_write>
+
+        ## Example 7: Marking a specific task as completed
+
+        <todo_write>
+        <action>mark_completed</action>
+        <task_id>task_123</task_id>
+        <notes>Successfully implemented with 95% test coverage</notes>
+        </todo_write>
 
         # Tool Use Guidelines
         0. **ALWAYS START WITH THOROUGH SEARCH AND EXPLORATION.** Before making any code changes, use search tools (list_files, grep commands) to fully understand the codebase structure, existing patterns, and dependencies. This prevents errors and ensures your changes align with project conventions.
@@ -740,10 +803,10 @@ class AgenticEdit:
         - **Combine multiple approaches** for comprehensive understanding
 
         **Default workflow:**
-        1. `list_files` → understand structure
+        1. `list_files`(without recursively) → understand structure (if needed)
         2. `grep` → find specific patterns/symbols  
         3. `read_file` → examine details
-        4. Implement changes
+        4.  Implement changes
         5. `grep` → verify changes
 
         # Comprehensive Workflow
@@ -809,13 +872,7 @@ class AgenticEdit:
 
         More detail is on the EDITING FILES PART.
 
-        ## Phase 5: Comprehensive Verification
-
-        **File System Verification**
-        <execute_command>
-        <command>ls -la newfile.* 2>/dev/null || echo "Expected new files not found"</command>
-        <requires_approval>false</requires_approval>
-        </execute_command>
+        ## Phase 5: Comprehensive Verification                
 
         **Code Integration Verification**
         <execute_command>
@@ -832,17 +889,7 @@ class AgenticEdit:
         <execute_command>
         <command>npm run lint 2>/dev/null || echo "Linting not configured"</command>
         <requires_approval>false</requires_approval>
-        </execute_command>
-
-        <execute_command>
-        <command>npm test 2>/dev/null || echo "Testing not configured"</command>
-        <requires_approval>false</requires_approval>
-        </execute_command>
-
-        <execute_command>
-        <command>npm run build 2>/dev/null || echo "Build not configured"</command>
-        <requires_approval>false</requires_approval>
-        </execute_command>
+        </execute_command>      
 
         **Documentation & Comments**
         - Verify that new functions/classes have appropriate documentation
@@ -877,6 +924,118 @@ class AgenticEdit:
         - **Pattern Consistency**: Follow established project patterns rather than introducing new ones
 
         By following this comprehensive approach, you ensure thorough understanding, reliable implementation, and robust verification of all code changes.          
+
+        ====
+
+        TODO FILE TOOLS
+
+        The TODO tools help you manage and track task progress during complex coding sessions. They provide structured task management capabilities that enhance productivity and demonstrate thoroughness to users.
+
+        # todo_read
+
+        ## Purpose
+
+        - Read and display the current session's todo list to understand task progress
+        - Get an overview of all pending, in-progress, and completed tasks
+        - Track the status of complex multi-step operations
+
+        ## When to Use
+
+        Use this tool proactively and frequently to ensure awareness of current task status:
+
+        - **At the beginning of conversations** to see what's pending
+        - **Before starting new tasks** to prioritize work appropriately
+        - **When the user asks about previous tasks** or plans
+        - **Whenever you're uncertain about what to do next**
+        - **After completing tasks** to update understanding of remaining work
+        - **After every few messages** to ensure you're staying on track
+        - **Periodically during long sessions** to review progress and stay organized
+
+        ## Important Considerations
+
+        - This tool takes **no parameters** - leave the input completely blank or empty
+        - **DO NOT** include dummy objects, placeholder strings, or keys like "input" or "empty"
+        - **LEAVE IT BLANK** - the tool will automatically read the current session's todo list
+        - Returns formatted output showing tasks grouped by status (In Progress, Pending, Completed)
+        - Provides summary statistics about task completion rates
+
+        ## Benefits
+
+        - Helps maintain context and continuity across complex tasks
+        - Provides clear visibility into what has been accomplished and what remains
+        - Demonstrates organized approach to problem-solving
+        - Helps prioritize next steps based on current task status
+
+        # todo_write
+
+        ## Purpose
+
+        - Create and manage structured task lists for complex coding sessions
+        - Track progress on multi-step operations with status updates
+        - Organize work into manageable, prioritized tasks
+        - Provide clear progress visibility to users
+
+        ## When to Use
+
+        Use this tool proactively in these scenarios:
+
+        - **Complex multi-step tasks**: When a task requires 3 or more distinct steps or actions
+        - **Non-trivial and complex tasks**: Tasks that require careful planning or multiple operations
+        - **User explicitly requests todo list**: When the user directly asks you to use the todo list
+        - **User provides multiple tasks**: When users provide a list of things to be done (numbered or comma-separated)
+        - **After receiving new instructions**: Immediately capture user requirements as todos
+        - **When you start working on a task**: Mark it as in_progress BEFORE beginning work (ideally only one task should be in_progress at a time)
+        - **After completing a task**: Mark it as completed and add any new follow-up tasks discovered during implementation
+
+        ## When NOT to Use
+
+        Skip using this tool when:
+
+        - There is only a **single, straightforward task**
+        - The task is **trivial** and tracking it provides no organizational benefit
+        - The task can be completed in **less than 3 trivial steps**
+        - The task is **purely conversational or informational**
+
+        **NOTE**: Do not use this tool if there is only one trivial task to do. In this case you are better off just doing the task directly.        
+
+        ## Important Considerations
+
+        - Each task gets a unique ID that can be used for future updates
+        - Task content for 'create' action should be formatted as a numbered list for multiple tasks
+        - The system automatically tracks task creation and modification timestamps
+        - Todo lists persist across tool calls within the same session
+        - Use descriptive task names that clearly indicate what needs to be accomplished
+
+        ## Example Usage Scenario
+
+        ```
+        User: I want to add a dark mode toggle to the application settings. Make sure you run the tests and build when you're done!
+
+        Assistant: I'll help add a dark mode toggle to your application settings. Let me create a todo list to track this implementation.
+
+        Creates todo list with the following items:
+        1. Create dark mode toggle component in Settings page
+        2. Add dark mode state management (context/store)
+        3. Implement CSS-in-JS styles for dark theme
+        4. Update existing components to support theme switching
+        5. Run tests and build process, addressing any failures or errors that occur
+
+        Thinking: The assistant used the todo list because:
+        1. Adding dark mode is a multi-step feature requiring UI, state management, and styling changes
+        2. The user explicitly requested tests and build be run afterward
+        3. The assistant inferred that tests and build need to pass by adding "Ensure tests and build succeed" as the final task
+        ```
+
+        ## Workflow Tips
+
+        1. **Start with creation**: Use 'create' action to establish the initial task list for complex projects
+        2. **Add tasks incrementally**: Use 'add_task' as new requirements emerge during implementation
+        3. **Track progress actively**: Use 'mark_progress' when starting work on a task
+        4. **Complete tasks promptly**: Use 'mark_completed' when tasks are finished
+        5. **Add context**: Use 'notes' parameter to record important decisions or challenges
+        6. **Review regularly**: Use todo_read to maintain awareness of overall progress
+
+        By using these TODO tools effectively, you can maintain better organization, provide clear progress visibility, and demonstrate a systematic approach to complex coding tasks.
 
         ====
 
@@ -956,41 +1115,158 @@ class AgenticEdit:
 
         ====        
 
-        PACKAGE CONTEXT INFORMATION
+        AC MOD FILES
 
-        # Understanding Directory Context
+        # AC Modules (.ac.mod.md)         
 
-        ## Purpose
+        ## What is an AC Module?
 
-        - Each directory in the project (especially source code directories) has implicit context information
-        - This includes recent changes, important files, and their purposes
-        - This contextual information helps you understand the role of the directory and the files in the directory
+        Any directory containing a `.ac.mod.md` file is considered an AC Module - a language-agnostic module that provides complete functionality and can be used as an API. These modules are self-contained units with well-defined interfaces and comprehensive documentation.
 
-        ## Accessing Directory Context
+        ## AC Module Structure        
+        - .ac.mod.md contains detailed information about:
+          - Usage examples and quick start guides
+          - Core components and their relationships
+          - Dependencies between components
+          - References to other AC modules it depends on
+          - Testing instructions and examples
 
-        - Use the **list_package_info** tool to view this information for a specific directory
-        - Do NOT use other tools like list_files to view this specialized context information        
+        ## When to Use AC Modules
 
-        ## When to Use
+        1. **Avoid duplicate implementation**: Check if functionality already exists in project AC modules before implementing new features
+        2. **Project understanding**: Review multiple AC modules to gain comprehensive knowledge of the entire project architecture
+        3. **File modification context**: When modifying files in a directory, check if it's an AC module or contains AC modules to understand the full impact
 
-        - When you need to understand what has recently changed in a directory
-        - When you need insight into the purpose and organization of a directory
-        - Before diving into detailed file exploration with other tools
+        ## ac_mod_read
+        
+        When to use:
+        - Use the this tool to retrieve comprehensive information about an AC module
+        - The tool reads the `.ac.mod.md` file and provides structured information about the module        
 
-        ## Example
+        Example:
+        
+        <ac_mod_read>
+        <path>src/autocoder/agent</path>
+        </ac_mod_read>
+        
 
-        ```xml
-        <list_package_info>
-        <path>src/some/directory</path>
-        </list_package_info>
+        ## ac_mod_write
+        
+        When to use:
+        - When we edit files in an AC module, we should update the `.ac.mod.md` file to reflect the changes.
+        - When the user directly asks you to create or update an AC module 
+        
+        Example:
+        
+        <ac_mod_write>
+        <path>src/autocoder/agent</path>
+        <diff>
+         search and replace blocks here
+        </diff>
+        </ac_mod_write>
+
+       The content of the `.ac.mod.md` file should be ***strictly following*** the structure of the example as follows:
+       
+       <ac_mod_md_example>
+        # [Module Name]
+
+        [One-sentence description of the module's core functionality and its role in the project]
+
+        ## Directory Structure
+
+        ```
+        [module_path]/
+        ├── [main_file1]                 # [Detailed function description]
+        ├── [main_file2]                 # [Detailed function description]
+        ├── [subdirectory]/              # [Subdirectory function description]
+        │   └── [subfile]                # [Subfile function description]
+        └── .ac.mod.md                   # This document
         ```
 
-        # Benefits
+        ## Quick Start
 
-        - Quickly identifies recently modified files that may be relevant to your task
-        - Provides high-level understanding of directory contents and purpose
-        - Helps prioritize which files to examine in detail with tools like read_file, shell commands, or list_code_definition_names
+        ### Basic Usage
 
+        ```python
+        # Import necessary modules
+        from [module_path] import [MainClassName], [HelperClassName]
+
+        # 1. Initialize configuration
+        [Specific initialization code example]
+
+        # 2. Create instance
+        [Instance creation code example]
+
+        # 3. Basic usage
+        [Basic usage code example]
+        ```
+
+        ### Helper Functions
+
+        [Detailed explanation of helper functions provided by the module]
+
+        ### Configuration Management
+
+        [Explanation of configuration options and management methods]
+
+        ## Core Components
+
+        ### 1. [MainClassName] Main Class
+        [YOU SHOULD KEEP THIS PART AS SIMPLIFIED AS POSSIBLE]
+        **Core Features:**
+        - [Feature1]: [Detailed description]
+        - [Feature2]: [Detailed description]
+
+        **Main Methods:**
+        - `[method1]()`: [Method functionality and parameter description]
+        - `[method2]()`: [Method functionality and parameter description]
+
+        ### 2. [Module] Architecture
+
+        [Detailed explanation of the module's design and implementation]
+
+        ## Mermaid File Dependency Graph
+        [Main description of dependencies within the module]
+
+        ```mermaid
+        graph TB
+            %% Core module definition
+            [MainModule][MainModule<br/>Core functionality description]
+            [SubModule1][SubModule1<br/>Functionality description]
+            
+            %% Dependency relationships
+            [MainModule] --> [SubModule1]
+            
+            %% Style definitions
+            classDef coreClass fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+            classDef subClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px
+            
+            class [MainModule] coreClass
+            class [SubModule1] subClass
+        ```
+
+        ## Dependency Relationships
+        Dependencies on other modules with .ac.mod.md files, simply shown as a relative path list, for example:
+
+        - ../a/.ac.mod.md
+        - ../../b/.ac.mod.md
+
+        ## Commands to Verify Module Functionality
+     
+        Usually an executable command that can run a script or execute tests, for example:
+
+        ```
+        node --experimental-transform-types ./a/b/c.ts
+        ```
+
+        Or test execution commands:
+
+        ```
+        pytest path/to/your/module/tests -v
+        ```
+       </ac_mod_md_example>
+    
+        
         ====
 
         CAPABILITIES
@@ -1257,9 +1533,9 @@ class AgenticEdit:
         
         self.current_conversations = conversations
         
-        # 计算初始对话窗口长度并触发事件
+        # 计算初始对话窗口长度
         conversation_str = json.dumps(conversations, ensure_ascii=False)
-        current_tokens = count_tokens(conversation_str)
+        current_tokens = count_tokens(conversation_str)                       
         yield WindowLengthChangeEvent(tokens_used=current_tokens)
         
         logger.info(
@@ -1291,12 +1567,12 @@ class AgenticEdit:
                 f"Starting LLM interaction cycle. History size: {len(conversations)}")
 
             assistant_buffer = ""
-            logger.info("Initializing stream chat with LLM")
+            logger.info("Initializing stream chat with LLM")        
 
-            # ## 实际请求大模型
+            # ## 实际请求大模型,并且我们会裁剪对话窗口长度
             llm_response_gen = stream_chat_with_continue(
                 llm=self.llm,
-                conversations=conversations,
+                conversations=self.agentic_pruner.prune_conversations(deepcopy(conversations)),
                 llm_config={},  # Placeholder for future LLM configs
                 args=self.args
             )
@@ -1996,7 +2272,7 @@ class AgenticEdit:
             
             # 准备 PR 标题和描述
             query = self.args.query or get_message("/agent/edit/pull_request/default_query")
-            pr_title = get_message_with_format("/agent/edit/pull_request/title", query=query[0:40])
+            pr_title = get_message_with_format("/agent/edit/pull_request/title", query="{query[0:40]}...")
             
             # 构建 PR 描述
             file_list = ""
@@ -2101,446 +2377,4 @@ class AgenticEdit:
                     path="/agent/edit/pull_request_exception",
                     stream_out_type="/agent/edit"
                 ).to_dict()
-            )
-
-    def run_in_terminal(self, request: AgenticEditRequest):
-        """
-        Runs the agentic edit process based on the request and displays
-        the interaction streamingly in the terminal using Rich.
-        """
-        import json
-        console = Console()
-        project_name = os.path.basename(os.path.abspath(self.args.source_dir))
-
-        if self.conversation_config.action == "list":
-            conversations = self.conversation_manager.list_conversations()
-            # 只保留 conversation_id 和 name 字段
-            filtered_conversations = []
-            for conv in conversations:
-                filtered_conv = {
-                    "conversation_id": conv.get("conversation_id"),
-                    "name": conv.get("name")
-                }
-                filtered_conversations.append(filtered_conv)
-            
-            # 格式化 JSON 输出，使用 JSON 格式渲染而不是 Markdown
-            json_str = json.dumps(filtered_conversations, ensure_ascii=False, indent=4)
-            console.print(Panel(json_str,
-                                  title="🏁 Task Completion", border_style="green", title_align="left"))
-            return
-        
-
-        if self.conversation_config.action == "new" and not request.user_input.strip():
-            console.print(Panel(Markdown(f"New conversation created: {self.conversation_manager.get_current_conversation_id()}"),
-                                  title="🏁 Task Completion", border_style="green", title_align="left"))
-            return
-
-        console.rule(f"[bold cyan]Starting Agentic Edit: {project_name}[/]")
-        console.print(Panel(
-            f"[bold]{get_message('/agent/edit/user_query')}:[/bold]\n{request.user_input}", title=get_message("/agent/edit/objective"), border_style="blue"))
-
-        # 用于累计TokenUsageEvent数据
-        accumulated_token_usage = {
-            "model_name": "",
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "input_cost": 0.0,
-            "output_cost": 0.0
-        }
-
-        try:
-            self.apply_pre_changes()
-            event_stream = self.analyze(request)
-            for event in event_stream:
-                if isinstance(event, ConversationIdEvent):
-                    console.print(f"[dim]Conversation ID: {event.conversation_id}[/dim]")
-                    continue
-                if isinstance(event, TokenUsageEvent):
-                    last_meta: SingleOutputMeta = event.usage
-                    # Get model info for pricing
-                    from autocoder.utils import llms as llm_utils
-                    model_name = ",".join(llm_utils.get_llm_names(self.llm))
-                    model_info = llm_utils.get_model_info(
-                        model_name, self.args.product_mode) or {}
-                    input_price = model_info.get(
-                        "input_price", 0.0) if model_info else 0.0
-                    output_price = model_info.get(
-                        "output_price", 0.0) if model_info else 0.0
-
-                    # Calculate costs
-                    input_cost = (last_meta.input_tokens_count *
-                                  input_price) / 1000000  # Convert to millions
-                    # Convert to millions
-                    output_cost = (
-                        last_meta.generated_tokens_count * output_price) / 1000000
-
-                    # 添加日志记录
-                    logger.info(f"Token Usage: Model={model_name}, Input Tokens={last_meta.input_tokens_count}, Output Tokens={last_meta.generated_tokens_count}, Input Cost=${input_cost:.6f}, Output Cost=${output_cost:.6f}")
-
-                    # 累计token使用情况
-                    accumulated_token_usage["model_name"] = model_name
-                    accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
-                    accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
-                    accumulated_token_usage["input_cost"] += input_cost
-                    accumulated_token_usage["output_cost"] += output_cost
-                    
-                elif isinstance(event, WindowLengthChangeEvent):
-                    # 显示当前会话的token数量
-                    logger.info(f"当前会话总 tokens: {event.tokens_used}")
-                    console.print(f"[dim]当前会话总 tokens: {event.tokens_used}[/dim]")
-                    
-                elif isinstance(event, LLMThinkingEvent):
-                    # Render thinking within a less prominent style, maybe grey?
-                    console.print(f"[grey50]{event.text}[/grey50]", end="")
-                elif isinstance(event, LLMOutputEvent):
-                    # Print regular LLM output, potentially as markdown if needed later
-                    console.print(event.text, end="")
-                elif isinstance(event, ToolCallEvent):
-                    # Skip displaying AttemptCompletionTool's tool call
-                    if isinstance(event.tool, AttemptCompletionTool):
-                        continue  # Do not display AttemptCompletionTool tool call
-
-                    tool_name = type(event.tool).__name__
-                    # Use the new internationalized display function
-                    display_content = get_tool_display_message(event.tool)
-                    console.print(Panel(
-                        display_content, title=f"🛠️ Action: {tool_name}", border_style="blue", title_align="left"))
-
-                elif isinstance(event, ToolResultEvent):
-                    # Skip displaying AttemptCompletionTool's result
-                    if event.tool_name == "AttemptCompletionTool":
-                        continue  # Do not display AttemptCompletionTool result
-
-                    if event.tool_name == "PlanModeRespondTool":
-                        continue
-
-                    result = event.result
-                    title = f"✅ Tool Result: {event.tool_name}" if result.success else f"❌ Tool Result: {event.tool_name}"
-                    border_style = "green" if result.success else "red"
-                    base_content = f"[bold]Status:[/bold] {'Success' if result.success else 'Failure'}\n"
-                    base_content += f"[bold]Message:[/bold] {result.message}\n"
-
-                    def _format_content(content):
-                        if len(content) > 200:
-                            return f"{content[:100]}\n...\n{content[-100:]}"
-                        else:
-                            return content
-
-                    # Prepare panel for base info first
-                    panel_content = [base_content]
-                    syntax_content = None
-
-                    if result.content is not None:
-                        content_str = ""
-                        try:
-                            if isinstance(result.content, (dict, list)):
-                                import json
-                                content_str = json.dumps(
-                                    result.content, indent=2, ensure_ascii=False)
-                                syntax_content = Syntax(
-                                    content_str, "json", theme="default", line_numbers=False)
-                            elif isinstance(result.content, str) and ('\n' in result.content or result.content.strip().startswith('<')):
-                                # Heuristic for code or XML/HTML
-                                lexer = "python"  # Default guess
-                                if event.tool_name == "ReadFileTool" and isinstance(event.result.message, str):
-                                    # Try to guess lexer from file extension in message
-                                    if ".py" in event.result.message:
-                                        lexer = "python"
-                                    elif ".js" in event.result.message:
-                                        lexer = "javascript"
-                                    elif ".ts" in event.result.message:
-                                        lexer = "typescript"
-                                    elif ".html" in event.result.message:
-                                        lexer = "html"
-                                    elif ".css" in event.result.message:
-                                        lexer = "css"
-                                    elif ".json" in event.result.message:
-                                        lexer = "json"
-                                    elif ".xml" in event.result.message:
-                                        lexer = "xml"
-                                    elif ".md" in event.result.message:
-                                        lexer = "markdown"
-                                    else:
-                                        lexer = "text"  # Fallback lexer
-                                elif event.tool_name == "ExecuteCommandTool":
-                                    lexer = "shell"
-                                else:
-                                    lexer = "text"
-
-                                syntax_content = Syntax(
-                                    _format_content(result.content), lexer, theme="default", line_numbers=True)
-                            else:
-                                content_str = str(result.content)
-                                # Append simple string content directly
-                                panel_content.append(
-                                    _format_content(content_str))
-                        except Exception as e:
-                            logger.warning(
-                                f"Error formatting tool result content: {e}")
-                            panel_content.append(
-                                # Fallback
-                                _format_content(str(result.content)))
-
-                    # Print the base info panel
-                    console.print(Panel("\n".join(
-                        panel_content), title=title, border_style=border_style, title_align="left"))
-                    # Print syntax highlighted content separately if it exists
-                    if syntax_content:
-                        console.print(syntax_content)
-                elif isinstance(event, PlanModeRespondEvent):
-                    console.print(Panel(Markdown(event.completion.response),
-                                  title="🏁 Task Completion", border_style="green", title_align="left"))
-
-                elif isinstance(event, CompletionEvent):
-                    # 在这里完成实际合并
-                    try:
-                        self.apply_changes()
-                    except Exception as e:
-                        logger.exception(
-                            f"Error merging shadow changes to project: {e}")
-
-                    console.print(Panel(Markdown(event.completion.result),
-                                  title="🏁 Task Completion", border_style="green", title_align="left"))
-                    if event.completion.command:
-                        console.print(
-                            f"[dim]Suggested command:[/dim] [bold cyan]{event.completion.command}[/]")
-                elif isinstance(event, ErrorEvent):
-                    console.print(Panel(
-                        f"[bold red]Error:[/bold red] {event.message}", title="🔥 Error", border_style="red", title_align="left"))
-
-                time.sleep(0.1)  # Small delay for better visual flow
-
-            # 在处理完所有事件后打印累计的token使用情况
-            if accumulated_token_usage["input_tokens"] > 0:
-                self.printer.print_in_terminal(
-                    "code_generation_complete",
-                    duration=0.0,
-                    input_tokens=accumulated_token_usage["input_tokens"],
-                    output_tokens=accumulated_token_usage["output_tokens"],
-                    input_cost=accumulated_token_usage["input_cost"],
-                    output_cost=accumulated_token_usage["output_cost"],
-                    speed=0.0,
-                    model_names=accumulated_token_usage["model_name"],
-                    sampling_count=1
-                )
-                
-        except Exception as e:
-            # 在处理异常时也打印累计的token使用情况
-            if accumulated_token_usage["input_tokens"] > 0:
-                self.printer.print_in_terminal(
-                    "code_generation_complete",
-                    duration=0.0,
-                    input_tokens=accumulated_token_usage["input_tokens"],
-                    output_tokens=accumulated_token_usage["output_tokens"],
-                    input_cost=accumulated_token_usage["input_cost"],
-                    output_cost=accumulated_token_usage["output_cost"],
-                    speed=0.0,
-                    model_names=accumulated_token_usage["model_name"],
-                    sampling_count=1
-                )
-                
-            logger.exception(
-                "An unexpected error occurred during agent execution:")
-            console.print(Panel(
-                f"[bold red]FATAL ERROR:[/bold red]\n{str(e)}", title="🔥 System Error", border_style="red"))
-            raise e
-        finally:
-            console.rule("[bold cyan]Agentic Edit Finished[/]")
-
-    def run(self, request: AgenticEditRequest):        
-        try:
-            event_stream = self.analyze(request)
-            for agent_event in event_stream:
-                if isinstance(agent_event, CompletionEvent):
-                    self.apply_changes()
-                yield agent_event
-                
-        except Exception as e:
-            logger.exception(
-                "An unexpected error occurred during agent execution: {e}")           
-            raise e
-
-
-    def run_with_events(self, request: AgenticEditRequest):
-        """
-        Runs the agentic edit process, converting internal events to the
-        standard event system format and writing them using the event manager.
-        """
-        event_manager = get_event_manager(self.args.event_file)
-        self.apply_pre_changes()              
-
-        try:
-            event_stream = self.analyze(request)
-            for agent_event in event_stream:
-                content = None
-                metadata = EventMetadata(
-                    action_file=self.args.file,
-                    is_streaming=False,
-                    stream_out_type="/agent/edit")
-
-                if isinstance(agent_event, LLMThinkingEvent):
-                    content = EventContentCreator.create_stream_thinking(
-                        content=agent_event.text)
-                    metadata.is_streaming = True
-                    metadata.path = "/agent/edit/thinking"
-                    event_manager.write_stream(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-                elif isinstance(agent_event, LLMOutputEvent):
-                    content = EventContentCreator.create_stream_content(
-                        content=agent_event.text)
-                    metadata.is_streaming = True
-                    metadata.path = "/agent/edit/output"
-                    event_manager.write_stream(content=content.to_dict(),
-                                            metadata=metadata.to_dict())
-                elif isinstance(agent_event, ToolCallEvent):
-                    tool_name = type(agent_event.tool).__name__
-                    metadata.path = "/agent/edit/tool/call"
-                    content = EventContentCreator.create_result(
-                        content={
-                            "tool_name": tool_name,
-                            **agent_event.tool.model_dump()
-                        },
-                        metadata={}
-                    )
-                    event_manager.write_result(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-                elif isinstance(agent_event, ToolResultEvent):
-                    metadata.path = "/agent/edit/tool/result"
-                    content = EventContentCreator.create_result(
-                        content={
-                            "tool_name": agent_event.tool_name,
-                            **agent_event.result.model_dump()
-                        },
-                        metadata={}
-                    )
-                    event_manager.write_result(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-                elif isinstance(agent_event, PlanModeRespondEvent):
-                    metadata.path = "/agent/edit/plan_mode_respond"
-                    content = EventContentCreator.create_markdown_result(
-                        content=agent_event.completion.response,
-                        metadata={}
-                    )
-                    event_manager.write_result(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-
-                elif isinstance(agent_event, TokenUsageEvent):
-                    last_meta: SingleOutputMeta = agent_event.usage
-                    # Get model info for pricing
-                    from autocoder.utils import llms as llm_utils
-                    model_name = ",".join(llm_utils.get_llm_names(self.llm))
-                    model_info = llm_utils.get_model_info(
-                        model_name, self.args.product_mode) or {}
-                    input_price = model_info.get(
-                        "input_price", 0.0) if model_info else 0.0
-                    output_price = model_info.get(
-                        "output_price", 0.0) if model_info else 0.0
-
-                    # Calculate costs
-                    input_cost = (last_meta.input_tokens_count *
-                                input_price) / 1000000  # Convert to millions
-                    # Convert to millions
-                    output_cost = (
-                        last_meta.generated_tokens_count * output_price) / 1000000
-
-                    # 添加日志记录
-                    logger.info(f"Token Usage Details: Model={model_name}, Input Tokens={last_meta.input_tokens_count}, Output Tokens={last_meta.generated_tokens_count}, Input Cost=${input_cost:.6f}, Output Cost=${output_cost:.6f}")
-                    
-                    # 直接将每次的 TokenUsageEvent 写入到事件中
-                    metadata.path = "/agent/edit/token_usage"
-                    content = EventContentCreator.create_result(content=EventContentCreator.ResultTokenStatContent(
-                        model_name=model_name,
-                        elapsed_time=0.0,
-                        first_token_time=last_meta.first_token_time,
-                        input_tokens=last_meta.input_tokens_count,
-                        output_tokens=last_meta.generated_tokens_count,
-                        input_cost=input_cost,
-                        output_cost=output_cost
-                    ).to_dict())
-                    event_manager.write_result(content=content.to_dict(), metadata=metadata.to_dict())
-                                       
-
-                elif isinstance(agent_event, CompletionEvent):
-                    # 在这里完成实际合并
-                    try:
-                        self.apply_changes()
-                    except Exception as e:
-                        logger.exception(
-                            f"Error merging shadow changes to project: {e}")                                        
-
-                    metadata.path = "/agent/edit/completion"
-                    content = EventContentCreator.create_completion(
-                        success_code="AGENT_COMPLETE",
-                        success_message="Agent attempted task completion.",
-                        result={
-                            "response": agent_event.completion.result
-                        }
-                    )
-                    event_manager.write_completion(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-                elif isinstance(agent_event, WindowLengthChangeEvent):
-                    # 处理窗口长度变化事件
-                    metadata.path = "/agent/edit/window_length_change"
-                    content = EventContentCreator.create_result(
-                        content={
-                            "tokens_used": agent_event.tokens_used
-                        },
-                        metadata={}
-                    )
-                    event_manager.write_result(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-                    
-                    # 记录日志
-                    logger.info(f"当前会话总 tokens: {agent_event.tokens_used}")
-
-                elif isinstance(agent_event, ConversationIdEvent):
-                    metadata.path = "/agent/edit/conversation_id"
-                    content = EventContentCreator.create_result(
-                        content={
-                            "conversation_id": agent_event.conversation_id
-                        },
-                        metadata={}
-                    )
-                    event_manager.write_result(content=content.to_dict(), metadata=metadata.to_dict())    
-                    
-                elif isinstance(agent_event, ErrorEvent):                                        
-                    metadata.path = "/agent/edit/error"
-                    content = EventContentCreator.create_error(
-                        error_code="AGENT_ERROR",
-                        error_message=agent_event.message,
-                        details={"agent_event_type": "ErrorEvent"}
-                    )
-                    event_manager.write_error(
-                        content=content.to_dict(), metadata=metadata.to_dict())                
-                else:
-                    metadata.path = "/agent/edit/error"
-                    logger.warning(
-                        f"Unhandled agent event type: {type(agent_event)}")
-                    content = EventContentCreator.create_error(
-                        error_code="AGENT_ERROR",
-                        error_message=f"Unhandled agent event type: {type(agent_event)}",
-                        details={"agent_event_type": type(
-                            agent_event).__name__}
-                    )
-                    event_manager.write_error(
-                        content=content.to_dict(), metadata=metadata.to_dict())
-
-        except Exception as e:
-            logger.exception(
-                "An unexpected error occurred during agent execution:")
-            metadata = EventMetadata(
-                action_file=self.args.file,
-                is_streaming=False,
-                stream_out_type="/agent/edit/error")
-                
-            # 发送累计的TokenUsageEvent数据（在错误情况下也需要发送）            
-                
-            error_content = EventContentCreator.create_error(
-                error_code="AGENT_FATAL_ERROR",
-                error_message=f"An unexpected error occurred: {str(e)}",
-                details={"exception_type": type(e).__name__}
-            )
-            event_manager.write_error(
-                content=error_content.to_dict(), metadata=metadata.to_dict())
-            # Re-raise the exception if needed, or handle appropriately
-            raise e
+            )    

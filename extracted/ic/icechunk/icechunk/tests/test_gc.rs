@@ -8,6 +8,10 @@ use futures::{StreamExt, TryStreamExt};
 use icechunk::{
     Repository, RepositoryConfig, Storage,
     asset_manager::AssetManager,
+    config::{
+        ManifestConfig, ManifestSplitCondition, ManifestSplitDim,
+        ManifestSplitDimCondition, ManifestSplittingConfig,
+    },
     format::{ByteRange, ChunkIndices, Path, snapshot::ArrayShape},
     new_in_memory_storage,
     ops::gc::{
@@ -61,9 +65,26 @@ pub async fn do_test_gc(
     storage: Arc<dyn Storage + Send + Sync>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let storage_settings = storage.default_settings();
+
+    let shape = ArrayShape::new(vec![(1100, 1)]).unwrap();
+    // intentionally small to create garbage
+    let manifest_split_size = 10;
+    let split_sizes = Some(vec![(
+        ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+        vec![ManifestSplitDim {
+            condition: ManifestSplitDimCondition::Any,
+            num_chunks: manifest_split_size,
+        }],
+    )]);
+    let man_config = ManifestConfig {
+        splitting: Some(ManifestSplittingConfig { split_sizes }),
+        ..ManifestConfig::default()
+    };
+
     let repo = Repository::create(
         Some(RepositoryConfig {
             inline_chunk_threshold_bytes: Some(0),
+            manifest: Some(man_config),
             ..Default::default()
         }),
         Arc::clone(&storage),
@@ -75,8 +96,6 @@ pub async fn do_test_gc(
 
     let user_data = Bytes::new();
     ds.add_group(Path::root(), user_data.clone()).await?;
-
-    let shape = ArrayShape::new(vec![(1100, 1)]).unwrap();
 
     let array_path: Path = "/array".try_into().unwrap();
     ds.add_array(array_path.clone(), shape, None, user_data.clone()).await?;
@@ -90,10 +109,12 @@ pub async fn do_test_gc(
 
     let first_snap_id = ds.commit("first", None).await?;
     assert_eq!(storage.list_chunks(&storage_settings).await?.count().await, 1100);
+    assert_eq!(storage.list_manifests(&storage_settings).await?.count().await, 110);
 
     let mut ds = repo.writable_session("main").await?;
 
     // overwrite 10 chunks
+    // This will only overwrite one split manifest.
     for idx in 0..10 {
         let bytes = Bytes::copy_from_slice(&0i8.to_be_bytes());
         let payload = ds.get_chunk_writer()(bytes.clone()).await?;
@@ -102,6 +123,7 @@ pub async fn do_test_gc(
     }
     let second_snap_id = ds.commit("second", None).await?;
     assert_eq!(storage.list_chunks(&storage_settings).await?.count().await, 1110);
+    assert_eq!(storage.list_manifests(&storage_settings).await?.count().await, 111);
 
     // verify doing gc without dangling objects doesn't change the repo
     let now = Utc::now();
@@ -137,6 +159,7 @@ pub async fn do_test_gc(
 
     // we still have all the chunks
     assert_eq!(storage.list_chunks(&storage_settings).await?.count().await, 1110);
+    assert_eq!(storage.list_manifests(&storage_settings).await?.count().await, 111);
 
     let summary = garbage_collect(
         storage.as_ref(),
@@ -146,13 +169,14 @@ pub async fn do_test_gc(
     )
     .await?;
     assert_eq!(summary.chunks_deleted, 10);
+    // only one manifest was re-created, so there is only one garbage manifest
     assert_eq!(summary.manifests_deleted, 1);
     assert_eq!(summary.snapshots_deleted, 1);
     assert!(summary.bytes_deleted > summary.chunks_deleted);
 
     // 10 chunks should be drop
     assert_eq!(storage.list_chunks(&storage_settings).await?.count().await, 1100);
-    assert_eq!(storage.list_manifests(&storage_settings).await?.count().await, 1);
+    assert_eq!(storage.list_manifests(&storage_settings).await?.count().await, 110);
     assert_eq!(storage.list_snapshots(&storage_settings).await?.count().await, 2);
 
     // Opening the repo on main should give the right data

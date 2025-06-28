@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-dask
-Version: 0.3.5
+Version: 0.3.6
 Summary: Prefect integrations with the Dask execution framework.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: prefect>=3.3.0
+Requires-Dist: prefect>=3.4.7
 Requires-Dist: distributed!=2023.3.2,!=2023.3.2.1,!=2023.4.*,!=2023.5.*,>=2022.5.0
 Dynamic: license-file
 

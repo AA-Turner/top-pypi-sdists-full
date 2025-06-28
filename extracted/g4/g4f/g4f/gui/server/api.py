@@ -153,7 +153,8 @@ class Api:
             debug.logs.append(" ".join([str(value) for value in values]))
             if debug.logging:
                 debug.log_handler(*values, file=file)
-        debug.log = decorated_log
+        if "user" not in kwargs:
+            debug.log = decorated_log
         proxy = os.environ.get("G4F_PROXY")
         provider = kwargs.get("provider")
         try:
@@ -161,9 +162,12 @@ class Api:
                 kwargs.get("model"), provider,
                 stream=True,
                 ignore_stream=True,
-                logging=False,
                 has_images="media" in kwargs,
             )
+            if "user" in kwargs:
+                debug.error("User:", kwargs.get("user", "Unknown"))
+                debug.error("Referrer:", kwargs.get("referer", ""))
+                debug.error("User-Agent:", kwargs.get("user-agent", ""))
         except Exception as e:
             logger.exception(e)
             yield self._format_json('error', type(e).__name__, message=get_error_message(e))
@@ -199,7 +203,16 @@ class Api:
                         chunk.alt = format_media_prompt(kwargs.get("messages"), chunk.alt)
                         width, height = get_width_height(chunk.get("width"), chunk.get("height"))
                         tags = [model, kwargs.get("aspect_ratio"), kwargs.get("resolution")]
-                        media = asyncio.run(copy_media(chunk.get_list(), chunk.get("cookies"), chunk.get("headers"), proxy=proxy, alt=chunk.alt, tags=tags, add_url=f"width={width}&height={height}&"))
+                        media = asyncio.run(copy_media(
+                            chunk.get_list(),
+                            chunk.get("cookies"),
+                            chunk.get("headers"),
+                            proxy=proxy,
+                            alt=chunk.alt,
+                            tags=tags,
+                            add_url=f"width={width}&height={height}&",
+                            timeout=kwargs.get("timeout"),
+                        ))
                         media = ImageResponse(media, chunk.alt) if isinstance(chunk, ImageResponse) else VideoResponse(media, chunk.alt)
                     yield self._format_json("content", str(media), urls=media.urls, alt=media.alt)
                 elif isinstance(chunk, SynthesizeData):
@@ -232,7 +245,13 @@ class Api:
                     yield self._format_json("content", str(chunk))
         except MissingAuthError as e:
             yield self._format_json('auth', type(e).__name__, message=get_error_message(e))
+        except (TimeoutError, asyncio.exceptions.CancelledError) as e:
+            if "user" in kwargs:
+                debug.error(e, "User:", kwargs.get("user", "Unknown"))
+            yield self._format_json('error', type(e).__name__, message=get_error_message(e))
         except Exception as e:
+            if "user" in kwargs:
+                debug.error(e, "User:", kwargs.get("user", "Unknown"))
             logger.exception(e)
             yield self._format_json('error', type(e).__name__, message=get_error_message(e))
         finally:

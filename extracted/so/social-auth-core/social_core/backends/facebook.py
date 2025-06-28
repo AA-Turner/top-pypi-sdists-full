@@ -9,13 +9,14 @@ import hmac
 import json
 import time
 
-from ..exceptions import (
+from social_core.exceptions import (
     AuthCanceled,
     AuthException,
     AuthMissingParameter,
     AuthUnknownError,
 )
-from ..utils import constant_time_compare, handle_http_errors, parse_qs
+from social_core.utils import constant_time_compare, handle_http_errors, parse_qs
+
 from .oauth import BaseOAuth2
 
 API_VERSION = 18.0
@@ -85,7 +86,7 @@ class FacebookOAuth2(BaseOAuth2):
         version = self.setting("API_VERSION", API_VERSION)
         return self.get_json(self.USER_DATA_URL.format(version=version), params=params)
 
-    def process_error(self, data):
+    def process_error(self, data) -> None:
         super().process_error(data)
         if data.get("error_code"):
             raise AuthCanceled(
@@ -183,7 +184,7 @@ class FacebookAppOAuth2(FacebookOAuth2):
 
     name = "facebook-app"
 
-    def uses_redirect(self):
+    def uses_redirect(self) -> bool:
         return False
 
     def auth_complete(self, *args, **kwargs):

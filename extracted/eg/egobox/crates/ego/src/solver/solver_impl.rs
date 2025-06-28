@@ -2,12 +2,12 @@ use std::marker::PhantomData;
 
 use crate::errors::{EgoError, Result};
 use crate::gpmix::mixint::{as_continuous_limits, to_discrete_space};
+use crate::solver::solver_computations::MiddlePickerMultiStarter;
 use crate::utils::{find_best_result_index_from, update_data};
 use crate::{find_best_result_index, EgorConfig};
 use crate::{types::*, EgorState};
 use crate::{EgorSolver, DEFAULT_CSTR_TOL, MAX_POINT_ADDITION_RETRY};
 
-use super::solver_computations::GlobalMultiStarter;
 use argmin::argmin_error_closure;
 use argmin::core::{CostFunction, Problem, State};
 
@@ -25,9 +25,6 @@ use rayon::prelude::*;
 use serde::de::DeserializeOwned;
 
 use super::coego::COEGO_IMPROVEMENT_CHECK;
-
-const EGO_GP_OPTIM_N_START: usize = 10;
-const EGO_GP_OPTIM_MAX_EVAL: usize = 50;
 
 impl<SB: SurrogateBuilder + DeserializeOwned, C: CstrFn> EgorSolver<SB, C> {
     /// Constructor of the optimization of the function `f` with specified random generator
@@ -103,7 +100,7 @@ where
     C: CstrFn,
 {
     pub fn have_to_recluster(&self, added: usize, prev_added: usize) -> bool {
-        self.config.n_clusters.is_auto()
+        self.config.gp.n_clusters.is_auto()
             && (added != 0 && added % 10 == 0 && added - prev_added > 0)
     }
 
@@ -125,37 +122,40 @@ where
         actives: &Array2<usize>,
     ) -> (Box<dyn MixtureGpSurrogate>, Option<Array2<f64>>) {
         let mut builder = self.surrogate_builder.clone();
-        builder.set_kpls_dim(self.config.kpls_dim);
-        builder.set_regression_spec(self.config.regression_spec);
-        builder.set_correlation_spec(self.config.correlation_spec);
-        builder.set_n_clusters(self.config.n_clusters.clone());
-        builder.set_optim_params(EGO_GP_OPTIM_N_START, EGO_GP_OPTIM_MAX_EVAL);
-
+        builder.set_kpls_dim(self.config.gp.kpls_dim);
+        builder.set_regression_spec(self.config.gp.regression_spec);
+        builder.set_correlation_spec(self.config.gp.correlation_spec);
+        builder.set_n_clusters(self.config.gp.n_clusters.clone());
+        builder.set_recombination(self.config.gp.recombination);
+        builder.set_optim_params(self.config.gp.n_start, self.config.gp.max_eval);
         let mut model = None;
         let mut best_likelihood = -f64::INFINITY;
         let mut best_theta_inits = theta_inits.map(|inits| inits.to_owned());
 
         for (i, active) in actives.outer_iter().enumerate() {
-            let gp = if make_clustering
-            /* init || recluster */
-            {
-                if self.config.coego.activated {
-                    match self.config.n_clusters {
-                        NbClusters::Auto { max: _ } => {
-                            log::warn!("Automated clustering not available with CoEGO")
-                        }
-                        NbClusters::Fixed { nb } => {
-                            let theta_tunings = Self::set_initial_partial_theta_tuning(
-                                (nb, xt.ncols()),
-                                &active.to_vec(),
-                                best_theta_inits,
-                            );
-                            builder.set_theta_tunings(&theta_tunings);
-                        }
+            let gp = if make_clustering {
+                /* init || recluster */
+                match self.config.gp.n_clusters {
+                    NbClusters::Auto { max: _ } => {
+                        log::warn!("Automated clustering not available with CoEGO")
+                    }
+                    NbClusters::Fixed { nb } => {
+                        let theta_tunings = Self::set_initial_partial_theta_tuning(
+                            (
+                                nb,
+                                xt.ncols()
+                                    .min(self.config.gp.kpls_dim.unwrap_or(xt.ncols())),
+                            ),
+                            &active.to_vec(),
+                            best_theta_inits,
+                            &self.config.gp.theta_tuning,
+                        );
+                        builder.set_theta_tunings(&theta_tunings);
                     }
                 }
+
                 if i == 0 {
-                    info!("{} clustering and training...", model_name);
+                    info!("{model_name} clustering and training...");
                 }
                 let gp = builder
                     .train(xt.view(), yt.view())
@@ -190,7 +190,13 @@ where
                         .outer_iter()
                         .map(|init| ThetaTuning::Full {
                             init: init.to_owned(),
-                            bounds: ThetaTuning::default().bounds().unwrap().to_owned(),
+                            bounds: self
+                                .config
+                                .gp
+                                .theta_tuning
+                                .bounds()
+                                .cloned()
+                                .unwrap_or(ThetaTuning::default().bounds().unwrap().to_owned()),
                         })
                         .collect::<Vec<_>>();
                     if self.config.coego.activated {
@@ -224,16 +230,14 @@ where
 
             // CoEGO only in mono cluster, update theta if better likelihood
             if self.config.coego.activated {
-                if self.config.n_clusters.is_mono() {
+                if self.config.gp.n_clusters.is_mono() {
                     if COEGO_IMPROVEMENT_CHECK {
                         let likelihood = gp.experts()[0].likelihood();
                         // We update only if better likelihood
                         if likelihood > best_likelihood && model_name == "Objective" {
                             if i > 0 {
                                 log::info!(
-                                    "Partial likelihood optim c={} has improved value={}",
-                                    i,
-                                    likelihood
+                                    "Partial likelihood optim c={i} has improved value={likelihood}"
                                 );
                             };
                             best_likelihood = likelihood;
@@ -248,9 +252,7 @@ where
                             best_theta_inits = Some(inits);
                         } else if model_name == "Objective" {
                             log::debug!(
-                                "Partial likelihood optim c={} has not improved value={}",
-                                i,
-                                likelihood
+                                "Partial likelihood optim c={i} has not improved value={likelihood}"
                             );
                         };
                     } else {
@@ -407,7 +409,7 @@ where
             );
             problem.problem = Some(pb);
 
-            debug!("Try adding {}", x_dat);
+            debug!("Try adding {x_dat}");
             let added_indices = update_data(
                 &mut x_data,
                 &mut y_data,
@@ -444,9 +446,9 @@ where
                     x_dat.row(i)
                 );
                 if added_indices.contains(&i) {
-                    debug!("{}", msg);
+                    debug!("{msg}");
                 } else {
-                    info!("{}", msg)
+                    info!("{msg}")
                 }
             }
             if rejected_count > 0 {
@@ -530,7 +532,7 @@ where
         f64,
         InfillObjData<f64>,
     ) {
-        debug!("Make surrogate with {}", x_data);
+        debug!("Make surrogate with {x_data}");
         let mut x_dat = Array2::zeros((0, x_data.ncols()));
         let mut y_dat = Array2::zeros((0, y_data.ncols()));
         let mut c_dat = Array2::zeros((0, c_data.ncols()));
@@ -547,7 +549,7 @@ where
                 )
             };
 
-            log::debug!("activity: {:?}", activity);
+            log::debug!("activity: {activity:?}");
             let actives = activity.unwrap_or(&self.full_activity()).to_owned();
 
             info!("Train surrogates with {} points...", xt.nrows());
@@ -630,7 +632,9 @@ where
                 .collect::<Vec<_>>();
 
             let sub_rng = Xoshiro256Plus::seed_from_u64(rng.gen());
-            let multistarter = GlobalMultiStarter::new(&self.xlimits, sub_rng);
+            // let multistarter = GlobalMultiStarter::new(&self.xlimits, sub_rng);
+            let xsamples = x_data.to_owned();
+            let multistarter = MiddlePickerMultiStarter::new(&self.xlimits, &xsamples, sub_rng);
 
             let (infill_obj, xk) = self.optimize_infill_criterion(
                 obj_model.as_ref(),
@@ -642,6 +646,7 @@ where
                 &actives,
                 multistarter,
             );
+            debug!("+++++++  xk = {xk}");
 
             match self.compute_virtual_point(&xk, y_data, obj_model.as_ref(), cstr_models) {
                 Ok(yk) => {
@@ -666,7 +671,7 @@ where
                 }
                 Err(err) => {
                     // Error while predict at best point: ignore
-                    info!("Error while getting virtual point: {}", err);
+                    info!("Error while getting virtual point: {err}");
                     break;
                 }
             }

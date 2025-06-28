@@ -27,28 +27,94 @@ class _Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.0.4"
-    ): ...
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.0.5"
+    ):
+        """mdmd:hidden
+        The Modal client object is not intended to be instantiated directly by users.
+        """
+        ...
+
     def is_closed(self) -> bool: ...
     @property
-    def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal: ...
-    async def get_stub(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+    def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
+        """mdmd:hidden
+        The default stub. Stubs can safely be used across forks / client snapshots.
+
+        This is useful if you want to make requests to the default Modal server in us-east, for example
+        control plane requests.
+
+        This is equivalent to client.get_stub(default_server_url), but it's cached, so it's a bit faster.
+        """
+        ...
+
+    async def get_stub(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
+        """mdmd:hidden
+        Get a stub for a specific server URL. Stubs can safely be used across forks / client snapshots.
+
+        This is useful if you want to make requests to a regional Modal server, for example low-latency
+        function calls in us-west.
+
+        This function is O(n) where n is the number of RPCs in ModalClient.
+        """
+        ...
+
     async def _open(self): ...
     async def _close(self, prep_for_restore: bool = False): ...
-    async def hello(self): ...
+    async def hello(self):
+        """Connect to server and retrieve version information; raise appropriate error for various failures."""
+        ...
+
     async def __aenter__(self): ...
     async def __aexit__(self, exc_type, exc, tb): ...
     @classmethod
-    def anonymous(cls, server_url: str) -> typing.AsyncContextManager[_Client]: ...
+    def anonymous(cls, server_url: str) -> typing.AsyncContextManager[_Client]:
+        """mdmd:hidden
+        Create a connection with no credentials; to be used for token creation.
+        """
+        ...
+
     @classmethod
-    async def from_env(cls, _override_config=None) -> _Client: ...
+    async def from_env(cls, _override_config=None) -> _Client:
+        """mdmd:hidden
+        Singleton that is instantiated from the Modal config and reused on subsequent calls.
+        """
+        ...
+
     @classmethod
-    async def from_credentials(cls, token_id: str, token_secret: str) -> _Client: ...
+    async def from_credentials(cls, token_id: str, token_secret: str) -> _Client:
+        """Constructor based on token credentials; useful for managing Modal on behalf of third-party users.
+
+        **Usage:**
+
+        ```python notest
+        client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+
+        modal.Sandbox.create("echo", "hi", client=client, app=app)
+        ```
+        """
+        ...
+
     @classmethod
-    async def verify(cls, server_url: str, credentials: tuple[str, str]) -> None: ...
+    async def verify(cls, server_url: str, credentials: tuple[str, str]) -> None:
+        """mdmd:hidden
+        Check whether can the client can connect to this server with these credentials; raise if not.
+        """
+        ...
+
     @classmethod
-    def set_env_client(cls, client: typing.Optional[_Client]): ...
-    async def _call_safely(self, coro, readable_method: str): ...
+    def set_env_client(cls, client: typing.Optional[_Client]):
+        """mdmd:hidden"""
+        ...
+
+    async def _call_safely(self, coro, readable_method: str):
+        """Runs coroutine wrapped in a task that's part of the client's task context
+
+        * Raises ClientClosed in case the client is closed while the coroutine is executed
+        * Logs warning if call is made outside of the event loop that the client is running in,
+          and execute without the cancellation context in that case
+        """
+        ...
+
     async def _reset_on_pid_change(self): ...
     async def _get_channel(self, server_url: str) -> grpclib.client.Channel: ...
     async def _call_unary(
@@ -86,15 +152,48 @@ class Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.0.4"
-    ): ...
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.0.5"
+    ):
+        """mdmd:hidden
+        The Modal client object is not intended to be instantiated directly by users.
+        """
+        ...
+
     def is_closed(self) -> bool: ...
     @property
-    def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+    def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
+        """mdmd:hidden
+        The default stub. Stubs can safely be used across forks / client snapshots.
+
+        This is useful if you want to make requests to the default Modal server in us-east, for example
+        control plane requests.
+
+        This is equivalent to client.get_stub(default_server_url), but it's cached, so it's a bit faster.
+        """
+        ...
 
     class __get_stub_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal: ...
-        async def aio(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+        def __call__(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
+            """mdmd:hidden
+            Get a stub for a specific server URL. Stubs can safely be used across forks / client snapshots.
+
+            This is useful if you want to make requests to a regional Modal server, for example low-latency
+            function calls in us-west.
+
+            This function is O(n) where n is the number of RPCs in ModalClient.
+            """
+            ...
+
+        async def aio(self, /, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal:
+            """mdmd:hidden
+            Get a stub for a specific server URL. Stubs can safely be used across forks / client snapshots.
+
+            This is useful if you want to make requests to a regional Modal server, for example low-latency
+            function calls in us-west.
+
+            This function is O(n) where n is the number of RPCs in ModalClient.
+            """
+            ...
 
     get_stub: __get_stub_spec[typing_extensions.Self]
 
@@ -111,8 +210,13 @@ class Client:
     _close: ___close_spec[typing_extensions.Self]
 
     class __hello_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /): ...
-        async def aio(self, /): ...
+        def __call__(self, /):
+            """Connect to server and retrieve version information; raise appropriate error for various failures."""
+            ...
+
+        async def aio(self, /):
+            """Connect to server and retrieve version information; raise appropriate error for various failures."""
+            ...
 
     hello: __hello_spec[typing_extensions.Self]
 
@@ -121,19 +225,63 @@ class Client:
     def __exit__(self, exc_type, exc, tb): ...
     async def __aexit__(self, exc_type, exc, tb): ...
     @classmethod
-    def anonymous(cls, server_url: str) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Client]: ...
+    def anonymous(cls, server_url: str) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Client]:
+        """mdmd:hidden
+        Create a connection with no credentials; to be used for token creation.
+        """
+        ...
+
     @classmethod
-    def from_env(cls, _override_config=None) -> Client: ...
+    def from_env(cls, _override_config=None) -> Client:
+        """mdmd:hidden
+        Singleton that is instantiated from the Modal config and reused on subsequent calls.
+        """
+        ...
+
     @classmethod
-    def from_credentials(cls, token_id: str, token_secret: str) -> Client: ...
+    def from_credentials(cls, token_id: str, token_secret: str) -> Client:
+        """Constructor based on token credentials; useful for managing Modal on behalf of third-party users.
+
+        **Usage:**
+
+        ```python notest
+        client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+
+        modal.Sandbox.create("echo", "hi", client=client, app=app)
+        ```
+        """
+        ...
+
     @classmethod
-    def verify(cls, server_url: str, credentials: tuple[str, str]) -> None: ...
+    def verify(cls, server_url: str, credentials: tuple[str, str]) -> None:
+        """mdmd:hidden
+        Check whether can the client can connect to this server with these credentials; raise if not.
+        """
+        ...
+
     @classmethod
-    def set_env_client(cls, client: typing.Optional[Client]): ...
+    def set_env_client(cls, client: typing.Optional[Client]):
+        """mdmd:hidden"""
+        ...
 
     class ___call_safely_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, coro, readable_method: str): ...
-        async def aio(self, /, coro, readable_method: str): ...
+        def __call__(self, /, coro, readable_method: str):
+            """Runs coroutine wrapped in a task that's part of the client's task context
+
+            * Raises ClientClosed in case the client is closed while the coroutine is executed
+            * Logs warning if call is made outside of the event loop that the client is running in,
+              and execute without the cancellation context in that case
+            """
+            ...
+
+        async def aio(self, /, coro, readable_method: str):
+            """Runs coroutine wrapped in a task that's part of the client's task context
+
+            * Raises ClientClosed in case the client is closed while the coroutine is executed
+            * Logs warning if call is made outside of the event loop that the client is running in,
+              and execute without the cancellation context in that case
+            """
+            ...
 
     _call_safely: ___call_safely_spec[typing_extensions.Self]
 
@@ -174,6 +322,26 @@ class Client:
     ) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
 
 class UnaryUnaryWrapper(typing.Generic[RequestType, ResponseType]):
+    """Abstract base class for generic types.
+
+    A generic type is typically declared by inheriting from
+    this class parameterized with one or more type variables.
+    For example, a generic mapping type might be defined as::
+
+      class Mapping(Generic[KT, VT]):
+          def __getitem__(self, key: KT) -> VT:
+              ...
+          # Etc.
+
+    This class can then be used as follows::
+
+      def lookup_name(mapping: Mapping[KT, VT], key: KT, default: VT) -> VT:
+          try:
+              return mapping[key]
+          except KeyError:
+              return default
+    """
+
     wrapped_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType]
     client: _Client
 
@@ -182,7 +350,10 @@ class UnaryUnaryWrapper(typing.Generic[RequestType, ResponseType]):
         wrapped_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType],
         client: _Client,
         server_url: str,
-    ): ...
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
     @property
     def name(self) -> str: ...
     async def __call__(
@@ -195,9 +366,31 @@ class UnaryUnaryWrapper(typing.Generic[RequestType, ResponseType]):
             collections.abc.Collection[tuple[str, typing.Union[str, bytes]]],
             None,
         ] = None,
-    ) -> ResponseType: ...
+    ) -> ResponseType:
+        """Call self as a function."""
+        ...
 
 class UnaryStreamWrapper(typing.Generic[RequestType, ResponseType]):
+    """Abstract base class for generic types.
+
+    A generic type is typically declared by inheriting from
+    this class parameterized with one or more type variables.
+    For example, a generic mapping type might be defined as::
+
+      class Mapping(Generic[KT, VT]):
+          def __getitem__(self, key: KT) -> VT:
+              ...
+          # Etc.
+
+    This class can then be used as follows::
+
+      def lookup_name(mapping: Mapping[KT, VT], key: KT, default: VT) -> VT:
+          try:
+              return mapping[key]
+          except KeyError:
+              return default
+    """
+
     wrapped_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType]
 
     def __init__(
@@ -205,7 +398,10 @@ class UnaryStreamWrapper(typing.Generic[RequestType, ResponseType]):
         wrapped_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType],
         client: _Client,
         server_url: str,
-    ): ...
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
     @property
     def name(self) -> str: ...
     def unary_stream(self, request, metadata: typing.Optional[typing.Any] = None): ...

@@ -53,7 +53,7 @@ class WebSocketParams(TypedDict, closed=True):
     proxy: NotRequired[Union[str, Proxy]]
     local_address: NotRequired[Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]]
     interface: NotRequired[str]
-    headers: NotRequired[Dict[str, bytes]]
+    headers: NotRequired[Union[Dict[str, str], HeaderMap]]
     cookies: NotRequired[Dict[str, str]]
     protocols: NotRequired[List[str]]
     use_http2: NotRequired[bool]
@@ -92,7 +92,7 @@ class BlockingClient:
         cls,
         impersonate: Optional[Union[Impersonate, ImpersonateOption]] = None,
         user_agent: Optional[str] = None,
-        default_headers: Optional[Dict[str, bytes]] = None,
+        default_headers: Optional[Union[Dict[str, str], HeaderMap]] = None,
         headers_order: Optional[List[str]] = None,
         referer: Optional[bool] = None,
         allow_redirects: Optional[bool] = None,
@@ -675,7 +675,7 @@ class Client:
         cls,
         impersonate: Optional[Union[Impersonate, ImpersonateOption]] = None,
         user_agent: Optional[str] = None,
-        default_headers: Optional[Dict[str, bytes]] = None,
+        default_headers: Optional[Union[Dict[str, str], HeaderMap]] = None,
         headers_order: Optional[List[str]] = None,
         referer: Optional[bool] = None,
         allow_redirects: Optional[bool] = None,

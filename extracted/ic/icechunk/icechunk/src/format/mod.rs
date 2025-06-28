@@ -98,7 +98,7 @@ impl<const SIZE: usize, T: FileTypeTag> ObjectId<SIZE, T> {
         Self(buf, PhantomData)
     }
 
-    pub fn new(buf: [u8; SIZE]) -> Self {
+    pub const fn new(buf: [u8; SIZE]) -> Self {
         Self(buf, PhantomData)
     }
 
@@ -244,7 +244,7 @@ pub enum IcechunkFormatErrorKind {
     NodeNotFound { path: Path },
     #[error("chunk coordinates not found `{coords:?}`")]
     ChunkCoordinatesNotFound { coords: ChunkIndices },
-    #[error("manifest information cannot be found in snapshot `{manifest_id}`")]
+    #[error("manifest information cannot be found in snapshot for id `{manifest_id}`")]
     ManifestInfoNotFound { manifest_id: ManifestId },
     #[error("invalid magic numbers in file")]
     InvalidMagicNumbers, // TODO: add more info

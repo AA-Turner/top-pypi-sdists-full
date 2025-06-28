@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgraph-core
-Version: 1.3.4
+Version: 1.3.5
 Summary: Core component of the Microsoft Graph Python SDK
 Author-email: Microsoft <graphtooling+python@microsoft.com>
 License: MIT License

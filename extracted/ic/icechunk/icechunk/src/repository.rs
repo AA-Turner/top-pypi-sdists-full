@@ -147,6 +147,7 @@ impl Repository {
         storage: Arc<dyn Storage + Send + Sync>,
         virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
     ) -> RepositoryResult<Self> {
+        debug!("Creating Repository");
         if !storage.can_write() {
             return Err(RepositoryErrorKind::ReadonlyStorage(
                 "Cannot create repository".to_string(),
@@ -228,6 +229,7 @@ impl Repository {
         storage: Arc<dyn Storage + Send + Sync>,
         virtual_chunk_credentials: HashMap<ContainerName, Credentials>,
     ) -> RepositoryResult<Self> {
+        debug!("Opening Repository");
         let storage_c = Arc::clone(&storage);
         let handle1 = tokio::spawn(
             async move { Self::fetch_config(storage_c.as_ref()).await }.in_current_span(),
@@ -931,22 +933,61 @@ pub async fn raise_if_invalid_snapshot_id(
 #[cfg(test)]
 #[allow(clippy::panic, clippy::unwrap_used, clippy::expect_used)]
 mod tests {
-    use std::{collections::HashMap, error::Error, path::PathBuf, sync::Arc};
+    use std::{collections::HashMap, error::Error, iter::zip, path::PathBuf, sync::Arc};
 
+    use icechunk_macros::tokio_test;
+    use itertools::enumerate;
     use storage::logging::LoggingStorage;
     use tempfile::TempDir;
 
     use crate::{
         Repository, Storage,
         config::{
-            CachingConfig, ManifestConfig, ManifestPreloadConfig, RepositoryConfig,
+            CachingConfig, ManifestConfig, ManifestPreloadConfig, ManifestSplitCondition,
+            ManifestSplitDim, ManifestSplitDimCondition, ManifestSplittingConfig,
+            RepositoryConfig,
         },
-        format::{ChunkIndices, manifest::ChunkPayload, snapshot::ArrayShape},
+        conflicts::basic_solver::BasicConflictSolver,
+        format::{
+            ByteRange, ChunkIndices,
+            manifest::{ChunkPayload, ManifestSplits},
+            snapshot::{ArrayShape, DimensionName},
+        },
         new_local_filesystem_storage,
+        ops::manifests::rewrite_manifests,
+        session::{SessionError, get_chunk},
         storage::new_in_memory_storage,
     };
 
     use super::*;
+
+    fn ravel_multi_index<'a>(index: &[u32], shape: &[u32]) -> u32 {
+        index
+            .iter()
+            .zip(shape.iter())
+            .rev()
+            .fold((0, 1), |(acc, stride), (index, size)| {
+                (acc + *index * stride, stride * *size)
+            })
+            .0
+    }
+
+    async fn assert_manifest_count(
+        storage: &Arc<dyn Storage + Send + Sync>,
+        total_manifests: usize,
+    ) {
+        let expected = storage
+            .list_manifests(&storage.default_settings())
+            .await
+            .unwrap()
+            .count()
+            .await;
+        assert_eq!(
+            total_manifests, expected,
+            "Mismatch in manifest count: expected {}, but got {}",
+            expected, total_manifests,
+        );
+    }
 
     #[tokio::test]
     async fn test_repository_persistent_config() -> Result<(), Box<dyn Error>> {
@@ -1126,6 +1167,1183 @@ mod tests {
         ));
     }
 
+    fn reopen_repo_with_new_splitting_config(
+        repo: &Repository,
+        split_sizes: Option<Vec<(ManifestSplitCondition, Vec<ManifestSplitDim>)>>,
+    ) -> Repository {
+        let split_config = ManifestSplittingConfig { split_sizes };
+        let man_config = ManifestConfig {
+            preload: Some(ManifestPreloadConfig {
+                max_total_refs: None,
+                preload_if: None,
+            }),
+            splitting: Some(split_config.clone()),
+        };
+        let config = RepositoryConfig {
+            manifest: Some(man_config),
+            ..RepositoryConfig::default()
+        };
+        repo.reopen(Some(config), None).unwrap()
+    }
+
+    async fn create_repo_with_split_manifest_config(
+        path: &Path,
+        shape: &ArrayShape,
+        dimension_names: &Option<Vec<DimensionName>>,
+        split_config: &ManifestSplittingConfig,
+        storage: Option<Arc<dyn Storage + Send + Sync>>,
+    ) -> Result<Repository, Box<dyn Error>> {
+        let backend: Arc<dyn Storage + Send + Sync> =
+            storage.unwrap_or(new_in_memory_storage().await?);
+        let storage = Arc::clone(&backend);
+
+        let man_config = ManifestConfig {
+            preload: Some(ManifestPreloadConfig {
+                max_total_refs: None,
+                preload_if: None,
+            }),
+            splitting: Some(split_config.clone()),
+        };
+        let config = RepositoryConfig {
+            manifest: Some(man_config),
+            ..RepositoryConfig::default()
+        };
+        let repository =
+            Repository::create(Some(config), storage, HashMap::new()).await?;
+
+        let mut session = repository.writable_session("main").await?;
+
+        let def = Bytes::from_static(br#"{"this":"array"}"#);
+        session.add_group(Path::root(), def.clone()).await?;
+        session
+            .add_array(path.clone(), shape.clone(), dimension_names.clone(), def.clone())
+            .await?;
+        session.commit("initialized", None).await?;
+
+        Ok(repository)
+    }
+
+    #[tokio_test]
+    async fn test_resize_rewrites_manifests() -> Result<(), Box<dyn Error>> {
+        let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let repo = Repository::create(
+            Some(RepositoryConfig {
+                inline_chunk_threshold_bytes: Some(0),
+                ..Default::default()
+            }),
+            Arc::clone(&storage),
+            HashMap::new(),
+        )
+        .await?;
+        let mut session = repo.writable_session("main").await?;
+        session.add_group(Path::root(), Bytes::copy_from_slice(b"")).await?;
+
+        let array_path: Path = "/array".to_string().try_into().unwrap();
+        let shape = ArrayShape::new(vec![(4, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into()]);
+        let array_def = Bytes::from_static(br#"{"this":"other array"}"#);
+
+        session
+            .add_array(
+                array_path.clone(),
+                shape.clone(),
+                dimension_names.clone(),
+                array_def.clone(),
+            )
+            .await?;
+
+        let bytes = Bytes::copy_from_slice(&42i8.to_be_bytes());
+        for idx in 0..4 {
+            let payload = session.get_chunk_writer()(bytes.clone()).await?;
+            session
+                .set_chunk_ref(array_path.clone(), ChunkIndices(vec![idx]), Some(payload))
+                .await?;
+        }
+        session.commit("first commit", None).await?;
+        assert_manifest_count(&storage, 1).await;
+
+        // Important we are not issuing any chunk deletes here (which is what Zarr does)
+        // Note we are still rewriting the manifest even without chunk changes
+        // GH604
+        let mut session = repo.writable_session("main").await?;
+        let shape2 = ArrayShape::new(vec![(2, 1)]).unwrap();
+        session
+            .update_array(
+                &array_path,
+                shape2.clone(),
+                dimension_names.clone(),
+                array_def.clone(),
+            )
+            .await?;
+        session.commit("second commit", None).await?;
+        assert_manifest_count(&storage, 2).await;
+
+        // Now we expand the size, but don't write chunks.
+        // No new manifests need to be written
+        let mut session = repo.writable_session("main").await?;
+        let shape3 = ArrayShape::new(vec![(6, 1)]).unwrap();
+        session
+            .update_array(
+                &array_path,
+                shape3.clone(),
+                dimension_names.clone(),
+                array_def.clone(),
+            )
+            .await?;
+        session.commit("second commit", None).await?;
+        assert_manifest_count(&storage, 2).await;
+
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn test_splits_change_in_session() -> Result<(), Box<dyn Error>> {
+        let shape = ArrayShape::new(vec![(13, 1), (2, 1), (1, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into(), "y".into(), "x".into()]);
+        let new_dimension_names = Some(vec!["time".into(), "y".into(), "x".into()]);
+        let array_path: Path = "/temperature".try_into().unwrap();
+        let array_def = Bytes::from_static(br#"{"this":"other array"}"#);
+
+        // two possible split sizes t: 3, time: 4;
+        // then we rename `t` to `time` 😈
+        let split_sizes = vec![
+            (
+                ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::DimensionName(
+                        "^t$".to_string(),
+                    ),
+                    num_chunks: 3,
+                }],
+            ),
+            (
+                ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::DimensionName(
+                        "time".to_string(),
+                    ),
+                    num_chunks: 4,
+                }],
+            ),
+        ];
+        let split_config = ManifestSplittingConfig { split_sizes: Some(split_sizes) };
+
+        let backend: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let logging = Arc::new(LoggingStorage::new(Arc::clone(&backend)));
+        let storage: Arc<dyn Storage + Send + Sync> = logging.clone();
+        let repository = create_repo_with_split_manifest_config(
+            &array_path,
+            &shape,
+            &dimension_names,
+            &split_config,
+            Some(Arc::clone(&storage)),
+        )
+        .await?;
+
+        let verify_data = async |session: &Session, offset: u32| {
+            for idx in 0..12 {
+                let actual = get_chunk(
+                    session
+                        .get_chunk_reader(
+                            &array_path,
+                            &ChunkIndices(vec![idx.clone(), 0, 0]),
+                            &ByteRange::ALL,
+                        )
+                        .await
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+                let expected =
+                    Bytes::copy_from_slice(format!("{0}", idx + offset).as_bytes());
+                assert_eq!(actual, expected);
+            }
+        };
+
+        let mut session = repository.writable_session("main").await?;
+        for i in 0..12 {
+            session
+                .set_chunk_ref(
+                    array_path.clone(),
+                    ChunkIndices(vec![i, 0, 0]),
+                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                )
+                .await?
+        }
+        verify_data(&session, 0).await;
+
+        let node = session.get_node(&array_path).await?;
+        let orig_splits = session.lookup_splits(&node.id).cloned();
+        assert_eq!(
+            orig_splits,
+            Some(ManifestSplits::from_edges(vec![
+                vec![0, 3, 6, 9, 12, 13],
+                vec![0, 2],
+                vec![0, 1]
+            ]))
+        );
+
+        // this should update the splits
+        session
+            .update_array(
+                &array_path,
+                shape.clone(),
+                new_dimension_names.clone(),
+                array_def.clone(),
+            )
+            .await?;
+        verify_data(&session, 0).await;
+        let new_splits = session.lookup_splits(&node.id).cloned();
+        assert_eq!(
+            new_splits,
+            Some(ManifestSplits::from_edges(vec![
+                vec![0, 4, 8, 12, 13],
+                vec![0, 2],
+                vec![0, 1]
+            ]))
+        );
+
+        // update data
+        for i in 0..12 {
+            session
+                .set_chunk_ref(
+                    array_path.clone(),
+                    ChunkIndices(vec![i, 0, 0]),
+                    Some(ChunkPayload::Inline(format!("{0}", i + 10).into())),
+                )
+                .await?
+        }
+        verify_data(&session, 10).await;
+
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn tests_manifest_rewriting_simple() -> Result<(), Box<dyn Error>> {
+        let split_size = 3u32;
+        let dim_size = 10u32;
+
+        let shape = ArrayShape::new(vec![(dim_size as u64, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into()]);
+        let temp_path: Path = "/temperature".try_into().unwrap();
+        let split_config = ManifestSplittingConfig::with_size(split_size);
+
+        let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let repository = create_repo_with_split_manifest_config(
+            &temp_path,
+            &shape,
+            &dimension_names,
+            &split_config,
+            Some(Arc::clone(&storage)),
+        )
+        .await?;
+
+        let mut total_manifests = 0;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        let mut session = repository.writable_session("main").await?;
+        for i in 0..dim_size {
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(vec![i]),
+                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                )
+                .await?
+        }
+        session.commit("first split", None).await?;
+        total_manifests += 4;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        // make sure data is correct
+        let validate_data = async || {
+            let new_repo = reopen_repo_with_new_splitting_config(&repository, None);
+            let session = new_repo
+                .readonly_session(&VersionInfo::BranchTipRef("main".to_string()))
+                .await
+                .unwrap();
+            for i in 0..dim_size {
+                let val = get_chunk(
+                    session
+                        .get_chunk_reader(
+                            &temp_path,
+                            &ChunkIndices(vec![i]),
+                            &ByteRange::ALL,
+                        )
+                        .await
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+                assert_eq!(val, Bytes::copy_from_slice(format!("{0}", i).as_bytes()));
+            }
+        };
+
+        validate_data().await;
+
+        // consolidate manifests together
+        let split_sizes = vec![(
+            ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+            vec![ManifestSplitDim {
+                condition: ManifestSplitDimCondition::Any,
+                num_chunks: 12,
+            }],
+        )];
+
+        let new_repo =
+            reopen_repo_with_new_splitting_config(&repository, Some(split_sizes));
+
+        let snap = rewrite_manifests(
+            &new_repo,
+            "main",
+            "rewrite_manifests with split-size=12",
+            None,
+        )
+        .await?;
+        total_manifests += 1;
+        assert_manifest_count(&storage, total_manifests).await;
+        validate_data().await;
+        assert!(
+            repository
+                .lookup_snapshot(&snap)
+                .await?
+                .metadata
+                .contains_key("splitting_config")
+        );
+
+        // split manifests to smaller sizes
+        let split_sizes = vec![(
+            ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+            vec![ManifestSplitDim {
+                condition: ManifestSplitDimCondition::Any,
+                num_chunks: 4,
+            }],
+        )];
+
+        let new_repo =
+            reopen_repo_with_new_splitting_config(&repository, Some(split_sizes));
+
+        let snap = rewrite_manifests(
+            &new_repo,
+            "main",
+            "rewrite_manifests with split-size=4",
+            None,
+        )
+        .await?;
+        total_manifests += 3;
+        assert_manifest_count(&storage, total_manifests).await;
+        validate_data().await;
+        assert!(
+            repository
+                .lookup_snapshot(&snap)
+                .await?
+                .metadata
+                .contains_key("splitting_config")
+        );
+
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn tests_manifest_splitting_simple() -> Result<(), Box<dyn Error>> {
+        let dim_size = 25u32;
+        let chunk_size = 1u32;
+        let split_size = 3u32;
+
+        let shape =
+            ArrayShape::new(vec![(dim_size.into(), chunk_size.into()), (2, 1), (1, 1)])
+                .unwrap();
+        let dimension_names = Some(vec!["t".into()]);
+        let temp_path: Path = "/temperature".try_into().unwrap();
+        let split_config = ManifestSplittingConfig::with_size(split_size);
+
+        let backend: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let logging = Arc::new(LoggingStorage::new(Arc::clone(&backend)));
+        let storage: Arc<dyn Storage + Send + Sync> = logging.clone();
+        let repository = create_repo_with_split_manifest_config(
+            &temp_path,
+            &shape,
+            &dimension_names,
+            &split_config,
+            Some(Arc::clone(&storage)),
+        )
+        .await?;
+
+        let mut total_manifests = 0;
+        assert_manifest_count(&backend, total_manifests).await;
+
+        logging.clear();
+        let ops = logging.fetch_operations();
+        assert!(ops.is_empty());
+        let mut session = repository.writable_session("main").await?;
+
+        // only add refs that will be packed in the first split.
+        for i in 0..2 {
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(vec![i, 0, 0]),
+                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                )
+                .await?
+        }
+        session.commit("first split", None).await?;
+        total_manifests += 1;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        // now only last split
+        let last_chunk = dim_size - 1;
+        let mut session = repository.writable_session("main").await?;
+        session
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(vec![last_chunk, 0, 0]),
+                Some(ChunkPayload::Inline(format!("{0}", last_chunk).into())),
+            )
+            .await?;
+        session.commit("last split", None).await?;
+        total_manifests += 1;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        // check that reads are optimized; we should only fetch the last split for this query
+        let logging2 = Arc::new(LoggingStorage::new(Arc::clone(&backend)));
+        let storage2: Arc<dyn Storage + Send + Sync> = logging2.clone();
+        let config = RepositoryConfig {
+            manifest: Some(ManifestConfig::empty()),
+            ..RepositoryConfig::default()
+        };
+        let read_repo = Repository::open(Some(config), storage2, HashMap::new()).await?;
+        let session = read_repo
+            .readonly_session(&VersionInfo::BranchTipRef("main".to_string()))
+            .await?;
+        get_chunk(
+            session
+                .get_chunk_reader(
+                    &temp_path,
+                    &ChunkIndices(vec![last_chunk, 0, 0]),
+                    &ByteRange::ALL,
+                )
+                .await
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let ops = logging2.fetch_operations();
+        assert_eq!(
+            ops.iter().filter(|(op, _)| op == "fetch_manifest_splitting").count(),
+            1
+        );
+
+        // fetching a chunk that wasn't written shouldn't fetch any more manifests
+        logging2.clear();
+        get_chunk(
+            session
+                .get_chunk_reader(
+                    &temp_path,
+                    &ChunkIndices(vec![split_size + 1, 0, 0]),
+                    &ByteRange::ALL,
+                )
+                .await
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        let ops = logging2.fetch_operations();
+        assert_eq!(
+            ops.iter().filter(|(op, _)| op == "fetch_manifest_splitting").count(),
+            0
+        );
+
+        // write one ref per split
+        let mut session = repository.writable_session("main").await?;
+        for i in (0..dim_size).step_by(split_size as usize) {
+            total_manifests += 1;
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(vec![i, 0, 0]),
+                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                )
+                .await?
+        }
+        session.commit("wrote all splits", None).await?;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        let mut session = repository.writable_session("main").await?;
+        for i in 0..dim_size {
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(vec![i, 0, 0]),
+                    Some(ChunkPayload::Inline(format!("{0}", i).into())),
+                )
+                .await?
+        }
+        // We are counting total manifests in the `assert_manifest_count` helper function
+        // So we keep a running count of the total and update that at each step.
+        total_manifests += dim_size.div_ceil(split_size) as usize;
+        session.commit("full overwrite", None).await?;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        // test reads
+        for i in 0..dim_size {
+            let val = get_chunk(
+                session
+                    .get_chunk_reader(
+                        &temp_path,
+                        &ChunkIndices(vec![i, 0, 0]),
+                        &ByteRange::ALL,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(val, Bytes::copy_from_slice(format!("{0}", i).as_bytes()));
+        }
+
+        // delete all chunks
+        let mut session = repository.writable_session("main").await?;
+        for i in 0..dim_size {
+            session
+                .set_chunk_ref(temp_path.clone(), ChunkIndices(vec![i, 0, 0]), None)
+                .await?;
+        }
+        total_manifests += 0;
+        session.commit("clear existing array", None).await?;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        // add a new array
+        let def = Bytes::from_static(br#"{"this":"array"}"#);
+        let array_path: Path = "/array2".to_string().try_into().unwrap();
+        let mut session = repository.writable_session("main").await?;
+        session
+            .add_array(
+                array_path.clone(),
+                shape.clone(),
+                dimension_names.clone(),
+                def.clone(),
+            )
+            .await?;
+        // set a chunk
+        session
+            .set_chunk_ref(
+                array_path.clone(),
+                ChunkIndices(vec![1, 0, 0]),
+                Some(ChunkPayload::Inline(format!("{0}", 10).into())),
+            )
+            .await?;
+        // delete that chunk, so the chunks iterator is empty
+        // regression test for bug found by hypothesis
+        session
+            .set_chunk_ref(array_path.clone(), ChunkIndices(vec![1, 0, 0]), None)
+            .await?;
+        total_manifests += 0;
+        session.commit("clear new array", None).await?;
+        assert_manifest_count(&storage, total_manifests).await;
+
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn test_manifest_splitting_complex_config() -> Result<(), Box<dyn Error>> {
+        let shape = ArrayShape::new(vec![(25, 1), (10, 1), (3, 1), (4, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into(), "z".into(), "y".into(), "x".into()]);
+        let temp_path: Path = "/temperature".try_into().unwrap();
+
+        let split_sizes = vec![
+            (
+                ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                    num_chunks: 12,
+                }],
+            ),
+            (
+                ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::Axis(2),
+                    num_chunks: 2,
+                }],
+            ),
+            (
+                ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::Any,
+                    num_chunks: 9,
+                }],
+            ),
+        ];
+        let split_config = ManifestSplittingConfig { split_sizes: Some(split_sizes) };
+
+        let expected = ManifestSplits::from_edges(vec![
+            vec![0, 12, 24, 25],
+            vec![0, 9, 10],
+            vec![0, 2, 3],
+            vec![0, 4],
+        ]);
+
+        let actual = split_config.get_split_sizes(&temp_path, &shape, &dimension_names);
+        assert_eq!(actual, expected);
+
+        let split_sizes = vec![(
+            ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+            vec![
+                ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                    num_chunks: 12,
+                },
+                ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::Axis(2),
+                    num_chunks: 2,
+                },
+                ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::Any,
+                    num_chunks: 9,
+                },
+            ],
+        )];
+        let split_config = ManifestSplittingConfig { split_sizes: Some(split_sizes) };
+        let actual = split_config.get_split_sizes(&temp_path, &shape, &dimension_names);
+        assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn test_manifest_splitting_complex_writes() -> Result<(), Box<dyn Error>> {
+        let t_split_size = 12u32;
+        let other_split_size = 9u32;
+        let y_split_size = 2u32;
+
+        let shape = ArrayShape::new(vec![(25, 1), (10, 1), (3, 1), (4, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into(), "z".into(), "y".into(), "x".into()]);
+        let temp_path: Path = "/temperature".try_into().unwrap();
+
+        let split_sizes = vec![
+            (
+                ManifestSplitCondition::AnyArray,
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                    num_chunks: t_split_size,
+                }],
+            ),
+            (
+                ManifestSplitCondition::PathMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::Axis(2),
+                    num_chunks: y_split_size,
+                }],
+            ),
+            (
+                ManifestSplitCondition::NameMatches { regex: r".*".to_string() },
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::Any,
+                    num_chunks: other_split_size,
+                }],
+            ),
+        ];
+
+        let expected_split_sizes = [t_split_size, 9, y_split_size, 9];
+
+        let split_config = ManifestSplittingConfig { split_sizes: Some(split_sizes) };
+        let backend: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let logging = Arc::new(LoggingStorage::new(Arc::clone(&backend)));
+        let logging_c: Arc<dyn Storage + Send + Sync> = logging.clone();
+        let repository = create_repo_with_split_manifest_config(
+            &temp_path,
+            &shape,
+            &dimension_names,
+            &split_config,
+            Some(logging_c),
+        )
+        .await?;
+        let repo_clone = repository.reopen(None, None)?;
+
+        let mut total_manifests = 0;
+        assert_manifest_count(&backend, total_manifests).await;
+
+        logging.clear();
+        let ops = logging.fetch_operations();
+        assert!(ops.is_empty());
+
+        let array_shape =
+            shape.iter().map(|x| x.array_length() as u32).collect::<Vec<_>>();
+
+        let verify_data = async |ax, session: &Session| {
+            for i in 0..shape.get(ax).unwrap().array_length() {
+                let mut index = vec![0u32, 0, 0, 0];
+                index[ax] = i as u32;
+                let ic = index.clone();
+                let val = get_chunk(
+                    session
+                        .get_chunk_reader(
+                            &temp_path,
+                            &ChunkIndices(index),
+                            &ByteRange::ALL,
+                        )
+                        .await
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
+                .expect(&format!("getting chunk ref failed for {:?}", &ic));
+                let expected_value =
+                    ravel_multi_index(ic.as_slice(), array_shape.as_slice());
+                let expected =
+                    Bytes::copy_from_slice(format!("{0}", expected_value).as_bytes());
+                assert_eq!(
+                    val, expected,
+                    "For chunk {:?}, received {:?}, expected {:?}",
+                    ic, val, expected
+                );
+            }
+        };
+        let verify_all_data = async |repo: &Repository| {
+            let session = repo
+                .readonly_session(&VersionInfo::BranchTipRef("main".to_string()))
+                .await
+                .unwrap();
+            for ax in 0..shape.len() {
+                verify_data(ax, &session).await;
+            }
+        };
+
+        //=========================================================
+        // This loop iterates over axis and rewrites the boundary chunks.
+        // Each loop iteration must rewrite chunk_shape/split_size manifests
+        for ax in 0..shape.len() {
+            let mut session = repository.writable_session("main").await?;
+            let axis_size = shape.get(ax).unwrap().array_length();
+            for i in 0..axis_size {
+                let mut index = vec![0u32, 0, 0, 0];
+                index[ax] = i as u32;
+                let value = ravel_multi_index(index.as_slice(), array_shape.as_slice());
+                session
+                    .set_chunk_ref(
+                        temp_path.clone(),
+                        ChunkIndices(index),
+                        Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                    )
+                    .await?
+            }
+
+            total_manifests +=
+                (axis_size as u32).div_ceil(expected_split_sizes[ax]) as usize;
+            session.commit(format!("finished axis {0}", ax).as_ref(), None).await?;
+            assert_manifest_count(&backend, total_manifests).await;
+
+            verify_data(ax.clone(), &session).await;
+        }
+        verify_all_data(&repository).await;
+
+        //=========================================================
+        // Now change splitting config
+        let split_sizes = vec![(
+            ManifestSplitCondition::AnyArray,
+            vec![ManifestSplitDim {
+                condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                num_chunks: t_split_size,
+            }],
+        )];
+
+        let repository =
+            reopen_repo_with_new_splitting_config(&repository, Some(split_sizes));
+        verify_all_data(&repository).await;
+        let mut session = repository.writable_session("main").await?;
+        let index = vec![13, 0, 0, 0];
+        let value = ravel_multi_index(index.as_slice(), array_shape.as_slice());
+        session
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(index),
+                Some(ChunkPayload::Inline(format!("{0}", value).into())),
+            )
+            .await?;
+        // Important: we only create one new manifest in this case for
+        // the first split in the `t`-axis. Since the other splits
+        // are not modified we preserve all the old manifests
+        total_manifests += 1;
+        session.commit(format!("finished time again").as_ref(), None).await?;
+        assert_manifest_count(&backend, total_manifests).await;
+        verify_all_data(&repository).await;
+
+        // now modify all splits to trigger a full rewrite
+        let mut session = repository.writable_session("main").await?;
+        for idx in [0, 12, 24] {
+            let index = vec![idx, 0, 0, 0];
+            let value = ravel_multi_index(index.as_slice(), array_shape.as_slice());
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(index),
+                    Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                )
+                .await?;
+        }
+        total_manifests +=
+            (shape.get(0).unwrap().array_length() as u32).div_ceil(t_split_size) as usize;
+        session.commit(format!("finished time again").as_ref(), None).await?;
+        assert_manifest_count(&backend, total_manifests).await;
+        verify_all_data(&repository).await;
+
+        //=========================================================
+        // Now get back to original repository with original config
+        // Modify one `t` split.
+        let mut session = repo_clone.writable_session("main").await?;
+        session
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(vec![0, 0, 0, 0]),
+                Some(ChunkPayload::Inline(format!("{0}", 0).into())),
+            )
+            .await?;
+        // Important: now we rewrite one split per dimension
+        total_manifests += 3;
+        session.commit(format!("finished time again").as_ref(), None).await?;
+        assert_manifest_count(&backend, total_manifests).await;
+        verify_all_data(&repo_clone).await;
+        verify_all_data(&repository).await;
+
+        let mut session = repo_clone.writable_session("main").await?;
+        for idx in [0, 12, 24] {
+            let index = vec![idx, 0, 0, 0];
+            let value = ravel_multi_index(index.as_slice(), array_shape.as_slice());
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(index),
+                    Some(ChunkPayload::Inline(format!("{0}", value).into())),
+                )
+                .await?;
+        }
+        total_manifests +=
+            (shape.get(0).unwrap().array_length() as u32).div_ceil(t_split_size) as usize;
+        session.commit(format!("finished time again").as_ref(), None).await?;
+        assert_manifest_count(&backend, total_manifests).await;
+        verify_all_data(&repo_clone).await;
+
+        // do that again, but with different values and test those specifically
+        let mut session = repo_clone.writable_session("main").await?;
+        for idx in [0, 12, 24] {
+            let index = vec![idx, 0, 0, 0];
+            session
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(index),
+                    Some(ChunkPayload::Inline(format!("{0}", idx + 2).into())),
+                )
+                .await?;
+        }
+        total_manifests +=
+            (shape.get(0).unwrap().array_length() as u32).div_ceil(t_split_size) as usize;
+        session.commit(format!("finished time again").as_ref(), None).await?;
+        assert_manifest_count(&backend, total_manifests).await;
+        for idx in [0, 12, 24] {
+            let actual = get_chunk(
+                session
+                    .get_chunk_reader(
+                        &temp_path,
+                        &ChunkIndices(vec![idx.clone(), 0, 0, 0]),
+                        &ByteRange::ALL,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let expected = Bytes::copy_from_slice(format!("{0}", idx + 2).as_bytes());
+            assert_eq!(actual, expected);
+        }
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn test_manifest_splits_merge_sessions() -> Result<(), Box<dyn Error>> {
+        let shape = ArrayShape::new(vec![(25, 1), (10, 1), (3, 1), (4, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into(), "z".into(), "y".into(), "x".into()]);
+        let temp_path: Path = "/temperature".try_into().unwrap();
+
+        let orig_split_sizes = vec![(
+            ManifestSplitCondition::AnyArray,
+            vec![ManifestSplitDim {
+                condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                num_chunks: 12u32,
+            }],
+        )];
+        let split_config =
+            ManifestSplittingConfig { split_sizes: Some(orig_split_sizes.clone()) };
+        let backend: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let repository = create_repo_with_split_manifest_config(
+            &temp_path,
+            &shape,
+            &dimension_names,
+            &split_config,
+            Some(backend),
+        )
+        .await?;
+
+        let indices =
+            vec![vec![0, 0, 1, 0], vec![0, 0, 0, 0], vec![0, 2, 0, 0], vec![0, 2, 0, 1]];
+
+        let mut session1 = repository.writable_session("main").await?;
+        let node_id = session1.get_node(&temp_path).await?.id;
+        session1
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[0].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 0).into())),
+            )
+            .await?;
+        session1
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[1].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 1).into())),
+            )
+            .await?;
+
+        for incompatible_size in [1, 11u32, 24u32, u32::MAX] {
+            let incompatible_split_sizes = vec![(
+                ManifestSplitCondition::AnyArray,
+                vec![ManifestSplitDim {
+                    condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                    num_chunks: incompatible_size,
+                }],
+            )];
+            let other_repo = reopen_repo_with_new_splitting_config(
+                &repository,
+                Some(incompatible_split_sizes),
+            );
+
+            assert_ne!(other_repo.config(), repository.config());
+
+            let mut session2 = other_repo.writable_session("main").await?;
+            session2
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(indices[2].clone()),
+                    Some(ChunkPayload::Inline(format!("{0}", 2).into())),
+                )
+                .await?;
+            session2
+                .set_chunk_ref(
+                    temp_path.clone(),
+                    ChunkIndices(indices[3].clone()),
+                    Some(ChunkPayload::Inline(format!("{0}", 3).into())),
+                )
+                .await?;
+
+            assert!(session1.merge(session2).await.is_err());
+        }
+
+        // now with the same split sizes
+        let other_repo =
+            reopen_repo_with_new_splitting_config(&repository, Some(orig_split_sizes));
+        let mut session2 = other_repo.writable_session("main").await?;
+        session2
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[2].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 2).into())),
+            )
+            .await?;
+        session2
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[3].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 3).into())),
+            )
+            .await?;
+
+        // Session.splits should be _complete_ so it should be identical for the same node
+        // on any two sessions with compatible splits
+        let splits = session1.lookup_splits(&node_id).unwrap().clone();
+        assert_eq!(session1.lookup_splits(&node_id), session2.lookup_splits(&node_id));
+        session1.merge(session2).await?;
+        assert_eq!(session1.lookup_splits(&node_id), Some(&splits));
+        for (val, idx) in enumerate(indices.iter()) {
+            let actual = get_chunk(
+                session1
+                    .get_chunk_reader(
+                        &temp_path,
+                        &ChunkIndices(idx.clone()),
+                        &ByteRange::ALL,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .expect(&format!("getting chunk ref failed for {:?}", &idx));
+            let expected = Bytes::copy_from_slice(format!("{0}", val).as_bytes());
+            assert_eq!(actual, expected);
+        }
+
+        // now merge two sessions: one with only writes, one with only deletes
+        let mut session1 = repository.writable_session("main").await?;
+        session1
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[0].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 3).into())),
+            )
+            .await?;
+        session1
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[1].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 4).into())),
+            )
+            .await?;
+        let mut session2 = repository.writable_session("main").await?;
+        session2
+            .set_chunk_ref(temp_path.clone(), ChunkIndices(indices[2].clone()), None)
+            .await?;
+        session2
+            .set_chunk_ref(temp_path.clone(), ChunkIndices(indices[3].clone()), None)
+            .await?;
+
+        session1.merge(session2).await?;
+        let expected = vec![Some(3), Some(4), None, None];
+        for (expect, idx) in zip(expected.iter(), indices.iter()) {
+            let actual = get_chunk(
+                session1
+                    .get_chunk_reader(
+                        &temp_path,
+                        &ChunkIndices(idx.clone()),
+                        &ByteRange::ALL,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+            let expected_value =
+                expect.map(|val| Bytes::copy_from_slice(format!("{0}", val).as_bytes()));
+            assert_eq!(actual, expected_value);
+        }
+
+        Ok(())
+    }
+
+    #[tokio_test]
+    async fn test_commits_with_conflicting_manifest_splits() -> Result<(), Box<dyn Error>>
+    {
+        let shape = ArrayShape::new(vec![(25, 1), (10, 1), (3, 1), (4, 1)]).unwrap();
+        let dimension_names = Some(vec!["t".into(), "z".into(), "y".into(), "x".into()]);
+        let temp_path: Path = "/temperature".try_into().unwrap();
+
+        let orig_split_sizes = vec![(
+            ManifestSplitCondition::AnyArray,
+            vec![ManifestSplitDim {
+                condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                num_chunks: 12u32,
+            }],
+        )];
+        let split_config =
+            ManifestSplittingConfig { split_sizes: Some(orig_split_sizes.clone()) };
+        let backend: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let repository = create_repo_with_split_manifest_config(
+            &temp_path,
+            &shape,
+            &dimension_names,
+            &split_config,
+            Some(backend),
+        )
+        .await?;
+
+        let indices =
+            vec![vec![0, 0, 1, 0], vec![0, 0, 0, 0], vec![0, 2, 0, 0], vec![0, 2, 0, 1]];
+
+        let mut session1 = repository.writable_session("main").await?;
+        session1
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[0].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 0).into())),
+            )
+            .await?;
+        session1
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[1].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 1).into())),
+            )
+            .await?;
+
+        let incompatible_size = 11u32;
+        let incompatible_split_sizes = vec![(
+            ManifestSplitCondition::AnyArray,
+            vec![ManifestSplitDim {
+                condition: ManifestSplitDimCondition::DimensionName("t".to_string()),
+                num_chunks: incompatible_size,
+            }],
+        )];
+        let other_repo = reopen_repo_with_new_splitting_config(
+            &repository,
+            Some(incompatible_split_sizes),
+        );
+
+        assert_ne!(other_repo.config(), repository.config());
+
+        let mut session2 = other_repo.writable_session("main").await?;
+        session2
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[2].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 2).into())),
+            )
+            .await?;
+        session2
+            .set_chunk_ref(
+                temp_path.clone(),
+                ChunkIndices(indices[3].clone()),
+                Some(ChunkPayload::Inline(format!("{0}", 3).into())),
+            )
+            .await?;
+
+        session1.commit("first commit", None).await?;
+        if let Err(SessionError { kind: SessionErrorKind::Conflict { .. }, .. }) =
+            session2.commit("second commit", None).await
+        {
+            let solver = BasicConflictSolver::default();
+            // different chunks were written so this should fast forward
+            assert!(session2.rebase(&solver).await.is_ok());
+            session2.commit("second commit after rebase", None).await?;
+        } else {
+            panic!("this should have conflicted!");
+        }
+
+        let new_session = repository
+            .readonly_session(&VersionInfo::BranchTipRef("main".into()))
+            .await?;
+        for (val, idx) in enumerate(indices.iter()) {
+            let actual = get_chunk(
+                new_session
+                    .get_chunk_reader(
+                        &temp_path,
+                        &ChunkIndices(idx.clone()),
+                        &ByteRange::ALL,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .expect(&format!("getting chunk ref failed for {:?}", &idx));
+            let expected = Bytes::copy_from_slice(format!("{0}", val).as_bytes());
+            assert_eq!(actual, expected);
+        }
+
+        Ok(())
+    }
+
     #[tokio::test]
     /// Writes four arrays to a repo arrays, checks preloading of the manifests
     ///
@@ -1241,6 +2459,7 @@ mod tests {
                 max_total_refs: Some(2),
                 preload_if: None,
             }),
+            ..ManifestConfig::default()
         };
         let config = RepositoryConfig {
             manifest: Some(man_config),

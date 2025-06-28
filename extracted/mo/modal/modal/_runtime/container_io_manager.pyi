@@ -9,10 +9,21 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
-class UserException(Exception): ...
-class Sentinel: ...
+class UserException(Exception):
+    """Used to shut down the task gracefully."""
+
+    ...
+
+class Sentinel:
+    """Used to get type-stubs to work with this object."""
+
+    ...
 
 class IOContext:
+    """Context object for managing input, function calls, and function executions
+    in a batched or single input context.
+    """
+
     input_ids: list[str]
     retry_counts: list[int]
     function_call_ids: list[str]
@@ -30,7 +41,10 @@ class IOContext:
         function_inputs: list[modal_proto.api_pb2.FunctionInput],
         is_batched: bool,
         client: modal.client._Client,
-    ): ...
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
     @classmethod
     async def create(
         cls,
@@ -46,12 +60,17 @@ class IOContext:
     def validate_output_data(self, data: typing.Any) -> list[typing.Any]: ...
 
 class InputSlots:
+    """A semaphore that allows dynamically adjusting the concurrency."""
+
     active: int
     value: int
     waiter: typing.Optional[asyncio.Future]
     closed: bool
 
-    def __init__(self, value: int) -> None: ...
+    def __init__(self, value: int) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
     async def acquire(self) -> None: ...
     def _wake_waiter(self) -> None: ...
     def release(self) -> None: ...
@@ -59,6 +78,12 @@ class InputSlots:
     async def close(self) -> None: ...
 
 class _ContainerIOManager:
+    """Synchronizes all RPC calls and network operations for a running container.
+
+    TODO: maybe we shouldn't synchronize the whole class.
+    Then we could potentially move a bunch of the global functions onto it.
+    """
+
     task_id: str
     function_id: str
     app_id: str
@@ -90,9 +115,15 @@ class _ContainerIOManager:
     @staticmethod
     def __new__(
         cls, container_args: modal_proto.api_pb2.ContainerArguments, client: modal.client._Client
-    ) -> _ContainerIOManager: ...
+    ) -> _ContainerIOManager:
+        """Create and return a new object.  See help(type) for accurate signature."""
+        ...
+
     @classmethod
-    def _reset_singleton(cls): ...
+    def _reset_singleton(cls):
+        """Only used for tests."""
+        ...
+
     async def hello(self): ...
     async def _run_heartbeat_loop(self): ...
     async def _heartbeat_handle_cancellations(self) -> bool: ...
@@ -102,15 +133,35 @@ class _ContainerIOManager:
     async def _dynamic_concurrency_loop(self): ...
     def serialize_data_format(self, obj: typing.Any, data_format: int) -> bytes: ...
     async def format_blob_data(self, data: bytes) -> dict[str, typing.Any]: ...
-    def get_data_in(self, function_call_id: str) -> collections.abc.AsyncIterator[typing.Any]: ...
+    def get_data_in(self, function_call_id: str) -> collections.abc.AsyncIterator[typing.Any]:
+        """Read from the `data_in` stream of a function call."""
+        ...
+
     async def put_data_out(
         self, function_call_id: str, start_index: int, data_format: int, serialized_messages: list[typing.Any]
-    ) -> None: ...
+    ) -> None:
+        """Put data onto the `data_out` stream of a function call.
+
+        This is used for generator outputs, which includes web endpoint responses. Note that this
+        was introduced as a performance optimization in client version 0.57, so older clients will
+        still use the previous Postgres-backed system based on `FunctionPutOutputs()`.
+        """
+        ...
+
     async def generator_output_task(
         self, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
-    ) -> None: ...
-    async def _queue_create(self, size: int) -> asyncio.queues.Queue: ...
-    async def _queue_put(self, queue: asyncio.queues.Queue, value: typing.Any) -> None: ...
+    ) -> None:
+        """Task that feeds generator outputs into a function call's `data_out` stream."""
+        ...
+
+    async def _queue_create(self, size: int) -> asyncio.queues.Queue:
+        """Create a queue, on the synchronicity event loop (needed on Python 3.8 and 3.9)."""
+        ...
+
+    async def _queue_put(self, queue: asyncio.queues.Queue, value: typing.Any) -> None:
+        """Put a value onto a queue, using the synchronicity event loop."""
+        ...
+
     def get_average_call_time(self) -> float: ...
     def get_max_inputs_to_fetch(self): ...
     def _generate_inputs(
@@ -131,15 +182,33 @@ class _ContainerIOManager:
     ) -> None: ...
     def serialize_exception(self, exc: BaseException) -> bytes: ...
     def serialize_traceback(self, exc: BaseException) -> tuple[typing.Optional[bytes], typing.Optional[bytes]]: ...
-    def handle_user_exception(self) -> typing.AsyncContextManager[None]: ...
-    def handle_input_exception(self, io_context: IOContext, started_at: float) -> typing.AsyncContextManager[None]: ...
+    def handle_user_exception(self) -> typing.AsyncContextManager[None]:
+        """Sets the task as failed in a way where it's not retried.
+
+        Used for handling exceptions from container lifecycle methods at the moment, which should
+        trigger a task failure state.
+        """
+        ...
+
+    def handle_input_exception(self, io_context: IOContext, started_at: float) -> typing.AsyncContextManager[None]:
+        """Handle an exception while processing a function input."""
+        ...
+
     def exit_context(self, started_at, input_ids: list[str]): ...
     async def push_outputs(
         self, io_context: IOContext, started_at: float, data: typing.Any, data_format: int
     ) -> None: ...
     async def memory_restore(self) -> None: ...
-    async def memory_snapshot(self) -> None: ...
-    async def volume_commit(self, volume_ids: list[str]) -> None: ...
+    async def memory_snapshot(self) -> None:
+        """Message server indicating that function is ready to be checkpointed."""
+        ...
+
+    async def volume_commit(self, volume_ids: list[str]) -> None:
+        """Perform volume commit for given `volume_ids`.
+        Only used on container exit to persist uncommitted changes on behalf of user.
+        """
+        ...
+
     async def interact(self, from_breakpoint: bool = False): ...
     @property
     def target_concurrency(self) -> int: ...
@@ -148,15 +217,35 @@ class _ContainerIOManager:
     @property
     def input_concurrency_enabled(self) -> int: ...
     @classmethod
-    def get_input_concurrency(cls) -> int: ...
+    def get_input_concurrency(cls) -> int:
+        """Returns the number of usable input slots.
+
+        If concurrency is reduced, active slots can exceed allotted slots. Returns the larger value
+        in this case.
+        """
+        ...
+
     @classmethod
-    def set_input_concurrency(cls, concurrency: int): ...
+    def set_input_concurrency(cls, concurrency: int):
+        """Edit the number of input slots.
+
+        This disables the background loop which automatically adjusts concurrency
+        within [target_concurrency, max_concurrency].
+        """
+        ...
+
     @classmethod
     def stop_fetching_inputs(cls): ...
 
 SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class ContainerIOManager:
+    """Synchronizes all RPC calls and network operations for a running container.
+
+    TODO: maybe we shouldn't synchronize the whole class.
+    Then we could potentially move a bunch of the global functions onto it.
+    """
+
     task_id: str
     function_id: str
     app_id: str
@@ -182,12 +271,17 @@ class ContainerIOManager:
     _GENERATOR_STOP_SENTINEL: typing.ClassVar[Sentinel]
     _singleton: typing.ClassVar[typing.Optional[ContainerIOManager]]
 
-    def __init__(self, /, *args, **kwargs): ...
+    def __init__(self, /, *args, **kwargs):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
     def _init(self, container_args: modal_proto.api_pb2.ContainerArguments, client: modal.client.Client): ...
     @property
     def heartbeat_condition(self) -> asyncio.locks.Condition: ...
     @classmethod
-    def _reset_singleton(cls): ...
+    def _reset_singleton(cls):
+        """Only used for tests."""
+        ...
 
     class __hello_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /): ...
@@ -238,36 +332,71 @@ class ContainerIOManager:
     format_blob_data: __format_blob_data_spec[typing_extensions.Self]
 
     class __get_data_in_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, function_call_id: str) -> typing.Iterator[typing.Any]: ...
-        def aio(self, /, function_call_id: str) -> collections.abc.AsyncIterator[typing.Any]: ...
+        def __call__(self, /, function_call_id: str) -> typing.Iterator[typing.Any]:
+            """Read from the `data_in` stream of a function call."""
+            ...
+
+        def aio(self, /, function_call_id: str) -> collections.abc.AsyncIterator[typing.Any]:
+            """Read from the `data_in` stream of a function call."""
+            ...
 
     get_data_in: __get_data_in_spec[typing_extensions.Self]
 
     class __put_data_out_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self, /, function_call_id: str, start_index: int, data_format: int, serialized_messages: list[typing.Any]
-        ) -> None: ...
+        ) -> None:
+            """Put data onto the `data_out` stream of a function call.
+
+            This is used for generator outputs, which includes web endpoint responses. Note that this
+            was introduced as a performance optimization in client version 0.57, so older clients will
+            still use the previous Postgres-backed system based on `FunctionPutOutputs()`.
+            """
+            ...
+
         async def aio(
             self, /, function_call_id: str, start_index: int, data_format: int, serialized_messages: list[typing.Any]
-        ) -> None: ...
+        ) -> None:
+            """Put data onto the `data_out` stream of a function call.
+
+            This is used for generator outputs, which includes web endpoint responses. Note that this
+            was introduced as a performance optimization in client version 0.57, so older clients will
+            still use the previous Postgres-backed system based on `FunctionPutOutputs()`.
+            """
+            ...
 
     put_data_out: __put_data_out_spec[typing_extensions.Self]
 
     class __generator_output_task_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue) -> None: ...
-        async def aio(self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue) -> None: ...
+        def __call__(self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue) -> None:
+            """Task that feeds generator outputs into a function call's `data_out` stream."""
+            ...
+
+        async def aio(self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue) -> None:
+            """Task that feeds generator outputs into a function call's `data_out` stream."""
+            ...
 
     generator_output_task: __generator_output_task_spec[typing_extensions.Self]
 
     class ___queue_create_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, size: int) -> asyncio.queues.Queue: ...
-        async def aio(self, /, size: int) -> asyncio.queues.Queue: ...
+        def __call__(self, /, size: int) -> asyncio.queues.Queue:
+            """Create a queue, on the synchronicity event loop (needed on Python 3.8 and 3.9)."""
+            ...
+
+        async def aio(self, /, size: int) -> asyncio.queues.Queue:
+            """Create a queue, on the synchronicity event loop (needed on Python 3.8 and 3.9)."""
+            ...
 
     _queue_create: ___queue_create_spec[typing_extensions.Self]
 
     class ___queue_put_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, queue: asyncio.queues.Queue, value: typing.Any) -> None: ...
-        async def aio(self, /, queue: asyncio.queues.Queue, value: typing.Any) -> None: ...
+        def __call__(self, /, queue: asyncio.queues.Queue, value: typing.Any) -> None:
+            """Put a value onto a queue, using the synchronicity event loop."""
+            ...
+
+        async def aio(self, /, queue: asyncio.queues.Queue, value: typing.Any) -> None:
+            """Put a value onto a queue, using the synchronicity event loop."""
+            ...
 
     _queue_put: ___queue_put_spec[typing_extensions.Self]
 
@@ -326,16 +455,34 @@ class ContainerIOManager:
     def serialize_traceback(self, exc: BaseException) -> tuple[typing.Optional[bytes], typing.Optional[bytes]]: ...
 
     class __handle_user_exception_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
-        def aio(self, /) -> typing.AsyncContextManager[None]: ...
+        def __call__(self, /) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
+            """Sets the task as failed in a way where it's not retried.
+
+            Used for handling exceptions from container lifecycle methods at the moment, which should
+            trigger a task failure state.
+            """
+            ...
+
+        def aio(self, /) -> typing.AsyncContextManager[None]:
+            """Sets the task as failed in a way where it's not retried.
+
+            Used for handling exceptions from container lifecycle methods at the moment, which should
+            trigger a task failure state.
+            """
+            ...
 
     handle_user_exception: __handle_user_exception_spec[typing_extensions.Self]
 
     class __handle_input_exception_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self, /, io_context: IOContext, started_at: float
-        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
-        def aio(self, /, io_context: IOContext, started_at: float) -> typing.AsyncContextManager[None]: ...
+        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
+            """Handle an exception while processing a function input."""
+            ...
+
+        def aio(self, /, io_context: IOContext, started_at: float) -> typing.AsyncContextManager[None]:
+            """Handle an exception while processing a function input."""
+            ...
 
     handle_input_exception: __handle_input_exception_spec[typing_extensions.Self]
 
@@ -356,14 +503,28 @@ class ContainerIOManager:
     memory_restore: __memory_restore_spec[typing_extensions.Self]
 
     class __memory_snapshot_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> None: ...
-        async def aio(self, /) -> None: ...
+        def __call__(self, /) -> None:
+            """Message server indicating that function is ready to be checkpointed."""
+            ...
+
+        async def aio(self, /) -> None:
+            """Message server indicating that function is ready to be checkpointed."""
+            ...
 
     memory_snapshot: __memory_snapshot_spec[typing_extensions.Self]
 
     class __volume_commit_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, volume_ids: list[str]) -> None: ...
-        async def aio(self, /, volume_ids: list[str]) -> None: ...
+        def __call__(self, /, volume_ids: list[str]) -> None:
+            """Perform volume commit for given `volume_ids`.
+            Only used on container exit to persist uncommitted changes on behalf of user.
+            """
+            ...
+
+        async def aio(self, /, volume_ids: list[str]) -> None:
+            """Perform volume commit for given `volume_ids`.
+            Only used on container exit to persist uncommitted changes on behalf of user.
+            """
+            ...
 
     volume_commit: __volume_commit_spec[typing_extensions.Self]
 
@@ -380,13 +541,34 @@ class ContainerIOManager:
     @property
     def input_concurrency_enabled(self) -> int: ...
     @classmethod
-    def get_input_concurrency(cls) -> int: ...
+    def get_input_concurrency(cls) -> int:
+        """Returns the number of usable input slots.
+
+        If concurrency is reduced, active slots can exceed allotted slots. Returns the larger value
+        in this case.
+        """
+        ...
+
     @classmethod
-    def set_input_concurrency(cls, concurrency: int): ...
+    def set_input_concurrency(cls, concurrency: int):
+        """Edit the number of input slots.
+
+        This disables the background loop which automatically adjusts concurrency
+        within [target_concurrency, max_concurrency].
+        """
+        ...
+
     @classmethod
     def stop_fetching_inputs(cls): ...
 
-def check_fastapi_pydantic_compatibility(exc: ImportError) -> None: ...
+def check_fastapi_pydantic_compatibility(exc: ImportError) -> None:
+    """Add a helpful note to an exception that is likely caused by a pydantic<>fastapi version incompatibility.
+
+    We need this becasue the legacy set of container requirements (image_builder_version=2023.12) contains a
+    version of fastapi that is not forwards-compatible with pydantic 2.0+, and users commonly run into issues
+    building an image that specifies a more recent version only for pydantic.
+    """
+    ...
 
 MAX_OUTPUT_BATCH_SIZE: int
 

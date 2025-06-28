@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioio-base
-Version: 2.0.0
+Version: 3.0.0
 Summary: Typing, base classes, and more for BioIO projects.
 Author-email: Eva Maxfield Brown <evamaxfieldbrown@gmail.com>, Dan Toloudis <danielt@alleninstitute.org>
 License: BSD License

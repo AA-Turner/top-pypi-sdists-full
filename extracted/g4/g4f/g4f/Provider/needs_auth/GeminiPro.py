@@ -3,17 +3,17 @@ from __future__ import annotations
 import base64
 import json
 import requests
-import random
 from typing import Optional
 from aiohttp import ClientSession, BaseConnector
 
 from ...typing import AsyncResult, Messages, MediaListType
 from ...image import to_bytes, is_data_an_media
 from ...errors import MissingAuthError, ModelNotFoundError
-from ...requests.raise_for_status import raise_for_status
+from ...requests import raise_for_status, iter_lines
 from ...providers.response import Usage, FinishReason
+from ...image.copy_images import save_response_media
 from ..base_provider import AsyncGeneratorProvider, ProviderModelMixin
-from ..helper import get_connector, to_string
+from ..helper import get_connector, to_string, format_media_prompt
 from ... import debug
 
 class GeminiPro(AsyncGeneratorProvider, ProviderModelMixin):
@@ -109,13 +109,14 @@ class GeminiPro(AsyncGeneratorProvider, ProviderModelMixin):
             ]
             if media is not None:
                 for media_data, filename in media:
-                    image = to_bytes(image)
+                    media_data = to_bytes(media_data)
                     contents[-1]["parts"].append({
                         "inline_data": {
-                            "mime_type": is_data_an_media(image, filename),
+                            "mime_type": is_data_an_media(media_data, filename),
                             "data": base64.b64encode(media_data).decode()
                         }
                     })
+            responseModalities = {"responseModalities": ["AUDIO"]} if "tts" in model else {}
             data = {
                 "contents": contents,
                 "generationConfig": {
@@ -124,6 +125,7 @@ class GeminiPro(AsyncGeneratorProvider, ProviderModelMixin):
                     "maxOutputTokens": kwargs.get("max_tokens"),
                     "topP": kwargs.get("top_p"),
                     "topK": kwargs.get("top_k"),
+                    **responseModalities,
                 },
                  "tools": [{
                     "function_declarations": [{
@@ -153,16 +155,24 @@ class GeminiPro(AsyncGeneratorProvider, ProviderModelMixin):
                     raise RuntimeError(f"Response {response.status}: {data['error']['message']}")
                 if stream:
                     lines = []
-                    async for chunk in response.content:
-                        if chunk == b"[{\n":
-                            lines = [b"{\n"]
-                        elif chunk == b",\r\n" or chunk == b"]":
+                    buffer = b""
+                    async for chunk in iter_lines(response.content.iter_any()):
+                        buffer += chunk
+                        if chunk == b"[{":
+                            lines = [b"{"]
+                        elif chunk == b"," or chunk == b"]":
                             try:
                                 data = b"".join(lines)
                                 data = json.loads(data)
                                 content = data["candidates"][0]["content"]
-                                if "parts" in content:
-                                    yield content["parts"][0]["text"]
+                                if "parts" in content and content["parts"]:
+                                    if "text" in content["parts"][0]:
+                                        yield content["parts"][0]["text"]
+                                    elif "inlineData" in content["parts"][0]:
+                                        async for media in save_response_media(
+                                            content["parts"][0]["inlineData"], format_media_prompt(messages)
+                                        ):
+                                            yield media
                                 if "finishReason" in data["candidates"][0]:
                                     yield FinishReason(data["candidates"][0]["finishReason"].lower())
                                 usage = data.get("usageMetadata")
@@ -174,7 +184,7 @@ class GeminiPro(AsyncGeneratorProvider, ProviderModelMixin):
                                     )
                             except Exception as e:
                                 data = data.decode(errors="ignore") if isinstance(data, bytes) else data
-                                raise RuntimeError(f"Read chunk failed: {data}") from e
+                                raise RuntimeError(f"Read chunk failed") from e
                             lines = []
                         else:
                             lines.append(chunk)

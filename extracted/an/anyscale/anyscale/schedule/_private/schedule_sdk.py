@@ -43,6 +43,12 @@ class PrivateScheduleSDK(BaseSDK):
             parent_cloud_id=cloud_id, name=job_config.project
         )
 
+        job_queue_config = None
+        if job_config.job_queue_config is not None:
+            job_queue_config = self._job_sdk.create_job_queue_config(
+                job_config.job_queue_config
+            )
+
         schedule: DecoratedSchedule = self.client.apply_schedule(
             CreateSchedule(
                 name=name,
@@ -53,6 +59,7 @@ class PrivateScheduleSDK(BaseSDK):
                     cloud_id=cloud_id,
                     compute_config_id=compute_config_id,
                 ),
+                job_queue_config=job_queue_config,
                 schedule=BackendScheduleConfig(
                     cron_expression=config.cron_expression, timezone=config.timezone,
                 ),

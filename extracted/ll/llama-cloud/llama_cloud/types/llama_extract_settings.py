@@ -39,6 +39,9 @@ class LlamaExtractSettings(pydantic.BaseModel):
     extraction_agent_config: typing.Optional[typing.Dict[str, StructParseConf]] = pydantic.Field(
         description="The configuration for the extraction agent."
     )
+    use_multimodal_parsing: typing.Optional[bool] = pydantic.Field(
+        description="Whether to use experimental multimodal parsing."
+    )
     use_pixel_extraction: typing.Optional[bool] = pydantic.Field(
         description="Whether to use extraction over pixels for multimodal mode."
     )

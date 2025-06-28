@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte_protocol_models
-Version: 0.17.1
+Version: 0.18.0
 Summary: Declares the Airbyte Protocol.
 Home-page: https://github.com/airbytehq/airbyte-protocol
 Author: Airbyte

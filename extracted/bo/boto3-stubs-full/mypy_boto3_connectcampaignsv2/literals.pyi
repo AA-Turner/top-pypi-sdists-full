@@ -506,6 +506,9 @@ ResourceServiceName = Literal[
 PaginatorName = Literal["list_campaigns", "list_connect_instance_integrations"]
 RegionName = Literal[
     "af-south-1",
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-southeast-1",
     "ap-southeast-2",
     "ca-central-1",
     "eu-central-1",

@@ -19,17 +19,18 @@ from typing import Any, TypeVar
 from nebius.base.error import SDKError
 from nebius.base.sanitization import ellipsis_in_middle
 
-from .exchangeable import OPTION_MAX_RETRIES
+from .options import (
+    OPTION_MAX_RETRIES,
+    OPTION_RENEW_REQUEST_TIMEOUT,
+    OPTION_RENEW_REQUIRED,
+    OPTION_RENEW_SYNCHRONOUS,
+    OPTION_REPORT_ERROR,
+)
 from .token import Bearer as ParentBearer
 from .token import Receiver as ParentReceiver
 from .token import Token
 
 log = getLogger(__name__)
-
-OPTION_RENEW_REQUIRED = "token_renew_required"
-OPTION_RENEW_SYNCHRONOUS = "token_renew_synchronous"
-OPTION_REPORT_ERROR = "token_renew_report_error"
-OPTION_RENEW_REQUEST_TIMEOUT = "token_renew_request_timeout"
 
 
 class RenewalError(SDKError):
@@ -89,6 +90,9 @@ class Receiver(ParentReceiver):
 T = TypeVar("T")
 
 
+VERY_LONG_TIMEOUT = timedelta(days=365 * 10)  # 10 years, should be enough for anyone
+
+
 class Bearer(ParentBearer):
     def __init__(
         self,
@@ -127,6 +131,11 @@ class Bearer(ParentBearer):
         self._renew_synchronous_timeout: float | None = None
         self._renewal_future: Future[Token] | None = None
         self._renew_synchronous_options: dict[str, str] | None = None
+
+    @property
+    def wrapped(self) -> ParentBearer | None:
+        """Return the wrapped bearer."""
+        return self._source
 
     def bg_task(self, coro: Awaitable[T]) -> Task[None]:
         """Run a coroutine without awaiting or tracking, and log any exceptions."""
@@ -223,9 +232,13 @@ class Bearer(ParentBearer):
         while not self._is_stopped.is_set():
             try:
                 tok = await self._fetch_once()
-                retry_timeout = (
-                    tok.expiration - datetime.now(timezone.utc)
-                ).total_seconds() * self._lifetime_safe_fraction
+                exp = tok.expiration
+                if exp is None:
+                    retry_timeout = VERY_LONG_TIMEOUT.total_seconds()
+                else:
+                    retry_timeout = (
+                        exp - datetime.now(timezone.utc)
+                    ).total_seconds() * self._lifetime_safe_fraction
             except Exception as e:
                 log.error(
                     f"Failed refresh token, attempt: {self._renewal_attempt}, "
@@ -264,10 +277,15 @@ class Bearer(ParentBearer):
             await gather(*pending, return_exceptions=True)
 
     async def close(self, grace: float | None = None) -> None:
+        source_close = create_task(self._source.close(grace=grace))
         self.stop()
         for task in self._tasks:
             task.cancel()
-        rets = await gather(*self._tasks, return_exceptions=True)
+        rets = await gather(
+            source_close,
+            *self._tasks,
+            return_exceptions=True,
+        )
         for ret in rets:
             if isinstance(ret, BaseException) and not isinstance(ret, CancelledError):
                 log.error(f"Error while graceful shutdown: {ret}", exc_info=ret)

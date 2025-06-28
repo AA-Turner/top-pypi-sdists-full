@@ -1,5 +1,7 @@
 """A client to download artifacts."""
 
+import boto3
+import botocore
 import contextlib
 import ctypes
 import errno
@@ -8,6 +10,7 @@ import shutil
 import tarfile
 import zipfile
 from typing import Optional
+from urllib.parse import parse_qs, urlparse
 
 import requests
 import structlog
@@ -26,29 +29,83 @@ class DownloadError(Exception):
 class DownloadClient:
     """A client to download artifacts."""
 
-    @staticmethod
-    def download_from_url(url: str) -> str:
-        """
-        Download a file from the given URL.
-
-        :param url: URL of file to download.
-        :return: Path to downloaded file on local filesystem.
-        """
+    @classmethod
+    def download_from_url(cls, url: str, output_file: Optional[str] = None) -> str:
         if not url:
             raise DownloadError("Download URL not found")
 
+        if cls.is_s3_url(url) and not cls.is_s3_presigned_url(url):
+            bucket, key = cls.extract_s3_bucket_key(url)
+            return cls.download_using_boto(bucket, key, output_file)
+        else:
+            return cls.download_using_request(url, output_file)
+
+    @staticmethod
+    def download_using_request(url: str, output_file: Optional[str]) -> str:
+        if output_file is None:
+            output_file = os.path.join(mkdtemp_in_build_dir(), url.split("/")[-1].split("?")[0])
+
         LOGGER.info("Downloading", url=url)
-        filename = os.path.join(mkdtemp_in_build_dir(), url.split("/")[-1].split("?")[0])
 
         with requests.get(url, stream=True) as reader:
             if reader.status_code == 200:
-                with open(filename, "wb") as file_handle:
+                with open(output_file, "wb") as file_handle:
                     shutil.copyfileobj(reader.raw, file_handle)
             else:
                 LOGGER.warning("Download failed", status_code=reader.status_code)
                 raise DownloadError(reader.text)
 
-        return filename
+        return output_file
+
+    @staticmethod
+    def download_using_boto(bucket: str, key: str, output_file: Optional[str]) -> str:
+        LOGGER.info("Downloading", s3_bucket=bucket, object=key)
+        if output_file is None:
+            output_file = os.path.join(mkdtemp_in_build_dir(), key.split("/")[-1].split("?")[0])
+        s3 = boto3.client("s3", config=botocore.client.Config(signature_version=botocore.UNSIGNED))
+        s3.download_file(bucket, key, output_file)
+        return output_file
+
+    @staticmethod
+    def is_s3_url(url: str) -> bool:
+        """
+        Return True if `url` looks like an AWS S3 URL.
+        """
+        parsed = urlparse(url)
+        return (
+            parsed.hostname is not None
+            and parsed.hostname.endswith("amazonaws.com")
+            and "s3" in parsed.hostname
+        )
+
+    @staticmethod
+    def is_s3_presigned_url(url: str) -> bool:
+        """
+        Return True if `url` looks like an AWS S3 presigned URL (SigV4).
+        """
+        qs = parse_qs(urlparse(url).query)
+        return "X-Amz-Signature" in qs
+
+    @staticmethod
+    def extract_s3_bucket_key(url: str) -> tuple[str, str]:
+        """
+        Extracts the S3 bucket name and object key from an HTTP(s) S3 URL.
+
+        Supports both:
+        - https://bucket.s3.amazonaws.com/key/…
+        - https://bucket.s3.<region>.amazonaws.com/key/…
+
+        Returns:
+        (bucket, key)
+        """
+        parsed = urlparse(url)
+        if parsed.hostname is None:
+            raise DownloadError("Unable to determine S3 bucket/key from download URL")
+
+        # Hostname labels, e.g. ["bucket","s3","us-east-1","amazonaws","com"]
+        bucket = parsed.hostname.split(".")[0]
+        key = parsed.path.lstrip("/")
+        return bucket, key
 
     @staticmethod
     def extract_archive(archive_file: str, install_dir: str) -> str:

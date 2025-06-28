@@ -397,13 +397,13 @@ class AutoCoderArgs(pydantic.BaseModel):
     in_code_apply: bool = False
     model_filter_path: Optional[str] = None
 
-    conversation_prune_safe_zone_tokens: Optional[int] = 50*1024
+    conversation_prune_safe_zone_tokens: int = 50*1024
     conversation_prune_group_size: Optional[int] = 4
     conversation_prune_strategy: Optional[str] = "summarize"
 
     context_prune_strategy: Optional[str] = "extract"
     context_prune: Optional[bool] = True
-    context_prune_safe_zone_tokens: Optional[int] = 32*1024
+    context_prune_safe_zone_tokens: Optional[int] = 24*1024
     context_prune_sliding_window_size: Optional[int] = 1000
     context_prune_sliding_window_overlap: Optional[int] = 100
 

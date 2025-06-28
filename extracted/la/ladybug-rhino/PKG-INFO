@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ladybug-rhino
-Version: 1.43.8
+Version: 1.43.10
 Summary: A library for communicating between Ladybug Tools core libraries and Rhinoceros CAD.
 Home-page: https://github.com/ladybug-tools/ladybug-rhino
 Author: Ladybug Tools

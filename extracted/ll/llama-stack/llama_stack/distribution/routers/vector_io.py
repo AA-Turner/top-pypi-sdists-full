@@ -16,17 +16,15 @@ from llama_stack.apis.vector_io import (
     QueryChunksResponse,
     SearchRankingOptions,
     VectorIO,
-    VectorStoreDeleteResponse,
-    VectorStoreListResponse,
-    VectorStoreObject,
-    VectorStoreSearchResponsePage,
-)
-from llama_stack.apis.vector_io.vector_io import (
     VectorStoreChunkingStrategy,
+    VectorStoreDeleteResponse,
     VectorStoreFileContentsResponse,
     VectorStoreFileDeleteResponse,
     VectorStoreFileObject,
     VectorStoreFileStatus,
+    VectorStoreListResponse,
+    VectorStoreObject,
+    VectorStoreSearchResponsePage,
 )
 from llama_stack.log import get_logger
 from llama_stack.providers.datatypes import HealthResponse, HealthStatus, RoutingTable
@@ -255,6 +253,7 @@ class VectorIORouter(VectorIO):
         max_num_results: int | None = 10,
         ranking_options: SearchRankingOptions | None = None,
         rewrite_query: bool | None = False,
+        search_mode: str | None = "vector",
     ) -> VectorStoreSearchResponsePage:
         logger.debug(f"VectorIORouter.openai_search_vector_store: {vector_store_id}")
         # Route based on vector store ID
@@ -266,6 +265,7 @@ class VectorIORouter(VectorIO):
             max_num_results=max_num_results,
             ranking_options=ranking_options,
             rewrite_query=rewrite_query,
+            search_mode=search_mode,
         )
 
     async def openai_attach_file_to_vector_store(

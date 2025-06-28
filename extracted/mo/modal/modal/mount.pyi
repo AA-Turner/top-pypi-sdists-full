@@ -10,8 +10,13 @@ import pathlib
 import typing
 import typing_extensions
 
-def client_mount_name() -> str: ...
-def python_standalone_mount_name(version: str) -> str: ...
+def client_mount_name() -> str:
+    """Get the deployed name of the client package mount."""
+    ...
+
+def python_standalone_mount_name(version: str) -> str:
+    """Get the deployed name of the python-build-standalone mount."""
+    ...
 
 class _MountEntry:
     def description(self) -> str: ...
@@ -22,6 +27,8 @@ class _MountEntry:
 def _select_files(entries: list[_MountEntry]) -> list[tuple[pathlib.Path, pathlib.PurePosixPath]]: ...
 
 class _MountFile(_MountEntry):
+    """_MountFile(local_file: pathlib.Path, remote_path: pathlib.PurePosixPath)"""
+
     local_file: pathlib.Path
     remote_path: pathlib.PurePosixPath
 
@@ -29,11 +36,21 @@ class _MountFile(_MountEntry):
     def get_files_to_upload(self): ...
     def watch_entry(self): ...
     def top_level_paths(self) -> list[tuple[pathlib.Path, pathlib.PurePosixPath]]: ...
-    def __init__(self, local_file: pathlib.Path, remote_path: pathlib.PurePosixPath) -> None: ...
-    def __repr__(self): ...
-    def __eq__(self, other): ...
+    def __init__(self, local_file: pathlib.Path, remote_path: pathlib.PurePosixPath) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
 
 class _MountDir(_MountEntry):
+    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: Callable[[pathlib.Path], bool], recursive: bool)"""
+
     local_dir: pathlib.Path
     remote_path: pathlib.PurePosixPath
     ignore: collections.abc.Callable[[pathlib.Path], bool]
@@ -49,14 +66,24 @@ class _MountDir(_MountEntry):
         remote_path: pathlib.PurePosixPath,
         ignore: collections.abc.Callable[[pathlib.Path], bool],
         recursive: bool,
-    ) -> None: ...
-    def __repr__(self): ...
-    def __eq__(self, other): ...
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
 
 def module_mount_condition(module_base: pathlib.Path): ...
 def module_mount_ignore_condition(module_base: pathlib.Path): ...
 
 class _MountedPythonModule(_MountEntry):
+    """_MountedPythonModule(module_name: str, remote_dir: Union[pathlib.PurePosixPath, str] = '/root', ignore: Optional[Callable[[pathlib.Path], bool]] = None)"""
+
     module_name: str
     remote_dir: typing.Union[pathlib.PurePosixPath, str]
     ignore: typing.Optional[collections.abc.Callable[[pathlib.Path], bool]]
@@ -71,13 +98,46 @@ class _MountedPythonModule(_MountEntry):
         module_name: str,
         remote_dir: typing.Union[pathlib.PurePosixPath, str] = "/root",
         ignore: typing.Optional[collections.abc.Callable[[pathlib.Path], bool]] = None,
-    ) -> None: ...
-    def __repr__(self): ...
-    def __eq__(self, other): ...
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
 
-class NonLocalMountError(Exception): ...
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+class NonLocalMountError(Exception):
+    """Common base class for all non-exit exceptions."""
+
+    ...
 
 class _Mount(modal._object._Object):
+    """**Deprecated**: Mounts should not be used explicitly anymore, use `Image.add_local_*` commands instead.
+
+    Create a mount for a local directory or file that can be attached
+    to one or more Modal functions.
+
+    **Usage**
+
+    ```python notest
+    import modal
+    import os
+    app = modal.App()
+
+    @app.function(mounts=[modal.Mount.from_local_dir("~/foo", remote_path="/root/foo")])
+    def f():
+        # `/root/foo` has the contents of `~/foo`.
+        print(os.listdir("/root/foo/"))
+    ```
+
+    Modal syncs the contents of the local directory every time the app runs, but uses the hash of
+    the file's contents to skip uploading files that have been uploaded before.
+    """
+
     _entries: typing.Optional[list[_MountEntry]]
     _deployment_name: typing.Optional[str]
     _namespace: typing.Optional[int]
@@ -89,10 +149,16 @@ class _Mount(modal._object._Object):
     def _new(entries: list[_MountEntry] = []) -> _Mount: ...
     def _extend(self, entry: _MountEntry) -> _Mount: ...
     @property
-    def entries(self): ...
+    def entries(self):
+        """mdmd:hidden"""
+        ...
+
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _top_level_paths(self) -> list[tuple[pathlib.Path, pathlib.PurePosixPath]]: ...
-    def is_local(self) -> bool: ...
+    def is_local(self) -> bool:
+        """mdmd:hidden"""
+        ...
+
     @staticmethod
     def _add_local_dir(
         local_path: pathlib.Path,
@@ -106,7 +172,10 @@ class _Mount(modal._object._Object):
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
         recursive: bool = True,
-    ) -> _Mount: ...
+    ) -> _Mount:
+        """Add a local directory to the `Mount` object."""
+        ...
+
     @staticmethod
     def from_local_dir(
         local_path: typing.Union[str, pathlib.Path],
@@ -114,7 +183,23 @@ class _Mount(modal._object._Object):
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
         recursive: bool = True,
-    ) -> _Mount: ...
+    ) -> _Mount:
+        """**Deprecated:** Use image.add_local_dir() instead
+
+        Create a `Mount` from a local directory.
+
+        **Usage**
+
+        ```python notest
+        assets = modal.Mount.from_local_dir(
+            "~/assets",
+            condition=lambda pth: not ".venv" in pth,
+            remote_path="/assets",
+        )
+        ```
+        """
+        ...
+
     @staticmethod
     def _from_local_dir(
         local_path: typing.Union[str, pathlib.Path],
@@ -127,11 +212,30 @@ class _Mount(modal._object._Object):
         self,
         local_path: typing.Union[str, pathlib.Path],
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
-    ) -> _Mount: ...
+    ) -> _Mount:
+        """Add a local file to the `Mount` object."""
+        ...
+
     @staticmethod
     def from_local_file(
         local_path: typing.Union[str, pathlib.Path], remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None
-    ) -> _Mount: ...
+    ) -> _Mount:
+        """**Deprecated**: Use image.add_local_file() instead
+
+        Create a `Mount` mounting a single local file.
+
+        **Usage**
+
+        ```python notest
+        # Mount the DBT profile in user's home directory into container.
+        dbt_profiles = modal.Mount.from_local_file(
+            local_path="~/profiles.yml",
+            remote_path="/root/dbt_profile/profiles.yml",
+        )
+        ```
+        """
+        ...
+
     @staticmethod
     def _from_local_file(
         local_path: typing.Union[str, pathlib.Path], remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None
@@ -151,7 +255,30 @@ class _Mount(modal._object._Object):
         remote_dir: typing.Union[str, pathlib.PurePosixPath] = "/root",
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
         ignore: typing.Union[typing.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None] = None,
-    ) -> _Mount: ...
+    ) -> _Mount:
+        """**Deprecated**: Use image.add_local_python_source instead
+
+        Returns a `modal.Mount` that makes local modules listed in `module_names` available inside the container.
+        This works by mounting the local path of each module's package to a directory inside the container
+        that's on `PYTHONPATH`.
+
+        **Usage**
+
+        ```python notest
+        import modal
+        import my_local_module
+
+        app = modal.App()
+
+        @app.function(mounts=[
+            modal.Mount.from_local_python_packages("my_local_module", "my_other_module"),
+        ])
+        def f():
+            my_local_module.do_stuff()
+        ```
+        """
+        ...
+
     @staticmethod
     def _from_local_python_packages(
         *module_names: str,
@@ -160,7 +287,10 @@ class _Mount(modal._object._Object):
         ignore: typing.Union[typing.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None] = None,
     ) -> _Mount: ...
     @staticmethod
-    def from_name(name: str, *, namespace=1, environment_name: typing.Optional[str] = None) -> _Mount: ...
+    def from_name(name: str, *, namespace=1, environment_name: typing.Optional[str] = None) -> _Mount:
+        """mdmd:hidden"""
+        ...
+
     @classmethod
     async def lookup(
         cls: type[_Mount],
@@ -168,7 +298,10 @@ class _Mount(modal._object._Object):
         namespace=1,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
-    ) -> _Mount: ...
+    ) -> _Mount:
+        """mdmd:hidden"""
+        ...
+
     async def _deploy(
         self: _Mount,
         deployment_name: typing.Optional[str] = None,
@@ -183,6 +316,28 @@ class _Mount(modal._object._Object):
 SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class Mount(modal.object.Object):
+    """**Deprecated**: Mounts should not be used explicitly anymore, use `Image.add_local_*` commands instead.
+
+    Create a mount for a local directory or file that can be attached
+    to one or more Modal functions.
+
+    **Usage**
+
+    ```python notest
+    import modal
+    import os
+    app = modal.App()
+
+    @app.function(mounts=[modal.Mount.from_local_dir("~/foo", remote_path="/root/foo")])
+    def f():
+        # `/root/foo` has the contents of `~/foo`.
+        print(os.listdir("/root/foo/"))
+    ```
+
+    Modal syncs the contents of the local directory every time the app runs, but uses the hash of
+    the file's contents to skip uploading files that have been uploaded before.
+    """
+
     _entries: typing.Optional[list[_MountEntry]]
     _deployment_name: typing.Optional[str]
     _namespace: typing.Optional[int]
@@ -190,15 +345,24 @@ class Mount(modal.object.Object):
     _allow_overwrite: bool
     _content_checksum_sha256_hex: typing.Optional[str]
 
-    def __init__(self, *args, **kwargs): ...
+    def __init__(self, *args, **kwargs):
+        """mdmd:hidden"""
+        ...
+
     @staticmethod
     def _new(entries: list[_MountEntry] = []) -> Mount: ...
     def _extend(self, entry: _MountEntry) -> Mount: ...
     @property
-    def entries(self): ...
+    def entries(self):
+        """mdmd:hidden"""
+        ...
+
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _top_level_paths(self) -> list[tuple[pathlib.Path, pathlib.PurePosixPath]]: ...
-    def is_local(self) -> bool: ...
+    def is_local(self) -> bool:
+        """mdmd:hidden"""
+        ...
+
     @staticmethod
     def _add_local_dir(
         local_path: pathlib.Path,
@@ -212,7 +376,10 @@ class Mount(modal.object.Object):
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
         recursive: bool = True,
-    ) -> Mount: ...
+    ) -> Mount:
+        """Add a local directory to the `Mount` object."""
+        ...
+
     @staticmethod
     def from_local_dir(
         local_path: typing.Union[str, pathlib.Path],
@@ -220,7 +387,23 @@ class Mount(modal.object.Object):
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
         recursive: bool = True,
-    ) -> Mount: ...
+    ) -> Mount:
+        """**Deprecated:** Use image.add_local_dir() instead
+
+        Create a `Mount` from a local directory.
+
+        **Usage**
+
+        ```python notest
+        assets = modal.Mount.from_local_dir(
+            "~/assets",
+            condition=lambda pth: not ".venv" in pth,
+            remote_path="/assets",
+        )
+        ```
+        """
+        ...
+
     @staticmethod
     def _from_local_dir(
         local_path: typing.Union[str, pathlib.Path],
@@ -233,11 +416,30 @@ class Mount(modal.object.Object):
         self,
         local_path: typing.Union[str, pathlib.Path],
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
-    ) -> Mount: ...
+    ) -> Mount:
+        """Add a local file to the `Mount` object."""
+        ...
+
     @staticmethod
     def from_local_file(
         local_path: typing.Union[str, pathlib.Path], remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None
-    ) -> Mount: ...
+    ) -> Mount:
+        """**Deprecated**: Use image.add_local_file() instead
+
+        Create a `Mount` mounting a single local file.
+
+        **Usage**
+
+        ```python notest
+        # Mount the DBT profile in user's home directory into container.
+        dbt_profiles = modal.Mount.from_local_file(
+            local_path="~/profiles.yml",
+            remote_path="/root/dbt_profile/profiles.yml",
+        )
+        ```
+        """
+        ...
+
     @staticmethod
     def _from_local_file(
         local_path: typing.Union[str, pathlib.Path], remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None
@@ -267,7 +469,30 @@ class Mount(modal.object.Object):
         remote_dir: typing.Union[str, pathlib.PurePosixPath] = "/root",
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
         ignore: typing.Union[typing.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None] = None,
-    ) -> Mount: ...
+    ) -> Mount:
+        """**Deprecated**: Use image.add_local_python_source instead
+
+        Returns a `modal.Mount` that makes local modules listed in `module_names` available inside the container.
+        This works by mounting the local path of each module's package to a directory inside the container
+        that's on `PYTHONPATH`.
+
+        **Usage**
+
+        ```python notest
+        import modal
+        import my_local_module
+
+        app = modal.App()
+
+        @app.function(mounts=[
+            modal.Mount.from_local_python_packages("my_local_module", "my_other_module"),
+        ])
+        def f():
+            my_local_module.do_stuff()
+        ```
+        """
+        ...
+
     @staticmethod
     def _from_local_python_packages(
         *module_names: str,
@@ -276,7 +501,10 @@ class Mount(modal.object.Object):
         ignore: typing.Union[typing.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None] = None,
     ) -> Mount: ...
     @staticmethod
-    def from_name(name: str, *, namespace=1, environment_name: typing.Optional[str] = None) -> Mount: ...
+    def from_name(name: str, *, namespace=1, environment_name: typing.Optional[str] = None) -> Mount:
+        """mdmd:hidden"""
+        ...
+
     @classmethod
     def lookup(
         cls: type[Mount],
@@ -284,7 +512,9 @@ class Mount(modal.object.Object):
         namespace=1,
         client: typing.Optional[modal.client.Client] = None,
         environment_name: typing.Optional[str] = None,
-    ) -> Mount: ...
+    ) -> Mount:
+        """mdmd:hidden"""
+        ...
 
     class ___deploy_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(

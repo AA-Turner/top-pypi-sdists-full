@@ -1,0 +1,66 @@
+# ******** NOTE ********
+# GitHub action libraries should be pinned to a commit hash, not a version tag, to avoid vulnerabilities.
+
+name: Make new release
+
+on:
+  push:
+    branches: [main]
+    paths: ['pycarlo/lib/schema.py']
+
+permissions:
+  # This is required for requesting the JWT
+  id-token: write
+
+  # This is required for creating a release
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub token
+        id: generate_token
+        uses: tibdex/github-app-token@32691ba7c9e7063bd457bd8f2a5703138591fa58  # v1.9.0
+        with:
+          app_id: ${{ secrets.MC_GITHUB_APP_ID }}
+          private_key: ${{ secrets.MC_GITHUB_APP_PRIVATE_KEY }}
+      - name: Checkout main branch
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744  # v3.6.0
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          ref: main
+          path: python-sdk
+      - name: Get latest release tag
+        id: get_latest_release_tag
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+        working-directory: python-sdk
+        run: |
+          echo "Listing releases..."
+          LATEST_RELEASE_TAG=$(gh release list \
+            --order desc \
+            --limit 1 \
+            --json tagName \
+            --jq '.[0].tagName')
+          echo "LATEST_RELEASE_TAG='$LATEST_RELEASE_TAG'"
+          echo "latest_release_tag=$LATEST_RELEASE_TAG" >> $GITHUB_OUTPUT
+      - name: Make new release tag
+        id: make_new_release_tag
+        env:
+          LATEST_RELEASE_TAG: ${{ steps.get_latest_release_tag.outputs.latest_release_tag }}
+        run: |
+          MAJOR_MINOR=$(echo $LATEST_RELEASE_TAG | cut -f 1-2 -d . )
+          PATCH=$(echo $LATEST_RELEASE_TAG | cut -f 3 -d . )
+          NEW_PATCH=$(( $PATCH + 1 ))
+          NEW_RELEASE_TAG="$MAJOR_MINOR.$NEW_PATCH"
+          echo "NEW_RELEASE_TAG='$NEW_RELEASE_TAG'"
+          echo "new_release_tag=$NEW_RELEASE_TAG" >> $GITHUB_OUTPUT
+      - name: Create new release
+        id: create_new_release
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          NEW_RELEASE_TAG: ${{ steps.make_new_release_tag.outputs.new_release_tag }}
+        working-directory: python-sdk
+        run: |
+          gh release create $NEW_RELEASE_TAG --generate-notes

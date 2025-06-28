@@ -243,6 +243,18 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def FlashContainerDeregister(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FlashContainerDeregisterRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def FlashContainerList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FlashContainerListRequest, modal_proto.api_pb2.FlashContainerListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def FlashContainerRegister(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FlashContainerRegisterRequest, modal_proto.api_pb2.FlashContainerRegisterResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def FunctionAsyncInvoke(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionAsyncInvokeRequest, modal_proto.api_pb2.FunctionAsyncInvokeResponse]') -> None:
         pass
 
@@ -967,6 +979,24 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.EnvironmentUpdateRequest,
                 modal_proto.api_pb2.EnvironmentListItem,
+            ),
+            '/modal.client.ModalClient/FlashContainerDeregister': grpclib.const.Handler(
+                self.FlashContainerDeregister,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FlashContainerDeregisterRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/FlashContainerList': grpclib.const.Handler(
+                self.FlashContainerList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FlashContainerListRequest,
+                modal_proto.api_pb2.FlashContainerListResponse,
+            ),
+            '/modal.client.ModalClient/FlashContainerRegister': grpclib.const.Handler(
+                self.FlashContainerRegister,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FlashContainerRegisterRequest,
+                modal_proto.api_pb2.FlashContainerRegisterResponse,
             ),
             '/modal.client.ModalClient/FunctionAsyncInvoke': grpclib.const.Handler(
                 self.FunctionAsyncInvoke,
@@ -1891,6 +1921,24 @@ class ModalClientStub:
             '/modal.client.ModalClient/EnvironmentUpdate',
             modal_proto.api_pb2.EnvironmentUpdateRequest,
             modal_proto.api_pb2.EnvironmentListItem,
+        )
+        self.FlashContainerDeregister = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FlashContainerDeregister',
+            modal_proto.api_pb2.FlashContainerDeregisterRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
+        self.FlashContainerList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FlashContainerList',
+            modal_proto.api_pb2.FlashContainerListRequest,
+            modal_proto.api_pb2.FlashContainerListResponse,
+        )
+        self.FlashContainerRegister = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FlashContainerRegister',
+            modal_proto.api_pb2.FlashContainerRegisterRequest,
+            modal_proto.api_pb2.FlashContainerRegisterResponse,
         )
         self.FunctionAsyncInvoke = grpclib.client.UnaryUnaryMethod(
             channel,

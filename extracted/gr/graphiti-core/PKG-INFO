@@ -1,34 +1,48 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: graphiti-core
-Version: 0.13.2
+Version: 0.14.0
 Summary: A temporal graph building library
-License: Apache-2.0
-Author: Paul Paliychuk
-Author-email: paul@getzep.com
-Requires-Python: >=3.10,<4
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: anthropic
-Provides-Extra: falkord-db
-Provides-Extra: google-genai
-Provides-Extra: groq
-Requires-Dist: anthropic (>=0.49.0) ; extra == "anthropic"
-Requires-Dist: diskcache (>=5.6.3)
-Requires-Dist: falkordb (>=1.1.2,<2.0.0) ; extra == "falkord-db"
-Requires-Dist: google-genai (>=1.8.0) ; extra == "google-genai"
-Requires-Dist: groq (>=0.2.0) ; extra == "groq"
-Requires-Dist: neo4j (>=5.26.0)
-Requires-Dist: numpy (>=1.0.0)
-Requires-Dist: openai (>=1.91.0)
-Requires-Dist: pydantic (>=2.11.5)
-Requires-Dist: python-dotenv (>=1.0.1)
-Requires-Dist: tenacity (>=9.0.0)
 Project-URL: Homepage, https://help.getzep.com/graphiti/graphiti/overview
 Project-URL: Repository, https://github.com/getzep/graphiti
+Author-email: Paul Paliychuk <paul@getzep.com>, Preston Rasmussen <preston@getzep.com>, Daniel Chalef <daniel@getzep.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Requires-Python: <4,>=3.10
+Requires-Dist: diskcache>=5.6.3
+Requires-Dist: neo4j>=5.26.0
+Requires-Dist: numpy>=1.0.0
+Requires-Dist: openai>=1.91.0
+Requires-Dist: posthog>=3.0.0
+Requires-Dist: pydantic>=2.11.5
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: tenacity>=9.0.0
+Provides-Extra: anthropic
+Requires-Dist: anthropic>=0.49.0; extra == 'anthropic'
+Provides-Extra: dev
+Requires-Dist: anthropic>=0.49.0; extra == 'dev'
+Requires-Dist: diskcache-stubs>=5.6.3.6.20240818; extra == 'dev'
+Requires-Dist: google-genai>=1.8.0; extra == 'dev'
+Requires-Dist: groq>=0.2.0; extra == 'dev'
+Requires-Dist: ipykernel>=6.29.5; extra == 'dev'
+Requires-Dist: jupyterlab>=4.2.4; extra == 'dev'
+Requires-Dist: langchain-anthropic>=0.2.4; extra == 'dev'
+Requires-Dist: langchain-openai>=0.2.6; extra == 'dev'
+Requires-Dist: langgraph>=0.2.15; extra == 'dev'
+Requires-Dist: langsmith>=0.1.108; extra == 'dev'
+Requires-Dist: mypy>=1.11.1; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.24.0; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.6.1; extra == 'dev'
+Requires-Dist: pytest>=8.3.3; extra == 'dev'
+Requires-Dist: ruff>=0.7.1; extra == 'dev'
+Requires-Dist: sentence-transformers>=3.2.1; extra == 'dev'
+Requires-Dist: transformers>=4.45.2; extra == 'dev'
+Requires-Dist: voyageai>=0.2.3; extra == 'dev'
+Provides-Extra: falkord-db
+Requires-Dist: falkordb<2.0.0,>=1.1.2; extra == 'falkord-db'
+Provides-Extra: google-genai
+Requires-Dist: google-genai>=1.8.0; extra == 'google-genai'
+Provides-Extra: groq
+Requires-Dist: groq>=0.2.0; extra == 'groq'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -161,7 +175,7 @@ pip install graphiti-core
 or
 
 ```bash
-poetry add graphiti-core
+uv add graphiti-core
 ```
 
 You can also install optional LLM providers as extras:
@@ -294,11 +308,11 @@ Graphiti supports Google's Gemini models for both LLM inference and embeddings. 
 Install Graphiti:
 
 ```bash
-poetry add "graphiti-core[google-genai]"
+uv add "graphiti-core[google-genai]"
 
 # or
 
-uv add "graphiti-core[google-genai]"
+pip install "graphiti-core[google-genai]"
 ```
 
 ```python
@@ -335,10 +349,9 @@ graphiti = Graphiti(
 
 Graphiti supports Ollama for running local LLMs and embedding models via Ollama's OpenAI-compatible API. This is ideal for privacy-focused applications or when you want to avoid API costs.
 
-
 Install the models:
-ollama pull deepseek-r1:7b         # LLM
-ollama pull nomic-embed-text       # embeddings
+ollama pull deepseek-r1:7b # LLM
+ollama pull nomic-embed-text # embeddings
 
 ```python
 from graphiti_core import Graphiti
@@ -379,12 +392,92 @@ graphiti = Graphiti(
 
 Ensure Ollama is running (`ollama serve`) and that you have pulled the models you want to use.
 
-
 ## Documentation
 
 - [Guides and API documentation](https://help.getzep.com/graphiti).
 - [Quick Start](https://help.getzep.com/graphiti/graphiti/quick-start)
 - [Building an agent with LangChain's LangGraph and Graphiti](https://help.getzep.com/graphiti/graphiti/lang-graph-agent)
+
+## Telemetry
+
+Graphiti collects anonymous usage statistics to help us understand how the framework is being used and improve it for everyone. We believe transparency is important, so here's exactly what we collect and why.
+
+### What We Collect
+
+When you initialize a Graphiti instance, we collect:
+
+- **Anonymous identifier**: A randomly generated UUID stored locally in `~/.cache/graphiti/telemetry_anon_id`
+- **System information**: Operating system, Python version, and system architecture
+- **Graphiti version**: The version you're using
+- **Configuration choices**:
+  - LLM provider type (OpenAI, Azure, Anthropic, etc.)
+  - Database backend (Neo4j, FalkorDB)
+  - Embedder provider (OpenAI, Azure, Voyage, etc.)
+
+### What We Don't Collect
+
+We are committed to protecting your privacy. We **never** collect:
+
+- Personal information or identifiers
+- API keys or credentials
+- Your actual data, queries, or graph content
+- IP addresses or hostnames
+- File paths or system-specific information
+- Any content from your episodes, nodes, or edges
+
+### Why We Collect This Data
+
+This information helps us:
+
+- Understand which configurations are most popular to prioritize support and testing
+- Identify which LLM and database providers to focus development efforts on
+- Track adoption patterns to guide our roadmap
+- Ensure compatibility across different Python versions and operating systems
+
+By sharing this anonymous information, you help us make Graphiti better for everyone in the community.
+
+### View the Telemetry Code
+
+The Telemetry code [may be found here](graphiti_core/telemetry/telemetry.py).
+
+### How to Disable Telemetry
+
+Telemetry is **opt-out** and can be disabled at any time. To disable telemetry collection:
+
+**Option 1: Environment Variable**
+
+```bash
+export GRAPHITI_TELEMETRY_ENABLED=false
+```
+
+**Option 2: Set in your shell profile**
+
+```bash
+# For bash users (~/.bashrc or ~/.bash_profile)
+echo 'export GRAPHITI_TELEMETRY_ENABLED=false' >> ~/.bashrc
+
+# For zsh users (~/.zshrc)
+echo 'export GRAPHITI_TELEMETRY_ENABLED=false' >> ~/.zshrc
+```
+
+**Option 3: Set for a specific Python session**
+
+```python
+import os
+os.environ['GRAPHITI_TELEMETRY_ENABLED'] = 'false'
+
+# Then initialize Graphiti as usual
+from graphiti_core import Graphiti
+graphiti = Graphiti(...)
+```
+
+Telemetry is automatically disabled during test runs (when `pytest` is detected).
+
+### Technical Details
+
+- Telemetry uses PostHog for anonymous analytics collection
+- All telemetry operations are designed to fail silently - they will never interrupt your application or affect Graphiti functionality
+- The anonymous ID is stored locally and is not tied to any personal information
 
 ## Status and Roadmap
 
@@ -406,4 +499,3 @@ to [CONTRIBUTING](CONTRIBUTING.md).
 ## Support
 
 Join the [Zep Discord server](https://discord.com/invite/W8Kw6bsgXQ) and make your way to the **#Graphiti** channel!
-

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vizro
-Version: 0.1.41
+Version: 0.1.42
 Summary: Vizro is a low-code framework for building high-quality data visualization apps.
 Project-URL: Documentation, https://github.com/mckinsey/vizro#readme
 Project-URL: Issues, https://github.com/mckinsey/vizro/issues
@@ -19,7 +19,7 @@ Requires-Dist: black
 Requires-Dist: dash-ag-grid>=31.3.1
 Requires-Dist: dash-bootstrap-components>=2
 Requires-Dist: dash-mantine-components>=1
-Requires-Dist: dash>=3
+Requires-Dist: dash<3.1.0,>=3
 Requires-Dist: flask-caching>=2
 Requires-Dist: packaging
 Requires-Dist: pandas>=2

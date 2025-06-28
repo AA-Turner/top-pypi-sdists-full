@@ -16,6 +16,7 @@ import requests
 from tenacity import Retrying, retry_if_result, stop_after_delay, wait_fixed
 
 from db_contrib_tool.clients.io_client import IOClient
+from db_contrib_tool.clients.download_client import DownloadClient
 from db_contrib_tool.symbolizer.mongo_log_parser_service import (
     BINARY_LOAD_ADDRESS_KEY,
     BUILD_ID_KEY,
@@ -227,11 +228,7 @@ class PathResolver(object):
         filename = self.url_to_filename(url)
         path = os.path.join(self.cache_dir, filename)
         if not os.path.exists(path):
-            print("Downloading the file...")
-            with requests.get(url, stream=True) as response:
-                with open(path, "wb") as file:
-                    for chunk in response.iter_content(chunk_size=2 * 1024 * 1024):
-                        file.write(chunk)
+            DownloadClient.download_from_url(url, path)
         else:
             print("File already exists in cache")
             exists_locally = True

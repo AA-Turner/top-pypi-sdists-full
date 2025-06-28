@@ -11,11 +11,13 @@ class ScraperService(BaseModel):
     options: Any
     driver: Any
     
-    def __init__(self, options: Optional[webdriver.ChromeOptions] = None, url = SELENIUM_HUB_URL, profile_directory = "MaisAEduPartialSales", user_data_dir = '/data'):
+    def __init__(self, options: Optional[webdriver.ChromeOptions] = None, url = SELENIUM_HUB_URL, profile_directory = None, user_data_dir = None):
         if options is None:
             options = webdriver.ChromeOptions()
-            options.add_argument(f"profile-directory={profile_directory}") 
-            options.add_argument(f"user-data-dir={user_data_dir}")
+            if profile_directory is not None:
+                options.add_argument(f"profile-directory={profile_directory}") 
+            if user_data_dir is not None:
+                options.add_argument(f"user-data-dir={user_data_dir}")
             options.add_argument("start-maximized")
 
         driver = webdriver.Remote(

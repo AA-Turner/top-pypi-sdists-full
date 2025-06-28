@@ -4,8 +4,7 @@ Auto-Coder SDK
 为第三方开发者提供的 Python SDK，允许通过命令行工具和 Python API 两种方式使用 Auto-Coder 的核心功能。
 """
 
-from typing import AsyncIterator, Optional, Dict, Any
-
+from typing import AsyncIterator, Iterator, Optional
 from .core.auto_coder_core import AutoCoderCore
 from .models.options import AutoCodeOptions
 from .models.messages import Message
@@ -19,33 +18,15 @@ from .exceptions import (
     BridgeError,
     ValidationError
 )
-
-__version__ = "1.0.0"
-__all__ = [
-    # 核心功能
-    "query",
-    "query_sync",
-    "modify_code",
-    "modify_code_stream",
-    
-    # 数据模型
-    "AutoCodeOptions",
-    "Message",
-    "StreamEvent",
-    "CodeModificationResult",
-    
-    # 会话管理
-    "Session",
-    "SessionManager",
-    
-    # 异常
-    "AutoCoderSDKError",
-    "SessionNotFoundError",
-    "InvalidOptionsError",
-    "BridgeError",
-    "ValidationError",
-]
-
+from autocoder.auto_coder_runner import init_project_if_required as init_project_if_required_buildin
+from autocoder.auto_coder_runner import (
+    configure as configure_buildin,
+    load_tokenizer,
+    start as start_engine,
+    commit as commit_buildin
+)
+from autocoder.rag.variable_holder import VariableHolder
+from autocoder.utils.llms import get_single_llm
 
 async def query(
     prompt: str, 
@@ -110,79 +91,131 @@ def query_sync(
     return core.query_sync(f"/new {prompt}", show_terminal)
 
 
-def modify_code(
-    prompt: str,
-    pre_commit: bool = False,
-    extra_args: Optional[Dict[str, Any]] = None,
+async def query_with_events(
+    prompt: str, 
     options: Optional[AutoCodeOptions] = None,
-    show_terminal: bool = True
-) -> CodeModificationResult:
-    """
-    代码修改接口
-    
-    Args:
-        prompt: 修改提示
-        pre_commit: 是否预提交
-        extra_args: 额外参数
-        options: 配置选项
-        show_terminal: 是否在终端显示友好的渲染输出
-        
-    Returns:
-        CodeModificationResult: 修改结果
-        
-    Example:
-        >>> from autocoder.sdk import modify_code, AutoCodeOptions
-        >>> 
-        >>> options = AutoCodeOptions(cwd="/path/to/project")
-        >>> result = modify_code(
-        ...     "Add error handling to the main function",
-        ...     pre_commit=False,
-        ...     options=options
-        ... )
-        >>> 
-        >>> if result.success:
-        ...     print(f"Modified files: {result.modified_files}")
-        ... else:
-        ...     print(f"Error: {result.error_details}")
-    """
-    core = AutoCoderCore(options or AutoCodeOptions())
-    return core.modify_code(prompt, pre_commit, extra_args, show_terminal)
-
-
-async def modify_code_stream(
-    prompt: str,
-    pre_commit: bool = False,
-    extra_args: Optional[Dict[str, Any]] = None,
-    options: Optional[AutoCodeOptions] = None,
-    show_terminal: bool = True
+    show_terminal: bool = False
 ) -> AsyncIterator[StreamEvent]:
     """
-    异步流式代码修改接口
+    异步流式查询接口，返回原始事件流
     
     Args:
-        prompt: 修改提示
-        pre_commit: 是否预提交
-        extra_args: 额外参数
+        prompt: 查询提示
         options: 配置选项
-        show_terminal: 是否在终端显示友好的渲染输出
+        show_terminal: 是否在终端显示友好的渲染输出（默认为False，避免重复显示）
         
     Yields:
-        StreamEvent: 修改事件流
+        StreamEvent: 原始事件流，包含详细的执行过程信息
         
     Example:
         >>> import asyncio
-        >>> from autocoder.sdk import modify_code_stream, AutoCodeOptions
+        >>> from autocoder.sdk import query_with_events, AutoCodeOptions
         >>> 
         >>> async def main():
-        ...     options = AutoCodeOptions(cwd="/path/to/project")
-        ...     async for event in modify_code_stream(
-        ...         "Refactor the user authentication module",
-        ...         options=options
-        ...     ):
+        ...     options = AutoCodeOptions(max_turns=3)
+        ...     async for event in query_with_events("Write a hello world function", options):
         ...         print(f"[{event.event_type}] {event.data}")
         >>> 
         >>> asyncio.run(main())
     """
-    core = AutoCoderCore(options or AutoCodeOptions())
-    async for event in core.modify_code_stream(prompt, pre_commit, extra_args, show_terminal):
+    if options is None:
+        options = AutoCodeOptions()
+    core = AutoCoderCore(options)
+    
+    # 使用桥接层直接获取事件流
+    import asyncio
+    loop = asyncio.get_event_loop()
+    
+    # 在线程池中执行同步调用
+    event_stream = await loop.run_in_executor(
+        core._executor,
+        core._sync_run_auto_command,
+        f"/new {prompt}"
+    )
+    
+    # 直接返回事件流
+    for event in event_stream:
+        # 可选择性地渲染到终端
+        if show_terminal:
+            core._render_stream_event(event, show_terminal)
         yield event
+
+
+def query_with_events_sync(
+    prompt: str, 
+    options: Optional[AutoCodeOptions] = None,
+    show_terminal: bool = False
+) -> Iterator[StreamEvent]:
+    """
+    同步查询接口，返回原始事件流生成器
+    
+    Args:
+        prompt: 查询提示
+        options: 配置选项
+        show_terminal: 是否在终端显示友好的渲染输出（默认为False，避免重复显示）
+        
+    Returns:
+        Iterator[StreamEvent]: 原始事件流生成器，包含详细的执行过程信息
+        
+    Example:
+        >>> from autocoder.sdk import query_with_events_sync, AutoCodeOptions
+        >>> 
+        >>> options = AutoCodeOptions(max_turns=1)
+        >>> for event in query_with_events_sync("Write a simple calculator function", options):
+        ...     print(f"[{event.event_type}] {event.data}")
+    """
+    if options is None:
+        options = AutoCodeOptions()
+    core = AutoCoderCore(options)
+    
+    # 直接调用同步方法获取事件流
+    event_stream = core._sync_run_auto_command(f"/new {prompt}")
+    
+    # 直接返回事件流
+    for event in event_stream:
+        # 可选择性地渲染到终端
+        if show_terminal:
+            core._render_stream_event(event, show_terminal)
+        yield event
+
+
+def init_project_if_required(target_dir: str,project_type = ".py,.ts"):    
+    init_project_if_required_buildin(target_dir,project_type)
+    if not VariableHolder.TOKENIZER_MODEL:
+        load_tokenizer()
+    start_engine()
+
+
+def configure(key:str,value:str):
+    configure_buildin(f"{key}:{value}")
+
+
+def get_llm(model:str,product_mode:str="lite"):
+    return get_single_llm(model,product_mode)
+
+def commit(query: Optional[str] = None):
+    commit_buildin(query)
+
+
+__version__ = "1.0.0"
+__all__ = [
+    "query",
+    "query_sync",
+    "query_with_events",
+    "query_with_events_sync",
+    "get_llm",
+    "configure",
+    "init_project_if_required",
+    "AutoCodeOptions",
+    "Message",
+    "StreamEvent",
+    "CodeModificationResult",
+    "Session",
+    "SessionManager",
+    "AutoCoderSDKError",
+    "SessionNotFoundError",
+    "InvalidOptionsError",
+    "BridgeError",
+    "ValidationError",
+    "commit",
+]    

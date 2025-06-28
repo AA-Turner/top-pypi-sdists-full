@@ -20,6 +20,7 @@ from anyscale.compute_config.models import ComputeConfig
 from anyscale.job.models import (
     JobConfig,
     JobLogMode,
+    JobQueueConfig,
     JobRunState,
     JobRunStatus,
     JobState,
@@ -169,6 +170,35 @@ class PrivateJobSDK(WorkloadSDK):
             timeout_s=config.timeout_s,
         )
 
+    def create_job_queue_config(
+        self, provided_job_queue_config: JobQueueConfig
+    ) -> CreateJobQueueConfig:
+        job_queue_spec: Optional[JobQueueSpec] = None
+
+        provided_job_queue_spec = provided_job_queue_config.job_queue_spec
+
+        if provided_job_queue_spec:
+            compute_config_id = (
+                self._resolve_compute_config_id(provided_job_queue_spec.compute_config)
+                if provided_job_queue_spec.compute_config
+                else None
+            )
+
+            job_queue_spec = JobQueueSpec(
+                job_queue_name=provided_job_queue_spec.name,
+                execution_mode=provided_job_queue_spec.execution_mode,
+                compute_config_id=compute_config_id,
+                max_concurrency=provided_job_queue_spec.max_concurrency,
+                idle_timeout_sec=provided_job_queue_spec.idle_timeout_s,
+            )
+
+        job_queue_config = CreateJobQueueConfig(
+            priority=provided_job_queue_config.priority,
+            target_job_queue_name=provided_job_queue_config.target_job_queue_name,
+            job_queue_spec=job_queue_spec,
+        )
+        return job_queue_config
+
     def submit(self, config: JobConfig) -> str:
         name = config.name or self.get_default_name()
         compute_config_id, cloud_id = self.resolve_compute_config_and_cloud_id(
@@ -191,33 +221,7 @@ class PrivateJobSDK(WorkloadSDK):
         provided_job_queue_config = config.job_queue_config
 
         if provided_job_queue_config:
-
-            job_queue_spec: Optional[JobQueueSpec] = None
-
-            provided_job_queue_spec = provided_job_queue_config.job_queue_spec
-
-            if provided_job_queue_spec:
-                compute_config_id = (
-                    self._resolve_compute_config_id(
-                        provided_job_queue_spec.compute_config
-                    )
-                    if provided_job_queue_spec.compute_config
-                    else None
-                )
-
-                job_queue_spec = JobQueueSpec(
-                    job_queue_name=provided_job_queue_spec.name,
-                    execution_mode=provided_job_queue_spec.execution_mode,
-                    compute_config_id=compute_config_id,
-                    max_concurrency=provided_job_queue_spec.max_concurrency,
-                    idle_timeout_sec=provided_job_queue_spec.idle_timeout_s,
-                )
-
-            job_queue_config = CreateJobQueueConfig(
-                priority=provided_job_queue_config.priority,
-                target_job_queue_name=provided_job_queue_config.target_job_queue_name,
-                job_queue_spec=job_queue_spec,
-            )
+            job_queue_config = self.create_job_queue_config(provided_job_queue_config)
 
         job: InternalProductionJob = self.client.submit_job(
             CreateInternalProductionJob(

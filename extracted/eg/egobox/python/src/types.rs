@@ -1,5 +1,8 @@
+use numpy::{PyArray1, PyArray2};
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 
+#[gen_stub_pyclass_enum]
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Recombination {
@@ -12,10 +15,12 @@ pub enum Recombination {
     Smooth = 1,
 }
 
+#[gen_stub_pyclass]
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct RegressionSpec(pub(crate) u8);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl RegressionSpec {
     #[classattr]
@@ -28,10 +33,12 @@ impl RegressionSpec {
     pub(crate) const QUADRATIC: u8 = egobox_moe::RegressionSpec::QUADRATIC.bits();
 }
 
+#[gen_stub_pyclass]
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct CorrelationSpec(pub(crate) u8);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl CorrelationSpec {
     #[classattr]
@@ -48,6 +55,7 @@ impl CorrelationSpec {
     pub(crate) const MATERN52: u8 = egobox_moe::CorrelationSpec::MATERN52.bits();
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum InfillStrategy {
@@ -57,6 +65,7 @@ pub(crate) enum InfillStrategy {
     LogEi = 4,
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ConstraintStrategy {
@@ -64,6 +73,7 @@ pub(crate) enum ConstraintStrategy {
     Utb = 2,
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum QInfillStrategy {
@@ -73,6 +83,7 @@ pub(crate) enum QInfillStrategy {
     Clmin = 4,
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum InfillOptimizer {
@@ -81,6 +92,7 @@ pub(crate) enum InfillOptimizer {
     Gbnm = 3,
 }
 
+#[gen_stub_pyclass]
 #[pyclass]
 #[derive(Clone, Copy)]
 pub(crate) struct ExpectedOptimum {
@@ -102,6 +114,7 @@ impl ExpectedOptimum {
     }
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum XType {
@@ -111,6 +124,7 @@ pub(crate) enum XType {
     Enum = 4,
 }
 
+#[gen_stub_pyclass]
 #[pyclass]
 #[derive(FromPyObject, Debug)]
 pub(crate) struct XSpec {
@@ -122,6 +136,7 @@ pub(crate) struct XSpec {
     pub(crate) tags: Vec<String>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl XSpec {
     #[new]
@@ -136,8 +151,22 @@ impl XSpec {
 }
 
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
+#[gen_stub_pyclass_enum]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum SparseMethod {
     Fitc = 1,
     Vfe = 2,
+}
+
+#[gen_stub_pyclass]
+#[pyclass]
+pub(crate) struct OptimResult {
+    #[pyo3(get)]
+    pub(crate) x_opt: Py<PyArray1<f64>>,
+    #[pyo3(get)]
+    pub(crate) y_opt: Py<PyArray1<f64>>,
+    #[pyo3(get)]
+    pub(crate) x_doe: Py<PyArray2<f64>>,
+    #[pyo3(get)]
+    pub(crate) y_doe: Py<PyArray2<f64>>,
 }

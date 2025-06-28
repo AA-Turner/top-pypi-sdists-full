@@ -468,7 +468,11 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return None
 
     def get_compute_config_id(
-        self, compute_config_name: Optional[str] = None, *, include_archived=False
+        self,
+        compute_config_name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        *,
+        include_archived=False,
     ) -> Optional[str]:
         if compute_config_name is not None:
             name, version = parse_cluster_compute_name_version(compute_config_name)
@@ -491,7 +495,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if workspace_cluster is not None:
             return workspace_cluster.cluster_compute_id
 
-        return self.get_default_compute_config(cloud_id=self.get_cloud_id()).id
+        cloud_id = self.get_cloud_id(cloud_name=cloud)
+        return self.get_default_compute_config(cloud_id=cloud_id).id
 
     def archive_compute_config(self, *, compute_config_id: str):
         archived_config = self._compute_configs.pop(compute_config_id)

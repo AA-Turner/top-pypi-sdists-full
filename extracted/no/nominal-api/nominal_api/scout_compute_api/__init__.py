@@ -1,6 +1,7 @@
 # coding=utf-8
 from .._impl import (
     scout_compute_api_AbsoluteThreshold as AbsoluteThreshold,
+    scout_compute_api_AbsoluteTimestampSeries as AbsoluteTimestampSeries,
     scout_compute_api_AfterPersistenceWindow as AfterPersistenceWindow,
     scout_compute_api_AggregateEnumSeries as AggregateEnumSeries,
     scout_compute_api_AggregateNumericSeries as AggregateNumericSeries,
@@ -324,6 +325,7 @@ from .._impl import (
 
 __all__ = [
     'AbsoluteThreshold',
+    'AbsoluteTimestampSeries',
     'AfterPersistenceWindow',
     'AggregateEnumSeries',
     'AggregateNumericSeries',

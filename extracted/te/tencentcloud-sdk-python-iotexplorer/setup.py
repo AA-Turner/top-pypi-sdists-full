@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-iotexplorer',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1408"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1411"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Iotexplorer SDK for Python',
     long_description=open('README.rst').read(),

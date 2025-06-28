@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: robotframework-databaselibrary
-Version: 2.1.3
+Version: 2.1.4
 Summary: Database Library for Robot Framework
 Author-email: Franz Allan Valencia See <franz.see@gmail.com>
 License: Apache License 2.0
@@ -14,6 +14,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: robotframework>=5.0.1
 Requires-Dist: robotframework-assertion-engine
+Dynamic: license-file
 
 # Robot Framework Database Library
 

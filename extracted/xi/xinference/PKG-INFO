@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xinference
-Version: 1.7.0.post1
+Version: 1.7.1
 Summary: Model Serving Made Easy
 Home-page: https://github.com/xorbitsai/inference
 Author: Qin Xuye
@@ -27,6 +27,7 @@ Requires-Dist: click<8.2.0
 Requires-Dist: tqdm>=4.27
 Requires-Dist: tabulate
 Requires-Dist: requests
+Requires-Dist: aiohttp
 Requires-Dist: pydantic
 Requires-Dist: fastapi>=0.110.3
 Requires-Dist: uvicorn
@@ -93,7 +94,7 @@ Requires-Dist: blobfile; extra == "all"
 Requires-Dist: vllm>=0.2.6; sys_platform == "linux" and extra == "all"
 Requires-Dist: sglang[srt]>=0.4.2.post4; sys_platform == "linux" and extra == "all"
 Requires-Dist: mlx-lm>=0.21.5; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "all"
-Requires-Dist: mlx-vlm>=0.1.11; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "all"
+Requires-Dist: mlx-vlm<0.2.0,>=0.1.11; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "all"
 Requires-Dist: mlx-whisper; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "all"
 Requires-Dist: f5-tts-mlx; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "all"
 Requires-Dist: qwen_vl_utils!=0.0.9; extra == "all"
@@ -200,7 +201,7 @@ Provides-Extra: sglang
 Requires-Dist: sglang[srt]>=0.4.2.post4; sys_platform == "linux" and extra == "sglang"
 Provides-Extra: mlx
 Requires-Dist: mlx-lm>=0.21.5; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "mlx"
-Requires-Dist: mlx-vlm>=0.1.11; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "mlx"
+Requires-Dist: mlx-vlm<0.2.0,>=0.1.11; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "mlx"
 Requires-Dist: mlx-whisper; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "mlx"
 Requires-Dist: f5-tts-mlx; (sys_platform == "darwin" and platform_machine == "arm64") and extra == "mlx"
 Requires-Dist: qwen_vl_utils!=0.0.9; extra == "mlx"

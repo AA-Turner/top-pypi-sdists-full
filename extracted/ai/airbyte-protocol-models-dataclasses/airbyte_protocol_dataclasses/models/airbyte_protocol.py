@@ -73,6 +73,7 @@ class AirbyteStateBlob:
 @dataclass
 class AirbyteStateStats:
     recordCount: Optional[float] = None
+    rejectedRecordCount: Optional[float] = None
 
 
 class Level(Enum):

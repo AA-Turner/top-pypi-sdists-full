@@ -10,7 +10,7 @@ use crate::types::ObjFn;
 use nlopt::ObjFn;
 
 use egobox_moe::MixtureGpSurrogate;
-use log::{debug, info};
+use log::info;
 use ndarray::{Array, Array1, Array2, Axis};
 
 use rayon::prelude::*;
@@ -190,11 +190,9 @@ where
             }
             while !success && n_optim <= n_max_optim {
                 let x_start = multistarter.multistart(self.config.n_start, &active);
-
-                let res = (0..self.config.n_start)
+                let res = (0..x_start.nrows())
                     .into_par_iter()
                     .map(|i| {
-                        debug!("Begin optim {}", i);
                         let optim_res = Optimizer::new(
                             algorithm,
                             &obj,
@@ -207,7 +205,6 @@ where
                         .ftol_rel(1e-4)
                         .ftol_abs(1e-4)
                         .minimize();
-                        debug!("End optim {}", i);
                         optim_res
                     })
                     .reduce(

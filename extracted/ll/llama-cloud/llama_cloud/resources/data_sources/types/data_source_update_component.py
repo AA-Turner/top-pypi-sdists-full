@@ -5,7 +5,6 @@ import typing
 from ....types.cloud_az_storage_blob_data_source import CloudAzStorageBlobDataSource
 from ....types.cloud_box_data_source import CloudBoxDataSource
 from ....types.cloud_confluence_data_source import CloudConfluenceDataSource
-from ....types.cloud_google_drive_data_source import CloudGoogleDriveDataSource
 from ....types.cloud_jira_data_source import CloudJiraDataSource
 from ....types.cloud_notion_page_data_source import CloudNotionPageDataSource
 from ....types.cloud_one_drive_data_source import CloudOneDriveDataSource
@@ -17,7 +16,6 @@ DataSourceUpdateComponent = typing.Union[
     typing.Dict[str, typing.Any],
     CloudS3DataSource,
     CloudAzStorageBlobDataSource,
-    CloudGoogleDriveDataSource,
     CloudOneDriveDataSource,
     CloudSharepointDataSource,
     CloudSlackDataSource,

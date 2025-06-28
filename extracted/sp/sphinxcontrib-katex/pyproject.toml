@@ -23,11 +23,11 @@ classifiers = [
     'Operating System :: OS Independent',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Topic :: Scientific/Engineering',
     'Topic :: Documentation',
     'Topic :: Utilities',
@@ -35,7 +35,7 @@ classifiers = [
 dependencies = [
     'sphinx >=1.6',
 ]
-requires-python = '>=3.7'
+requires-python = '>=3.9'
 # Get version dynamically from git
 # (needs setuptools_scm tools config below)
 dynamic = ['version']
@@ -43,6 +43,15 @@ dynamic = ['version']
 [project.urls]
 repository = 'https://github.com/hagenw/sphinxcontrib-katex/'
 documentation = 'https://sphinxcontrib-katex.readthedocs.io'
+
+
+# ===== Dependency groups =================================================
+[dependency-groups]
+dev = [
+    'insipid-sphinx-theme',
+    'pytest',
+    'toml',
+]
 
 
 # ===== BUILD-SYSTEM ======================================================
