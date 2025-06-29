@@ -1,3 +1,4 @@
+import argparse
 import os
 from podcast2notion.utils import get_embed
 from podcast2notion.notion_helper import NotionHelper

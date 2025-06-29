@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycrdt
-Version: 0.12.22
+Version: 0.12.23
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -15,19 +15,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: anyio>=4.4.0,<5.0.0
 Requires-Dist: importlib-metadata>=3.6 ; python_full_version < '3.10'
-Requires-Dist: pytest>=8.3.5,<9 ; extra == 'test'
-Requires-Dist: pytest-mypy-testing ; extra == 'test'
-Requires-Dist: anyio ; extra == 'test'
-Requires-Dist: trio>=0.25.1,<0.30 ; extra == 'test'
-Requires-Dist: pydantic>=2.5.2,<3 ; extra == 'test'
-Requires-Dist: mypy ; extra == 'test'
-Requires-Dist: coverage[toml]>=7 ; extra == 'test'
-Requires-Dist: exceptiongroup ; python_full_version < '3.11' and extra == 'test'
-Requires-Dist: mkdocs ; extra == 'docs'
-Requires-Dist: mkdocs-material ; extra == 'docs'
-Requires-Dist: mkdocstrings[python] ; extra == 'docs'
-Provides-Extra: test
-Provides-Extra: docs
+Requires-Dist: typing-extensions>=4.14.0 ; python_full_version < '3.11'
 License-File: LICENSE
 Summary: Python bindings for Yrs
 Keywords: crdt

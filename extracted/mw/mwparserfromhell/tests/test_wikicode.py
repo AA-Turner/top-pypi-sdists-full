@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2023 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,17 +22,20 @@
 Tests for the Wikicode class, which manages a list of nodes.
 """
 
-from functools import partial
-import re
+from __future__ import annotations
+
 import pickle
+import re
+from functools import partial
 from types import GeneratorType
 
 import pytest
 
+from mwparserfromhell import parse
 from mwparserfromhell.nodes import Argument, Heading, Template, Text
 from mwparserfromhell.smart_list import SmartList
 from mwparserfromhell.wikicode import Wikicode
-from mwparserfromhell import parse
+
 from .conftest import wrap, wraptext
 
 
@@ -276,7 +279,10 @@ def _test_search(meth, expected):
 
 def test_insert_before():
     """test Wikicode.insert_before()"""
-    meth = lambda code, *args, **kw: code.insert_before(*args, **kw)
+
+    def meth(code, *args, **kw):
+        return code.insert_before(*args, **kw)
+
     expected = [
         "{{a}}xz{{b}}{{c}}[[y]]{{d}}{{e}}",
         "d{{a}}cd{{a}}d{{a}}f{{b}}f{{b}}ef{{b}}",
@@ -293,7 +299,10 @@ def test_insert_before():
 
 def test_insert_after():
     """test Wikicode.insert_after()"""
-    meth = lambda code, *args, **kw: code.insert_after(*args, **kw)
+
+    def meth(code, *args, **kw):
+        return code.insert_after(*args, **kw)
+
     expected = [
         "{{a}}{{b}}xz{{c}}{{d}}[[y]]{{e}}",
         "{{a}}d{{a}}dc{{a}}d{{b}}f{{b}}f{{b}}fe",
@@ -310,7 +319,10 @@ def test_insert_after():
 
 def test_replace():
     """test Wikicode.replace()"""
-    meth = lambda code, *args, **kw: code.replace(*args, **kw)
+
+    def meth(code, *args, **kw):
+        return code.replace(*args, **kw)
+
     expected = [
         "{{a}}xz[[y]]{{e}}",
         "dcdffe",
@@ -341,7 +353,10 @@ def test_append():
 
 def test_remove():
     """test Wikicode.remove()"""
-    meth = lambda code, obj, value, **kw: code.remove(obj, **kw)
+
+    def meth(code, obj, value, **kw):
+        return code.remove(obj, **kw)
+
     expected = [
         "{{a}}{{c}}",
         "",
@@ -395,7 +410,8 @@ def test_filter_family():
         assert isinstance(gen, GeneratorType)
         return list(gen)
 
-    ifilter = lambda code: (lambda *a, **k: genlist(code.ifilter(*a, **k)))
+    def ifilter(code):
+        return lambda *a, **k: genlist(code.ifilter(*a, **k))
 
     code = parse("a{{b}}c[[d]]{{{e}}}{{f}}[[g]]")
     for func in (code.filter, ifilter(code)):

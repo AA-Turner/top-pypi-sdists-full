@@ -278,6 +278,7 @@ class Milvus(VectorStore):
         enable_dynamic_field: bool = False,
         metadata_field: Optional[str] = None,
         partition_key_field: Optional[str] = None,
+        num_partitions: Optional[int] = None,
         partition_names: Optional[list] = None,
         replica_number: int = 1,
         timeout: Optional[float] = None,
@@ -341,6 +342,7 @@ class Milvus(VectorStore):
         self.search_params = search_params
         self.consistency_level = consistency_level
         self.auto_id = auto_id
+        self.num_partitions = num_partitions
 
         # In order for a collection to be compatible, pk needs to be varchar
         self._primary_field = primary_field
@@ -371,12 +373,31 @@ class Milvus(VectorStore):
         # Create the connection to the server
         if connection_args is None:
             connection_args = DEFAULT_MILVUS_CONNECTION
+
+        # Store connection args for potential async client creation
+        self._connection_args = connection_args
+
         self._milvus_client = MilvusClient(
             **connection_args,
         )
-        self._async_milvus_client = AsyncMilvusClient(
-            **connection_args,
-        )
+
+        # Safely create AsyncMilvusClient to avoid failures in multithreading
+        # environments
+        try:
+            self._async_milvus_client = AsyncMilvusClient(
+                **connection_args,
+            )
+        except Exception as e:
+            # If creation fails (e.g., no event loop in multithreading
+            # environment), set to None. This won't affect Milvus instance
+            # creation, async operations will only fail when actually needed
+            logger.warning(
+                f"Failed to initialize AsyncMilvusClient during Milvus "
+                f"initialization: {e}. Async operations will be unavailable "
+                f"until AsyncMilvusClient is successfully created."
+            )
+            self._async_milvus_client = None
+
         self.alias = self.client._using
 
         self.col: Optional[Collection] = None
@@ -560,6 +581,57 @@ class Milvus(VectorStore):
     @property
     def aclient(self) -> AsyncMilvusClient:
         """Get async client."""
+        if self._async_milvus_client is None:
+            # Try to create AsyncMilvusClient in current environment
+            try:
+                import asyncio
+                import threading
+
+                # Check current thread environment
+                current_thread = threading.current_thread()
+                is_main_thread = current_thread is threading.main_thread()
+
+                try:
+                    # Try to get current event loop
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running() and not is_main_thread:
+                        # In non-main thread with running loop, create directly
+                        self._async_milvus_client = AsyncMilvusClient(
+                            **self._connection_args
+                        )
+                    elif not loop.is_running():
+                        # Loop exists but not running, set it as current thread's loop
+                        asyncio.set_event_loop(loop)
+                        self._async_milvus_client = AsyncMilvusClient(
+                            **self._connection_args
+                        )
+                    else:
+                        # Other cases, create directly
+                        self._async_milvus_client = AsyncMilvusClient(
+                            **self._connection_args
+                        )
+                except RuntimeError:
+                    # No event loop, create a new one
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    self._async_milvus_client = AsyncMilvusClient(
+                        **self._connection_args
+                    )
+
+            except Exception as e:
+                # If still fails, raise clear error message
+                raise RuntimeError(
+                    f"Failed to create AsyncMilvusClient: {e}. "
+                    f"This usually happens in multithreading environments "
+                    f"(like Streamlit) where event loops are not properly "
+                    f"configured. To fix this issue, you can: "
+                    f"1. Use only synchronous methods (avoid methods "
+                    f"starting with 'a') "
+                    f"2. Create the Milvus instance in the main thread "
+                    f"3. Or ensure proper asyncio event loop setup in your "
+                    f"environment."
+                ) from e
+
         return self._async_milvus_client
 
     @property
@@ -668,6 +740,7 @@ class Milvus(VectorStore):
                     consistency_level=self.consistency_level,
                     using=self.alias,
                     num_shards=self.num_shards,
+                    num_partitions=self.num_partitions,
                 )
             else:
                 self.col = Collection(
@@ -675,6 +748,7 @@ class Milvus(VectorStore):
                     schema=schema,
                     consistency_level=self.consistency_level,
                     using=self.alias,
+                    num_partitions=self.num_partitions,
                 )
             # Set the collection properties if they exist
             if self.collection_properties is not None:

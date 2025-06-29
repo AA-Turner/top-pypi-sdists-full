@@ -1,11 +1,13 @@
 import asyncio
 import multiprocessing
+import time
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .._futures import _future_watcher_wrapper, _new_cbscheduler
 from .._granian import ASGIWorker, RSGIWorker, WorkerSignal
+from .._imports import dotenv
 from .._types import SSLCtx
 from ..asgi import LifespanProtocol, _callback_wrapper as _asgi_call_wrap
 from ..errors import ConfigurationError, FatalError
@@ -21,6 +23,7 @@ from .common import (
     Interfaces,
     LogLevels,
     TaskImpl,
+    load_env,
     logger,
 )
 
@@ -81,8 +84,8 @@ class AsyncWorker(AbstractWorker):
         self.interrupt_by_parent = True
         self._task.cancel()
 
-    async def join(self, timeout=None):
-        await asyncio.wait_for(self._task, timeout=timeout)
+    def join(self, timeout=None):
+        return asyncio.wait_for(self._task, timeout=timeout)
 
 
 class Server(AbstractServer[AsyncWorker]):
@@ -326,6 +329,27 @@ class Server(AbstractServer[AsyncWorker]):
         await worker.serve_async(scheduler, loop, shutdown_event)
         callback_del(loop)
 
+    async def _respawn_workers(self, workers, spawn_target, target_loader, delay: float = 0):
+        for idx in workers:
+            self.respawned_wrks[idx] = time.time()
+            logger.info(f'Respawning worker-{idx + 1}')
+            old_wrk = self.wrks.pop(idx)
+            wrk = self._spawn_worker(idx=idx, target=spawn_target, callback_loader=target_loader)
+            wrk.start()
+            self.wrks.insert(idx, wrk)
+            await asyncio.sleep(delay)
+            logger.info(f'Stopping old worker-{idx + 1}')
+            old_wrk.terminate()
+            await old_wrk.join(self.workers_kill_timeout)
+            if self.workers_kill_timeout:
+                # the worker might still be reported alive after `join`, let's context switch
+                if old_wrk.is_alive():
+                    await asyncio.sleep(0.001)
+                if old_wrk.is_alive():
+                    logger.warning(f'Killing old worker-{idx + 1} after it refused to gracefully stop')
+                    old_wrk.kill()
+                    await old_wrk.join()
+
     async def _stop_workers(self):
         for wrk in self.wrks:
             wrk.terminate()
@@ -344,6 +368,9 @@ class Server(AbstractServer[AsyncWorker]):
         self._init_shared_socket()
         proto = 'https' if self.ssl_ctx[0] else 'http'
         logger.info(f'Listening at: {proto}://{self.bind_addr}:{self.bind_port}')
+
+        load_env(self.env_files)
+        self._call_hooks(self.hooks_startup)
         self._spawn_workers(spawn_target, target_loader)
 
     async def _serve_loop(self, spawn_target, target_loader):
@@ -356,10 +383,11 @@ class Server(AbstractServer[AsyncWorker]):
                 break
 
             if self.reload_signal:
-                self._reload(spawn_target, target_loader)
+                await self._reload(spawn_target, target_loader)
 
     async def shutdown(self, exit_code=0):
         logger.info('Shutting down granian')
+        self._call_hooks(self.hooks_shutdown)
         await self._stop_workers()
 
     async def _serve(self, spawn_target, target_loader):
@@ -400,6 +428,10 @@ class Server(AbstractServer[AsyncWorker]):
         if self.websockets:
             if self.http == HTTPModes.http2:
                 logger.info('Websockets are not supported on HTTP/2 only, ignoring')
+
+        if self.env_files and dotenv is None:
+            logger.error('Environment file(s) usage requires the granian[dotenv] extra')
+            raise ConfigurationError('env_files')
 
         if self.blocking_threads_idle_timeout < 10 or self.blocking_threads_idle_timeout > 600:
             logger.error('Blocking threads idle timeout must be between 10 and 600 seconds')

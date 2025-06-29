@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime as dt
+import gzip
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
@@ -34,6 +36,7 @@ from whenever import (
     ZonedDateTime,
 )
 
+from utilities.atomicwrites import writer
 from utilities.concurrent import concurrent_map
 from utilities.dataclasses import dataclass_to_dict
 from utilities.functions import ensure_class, is_string_mapping
@@ -77,6 +80,10 @@ class _Prefixes(Enum):
     none = "none"
     path = "p"
     plain_date_time = "pd"
+    py_date = "!d"
+    py_plain_date_time = "!pd"
+    py_time = "!ti"
+    py_zoned_date_time = "!zd"
     set_ = "s"
     time = "ti"
     time_delta = "td"
@@ -198,6 +205,22 @@ def _pre_process(
             return f"[{_Prefixes.year_month.value}]{year_month}"
         case ZonedDateTime() as datetime:
             return f"[{_Prefixes.zoned_date_time.value}]{datetime}"
+        case dt.datetime() as py_datetime:
+            match py_datetime.tzinfo:
+                case None:
+                    datetime = PlainDateTime.from_py_datetime(py_datetime)
+                    return f"[{_Prefixes.py_plain_date_time.value}]{datetime}"
+                case ZoneInfo():
+                    datetime = ZonedDateTime.from_py_datetime(py_datetime)
+                    return f"[{_Prefixes.py_zoned_date_time.value}]{datetime}"
+                case _:  # pragma: no cover
+                    raise NotImplementedError
+        case dt.date() as py_date:
+            date = Date.from_py_date(py_date)
+            return f"[{_Prefixes.py_date.value}]{date}"
+        case dt.time() as py_time:
+            time = Time.from_py_time(py_time)
+            return f"[{_Prefixes.py_time.value}]{time}"
         # contains
         case Dataclass() as dataclass:
             asdict = dataclass_to_dict(
@@ -265,6 +288,7 @@ def _pre_process(
                 qualname=type(obj).__qualname__, repr=repr(obj), str=str(obj)
             )
             return pre(unserializable)
+    return None
 
 
 def _pre_process_container(
@@ -351,6 +375,10 @@ def deserialize(
     _NONE_PATTERN,
     _PATH_PATTERN,
     _PLAIN_DATE_TIME_PATTERN,
+    _PY_DATE_PATTERN,
+    _PY_PLAIN_DATE_TIME_PATTERN,
+    _PY_TIME_PATTERN,
+    _PY_ZONED_DATE_TIME_PATTERN,
     _TIME_PATTERN,
     _TIME_DELTA_PATTERN,
     _UUID_PATTERN,
@@ -368,6 +396,10 @@ def deserialize(
         _Prefixes.none,
         _Prefixes.path,
         _Prefixes.plain_date_time,
+        _Prefixes.py_date,
+        _Prefixes.py_plain_date_time,
+        _Prefixes.py_time,
+        _Prefixes.py_zoned_date_time,
         _Prefixes.time,
         _Prefixes.time_delta,
         _Prefixes.uuid,
@@ -431,6 +463,14 @@ def _object_hook(
                 return Path(match.group(1))
             if match := _PLAIN_DATE_TIME_PATTERN.search(text):
                 return PlainDateTime.parse_common_iso(match.group(1))
+            if match := _PY_DATE_PATTERN.search(text):
+                return Date.parse_common_iso(match.group(1)).py_date()
+            if match := _PY_PLAIN_DATE_TIME_PATTERN.search(text):
+                return PlainDateTime.parse_common_iso(match.group(1)).py_datetime()
+            if match := _PY_TIME_PATTERN.search(text):
+                return Time.parse_common_iso(match.group(1)).py_time()
+            if match := _PY_ZONED_DATE_TIME_PATTERN.search(text):
+                return ZonedDateTime.parse_common_iso(match.group(1)).py_datetime()
             if match := _TIME_PATTERN.search(text):
                 return Time.parse_common_iso(match.group(1))
             if match := _TIME_DELTA_PATTERN.search(text):
@@ -850,9 +890,7 @@ class GetLogRecordsOutput:
 
     @cached_property
     def dataframe(self) -> Any:
-        from polars import DataFrame, Object, String, UInt64
-
-        from utilities.polars import zoned_datetime
+        from polars import DataFrame, Datetime, Object, String, UInt64
 
         records = [
             replace(
@@ -880,7 +918,7 @@ class GetLogRecordsOutput:
                 "level": UInt64,
                 "path_name": String,
                 "line_num": UInt64,
-                "datetime": zoned_datetime(time_zone=time_zone),
+                "datetime": Datetime(time_zone=time_zone),
                 "func_name": String,
                 "stack_info": String,
                 "extra": Object,
@@ -1024,7 +1062,7 @@ class GetLogRecordsOutput:
                 r
                 for r in records
                 if (r.log_file_line_num is not None)
-                and (r.log_file_line_num >= max_log_file_line_num)
+                and (r.log_file_line_num <= max_log_file_line_num)
             ]
         return replace(self, records=records)
 
@@ -1087,8 +1125,7 @@ def _get_log_records_one(
 ) -> _GetLogRecordsOneOutput:
     path = Path(path)
     try:
-        with path.open() as fh:
-            lines = fh.readlines()
+        lines = path.read_text().splitlines()
     except UnicodeDecodeError as error:  # skipif-ci-and-windows
         return _GetLogRecordsOneOutput(path=path, file_ok=False, other_errors=[error])
     num_lines_blank, num_lines_error = 0, 0
@@ -1161,6 +1198,58 @@ class _GetLogRecordsOneOutput:
     other_errors: list[Exception] = field(default_factory=list, repr=False)
 
 
+# read/write
+
+
+def read_json(
+    path: PathLike,
+    /,
+    *,
+    decompress: bool = False,
+    dataclass_hook: _DataclassHook | None = None,
+    objects: AbstractSet[type[Any]] | None = None,
+    redirects: Mapping[str, type[Any]] | None = None,
+) -> Any:
+    """Read an compression from disk."""
+    path = Path(path)
+    if decompress:
+        with gzip.open(path) as gz:
+            data = gz.read()
+    else:
+        data = path.read_bytes()
+    return deserialize(
+        data, dataclass_hook=dataclass_hook, objects=objects, redirects=redirects
+    )
+
+
+def write_json(
+    obj: Any,
+    path: PathLike,
+    /,
+    *,
+    before: Callable[[Any], Any] | None = None,
+    globalns: StrMapping | None = None,
+    localns: StrMapping | None = None,
+    warn_name_errors: bool = False,
+    dataclass_hook: _DataclassHook | None = None,
+    dataclass_defaults: bool = False,
+    compress: bool = False,
+    overwrite: bool = False,
+) -> None:
+    """Write an object to disk."""
+    data = serialize(
+        obj,
+        before=before,
+        globalns=globalns,
+        localns=localns,
+        warn_name_errors=warn_name_errors,
+        dataclass_hook=dataclass_hook,
+        dataclass_defaults=dataclass_defaults,
+    )
+    with writer(path, compress=compress, overwrite=overwrite) as temp:
+        _ = temp.write_bytes(data)
+
+
 __all__ = [
     "DeserializeError",
     "GetLogRecordsOutput",
@@ -1169,5 +1258,7 @@ __all__ = [
     "SerializeError",
     "deserialize",
     "get_log_records",
+    "read_json",
     "serialize",
+    "write_json",
 ]

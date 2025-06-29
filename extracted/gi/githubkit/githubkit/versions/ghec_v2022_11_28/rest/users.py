@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         SimpleUser,
         SocialAccount,
         SshSigningKey,
+        UsersUsernameAttestationsBulkListPostResponse200,
         UsersUsernameAttestationsSubjectDigestGetResponse200,
     )
     from ..types import (
@@ -60,6 +61,8 @@ if TYPE_CHECKING:
         UserSocialAccountsDeleteBodyType,
         UserSocialAccountsPostBodyType,
         UserSshSigningKeysPostBodyType,
+        UsersUsernameAttestationsBulkListPostBodyType,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
         UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type,
         UsersUsernameAttestationsDeleteRequestPostBodyOneof1Type,
         UsersUsernameAttestationsSubjectDigestGetResponse200Type,
@@ -85,6 +88,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         Union[PrivateUser, PublicUser], Union[PrivateUserType, PublicUserType]
     ]:
@@ -109,6 +113,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Union[PrivateUser, PublicUser],
             error_models={
                 "403": BasicError,
@@ -120,6 +125,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         Union[PrivateUser, PublicUser], Union[PrivateUserType, PublicUserType]
     ]:
@@ -144,6 +150,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Union[PrivateUser, PublicUser],
             error_models={
                 "403": BasicError,
@@ -156,6 +163,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserPatchBodyType] = UNSET,
     ) -> Response[PrivateUser, PrivateUserType]: ...
 
@@ -165,6 +173,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         name: Missing[str] = UNSET,
         email: Missing[str] = UNSET,
         blog: Missing[str] = UNSET,
@@ -179,6 +188,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserPatchBodyType] = UNSET,
         **kwargs,
     ) -> Response[PrivateUser, PrivateUserType]:
@@ -211,6 +221,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=PrivateUser,
             error_models={
                 "404": BasicError,
@@ -225,6 +236,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserPatchBodyType] = UNSET,
     ) -> Response[PrivateUser, PrivateUserType]: ...
 
@@ -234,6 +246,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         name: Missing[str] = UNSET,
         email: Missing[str] = UNSET,
         blog: Missing[str] = UNSET,
@@ -248,6 +261,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserPatchBodyType] = UNSET,
         **kwargs,
     ) -> Response[PrivateUser, PrivateUserType]:
@@ -280,6 +294,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=PrivateUser,
             error_models={
                 "404": BasicError,
@@ -295,6 +310,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-blocked-by-authenticated-user
 
@@ -321,6 +337,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
             error_models={
                 "404": BasicError,
@@ -335,6 +352,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-blocked-by-authenticated-user
 
@@ -361,6 +379,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
             error_models={
                 "404": BasicError,
@@ -374,6 +393,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/check-blocked
 
@@ -394,6 +414,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -406,6 +427,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/check-blocked
 
@@ -426,6 +448,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -438,6 +461,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/block
 
@@ -458,6 +482,7 @@ class UsersClient:
             "PUT",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -471,6 +496,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/block
 
@@ -491,6 +517,7 @@ class UsersClient:
             "PUT",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -504,6 +531,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/unblock
 
@@ -524,6 +552,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "403": BasicError,
                 "401": BasicError,
@@ -536,6 +565,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/unblock
 
@@ -556,6 +586,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "403": BasicError,
                 "401": BasicError,
@@ -568,6 +599,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserEmailVisibilityPatchBodyType,
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -577,6 +609,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         visibility: Literal["public", "private"],
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -584,6 +617,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserEmailVisibilityPatchBodyType] = UNSET,
         **kwargs,
     ) -> Response[list[Email], list[EmailType]]:
@@ -621,6 +655,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "404": BasicError,
@@ -635,6 +670,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserEmailVisibilityPatchBodyType,
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -644,6 +680,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         visibility: Literal["public", "private"],
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -651,6 +688,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserEmailVisibilityPatchBodyType] = UNSET,
         **kwargs,
     ) -> Response[list[Email], list[EmailType]]:
@@ -688,6 +726,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "404": BasicError,
@@ -703,6 +742,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[Email], list[EmailType]]:
         """users/list-emails-for-authenticated-user
 
@@ -732,6 +772,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "404": BasicError,
@@ -746,6 +787,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[Email], list[EmailType]]:
         """users/list-emails-for-authenticated-user
 
@@ -775,6 +817,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "404": BasicError,
@@ -788,6 +831,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsPostBodyOneof0Type, list[str], str]] = UNSET,
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -797,6 +841,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         emails: list[str],
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -804,6 +849,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsPostBodyOneof0Type, list[str], str]] = UNSET,
         **kwargs,
     ) -> Response[list[Email], list[EmailType]]:
@@ -852,6 +898,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "422": ValidationError,
@@ -866,6 +913,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsPostBodyOneof0Type, list[str], str]] = UNSET,
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -875,6 +923,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         emails: list[str],
     ) -> Response[list[Email], list[EmailType]]: ...
 
@@ -882,6 +931,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsPostBodyOneof0Type, list[str], str]] = UNSET,
         **kwargs,
     ) -> Response[list[Email], list[EmailType]]:
@@ -930,6 +980,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "422": ValidationError,
@@ -944,6 +995,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsDeleteBodyOneof0Type, list[str], str]] = UNSET,
     ) -> Response: ...
 
@@ -953,6 +1005,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         emails: list[str],
     ) -> Response: ...
 
@@ -960,6 +1013,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsDeleteBodyOneof0Type, list[str], str]] = UNSET,
         **kwargs,
     ) -> Response:
@@ -1003,6 +1057,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1016,6 +1071,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsDeleteBodyOneof0Type, list[str], str]] = UNSET,
     ) -> Response: ...
 
@@ -1025,6 +1081,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         emails: list[str],
     ) -> Response: ...
 
@@ -1032,6 +1089,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[Union[UserEmailsDeleteBodyOneof0Type, list[str], str]] = UNSET,
         **kwargs,
     ) -> Response:
@@ -1075,6 +1133,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1089,6 +1148,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-followers-for-authenticated-user
 
@@ -1115,6 +1175,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
             error_models={
                 "403": BasicError,
@@ -1128,6 +1189,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-followers-for-authenticated-user
 
@@ -1154,6 +1216,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
             error_models={
                 "403": BasicError,
@@ -1167,6 +1230,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-followed-by-authenticated-user
 
@@ -1193,6 +1257,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
             error_models={
                 "403": BasicError,
@@ -1206,6 +1271,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-followed-by-authenticated-user
 
@@ -1232,6 +1298,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
             error_models={
                 "403": BasicError,
@@ -1244,6 +1311,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/check-person-is-followed-by-authenticated
 
@@ -1262,6 +1330,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1274,6 +1343,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/check-person-is-followed-by-authenticated
 
@@ -1292,6 +1362,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1304,6 +1375,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/follow
 
@@ -1326,6 +1398,7 @@ class UsersClient:
             "PUT",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1339,6 +1412,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/follow
 
@@ -1361,6 +1435,7 @@ class UsersClient:
             "PUT",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1374,6 +1449,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/unfollow
 
@@ -1394,6 +1470,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1406,6 +1483,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/unfollow
 
@@ -1426,6 +1504,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -1439,6 +1518,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[GpgKey], list[GpgKeyType]]:
         """users/list-gpg-keys-for-authenticated-user
 
@@ -1467,6 +1547,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[GpgKey],
             error_models={
                 "404": BasicError,
@@ -1481,6 +1562,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[GpgKey], list[GpgKeyType]]:
         """users/list-gpg-keys-for-authenticated-user
 
@@ -1509,6 +1591,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[GpgKey],
             error_models={
                 "404": BasicError,
@@ -1522,6 +1605,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserGpgKeysPostBodyType,
     ) -> Response[GpgKey, GpgKeyType]: ...
 
@@ -1531,6 +1615,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         name: Missing[str] = UNSET,
         armored_public_key: str,
     ) -> Response[GpgKey, GpgKeyType]: ...
@@ -1539,6 +1624,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserGpgKeysPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[GpgKey, GpgKeyType]:
@@ -1573,6 +1659,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=GpgKey,
             error_models={
                 "422": ValidationError,
@@ -1587,6 +1674,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserGpgKeysPostBodyType,
     ) -> Response[GpgKey, GpgKeyType]: ...
 
@@ -1596,6 +1684,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         name: Missing[str] = UNSET,
         armored_public_key: str,
     ) -> Response[GpgKey, GpgKeyType]: ...
@@ -1604,6 +1693,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserGpgKeysPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[GpgKey, GpgKeyType]:
@@ -1638,6 +1728,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=GpgKey,
             error_models={
                 "422": ValidationError,
@@ -1652,6 +1743,7 @@ class UsersClient:
         gpg_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[GpgKey, GpgKeyType]:
         """users/get-gpg-key-for-authenticated-user
 
@@ -1674,6 +1766,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=GpgKey,
             error_models={
                 "404": BasicError,
@@ -1687,6 +1780,7 @@ class UsersClient:
         gpg_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[GpgKey, GpgKeyType]:
         """users/get-gpg-key-for-authenticated-user
 
@@ -1709,6 +1803,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=GpgKey,
             error_models={
                 "404": BasicError,
@@ -1722,6 +1817,7 @@ class UsersClient:
         gpg_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-gpg-key-for-authenticated-user
 
@@ -1744,6 +1840,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "422": ValidationError,
@@ -1757,6 +1854,7 @@ class UsersClient:
         gpg_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-gpg-key-for-authenticated-user
 
@@ -1779,6 +1877,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "422": ValidationError,
@@ -1793,6 +1892,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[Key], list[KeyType]]:
         """users/list-public-ssh-keys-for-authenticated-user
 
@@ -1821,6 +1921,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Key],
             error_models={
                 "404": BasicError,
@@ -1835,6 +1936,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[Key], list[KeyType]]:
         """users/list-public-ssh-keys-for-authenticated-user
 
@@ -1863,6 +1965,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Key],
             error_models={
                 "404": BasicError,
@@ -1873,7 +1976,11 @@ class UsersClient:
 
     @overload
     def create_public_ssh_key_for_authenticated_user(
-        self, *, headers: Optional[Mapping[str, str]] = None, data: UserKeysPostBodyType
+        self,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UserKeysPostBodyType,
     ) -> Response[Key, KeyType]: ...
 
     @overload
@@ -1882,6 +1989,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         title: Missing[str] = UNSET,
         key: str,
     ) -> Response[Key, KeyType]: ...
@@ -1890,6 +1998,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserKeysPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[Key, KeyType]:
@@ -1924,6 +2033,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Key,
             error_models={
                 "422": ValidationError,
@@ -1935,7 +2045,11 @@ class UsersClient:
 
     @overload
     async def async_create_public_ssh_key_for_authenticated_user(
-        self, *, headers: Optional[Mapping[str, str]] = None, data: UserKeysPostBodyType
+        self,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UserKeysPostBodyType,
     ) -> Response[Key, KeyType]: ...
 
     @overload
@@ -1944,6 +2058,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         title: Missing[str] = UNSET,
         key: str,
     ) -> Response[Key, KeyType]: ...
@@ -1952,6 +2067,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserKeysPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[Key, KeyType]:
@@ -1986,6 +2102,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Key,
             error_models={
                 "422": ValidationError,
@@ -2000,6 +2117,7 @@ class UsersClient:
         key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[Key, KeyType]:
         """users/get-public-ssh-key-for-authenticated-user
 
@@ -2022,6 +2140,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Key,
             error_models={
                 "404": BasicError,
@@ -2035,6 +2154,7 @@ class UsersClient:
         key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[Key, KeyType]:
         """users/get-public-ssh-key-for-authenticated-user
 
@@ -2057,6 +2177,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Key,
             error_models={
                 "404": BasicError,
@@ -2070,6 +2191,7 @@ class UsersClient:
         key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-public-ssh-key-for-authenticated-user
 
@@ -2092,6 +2214,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -2104,6 +2227,7 @@ class UsersClient:
         key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-public-ssh-key-for-authenticated-user
 
@@ -2126,6 +2250,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -2139,6 +2264,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[Email], list[EmailType]]:
         """users/list-public-emails-for-authenticated-user
 
@@ -2169,6 +2295,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "404": BasicError,
@@ -2183,6 +2310,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[Email], list[EmailType]]:
         """users/list-public-emails-for-authenticated-user
 
@@ -2213,6 +2341,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[Email],
             error_models={
                 "404": BasicError,
@@ -2227,6 +2356,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]:
         """users/list-social-accounts-for-authenticated-user
 
@@ -2253,6 +2383,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SocialAccount],
             error_models={
                 "404": BasicError,
@@ -2267,6 +2398,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]:
         """users/list-social-accounts-for-authenticated-user
 
@@ -2293,6 +2425,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SocialAccount],
             error_models={
                 "404": BasicError,
@@ -2306,6 +2439,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserSocialAccountsPostBodyType,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]: ...
 
@@ -2315,6 +2449,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         account_urls: list[str],
     ) -> Response[list[SocialAccount], list[SocialAccountType]]: ...
 
@@ -2322,6 +2457,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserSocialAccountsPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]:
@@ -2361,6 +2497,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SocialAccount],
             error_models={
                 "422": ValidationError,
@@ -2375,6 +2512,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserSocialAccountsPostBodyType,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]: ...
 
@@ -2384,6 +2522,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         account_urls: list[str],
     ) -> Response[list[SocialAccount], list[SocialAccountType]]: ...
 
@@ -2391,6 +2530,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserSocialAccountsPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]:
@@ -2430,6 +2570,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SocialAccount],
             error_models={
                 "422": ValidationError,
@@ -2444,6 +2585,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserSocialAccountsDeleteBodyType,
     ) -> Response: ...
 
@@ -2453,6 +2595,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         account_urls: list[str],
     ) -> Response: ...
 
@@ -2460,6 +2603,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserSocialAccountsDeleteBodyType] = UNSET,
         **kwargs,
     ) -> Response:
@@ -2494,6 +2638,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "422": ValidationError,
                 "404": BasicError,
@@ -2507,6 +2652,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserSocialAccountsDeleteBodyType,
     ) -> Response: ...
 
@@ -2516,6 +2662,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         account_urls: list[str],
     ) -> Response: ...
 
@@ -2523,6 +2670,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserSocialAccountsDeleteBodyType] = UNSET,
         **kwargs,
     ) -> Response:
@@ -2557,6 +2705,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "422": ValidationError,
                 "404": BasicError,
@@ -2571,6 +2720,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SshSigningKey], list[SshSigningKeyType]]:
         """users/list-ssh-signing-keys-for-authenticated-user
 
@@ -2599,6 +2749,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SshSigningKey],
             error_models={
                 "404": BasicError,
@@ -2613,6 +2764,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SshSigningKey], list[SshSigningKeyType]]:
         """users/list-ssh-signing-keys-for-authenticated-user
 
@@ -2641,6 +2793,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SshSigningKey],
             error_models={
                 "404": BasicError,
@@ -2654,6 +2807,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserSshSigningKeysPostBodyType,
     ) -> Response[SshSigningKey, SshSigningKeyType]: ...
 
@@ -2663,6 +2817,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         title: Missing[str] = UNSET,
         key: str,
     ) -> Response[SshSigningKey, SshSigningKeyType]: ...
@@ -2671,6 +2826,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserSshSigningKeysPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[SshSigningKey, SshSigningKeyType]:
@@ -2710,6 +2866,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=SshSigningKey,
             error_models={
                 "422": ValidationError,
@@ -2724,6 +2881,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: UserSshSigningKeysPostBodyType,
     ) -> Response[SshSigningKey, SshSigningKeyType]: ...
 
@@ -2733,6 +2891,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         title: Missing[str] = UNSET,
         key: str,
     ) -> Response[SshSigningKey, SshSigningKeyType]: ...
@@ -2741,6 +2900,7 @@ class UsersClient:
         self,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[UserSshSigningKeysPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[SshSigningKey, SshSigningKeyType]:
@@ -2780,6 +2940,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=SshSigningKey,
             error_models={
                 "422": ValidationError,
@@ -2794,6 +2955,7 @@ class UsersClient:
         ssh_signing_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[SshSigningKey, SshSigningKeyType]:
         """users/get-ssh-signing-key-for-authenticated-user
 
@@ -2816,6 +2978,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=SshSigningKey,
             error_models={
                 "404": BasicError,
@@ -2829,6 +2992,7 @@ class UsersClient:
         ssh_signing_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[SshSigningKey, SshSigningKeyType]:
         """users/get-ssh-signing-key-for-authenticated-user
 
@@ -2851,6 +3015,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=SshSigningKey,
             error_models={
                 "404": BasicError,
@@ -2864,6 +3029,7 @@ class UsersClient:
         ssh_signing_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-ssh-signing-key-for-authenticated-user
 
@@ -2886,6 +3052,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -2898,6 +3065,7 @@ class UsersClient:
         ssh_signing_key_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-ssh-signing-key-for-authenticated-user
 
@@ -2920,6 +3088,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "403": BasicError,
@@ -2932,6 +3101,7 @@ class UsersClient:
         account_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         Union[PrivateUser, PublicUser], Union[PrivateUserType, PublicUserType]
     ]:
@@ -2962,6 +3132,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Union[PrivateUser, PublicUser],
             error_models={
                 "404": BasicError,
@@ -2973,6 +3144,7 @@ class UsersClient:
         account_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         Union[PrivateUser, PublicUser], Union[PrivateUserType, PublicUserType]
     ]:
@@ -3003,6 +3175,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Union[PrivateUser, PublicUser],
             error_models={
                 "404": BasicError,
@@ -3015,6 +3188,7 @@ class UsersClient:
         since: Missing[int] = UNSET,
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list
 
@@ -3043,6 +3217,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
         )
 
@@ -3052,6 +3227,7 @@ class UsersClient:
         since: Missing[int] = UNSET,
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list
 
@@ -3080,6 +3256,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
         )
 
@@ -3088,6 +3265,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         Union[PrivateUser, PublicUser], Union[PrivateUserType, PublicUserType]
     ]:
@@ -3118,6 +3296,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Union[PrivateUser, PublicUser],
             error_models={
                 "404": BasicError,
@@ -3129,6 +3308,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         Union[PrivateUser, PublicUser], Union[PrivateUserType, PublicUserType]
     ]:
@@ -3159,10 +3339,203 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Union[PrivateUser, PublicUser],
             error_models={
                 "404": BasicError,
             },
+        )
+
+    @overload
+    def list_attestations_bulk(
+        self,
+        username: str,
+        *,
+        per_page: Missing[int] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UsersUsernameAttestationsBulkListPostBodyType,
+    ) -> Response[
+        UsersUsernameAttestationsBulkListPostResponse200,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
+    ]: ...
+
+    @overload
+    def list_attestations_bulk(
+        self,
+        username: str,
+        *,
+        per_page: Missing[int] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        subject_digests: list[str],
+        predicate_type: Missing[str] = UNSET,
+    ) -> Response[
+        UsersUsernameAttestationsBulkListPostResponse200,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
+    ]: ...
+
+    def list_attestations_bulk(
+        self,
+        username: str,
+        *,
+        per_page: Missing[int] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[UsersUsernameAttestationsBulkListPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[
+        UsersUsernameAttestationsBulkListPostResponse200,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
+    ]:
+        """users/list-attestations-bulk
+
+        POST /users/{username}/attestations/bulk-list
+
+        List a collection of artifact attestations associated with any entry in a list of subject digests owned by a user.
+
+        The collection of attestations returned by this endpoint is filtered according to the authenticated user's permissions; if the authenticated user cannot read a repository, the attestations associated with that repository will not be included in the response. In addition, when using a fine-grained access token the `attestations:read` permission is required.
+
+        **Please note:** in order to offer meaningful security benefits, an attestation's signature and timestamps **must** be cryptographically verified, and the identity of the attestation signer **must** be validated. Attestations can be verified using the [GitHub CLI `attestation verify` command](https://cli.github.com/manual/gh_attestation_verify). For more information, see [our guide on how to use artifact attestations to establish a build's provenance](https://docs.github.com/enterprise-cloud@latest//actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/users/attestations#list-attestations-by-bulk-subject-digests
+        """
+
+        from ..models import (
+            UsersUsernameAttestationsBulkListPostBody,
+            UsersUsernameAttestationsBulkListPostResponse200,
+        )
+
+        url = f"/users/{username}/attestations/bulk-list"
+
+        params = {
+            "per_page": per_page,
+            "before": before,
+            "after": after,
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(UsersUsernameAttestationsBulkListPostBody, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            params=exclude_unset(params),
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=UsersUsernameAttestationsBulkListPostResponse200,
+        )
+
+    @overload
+    async def async_list_attestations_bulk(
+        self,
+        username: str,
+        *,
+        per_page: Missing[int] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UsersUsernameAttestationsBulkListPostBodyType,
+    ) -> Response[
+        UsersUsernameAttestationsBulkListPostResponse200,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
+    ]: ...
+
+    @overload
+    async def async_list_attestations_bulk(
+        self,
+        username: str,
+        *,
+        per_page: Missing[int] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        subject_digests: list[str],
+        predicate_type: Missing[str] = UNSET,
+    ) -> Response[
+        UsersUsernameAttestationsBulkListPostResponse200,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
+    ]: ...
+
+    async def async_list_attestations_bulk(
+        self,
+        username: str,
+        *,
+        per_page: Missing[int] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[UsersUsernameAttestationsBulkListPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[
+        UsersUsernameAttestationsBulkListPostResponse200,
+        UsersUsernameAttestationsBulkListPostResponse200Type,
+    ]:
+        """users/list-attestations-bulk
+
+        POST /users/{username}/attestations/bulk-list
+
+        List a collection of artifact attestations associated with any entry in a list of subject digests owned by a user.
+
+        The collection of attestations returned by this endpoint is filtered according to the authenticated user's permissions; if the authenticated user cannot read a repository, the attestations associated with that repository will not be included in the response. In addition, when using a fine-grained access token the `attestations:read` permission is required.
+
+        **Please note:** in order to offer meaningful security benefits, an attestation's signature and timestamps **must** be cryptographically verified, and the identity of the attestation signer **must** be validated. Attestations can be verified using the [GitHub CLI `attestation verify` command](https://cli.github.com/manual/gh_attestation_verify). For more information, see [our guide on how to use artifact attestations to establish a build's provenance](https://docs.github.com/enterprise-cloud@latest//actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/users/attestations#list-attestations-by-bulk-subject-digests
+        """
+
+        from ..models import (
+            UsersUsernameAttestationsBulkListPostBody,
+            UsersUsernameAttestationsBulkListPostResponse200,
+        )
+
+        url = f"/users/{username}/attestations/bulk-list"
+
+        params = {
+            "per_page": per_page,
+            "before": before,
+            "after": after,
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(UsersUsernameAttestationsBulkListPostBody, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            params=exclude_unset(params),
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=UsersUsernameAttestationsBulkListPostResponse200,
         )
 
     @overload
@@ -3171,6 +3544,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Union[
             UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type,
             UsersUsernameAttestationsDeleteRequestPostBodyOneof1Type,
@@ -3184,6 +3558,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         subject_digests: list[str],
     ) -> Response: ...
 
@@ -3194,6 +3569,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         attestation_ids: list[int],
     ) -> Response: ...
 
@@ -3202,6 +3578,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[
             Union[
                 UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type,
@@ -3251,6 +3628,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
             },
@@ -3262,6 +3640,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Union[
             UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type,
             UsersUsernameAttestationsDeleteRequestPostBodyOneof1Type,
@@ -3275,6 +3654,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         subject_digests: list[str],
     ) -> Response: ...
 
@@ -3285,6 +3665,7 @@ class UsersClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         attestation_ids: list[int],
     ) -> Response: ...
 
@@ -3293,6 +3674,7 @@ class UsersClient:
         username: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[
             Union[
                 UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type,
@@ -3342,6 +3724,7 @@ class UsersClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
             },
@@ -3353,6 +3736,7 @@ class UsersClient:
         subject_digest: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-attestations-by-subject-digest
 
@@ -3373,6 +3757,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
             },
@@ -3384,6 +3769,7 @@ class UsersClient:
         subject_digest: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-attestations-by-subject-digest
 
@@ -3404,6 +3790,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
             },
@@ -3415,6 +3802,7 @@ class UsersClient:
         attestation_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-attestations-by-id
 
@@ -3435,6 +3823,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "403": BasicError,
                 "404": BasicError,
@@ -3447,6 +3836,7 @@ class UsersClient:
         attestation_id: int,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/delete-attestations-by-id
 
@@ -3467,6 +3857,7 @@ class UsersClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "403": BasicError,
                 "404": BasicError,
@@ -3483,6 +3874,7 @@ class UsersClient:
         after: Missing[str] = UNSET,
         predicate_type: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         UsersUsernameAttestationsSubjectDigestGetResponse200,
         UsersUsernameAttestationsSubjectDigestGetResponse200Type,
@@ -3521,6 +3913,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=UsersUsernameAttestationsSubjectDigestGetResponse200,
             error_models={
                 "404": BasicError,
@@ -3537,6 +3930,7 @@ class UsersClient:
         after: Missing[str] = UNSET,
         predicate_type: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         UsersUsernameAttestationsSubjectDigestGetResponse200,
         UsersUsernameAttestationsSubjectDigestGetResponse200Type,
@@ -3575,6 +3969,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=UsersUsernameAttestationsSubjectDigestGetResponse200,
             error_models={
                 "404": BasicError,
@@ -3588,6 +3983,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-followers-for-user
 
@@ -3614,6 +4010,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
         )
 
@@ -3624,6 +4021,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-followers-for-user
 
@@ -3650,6 +4048,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
         )
 
@@ -3660,6 +4059,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-following-for-user
 
@@ -3686,6 +4086,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
         )
 
@@ -3696,6 +4097,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SimpleUser], list[SimpleUserType]]:
         """users/list-following-for-user
 
@@ -3722,6 +4124,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SimpleUser],
         )
 
@@ -3731,6 +4134,7 @@ class UsersClient:
         target_user: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/check-following-for-user
 
@@ -3747,6 +4151,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={},
         )
 
@@ -3756,6 +4161,7 @@ class UsersClient:
         target_user: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """users/check-following-for-user
 
@@ -3772,6 +4178,7 @@ class UsersClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={},
         )
 
@@ -3782,6 +4189,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[GpgKey], list[GpgKeyType]]:
         """users/list-gpg-keys-for-user
 
@@ -3808,6 +4216,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[GpgKey],
         )
 
@@ -3818,6 +4227,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[GpgKey], list[GpgKeyType]]:
         """users/list-gpg-keys-for-user
 
@@ -3844,6 +4254,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[GpgKey],
         )
 
@@ -3856,6 +4267,7 @@ class UsersClient:
         ] = UNSET,
         subject_id: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[Hovercard, HovercardType]:
         """users/get-context-for-user
 
@@ -3886,6 +4298,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Hovercard,
             error_models={
                 "404": BasicError,
@@ -3902,6 +4315,7 @@ class UsersClient:
         ] = UNSET,
         subject_id: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[Hovercard, HovercardType]:
         """users/get-context-for-user
 
@@ -3932,6 +4346,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=Hovercard,
             error_models={
                 "404": BasicError,
@@ -3946,6 +4361,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[KeySimple], list[KeySimpleType]]:
         """users/list-public-keys-for-user
 
@@ -3972,6 +4388,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[KeySimple],
         )
 
@@ -3982,6 +4399,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[KeySimple], list[KeySimpleType]]:
         """users/list-public-keys-for-user
 
@@ -4008,6 +4426,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[KeySimple],
         )
 
@@ -4018,6 +4437,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]:
         """users/list-social-accounts-for-user
 
@@ -4044,6 +4464,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SocialAccount],
         )
 
@@ -4054,6 +4475,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SocialAccount], list[SocialAccountType]]:
         """users/list-social-accounts-for-user
 
@@ -4080,6 +4502,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SocialAccount],
         )
 
@@ -4090,6 +4513,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SshSigningKey], list[SshSigningKeyType]]:
         """users/list-ssh-signing-keys-for-user
 
@@ -4116,6 +4540,7 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SshSigningKey],
         )
 
@@ -4126,6 +4551,7 @@ class UsersClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[list[SshSigningKey], list[SshSigningKeyType]]:
         """users/list-ssh-signing-keys-for-user
 
@@ -4152,5 +4578,6 @@ class UsersClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=list[SshSigningKey],
         )

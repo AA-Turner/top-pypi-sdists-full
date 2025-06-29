@@ -28,6 +28,7 @@ from .typing import (
     ContentTypes,
     CookieTypes,
     HeaderTypes,
+    ProxyTypes,
     QueryParamTypes,
     RequestFiles,
     RetryDecisionFunc,
@@ -85,6 +86,8 @@ class GitHubCore(Generic[A]):
         follow_redirects: bool = True,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         ssl_verify: Union[bool, "ssl.SSLContext"] = ...,
+        trust_env: bool = True,
+        proxy: Optional[ProxyTypes] = None,
         cache_strategy: Optional[BaseCacheStrategy] = None,
         http_cache: bool = True,
         throttler: Optional[BaseThrottler] = None,
@@ -105,6 +108,8 @@ class GitHubCore(Generic[A]):
         follow_redirects: bool = True,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         ssl_verify: Union[bool, "ssl.SSLContext"] = ...,
+        trust_env: bool = True,
+        proxy: Optional[ProxyTypes] = None,
         cache_strategy: Optional[BaseCacheStrategy] = None,
         http_cache: bool = True,
         throttler: Optional[BaseThrottler] = None,
@@ -125,6 +130,8 @@ class GitHubCore(Generic[A]):
         follow_redirects: bool = True,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         ssl_verify: Union[bool, "ssl.SSLContext"] = ...,
+        trust_env: bool = True,
+        proxy: Optional[ProxyTypes] = None,
         cache_strategy: Optional[BaseCacheStrategy] = None,
         http_cache: bool = True,
         throttler: Optional[BaseThrottler] = None,
@@ -144,6 +151,8 @@ class GitHubCore(Generic[A]):
         follow_redirects: bool = True,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         ssl_verify: Union[bool, "ssl.SSLContext"] = True,
+        trust_env: bool = True,
+        proxy: Optional[ProxyTypes] = None,
         cache_strategy: Optional[BaseCacheStrategy] = None,
         http_cache: bool = True,
         throttler: Optional[BaseThrottler] = None,
@@ -163,6 +172,8 @@ class GitHubCore(Generic[A]):
             follow_redirects=follow_redirects,
             timeout=timeout,
             ssl_verify=ssl_verify,
+            trust_env=trust_env,
+            proxy=proxy,
             cache_strategy=cache_strategy,
             http_cache=http_cache,
             throttler=throttler,
@@ -209,8 +220,9 @@ class GitHubCore(Generic[A]):
         await cast(httpx.AsyncClient, self.__async_client.get()).aclose()
         self.__async_client.set(None)
 
-    # default args for creating client
-    def _get_client_defaults(self):
+    def _get_client_defaults(self) -> dict[str, Any]:
+        """Get default arguments for creating a httpx client."""
+
         return {
             "auth": self.auth.get_auth_flow(self),
             "base_url": self.config.base_url,
@@ -221,20 +233,19 @@ class GitHubCore(Generic[A]):
             "timeout": self.config.timeout,
             "follow_redirects": self.config.follow_redirects,
             "verify": self.config.ssl_verify,
+            "trust_env": self.config.trust_env,
+            "proxy": self.config.proxy,
         }
 
-    # create sync client
     def _create_sync_client(self) -> httpx.Client:
         if self.config.http_cache:
-            transport = hishel.CacheTransport(
-                httpx.HTTPTransport(),
+            return hishel.CacheClient(
+                **self._get_client_defaults(),
                 storage=self.config.cache_strategy.get_hishel_storage(),
                 controller=self.config.cache_strategy.get_hishel_controller(),
             )
-        else:
-            transport = httpx.HTTPTransport()
 
-        return httpx.Client(**self._get_client_defaults(), transport=transport)
+        return httpx.Client(**self._get_client_defaults())
 
     # get or create sync client
     @contextmanager
@@ -248,18 +259,15 @@ class GitHubCore(Generic[A]):
             finally:
                 client.close()
 
-    # create async client
     def _create_async_client(self) -> httpx.AsyncClient:
         if self.config.http_cache:
-            transport = hishel.AsyncCacheTransport(
-                httpx.AsyncHTTPTransport(),
+            return hishel.AsyncCacheClient(
+                **self._get_client_defaults(),
                 storage=self.config.cache_strategy.get_async_hishel_storage(),
                 controller=self.config.cache_strategy.get_hishel_controller(),
             )
-        else:
-            transport = httpx.AsyncHTTPTransport()
 
-        return httpx.AsyncClient(**self._get_client_defaults(), transport=transport)
+        return httpx.AsyncClient(**self._get_client_defaults())
 
     # get or create async client
     @asynccontextmanager
@@ -286,6 +294,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
     ) -> httpx.Response:
         with self.get_sync_client() as client:
             request = client.build_request(
@@ -301,7 +310,7 @@ class GitHubCore(Generic[A]):
             )
             with self.config.throttler.acquire(request):
                 try:
-                    return client.send(request)
+                    return client.send(request, stream=stream)
                 except httpx.TimeoutException as e:
                     raise RequestTimeout(e) from e
                 except Exception as e:
@@ -320,6 +329,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
     ) -> httpx.Response:
         async with (
             self.get_async_client() as client,
@@ -337,7 +347,7 @@ class GitHubCore(Generic[A]):
             )
             async with self.config.throttler.async_acquire(request):
                 try:
-                    return await client.send(request)
+                    return await client.send(request, stream=stream)
                 except httpx.TimeoutException as e:
                     raise RequestTimeout(e) from e
                 except Exception as e:
@@ -360,13 +370,17 @@ class GitHubCore(Generic[A]):
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Response[Any]: ...
 
+    def _check_is_error(self, response: httpx.Response) -> bool:
+        """Check if the response is an error."""
+        return response.is_error
+
     def _check(
         self,
         response: httpx.Response,
         response_model: Union[type[T], UnsetType] = UNSET,
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Union[Response[T], Response[Any]]:
-        if response.is_error:
+        if self._check_is_error(response):
             error_models = error_models or {}
             status_code = str(response.status_code)
 
@@ -386,7 +400,7 @@ class GitHubCore(Generic[A]):
         if response.status_code in (403, 429):
             self._check_rate_limit(resp)
 
-        if response.is_error:
+        if self._check_is_error(response):
             raise RequestFailed(resp)
         return resp
 
@@ -453,6 +467,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
         response_model: type[T],
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Response[T]: ...
@@ -470,6 +485,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
         response_model: UnsetType = UNSET,
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Response[Any]: ...
@@ -486,6 +502,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
         response_model: Union[type[T], UnsetType] = UNSET,
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Union[Response[T], Response[Any]]:
@@ -507,7 +524,12 @@ class GitHubCore(Generic[A]):
                     json=json,
                     headers=headers,
                     cookies=cookies,
+                    stream=stream,
                 )
+                if self._check_is_error(raw_resp) and stream:
+                    # if the response is an error and stream is True,
+                    # we need to read the response first
+                    raw_resp.read()
                 return self._check(raw_resp, response_model, error_models)
             except GitHubException as e:
                 if self.config.auto_retry is None:
@@ -535,6 +557,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
         response_model: type[T],
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Response[T]: ...
@@ -552,6 +575,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
         response_model: UnsetType = UNSET,
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Response[Any]: ...
@@ -568,6 +592,7 @@ class GitHubCore(Generic[A]):
         json: Optional[Any] = None,
         headers: Optional[HeaderTypes] = None,
         cookies: Optional[CookieTypes] = None,
+        stream: bool = False,
         response_model: Union[type[T], UnsetType] = UNSET,
         error_models: Optional[Mapping[str, type]] = None,
     ) -> Union[Response[T], Response[Any]]:
@@ -589,7 +614,12 @@ class GitHubCore(Generic[A]):
                     json=json,
                     headers=headers,
                     cookies=cookies,
+                    stream=stream,
                 )
+                if self._check_is_error(raw_resp) and stream:
+                    # if the response is an error and stream is True,
+                    # we need to read the response first
+                    await raw_resp.aread()
                 return self._check(raw_resp, response_model, error_models)
             except GitHubException as e:
                 if self.config.auto_retry is None:

@@ -118,15 +118,18 @@ _multidict_extend(MultiDictObject *self, PyObject *arg, PyObject *kwds,
     }
 
     if (op != Extend) {  // Update or Merge
-        if (md_post_update(self) < 0) {
-            goto fail;
-        }
+        md_post_update(self);
     }
 
     ASSERT_CONSISTENT(self, false);
     Py_CLEAR(seq);
     return 0;
 fail:
+    if (op != Extend) {  // Update or Merge
+        // Cleanup soft-deleted items
+        md_post_update(self);
+    }
+    ASSERT_CONSISTENT(self, false);
     Py_CLEAR(seq);
     return -1;
 }
@@ -136,7 +139,7 @@ _multidict_extend_parse_args(mod_state *state, PyObject *args, PyObject *kwds,
                              const char *name, PyObject **parg)
 {
     Py_ssize_t size = 0;
-    Py_ssize_t s;
+    Py_ssize_t s = 0;
     if (args) {
         s = PyTuple_GET_SIZE(args);
         if (s > 1) {

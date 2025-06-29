@@ -387,6 +387,9 @@ if TYPE_CHECKING:
         CodeSecurityConfigurationPropCodeScanningDefaultSetupOptionsType as CodeSecurityConfigurationPropCodeScanningDefaultSetupOptionsType,
     )
     from githubkit.versions.v2022_11_28.types import (
+        CodeSecurityConfigurationPropCodeScanningOptionsType as CodeSecurityConfigurationPropCodeScanningOptionsType,
+    )
+    from githubkit.versions.v2022_11_28.types import (
         CodeSecurityConfigurationPropDependencyGraphAutosubmitActionOptionsType as CodeSecurityConfigurationPropDependencyGraphAutosubmitActionOptionsType,
     )
     from githubkit.versions.v2022_11_28.types import (
@@ -1374,6 +1377,12 @@ if TYPE_CHECKING:
     )
     from githubkit.versions.v2022_11_28.types import (
         OrgsOrgAttestationsBulkListPostResponse200Type as OrgsOrgAttestationsBulkListPostResponse200Type,
+    )
+    from githubkit.versions.v2022_11_28.types import (
+        OrgsOrgAttestationsDeleteRequestPostBodyOneof0Type as OrgsOrgAttestationsDeleteRequestPostBodyOneof0Type,
+    )
+    from githubkit.versions.v2022_11_28.types import (
+        OrgsOrgAttestationsDeleteRequestPostBodyOneof1Type as OrgsOrgAttestationsDeleteRequestPostBodyOneof1Type,
     )
     from githubkit.versions.v2022_11_28.types import (
         OrgsOrgAttestationsSubjectDigestGetResponse200PropAttestationsItemsPropBundlePropDsseEnvelopeType as OrgsOrgAttestationsSubjectDigestGetResponse200PropAttestationsItemsPropBundlePropDsseEnvelopeType,
@@ -3573,6 +3582,18 @@ if TYPE_CHECKING:
     )
     from githubkit.versions.v2022_11_28.types import (
         UserSshSigningKeysPostBodyType as UserSshSigningKeysPostBodyType,
+    )
+    from githubkit.versions.v2022_11_28.types import (
+        UsersUsernameAttestationsBulkListPostBodyType as UsersUsernameAttestationsBulkListPostBodyType,
+    )
+    from githubkit.versions.v2022_11_28.types import (
+        UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigestsType as UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigestsType,
+    )
+    from githubkit.versions.v2022_11_28.types import (
+        UsersUsernameAttestationsBulkListPostResponse200PropPageInfoType as UsersUsernameAttestationsBulkListPostResponse200PropPageInfoType,
+    )
+    from githubkit.versions.v2022_11_28.types import (
+        UsersUsernameAttestationsBulkListPostResponse200Type as UsersUsernameAttestationsBulkListPostResponse200Type,
     )
     from githubkit.versions.v2022_11_28.types import (
         UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type as UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type,
@@ -10000,6 +10021,7 @@ else:
             "ClassroomAssignmentGradeType",
             "CodeSecurityConfigurationType",
             "CodeSecurityConfigurationPropDependencyGraphAutosubmitActionOptionsType",
+            "CodeSecurityConfigurationPropCodeScanningOptionsType",
             "CodeSecurityConfigurationPropCodeScanningDefaultSetupOptionsType",
             "CodeSecurityConfigurationPropSecretScanningDelegatedBypassOptionsType",
             "CodeSecurityConfigurationPropSecretScanningDelegatedBypassOptionsPropReviewersItemsType",
@@ -12936,6 +12958,8 @@ else:
             "OrgsOrgAttestationsBulkListPostResponse200Type",
             "OrgsOrgAttestationsBulkListPostResponse200PropAttestationsSubjectDigestsType",
             "OrgsOrgAttestationsBulkListPostResponse200PropPageInfoType",
+            "OrgsOrgAttestationsDeleteRequestPostBodyOneof0Type",
+            "OrgsOrgAttestationsDeleteRequestPostBodyOneof1Type",
             "OrgsOrgAttestationsSubjectDigestGetResponse200Type",
             "OrgsOrgAttestationsSubjectDigestGetResponse200PropAttestationsItemsType",
             "OrgsOrgAttestationsSubjectDigestGetResponse200PropAttestationsItemsPropBundleType",
@@ -13320,6 +13344,10 @@ else:
             "UserSocialAccountsPostBodyType",
             "UserSocialAccountsDeleteBodyType",
             "UserSshSigningKeysPostBodyType",
+            "UsersUsernameAttestationsBulkListPostBodyType",
+            "UsersUsernameAttestationsBulkListPostResponse200Type",
+            "UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigestsType",
+            "UsersUsernameAttestationsBulkListPostResponse200PropPageInfoType",
             "UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type",
             "UsersUsernameAttestationsDeleteRequestPostBodyOneof1Type",
             "UsersUsernameAttestationsSubjectDigestGetResponse200Type",

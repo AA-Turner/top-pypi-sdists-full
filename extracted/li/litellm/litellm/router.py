@@ -128,6 +128,7 @@ from litellm.types.router import (
     Deployment,
     DeploymentTypedDict,
     LiteLLM_Params,
+    MockRouterTestingParams,
     ModelGroupInfo,
     OptionalPreCallChecks,
     RetryPolicy,
@@ -791,6 +792,7 @@ class Router:
             generate_content,
             generate_content_stream,
         )
+
         self.agenerate_content = self.factory_function(
             agenerate_content, call_type="agenerate_content"
         )
@@ -2478,6 +2480,7 @@ class Router:
         """
         handler_name = original_function.__name__
         function_name = "_ageneric_api_call_with_fallbacks"
+        passthrough_on_no_deployment = kwargs.pop("passthrough_on_no_deployment", False)
         self._update_kwargs_before_fallbacks(
             model=model,
             kwargs=kwargs,
@@ -2490,12 +2493,17 @@ class Router:
                 f"Inside _ageneric_api_call() - handler: {handler_name}, model: {model}; kwargs: {kwargs}"
             )
             parent_otel_span = _get_parent_otel_span_from_kwargs(kwargs)
-            deployment = await self.async_get_available_deployment(
-                model=model,
-                request_kwargs=kwargs,
-                messages=kwargs.get("messages", None),
-                specific_deployment=kwargs.pop("specific_deployment", None),
-            )
+            try:
+                deployment = await self.async_get_available_deployment(
+                    model=model,
+                    request_kwargs=kwargs,
+                    messages=kwargs.get("messages", None),
+                    specific_deployment=kwargs.pop("specific_deployment", None),
+                )
+            except Exception as e:
+                if passthrough_on_no_deployment:
+                    return await original_function(model=model, **kwargs)
+                raise e
 
             self._update_kwargs_with_deployment(
                 deployment=deployment, kwargs=kwargs, function_name=function_name
@@ -3322,12 +3330,17 @@ class Router:
                 "aretrieve_fine_tuning_job",
                 "alist_files",
                 "aimage_edit",
-                "allm_passthrough_route",
                 "agenerate_content",
                 "agenerate_content_stream",
             ):
                 return await self._ageneric_api_call_with_fallbacks(
                     original_function=original_function,
+                    **kwargs,
+                )
+            elif call_type == "allm_passthrough_route":
+                return await self._ageneric_api_call_with_fallbacks(
+                    original_function=original_function,
+                    passthrough_on_no_deployment=True,
                     **kwargs,
                 )
             elif call_type in (
@@ -3629,23 +3642,16 @@ class Router:
             litellm.ContextWindowExceededError: when `mock_testing_context_fallbacks=True` passed in request params
             litellm.ContentPolicyViolationError: when `mock_testing_content_policy_fallbacks=True` passed in request params
         """
-        mock_testing_fallbacks = kwargs.pop("mock_testing_fallbacks", None)
-        mock_testing_context_fallbacks = kwargs.pop(
-            "mock_testing_context_fallbacks", None
-        )
-        mock_testing_content_policy_fallbacks = kwargs.pop(
-            "mock_testing_content_policy_fallbacks", None
-        )
-
-        if mock_testing_fallbacks is not None and mock_testing_fallbacks is True:
+        mock_testing_params = MockRouterTestingParams.from_kwargs(kwargs)
+        if mock_testing_params.mock_testing_fallbacks is not None and mock_testing_params.mock_testing_fallbacks is True:
             raise litellm.InternalServerError(
                 model=model_group,
                 llm_provider="",
                 message=f"This is a mock exception for model={model_group}, to trigger a fallback. Fallbacks={fallbacks}",
             )
         elif (
-            mock_testing_context_fallbacks is not None
-            and mock_testing_context_fallbacks is True
+            mock_testing_params.mock_testing_context_fallbacks is not None
+            and mock_testing_params.mock_testing_context_fallbacks is True
         ):
             raise litellm.ContextWindowExceededError(
                 model=model_group,
@@ -3654,8 +3660,8 @@ class Router:
                     Context_Window_Fallbacks={context_window_fallbacks}",
             )
         elif (
-            mock_testing_content_policy_fallbacks is not None
-            and mock_testing_content_policy_fallbacks is True
+            mock_testing_params.mock_testing_content_policy_fallbacks is not None
+            and mock_testing_params.mock_testing_content_policy_fallbacks is True
         ):
             raise litellm.ContentPolicyViolationError(
                 model=model_group,
@@ -4149,8 +4155,10 @@ class Router:
             )
 
             # Determine cooldown time with priority: deployment config > response header > router default
-            deployment_cooldown = kwargs.get("litellm_params", {}).get("cooldown_time", None)
-            
+            deployment_cooldown = kwargs.get("litellm_params", {}).get(
+                "cooldown_time", None
+            )
+
             header_cooldown = None
             if exception_headers is not None:
                 header_cooldown = litellm.utils._get_retry_after_from_exception_header(

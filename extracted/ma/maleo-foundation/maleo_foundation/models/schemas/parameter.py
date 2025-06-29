@@ -9,7 +9,7 @@ from maleo_foundation.extended_types import ExtendedTypes
 
 class BaseParameterSchemas:
     class IdentifierType(BaseModel):
-        identifier: BaseEnums.IdentifierTypes = Field(..., description="Data's identifier type")
+        identifier: BaseEnums.IdentifierType = Field(..., description="Data's identifier type")
 
     class IdentifierValue(BaseModel):
         value: BaseTypes.IdentifierValue = Field(..., description="Data's identifier value")

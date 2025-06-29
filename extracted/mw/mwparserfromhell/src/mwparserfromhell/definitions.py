@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@ When updating this file, please also update the the C tokenizer version:
 - mwparserfromhell/parser/ctokenizer/definitions.c
 - mwparserfromhell/parser/ctokenizer/definitions.h
 """
+
+from __future__ import annotations
 
 __all__ = [
     "get_html_tag",
@@ -113,32 +115,32 @@ MARKUP_TO_HTML = {
 }
 
 
-def get_html_tag(markup):
+def get_html_tag(markup: str) -> str:
     """Return the HTML tag associated with the given wiki-markup."""
     return MARKUP_TO_HTML[markup]
 
 
-def is_parsable(tag):
+def is_parsable(tag: str) -> bool:
     """Return if the given *tag*'s contents should be passed to the parser."""
     return tag.lower() not in PARSER_BLACKLIST
 
 
-def is_visible(tag):
+def is_visible(tag: str) -> bool:
     """Return whether or not the given *tag* contains visible text."""
     return tag.lower() not in INVISIBLE_TAGS
 
 
-def is_single(tag):
+def is_single(tag: str) -> bool:
     """Return whether or not the given *tag* can exist without a close tag."""
     return tag.lower() in SINGLE
 
 
-def is_single_only(tag):
+def is_single_only(tag: str) -> bool:
     """Return whether or not the given *tag* must exist without a close tag."""
     return tag.lower() in SINGLE_ONLY
 
 
-def is_scheme(scheme, slashes=True):
+def is_scheme(scheme: str, slashes: bool = True) -> bool:
     """Return whether *scheme* is valid for external links."""
     scheme = scheme.lower()
     if slashes:

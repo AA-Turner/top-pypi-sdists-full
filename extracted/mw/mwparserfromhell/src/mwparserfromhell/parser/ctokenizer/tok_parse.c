@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2021 Ben Kurtovic <ben.kurtovic@gmail.com>
+Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -1557,6 +1557,10 @@ Tokenizer_handle_tag_close_close(Tokenizer *self)
             }
             Py_XDECREF(so);
             Py_XDECREF(sc);
+            // One of `so` or `sc` failed to allocate so we clean up the
+            // closing tag and propagate the error by returning NULL.
+            Py_DECREF(closing);
+            return NULL;
         }
         case -1:
             Py_DECREF(closing);

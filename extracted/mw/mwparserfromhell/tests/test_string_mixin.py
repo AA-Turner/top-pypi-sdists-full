@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,8 @@
 """
 Test cases for the StringMixIn class.
 """
+
+from __future__ import annotations
 
 import sys
 from types import GeneratorType
@@ -216,7 +218,7 @@ def test_other_methods():
     assert 0 == str1.count("r", 5, 7)
 
     str3 = _FakeString("𐌲𐌿𐍄")
-    actual = b"\xF0\x90\x8C\xB2\xF0\x90\x8C\xBF\xF0\x90\x8D\x84"
+    actual = b"\xf0\x90\x8c\xb2\xf0\x90\x8c\xbf\xf0\x90\x8d\x84"
     assert b"fake string" == str1.encode()
     assert actual == str3.encode("utf-8")
     assert actual == str3.encode(encoding="utf-8")
@@ -293,7 +295,7 @@ def test_other_methods():
 
     str12 = _FakeString("123")
     str13 = _FakeString("\u2155")
-    str14 = _FakeString("\u00B2")
+    str14 = _FakeString("\u00b2")
     assert str9.isdecimal() is False
     assert str12.isdecimal() is True
     assert str13.isdecimal() is False

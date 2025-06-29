@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: bleak
-Version: 0.22.3
+Version: 1.0.0
 Summary: Bluetooth Low Energy platform Agnostic Klient
-Home-page: https://github.com/hbldh/bleak
 License: MIT
 Author: Henrik Blidh
 Author-email: henrik.blidh@nedomkull.com
-Requires-Python: >=3.8,<3.14
+Requires-Python: >=3.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
 Classifier: License :: OSI Approved :: MIT License
@@ -15,39 +14,35 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: async-timeout (>=3.0.0,<5) ; python_version < "3.11"
-Requires-Dist: bleak-winrt (>=1.2.0,<2.0.0) ; platform_system == "Windows" and python_version < "3.12"
-Requires-Dist: dbus-fast (>=1.83.0,<3) ; platform_system == "Linux"
-Requires-Dist: pyobjc-core (>=10.3,<11.0) ; platform_system == "Darwin"
-Requires-Dist: pyobjc-framework-CoreBluetooth (>=10.3,<11.0) ; platform_system == "Darwin"
-Requires-Dist: pyobjc-framework-libdispatch (>=10.3,<11.0) ; platform_system == "Darwin"
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
+Requires-Dist: dbus-fast (>=1.83.0) ; platform_system == "Linux"
+Requires-Dist: pyobjc-core (>=10.3) ; platform_system == "Darwin"
+Requires-Dist: pyobjc-framework-CoreBluetooth (>=10.3) ; platform_system == "Darwin"
+Requires-Dist: pyobjc-framework-libdispatch (>=10.3) ; platform_system == "Darwin"
 Requires-Dist: typing-extensions (>=4.7.0) ; python_version < "3.12"
-Requires-Dist: winrt-Windows.Devices.Bluetooth (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-Windows.Devices.Bluetooth.Advertisement (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-Windows.Devices.Bluetooth.GenericAttributeProfile (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-Windows.Devices.Enumeration (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-Windows.Foundation (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-Windows.Foundation.Collections (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-Windows.Storage.Streams (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
-Requires-Dist: winrt-runtime (>=2,<3) ; platform_system == "Windows" and python_version >= "3.12"
+Requires-Dist: winrt-Windows.Devices.Bluetooth (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Devices.Bluetooth.Advertisement (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Devices.Bluetooth.GenericAttributeProfile (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Devices.Enumeration (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Foundation (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Foundation.Collections (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Storage.Streams (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-runtime (>=3.1) ; platform_system == "Windows"
 Project-URL: Changelog, https://github.com/hbldh/bleak/blob/develop/CHANGELOG.rst
 Project-URL: Documentation, https://bleak.readthedocs.io
+Project-URL: Homepage, https://github.com/hbldh/bleak
 Project-URL: Issues, https://github.com/hbldh/bleak/issues
 Project-URL: Support, https://github.com/hbldh/bleak/discussions
 Description-Content-Type: text/x-rst
 
 =====
-bleak
+Bleak
 =====
-
-.. image:: https://raw.githubusercontent.com/hbldh/bleak/master/Bleak_logo2.png
-    :target: https://github.com/hbldh/bleak
-    :alt: Bleak Logo
 
 .. image:: https://github.com/hbldh/bleak/workflows/Build%20and%20Test/badge.svg
     :target: https://github.com/hbldh/bleak/actions?query=workflow%3A%22Build+and+Test%22
@@ -66,6 +61,12 @@ bleak
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
+
+.. container::
+
+    .. image:: Bleak_logo2.png
+        :target: https://github.com/hbldh/bleak
+        :alt: Bleak Logo
 
 Bleak is an acronym for Bluetooth Low Energy platform Agnostic Klient.
 
@@ -87,8 +88,8 @@ Features
 --------
 
 * Supports Windows 10, version 16299 (Fall Creators Update) or greater
-* Supports Linux distributions with BlueZ >= 5.43
-* OS X/macOS support via Core Bluetooth API, from at least OS X version 10.11
+* Supports Linux distributions with BlueZ >= 5.55
+* OS X/macOS support via Core Bluetooth API, from at least OS X version 10.13
 * Android backend compatible with python-for-android
 
 Bleak supports reading, writing and getting notifications from

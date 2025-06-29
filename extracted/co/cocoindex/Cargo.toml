@@ -2,7 +2,7 @@
 name = "cocoindex"
 # Version used for local development is always higher than others to take precedence.
 # Will be overridden for specific release versions.
-version = "0.1.54"
+version = "0.1.56"
 edition = "2024"
 rust-version = "1.86"
 
@@ -15,7 +15,7 @@ name = "cocoindex_engine"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.25.0", features = ["chrono", "auto-initialize"] }
+pyo3 = { version = "0.25.0", features = ["chrono", "auto-initialize", "uuid"] }
 pythonize = "0.25.0"
 pyo3-async-runtimes = { version = "0.25.0", features = ["tokio-runtime"] }
 

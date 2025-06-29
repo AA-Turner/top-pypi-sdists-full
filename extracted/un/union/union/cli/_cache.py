@@ -53,6 +53,11 @@ def cache():
 )
 @click.option("--cpu", type=str, help="Amount of CPU to use for downloading and caching hugging face model")
 @click.option("--mem", type=str, help="Amount of Memory to use for downloading and caching hugging face model")
+@click.option(
+    "--ephemeral-storage",
+    type=str,
+    help="Amount of Ephemeral Storage to use for downloading and caching hugging face model",
+)
 def model_from_hf(
     repo: str,
     project: str,
@@ -70,6 +75,7 @@ def model_from_hf(
     union_api_key: str,
     cpu: str,
     mem: str,
+    ephemeral_storage: str,
 ):
     """Create a model with NAME."""
     remote = UnionRemote(default_domain=domain, default_project=project)
@@ -88,7 +94,7 @@ def model_from_hf(
         union_api_key=union_api_key,
         retry=force,
         chunk_size=chunk_size,
-        resources=Resources(cpu=cpu, mem=mem),
+        resources=Resources(cpu=cpu, mem=mem, ephemeral_storage=ephemeral_storage),
     )
     c = Console()
     url = cache_exec.execution_url

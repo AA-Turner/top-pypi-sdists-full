@@ -414,6 +414,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return
 
     @property
+    def timeframes(self):
+        timeframes = self._definition.get("timeframes", [])
+        if timeframes and isinstance(timeframes, list) and "raw" not in timeframes:
+            return ["raw"] + timeframes
+        return timeframes
+
+    @property
     def filters(self):
         filters = self._definition.get("filters")
         if filters:
@@ -894,7 +901,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         if query_type in {
             Definitions.druid,
             Definitions.postgres,
-            Definitions.bigquery,
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.trino,
@@ -905,6 +911,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"aggregate function for the {self.id()} measure."
             )
         # Medians do not work with symmetric aggregates, so there's just the one return
+        if query_type == Definitions.bigquery:
+            return f"APPROX_QUANTILES({sql}, 100)[OFFSET(50)]"
         return f"MEDIAN({sql})"
 
     def _percentile_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
@@ -1042,7 +1050,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def dimension_group_names(self):
         if self.field_type == ZenlyticFieldType.dimension_group and self.type == "time":
-            return [f"{self.name}_{t}" for t in self._definition.get("timeframes", [])]
+            return [f"{self.name}_{t}" for t in self.timeframes]
         if self.field_type == ZenlyticFieldType.dimension_group and self.type == "duration":
             return [f"{t}s_{self.name}" for t in self._definition.get("intervals", self.default_intervals)]
         return []
@@ -1851,7 +1859,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["description"],
                         (
-                            f"Field {self.name} in view {self.view.name} has a description that is too long"
+                            f"Warning: Field {self.name} in view {self.view.name} has a description that is too long"
                             f" ({len(self.description)} characters). Descriptions must be"
                             f" {description_max_chars} characters or less. It will be truncated to the first"
                             f" {description_max_chars} characters."
@@ -1875,7 +1883,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["zoe_description"],
                         (
-                            f"Field {self.name} in view {self.view.name} has a zoe_description that is too"
+                            f"Warning: Field {self.name} in view {self.view.name} has a zoe_description that is too"
                             f" long. Descriptions must be {description_max_chars} characters or less. It will"
                             f" be truncated to the first {description_max_chars} characters."
                         ),

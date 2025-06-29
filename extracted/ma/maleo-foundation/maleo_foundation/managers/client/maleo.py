@@ -63,7 +63,7 @@ class MaleoClientManager(ClientManager):
             key,
             name,
             service_manager.log_config,
-            service_manager.configs.service.key
+            service_manager.configurations.service.key
         )
 
     @property

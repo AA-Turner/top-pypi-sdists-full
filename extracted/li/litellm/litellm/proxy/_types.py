@@ -341,7 +341,12 @@ class LiteLLMRoutes(enum.Enum):
 
     anthropic_routes = [
         "/v1/messages",
-        # MCP routes
+    ]
+
+    mcp_routes = [
+        "/mcp",
+        "/mcp/",
+        "/mcp/{subpath}",
         "/mcp/tools",
         "/mcp/tools/list",
         "/mcp/tools/call",
@@ -351,12 +356,10 @@ class LiteLLMRoutes(enum.Enum):
         "/v1beta/models/{model_name}:countTokens",
         "/v1beta/models/{model_name}:generateContent",
         "/v1beta/models/{model_name}:streamGenerateContent",
-
         "/models/{model_name}:countTokens",
         "/models/{model_name}:generateContent",
         "/models/{model_name}:streamGenerateContent",
     ]
-
 
     apply_guardrail_routes = [
         "/guardrails/apply_guardrail",
@@ -367,6 +370,7 @@ class LiteLLMRoutes(enum.Enum):
         + anthropic_routes
         + mapped_pass_through_routes
         + apply_guardrail_routes
+        + mcp_routes
     )
     info_routes = [
         "/key/info",
@@ -789,6 +793,7 @@ class UpdateKeyRequest(KeyRequestBase):
 class RegenerateKeyRequest(GenerateKeyRequest):
     # This needs to be different from UpdateKeyRequest, because "key" is optional for this
     key: Optional[str] = None
+    new_key: Optional[str] = None
     duration: Optional[str] = None
     spend: Optional[float] = None
     metadata: Optional[dict] = None
@@ -1070,8 +1075,14 @@ class DeleteCustomerRequest(LiteLLMPydanticObjectBase):
 
 
 class MemberBase(LiteLLMPydanticObjectBase):
-    user_id: Optional[str] = None
-    user_email: Optional[str] = None
+    user_id: Optional[str] = Field(
+        default=None,
+        description="The unique ID of the user to add. Either user_id or user_email must be provided"
+    )
+    user_email: Optional[str] = Field(
+        default=None,
+        description="The email address of the user to add. Either user_id or user_email must be provided"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -1087,7 +1098,9 @@ class Member(MemberBase):
     role: Literal[
         "admin",
         "user",
-    ]
+    ] = Field(
+        description="The role of the user within the team. 'admin' users can manage team settings and members, 'user' is a regular team member"
+    )
 
 
 class OrgMember(MemberBase):
@@ -2522,7 +2535,9 @@ class LiteLLM_TeamMembership(LiteLLMPydanticObjectBase):
 
 
 class MemberAddRequest(LiteLLMPydanticObjectBase):
-    member: Union[List[Member], Member]
+    member: Union[List[Member], Member] = Field(
+        description="Member object or list of member objects to add. Each member must include either user_id or user_email, and a role"
+    )
 
     def __init__(self, **data):
         member_data = data.get("member")
@@ -2592,8 +2607,26 @@ class MemberUpdateResponse(LiteLLMPydanticObjectBase):
 
 # Team Member Requests
 class TeamMemberAddRequest(MemberAddRequest):
-    team_id: str
-    max_budget_in_team: Optional[float] = None  # Users max budget within the team
+    """
+    Request body for adding members to a team.
+    
+    Example:
+    ```json
+    {
+        "team_id": "45e3e396-ee08-4a61-a88e-16b3ce7e0849",
+        "member": {
+            "role": "user",
+            "user_id": "user123"
+        },
+        "max_budget_in_team": 100.0
+    }
+    ```
+    """
+    team_id: str = Field(description="The ID of the team to add the member to")
+    max_budget_in_team: Optional[float] = Field(
+        default=None,
+        description="Maximum budget allocated to this user within the team. If not set, user has unlimited budget within team limits"
+    )
 
 
 class TeamMemberDeleteRequest(MemberDeleteRequest):

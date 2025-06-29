@@ -97,10 +97,11 @@ import typing_extensions
 import numpy.typing as npt
 import gpu.types
 
-def create_from_info(shader_info) -> gpu.types.GPUShader:
+def create_from_info(shader_info: gpu.types.GPUShaderCreateInfo) -> gpu.types.GPUShader:
     """Create shader from a GPUShaderCreateInfo.
 
     :param shader_info: GPUShaderCreateInfo
+    :type shader_info: gpu.types.GPUShaderCreateInfo
     :return: Shader object corresponding to the given name.
     :rtype: gpu.types.GPUShader
     """

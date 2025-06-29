@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,8 @@
 """
 Test cases for the HTMLEntity node.
 """
+
+from __future__ import annotations
 
 import pytest
 
@@ -67,9 +69,9 @@ def test_showtree():
     node1 = HTMLEntity("nbsp", named=True, hexadecimal=False)
     node2 = HTMLEntity("107", named=False, hexadecimal=False)
     node3 = HTMLEntity("e9", named=False, hexadecimal=True)
-    node1.__showtree__(output.append, None, None)
-    node2.__showtree__(output.append, None, None)
-    node3.__showtree__(output.append, None, None)
+    node1.__showtree__(output.append, lambda _code: None, lambda: None)
+    node2.__showtree__(output.append, lambda _code: None, lambda: None)
+    node3.__showtree__(output.append, lambda _code: None, lambda: None)
     res = ["&nbsp;", "&#107;", "&#xe9;"]
     assert res == output
 
@@ -123,9 +125,9 @@ def test_named():
     assert node1.named is True
     assert node2.named is False
     assert node3.named is False
-    node1.named = 1
-    node2.named = 0
-    node3.named = 0
+    node1.named = True
+    node2.named = False
+    node3.named = False
     assert node1.named is True
     assert node2.named is False
     assert node3.named is False
@@ -184,7 +186,7 @@ def test_normalize():
     assert "\xa0" == node1.normalize()
     assert "k" == node2.normalize()
     assert "é" == node3.normalize()
-    assert "\U0001F648" == node4.normalize()
+    assert "\U0001f648" == node4.normalize()
     with pytest.raises(ValueError):
         node5.normalize()
     with pytest.raises(ValueError):

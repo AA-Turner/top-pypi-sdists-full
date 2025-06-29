@@ -3,6 +3,7 @@ import re
 from glob import glob
 
 import ruamel.yaml
+import sqlglot
 
 from .metricflow_types import MetricflowMetricTypes
 
@@ -24,14 +25,44 @@ def convert_mf_project_to_zenlytic_project(
     for semantic_model in mf_project.values():
         all_measures.extend(semantic_model.get("measures", []))
 
+    primary_key_mapping = get_primary_key_mapping(mf_project)
     model = {**model_dict, "version": 1, "type": "model", "name": project_name, "connection": connection_name}
     views, errors = [], []
     for _, semantic_model in mf_project.items():
-        view, view_errors = convert_mf_view_to_zenlytic_view(semantic_model, model["name"], all_measures)
+        view, view_errors = convert_mf_view_to_zenlytic_view(
+            semantic_model, model["name"], all_measures, primary_key_mapping
+        )
         views.append(view)
         errors.extend(view_errors)
 
     return [model], views, errors
+
+
+def get_primary_key_mapping(semantic_models: dict) -> dict:
+    """
+    Extract primary key identifiers from semantic models and create a mapping
+    from primary key to view name.
+
+    Args:
+        semantic_models: Dictionary of semantic models with their configurations
+
+    Returns:
+        Dictionary mapping primary key names to view names
+    """
+    pk_mapping = {}
+
+    for view_name, semantic_model in semantic_models.items():
+        entities = semantic_model.get("entities", [])
+
+        # Find the primary entity (primary key)
+        for entity in entities:
+            if entity.get("type") == "primary":
+                pk_name = entity.get("name")
+                if pk_name:
+                    pk_mapping[pk_name] = view_name
+                break
+
+    return pk_mapping
 
 
 def load_mf_project(models_folder: str):
@@ -100,7 +131,11 @@ def load_mf_project(models_folder: str):
 
 
 def convert_mf_view_to_zenlytic_view(
-    mf_semantic_model: dict, model_name: str, all_measures: list, original_file_path: str = None
+    mf_semantic_model: dict,
+    model_name: str,
+    all_measures: list,
+    primary_key_mapping: dict,
+    original_file_path: str = None,
 ) -> tuple:
     def _error_func(error, extra: dict = {}):
         return {**extra, "view_name": mf_semantic_model["name"], "message": error}
@@ -120,8 +155,10 @@ def convert_mf_view_to_zenlytic_view(
     else:
         zenlytic_data["sql_table_name"] = extract_inner_text(mf_semantic_model["model"])
 
-    if isinstance(mf_semantic_model.get("meta", {}).get("zenlytic", {}), dict):
-        zenlytic_data = {**mf_semantic_model.get("meta", {}).get("zenlytic", {}), **zenlytic_data}
+    if mf_semantic_model.get("config", {}).get("meta") and isinstance(
+        mf_semantic_model["config"]["meta"], dict
+    ):
+        zenlytic_data = {**zenlytic_data, **mf_semantic_model["config"]["meta"].get("zenlytic", {})}
 
     if description := mf_semantic_model.get("description"):
         zenlytic_data["description"] = description
@@ -148,7 +185,9 @@ def convert_mf_view_to_zenlytic_view(
 
     for metric in mf_metrics:
         try:
-            metric_dict, added_measures = convert_mf_metric_to_zenlytic_measure(metric, all_measures)
+            metric_dict, added_measures = convert_mf_metric_to_zenlytic_measure(
+                metric, all_measures, primary_key_mapping
+            )
             zenlytic_data["fields"].append(metric_dict)
             zenlytic_data["fields"].extend(added_measures)
         except ZenlyticUnsupportedError as e:
@@ -165,12 +204,7 @@ def convert_mf_view_to_zenlytic_view(
 
 def convert_mf_dimension_to_zenlytic_dimension(mf_dimension: dict):
     if "expr" in mf_dimension:
-        expr = mf_dimension["expr"].strip()
-        # Check if expression is more than a simple column reference
-        if sql_has_operations(expr):
-            sql = expr
-        else:
-            sql = "${TABLE}." + expr
+        sql = append_table_reference(mf_dimension["expr"])
     else:
         sql = "${TABLE}." + mf_dimension["name"]
 
@@ -200,16 +234,18 @@ def convert_mf_dimension_to_zenlytic_dimension(mf_dimension: dict):
     if mf_dimension.get("meta") and isinstance(mf_dimension["meta"], dict):
         field_dict = {**field_dict, **mf_dimension["meta"].get("zenlytic", {})}
 
+    if mf_dimension.get("config", {}).get("meta") and isinstance(mf_dimension["config"]["meta"], dict):
+        field_dict = {**field_dict, **mf_dimension["config"]["meta"].get("zenlytic", {})}
+
     return field_dict
 
 
 def convert_mf_measure_to_zenlytic_measure(mf_measure: dict):
-    field_dict = {
-        "name": mf_measure["name"],
-        "sql": str(mf_measure["expr"]) if "expr" in mf_measure else mf_measure["name"],
-        "type": mf_measure["agg"],
-        "field_type": "measure",
-    }
+    field_dict = {"name": mf_measure["name"], "type": mf_measure["agg"], "field_type": "measure"}
+    if "expr" in mf_measure:
+        field_dict["sql"] = append_table_reference(str(mf_measure["expr"]))
+    else:
+        field_dict["sql"] = "${TABLE}." + mf_measure["name"]
 
     if not mf_measure.get("create_metric", False):
         field_dict["hidden"] = True
@@ -256,27 +292,19 @@ def convert_mf_entity_to_zenlytic_identifier(mf_entity: dict, fields: list = [])
     # if expr is a simple string, use it as the sql otherwise use it as given as a sql snippet
     entity_dict = {
         "name": mf_entity["name"],
-        "type": mf_entity["type"] if mf_entity["type"] != "unique" else "primary",
+        "type": "primary" if mf_entity["type"] in {"unique", "natural", "primary"} else "foreign",
     }
-    sql_expr = mf_entity["expr"] if "expr" in mf_entity else mf_entity["name"]
+    if "expr" in mf_entity:
+        sql_expr = append_table_reference(str(mf_entity["expr"]))
+    else:
+        sql_expr = "${TABLE}." + mf_entity["name"]
+    entity_dict["sql"] = sql_expr
 
-    is_field_reference = False
     for f in fields:
         # If the sql expression equals the field name, use a reference to the field
-        if f["name"] == sql_expr:
+        if "${TABLE}." + f["name"] == sql_expr:
             entity_dict["sql"] = "${" + f["name"] + "}"
-            is_field_reference = True
             break
-
-    # If the sql expression is not a field reference, use it as given as a sql snippet
-    # If it's an operation, use it as-is, but if it's a single column
-    # reference, add ${TABLE} to it, so the join works
-    if not is_field_reference:
-        sql_expr = sql_expr.strip()
-        if sql_has_operations(sql_expr):
-            entity_dict["sql"] = sql_expr
-        else:
-            entity_dict["sql"] = "${TABLE}." + sql_expr
 
     if mf_entity.get("config", {}).get("meta") and isinstance(mf_entity["config"]["meta"], dict):
         entity_dict = {**entity_dict, **mf_entity["config"]["meta"].get("zenlytic", {})}
@@ -284,7 +312,9 @@ def convert_mf_entity_to_zenlytic_identifier(mf_entity: dict, fields: list = [])
     return entity_dict
 
 
-def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tuple:
+def convert_mf_metric_to_zenlytic_measure(
+    mf_metric: dict, measures: list, primary_key_mapping: dict
+) -> tuple:
     """This returns a list because metrics with filters applied can
     result in an additional measure(s) being created
     """
@@ -305,7 +335,7 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tu
         measure_name = get_name_or_string_literal(mf_metric["type_params"]["measure"])
         associated_measure = _get_measure(measure_name, measures, metric_name=mf_metric["name"])
         metric_dict, _ = apply_filter_to_metric(
-            associated_measure, mf_metric, extra_metric_params=metric_dict
+            associated_measure, mf_metric, primary_key_mapping, extra_metric_params=metric_dict
         )
 
     elif mf_metric["type"].lower() == MetricflowMetricTypes.ratio:
@@ -319,7 +349,10 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tu
         if isinstance(numerator, dict) and "filter" in numerator:
             associated_numerator = _get_measure(numerator["name"], measures, metric_name=mf_metric["name"])
             numerator_dict, numerator_measures = apply_filter_to_metric(
-                associated_numerator, numerator, new_measure_name=mf_metric["name"] + "_numerator"
+                associated_numerator,
+                numerator,
+                primary_key_mapping,
+                new_measure_name=mf_metric["name"] + "_numerator",
             )
             numerator_sql = "${" + numerator_dict["name"] + "}"
             additional_measures.extend(numerator_measures)
@@ -332,7 +365,10 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tu
                 denominator["name"], measures, metric_name=mf_metric["name"]
             )
             denominator_dict, denominator_measures = apply_filter_to_metric(
-                associated_denominator, denominator, new_measure_name=mf_metric["name"] + "_denominator"
+                associated_denominator,
+                denominator,
+                primary_key_mapping,
+                new_measure_name=mf_metric["name"] + "_denominator",
             )
             denominator_sql = "${" + denominator_dict["name"] + "}"
             additional_measures.extend(denominator_measures)
@@ -357,7 +393,10 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tu
             elif "alias" in metric and "filter" in metric:
                 associated_measure = _get_measure(metric["name"], measures, metric_name=mf_metric["name"])
                 measure_dict, added_measures = apply_filter_to_metric(
-                    associated_measure, metric, new_measure_name=mf_metric["name"] + f"_{metric['alias']}"
+                    associated_measure,
+                    metric,
+                    primary_key_mapping,
+                    new_measure_name=mf_metric["name"] + f"_{metric['alias']}",
                 )
                 additional_measures.extend(added_measures)
                 pattern = r"\b" + re.escape(metric["alias"]) + r"\b"
@@ -393,7 +432,11 @@ def _get_measure(measure_name: str, measures: list, metric_name: str):
 
 
 def apply_filter_to_metric(
-    mf_measure: dict, mf_metric: dict, extra_metric_params: dict = {}, new_measure_name: str = None
+    mf_measure: dict,
+    mf_metric: dict,
+    primary_key_mapping: dict,
+    extra_metric_params: dict = {},
+    new_measure_name: str = None,
 ):
     measure_dict = convert_mf_measure_to_zenlytic_measure(mf_measure)
     hidden = not mf_metric.get("config", {}).get("enabled", True)
@@ -403,7 +446,9 @@ def apply_filter_to_metric(
     additional_measures = []
     if "filter" in mf_metric:
         try:
-            metric_dict["sql"] = apply_filter_to_sql(metric_dict["sql"], mf_metric["filter"])
+            metric_dict["sql"] = apply_filter_to_sql(
+                metric_dict["sql"], mf_metric["filter"], primary_key_mapping
+            )
         except ValueError as e:
             raise ZenlyticUnsupportedError(f"metric conversion failed for {mf_metric['name']}: {str(e)}")
         if new_measure_name:
@@ -412,12 +457,12 @@ def apply_filter_to_metric(
     return metric_dict, additional_measures
 
 
-def apply_filter_to_sql(sql, filter):
-    filter_sql = _extract_filter_sql(filter)
+def apply_filter_to_sql(sql, filter, primary_key_mapping: dict):
+    filter_sql = _extract_filter_sql(filter, primary_key_mapping)
     return f"case when {filter_sql} then {sql} else null end"
 
 
-def _extract_filter_sql(filter_string):
+def _extract_filter_sql(filter_string, primary_key_mapping: dict):
     """A filter will look like
     "{{ Dimension('order__is_food_order') }} = True
     We want to turn it into a valid filter statement like ${order.is_food_order} = True
@@ -427,22 +472,54 @@ def _extract_filter_sql(filter_string):
         raise ValueError("Entity type filters are not supported")
     if "Metric(" in filter_string:
         raise ValueError("Metric type filters are not supported")
-    matches = re.findall(r"{{\s*Dimension\('(.+?)'\)\s*}}\s*([=><!]+)\s*(.+?)\s*(and|or|$)", filter_string)
+    matches = re.findall(r"{{\s*Dimension\('([^']+)'\)\s*}}", filter_string)
     for match in matches:
-        column_name = match[0].replace("__", ".")
+        column_name = match.replace("__", ".")
+
+        if "." in column_name:
+            primary_key_reference, field_name = column_name.split(".")
+            if primary_key_reference in primary_key_mapping:
+                column_name = primary_key_mapping[primary_key_reference] + "." + field_name
+
         replacement = "${" + column_name + "}"
-        filter_string = filter_string.replace(f"Dimension('{match[0]}')", replacement)
+        filter_string = filter_string.replace(f"Dimension('{match}')", replacement)
+
     # First get the dimension name and grain
     time_dim_matches = re.findall(
         r"""TimeDimension\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)""", filter_string
     )
     for match in time_dim_matches:
         column_name = match[0].replace("__", ".")
+        if "." in column_name:
+            primary_key_reference, field_name = column_name.split(".")
+            if primary_key_reference in primary_key_mapping:
+                column_name = primary_key_mapping[primary_key_reference] + "." + field_name
+
         time_grain = match[1].replace("day", "date")
 
         replacement = "${" + f"{column_name}_{time_grain}" + "}"
         filter_string = filter_string.replace(f"TimeDimension('{match[0]}', '{match[1]}')", replacement)
     return filter_string.replace("{{", "").replace("}}", "")
+
+
+def append_table_reference(sql: str):
+    try:
+        # Parse the SQL to identify column references
+        parsed = sqlglot.parse_one(sql.strip())
+
+        # Transform column references to include ${TABLE}. prefix
+        def transform_columns(node):
+            if isinstance(node, sqlglot.expressions.Column) and not node.table:
+                # Only add ${TABLE}. if the column doesn't already have a table reference
+                node.set("table", sqlglot.expressions.Identifier(this="${TABLE}"))
+            return node
+
+        # Apply the transformation
+        transformed = parsed.transform(transform_columns)
+        return str(transformed)
+    except Exception:
+        # Fallback to simple string concatenation if parsing fails
+        return sql.strip()
 
 
 def get_name_or_string_literal(s):

@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2021 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,19 +18,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import html.entities as htmlentities
-from math import log
-import re
+from __future__ import annotations
 
-from . import contexts, tokens
-from .errors import ParserError
+import html.entities
+import math
+import re
+from enum import Enum
+from typing import Literal, cast, overload
+
 from ..definitions import (
     get_html_tag,
     is_parsable,
+    is_scheme,
     is_single,
     is_single_only,
-    is_scheme,
 )
+from . import contexts, tokens
+from .errors import ParserError
 
 __all__ = ["Tokenizer"]
 
@@ -62,13 +66,20 @@ class _TagOpenData:
         self.reset = 0
 
 
+class Sentinel(Enum):
+    START = 0
+    END = 1
+
+
+START = Sentinel.START
+END = Sentinel.END
+
+
 class Tokenizer:
     """Creates a list of tokens from a string of wikicode."""
 
     USES_C = False
-    START = object()
-    END = object()
-    MARKERS = [
+    MARKERS: list[str | Sentinel] = [
         "{",
         "}",
         "[",
@@ -97,8 +108,8 @@ class Tokenizer:
     tag_splitter = re.compile(r"([\s\"\'\\]+)")
 
     def __init__(self):
-        self._text = None
-        self._head = 0
+        self._text: list[str] = []
+        self._head: int = 0
         self._stacks = []
         self._global = 0
         self._depth = 0
@@ -220,27 +231,44 @@ class Tokenizer:
             self._emit_all(stack)
         self._head -= 1
 
-    def _read(self, delta=0, wrap=False, strict=False):
+    @overload
+    def _read(
+        self, *, strict: Literal[False] = False
+    ) -> str | Literal[Sentinel.END]: ...
+
+    @overload
+    def _read(self, *, strict: Literal[True]) -> str: ...
+
+    @overload
+    def _read(
+        self, delta: int = 0, *, strict: Literal[False] = False
+    ) -> str | Literal[Sentinel.START, Sentinel.END]: ...
+
+    @overload
+    def _read(
+        self, delta: int = 0, *, strict: Literal[True]
+    ) -> str | Literal[Sentinel.START]: ...
+
+    def _read(
+        self, delta: int = 0, *, strict: bool = False
+    ) -> str | Literal[Sentinel.START, Sentinel.END]:
         """Read the value at a relative point in the wikicode.
 
         The value is read from :attr:`self._head <_head>` plus the value of
-        *delta* (which can be negative). If *wrap* is ``False``, we will not
-        allow attempts to read from the end of the string if ``self._head +
-        delta`` is negative. If *strict* is ``True``, the route will be failed
-        (with :meth:`_fail_route`) if we try to read from past the end of the
-        string; otherwise, :attr:`self.END <END>` is returned. If we try to
-        read from before the start of the string, :attr:`self.START <START>` is
-        returned.
+        *delta* (which can be negative). If *strict* is ``True``, the route
+        will be failed (with :meth:`_fail_route`) if we try to read from past
+        the end of the string; otherwise, ``END`` is returned. If we try to
+        read from before the start of the string, ``START`` is returned.
         """
         index = self._head + delta
-        if index < 0 and (not wrap or abs(index) > len(self._text)):
-            return self.START
+        if index < 0:
+            return START
         try:
             return self._text[index]
         except IndexError:
             if strict:
                 self._fail_route()
-            return self.END
+            return END
 
     def _parse_template(self, has_content):
         """Parse a template at the head of the wikicode string."""
@@ -396,10 +424,13 @@ class Tokenizer:
             self._emit_text("//")
             self._head += 2
         else:
-            all_valid = lambda: all(char in self.URISCHEME for char in self._read())
+
+            def all_valid(this: str):
+                return all(char in self.URISCHEME for char in this)
+
             scheme = ""
-            while self._read() is not self.END and all_valid():
-                scheme += self._read()
+            while (this := self._read()) is not END and all_valid(this):
+                scheme += this
                 self._emit_text(self._read())
                 self._head += 1
             if self._read() != ":":
@@ -467,7 +498,7 @@ class Tokenizer:
         # Built from _parse()'s end sentinels:
         after, ctx = self._read(2), self._context
         return (
-            this in (self.END, "\n", "[", "]", "<", ">", '"')
+            this in (END, "\n", "[", "]", "<", ">", '"')
             or " " in this
             or this == nxt == "'"
             or (this == "|" and ctx & contexts.TEMPLATE)
@@ -486,7 +517,7 @@ class Tokenizer:
             self._parse_free_uri_scheme()
             invalid = ("\n", " ", "[", "]")
             punct = tuple(",;\\.:!?)")
-        if self._read() is self.END or self._read()[0] in invalid:
+        if (this := self._read()) is END or this[0] in invalid:
             self._fail_route()
         tail = ""
         while True:
@@ -507,7 +538,7 @@ class Tokenizer:
                     tail = ""
                 self._parse_template_or_argument()
             elif brackets:
-                if this is self.END or this == "\n":
+                if this is END or this == "\n":
                     self._fail_route()
                 if this == "]":
                     return self._pop(), None
@@ -529,7 +560,7 @@ class Tokenizer:
                 self._emit_text(this)
             else:
                 if self._is_uri_end(this, nxt):
-                    if this is not self.END and " " in this:
+                    if this is not END and " " in this:
                         before, after = this.split(" ", 1)
                         punct, tail = self._handle_free_link_text(punct, tail, before)
                         tail += " " + after
@@ -611,7 +642,7 @@ class Tokenizer:
         while self._read() == "=":
             best += 1
             self._head += 1
-        current = int(log(self._context / contexts.HEADING_LEVEL_1, 2)) + 1
+        current = int(math.log(self._context / contexts.HEADING_LEVEL_1, 2)) + 1
         level = min(current, min(best, 6))
 
         try:  # Try to check for a heading closure after this one
@@ -662,7 +693,7 @@ class Tokenizer:
             if test < 1 or test > 0x10FFFF:
                 self._fail_route()
         else:
-            if this not in htmlentities.entitydefs:
+            if this not in html.entities.entitydefs:
                 self._fail_route()
 
         self._emit(tokens.Text(text=this))
@@ -687,7 +718,7 @@ class Tokenizer:
         self._push()
         while True:
             this = self._read()
-            if this == self.END:
+            if this == END:
                 self._pop()
                 self._head = reset
                 self._emit_text("<!--")
@@ -827,7 +858,10 @@ class Tokenizer:
 
     def _handle_tag_close_close(self):
         """Handle the ending of a closing tag (``</foo>``)."""
-        strip = lambda tok: tok.text.rstrip().lower()
+
+        def strip(tok):
+            return tok.text.rstrip().lower()
+
         closing = self._pop()
         if len(closing) != 1 or (
             not isinstance(closing[0], tokens.Text)
@@ -840,10 +874,13 @@ class Tokenizer:
 
     def _handle_blacklisted_tag(self):
         """Handle the body of an HTML tag that is parser-blacklisted."""
-        strip = lambda text: text.rstrip().lower()
+
+        def strip(text):
+            return text.rstrip().lower()
+
         while True:
             this, nxt = self._read(), self._read(1)
-            if this is self.END:
+            if this is END:
                 self._fail_route()
             elif this == "<" and nxt == "/":
                 self._head += 3
@@ -906,7 +943,7 @@ class Tokenizer:
                 not data.context & (data.CX_QUOTED | data.CX_NAME)
                 or data.context & data.CX_NOTE_SPACE
             )
-            if this is self.END:
+            if this is END:
                 if self._context & contexts.TAG_ATTR:
                     if data.context & data.CX_QUOTED:
                         # Unclosed attribute quote: reset, don't die
@@ -937,7 +974,8 @@ class Tokenizer:
         reset = self._head + 1
         self._head += 2
         try:
-            if not is_single_only(self.tag_splitter.split(self._read())[0]):
+            assert (this := self._read()) is not END
+            if not is_single_only(self.tag_splitter.split(this)[0]):
                 raise BadRoute()
             tag = self._really_parse_tag()
         except BadRoute:
@@ -1089,6 +1127,7 @@ class Tokenizer:
     def _handle_list_marker(self):
         """Handle a list marker at the head (``#``, ``*``, ``;``, ``:``)."""
         markup = self._read()
+        assert markup is not END
         if markup == ";":
             self._context |= contexts.DL_TERM
         self._emit(tokens.TagOpenOpen(wiki_markup=markup))
@@ -1148,7 +1187,7 @@ class Tokenizer:
         self._emit_text(tag)
         self._emit(tokens.TagCloseClose())
 
-    def _handle_table_style(self, end_token):
+    def _handle_table_style(self, end_token: str):
         """Handle style attributes for a table until ``end_token``."""
         data = _TagOpenData()
         data.context = _TagOpenData.CX_ATTR_READY
@@ -1158,12 +1197,13 @@ class Tokenizer:
                 not data.context & data.CX_QUOTED or data.context & data.CX_NOTE_SPACE
             )
             if this == end_token and can_exit:
+                assert this is not END
                 if data.context & (data.CX_ATTR_NAME | data.CX_ATTR_VALUE):
                     self._push_tag_buffer(data)
                 if this.isspace():
                     data.padding_buffer["first"] += this
                 return data.padding_buffer["first"]
-            if this is self.END or this == end_token:
+            if this is END or this == end_token:
                 if self._context & contexts.TAG_ATTR:
                     if data.context & data.CX_QUOTED:
                         # Unclosed attribute quote: reset, don't die
@@ -1332,11 +1372,11 @@ class Tokenizer:
                 return True
             if context & contexts.HAS_TEXT:
                 if context & contexts.FAIL_ON_TEXT:
-                    if this is self.END or not this.isspace():
+                    if this is END or not this.isspace():
                         return False
                 elif this == "\n":
                     self._context |= contexts.FAIL_ON_TEXT
-            elif this is self.END or not this.isspace():
+            elif this is END or not this.isspace():
                 self._context |= contexts.HAS_TEXT
             return True
         if context & contexts.TAG_CLOSE:
@@ -1378,7 +1418,7 @@ class Tokenizer:
                 self._emit_text(this)
                 self._head += 1
                 continue
-            if this is self.END:
+            if this is END:
                 return self._handle_end()
             nxt = self._read(1)
             if this == nxt == "{":
@@ -1391,7 +1431,7 @@ class Tokenizer:
             elif this == "=" and self._context & contexts.TEMPLATE_PARAM_KEY:
                 if (
                     not self._global & contexts.GL_HEADING
-                    and self._read(-1) in ("\n", self.START)
+                    and self._read(-1) in ("\n", START)
                     and nxt == "="
                 ):
                     self._parse_heading()
@@ -1428,7 +1468,7 @@ class Tokenizer:
                 and not self._global & contexts.GL_HEADING
                 and not self._context & contexts.TEMPLATE
             ):
-                if self._read(-1) in ("\n", self.START):
+                if self._read(-1) in ("\n", START):
                     self._parse_heading()
                 else:
                     self._emit_text("=")
@@ -1443,7 +1483,7 @@ class Tokenizer:
                     self._parse_comment()
                 else:
                     self._emit_text(this)
-            elif this == "<" and nxt == "/" and self._read(2) is not self.END:
+            elif this == "<" and nxt == "/" and self._read(2) is not END:
                 if self._context & contexts.TAG_BODY:
                     self._handle_tag_open_close()
                 else:
@@ -1459,9 +1499,9 @@ class Tokenizer:
                 result = self._parse_style()
                 if result is not None:
                     return result
-            elif self._read(-1) in ("\n", self.START) and this in ("#", "*", ";", ":"):
+            elif self._read(-1) in ("\n", START) and this in ("#", "*", ";", ":"):
                 self._handle_list()
-            elif self._read(-1) in ("\n", self.START) and (
+            elif self._read(-1) in ("\n", START) and (
                 this == nxt == self._read(2) == self._read(3) == "-"
             ):
                 self._handle_hr()
@@ -1475,10 +1515,10 @@ class Tokenizer:
                 this == "{"
                 and nxt == "|"
                 and (
-                    self._read(-1) in ("\n", self.START)
+                    self._read(-1) in ("\n", START)
                     or (
-                        self._read(-2) in ("\n", self.START)
-                        and self._read(-1).isspace()
+                        self._read(-2) in ("\n", START)
+                        and cast(str, self._read(-1)).isspace()
                     )
                 )
             ):
@@ -1505,8 +1545,9 @@ class Tokenizer:
                 elif this == "\n" and self._context & contexts.TABLE_CELL_LINE_CONTEXTS:
                     self._context &= ~contexts.TABLE_CELL_LINE_CONTEXTS
                     self._emit_text(this)
-                elif self._read(-1) in ("\n", self.START) or (
-                    self._read(-2) in ("\n", self.START) and self._read(-1).isspace()
+                elif self._read(-1) in ("\n", START) or (
+                    self._read(-2) in ("\n", START)
+                    and cast(str, self._read(-1)).isspace()
                 ):
                     if this == "|" and nxt == "}":
                         if self._context & contexts.TABLE_CELL_OPEN:
@@ -1537,7 +1578,7 @@ class Tokenizer:
                 self._emit_text(this)
             self._head += 1
 
-    def tokenize(self, text, context=0, skip_style_tags=False):
+    def tokenize(self, text: str, context=0, skip_style_tags=False):
         """Build a list of tokens from a string of wikicode and return it."""
         split = self.regex.split(text)
         self._text = [segment for segment in split if segment]

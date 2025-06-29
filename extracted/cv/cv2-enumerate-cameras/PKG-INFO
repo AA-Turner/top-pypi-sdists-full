@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cv2_enumerate_cameras
-Version: 1.1.18.3
+Version: 1.2.0
 Summary: Enumerate / List / Find / Detect / Search index for opencv VideoCapture.
 Author-email: Yu He <chinaheyu@outlook.com>
 License: MIT License
@@ -31,8 +31,10 @@ Keywords: opencv,cv2,enumerate,camera,video capture
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pyobjc-framework-AVFoundation; platform_system == "Darwin"
 Provides-Extra: linuxpy
 Requires-Dist: linuxpy; platform_system == "Linux" and extra == "linuxpy"
+Dynamic: license-file
 
 <div align="center">
 
@@ -93,6 +95,10 @@ Currently supported backends on linux:
 
 - GStreamer (CAP_GSTREAMER)
 -  V4L/V4L2 (CAP_V4L2)
+
+Currently supported backends on macOS:
+
+- AVFoundation (CAP_AVFOUNDATION)
 
 ### Enumerate Cameras
 
@@ -194,4 +200,4 @@ Currently, support for MacOS is in the planning stage, and pull requests are ver
 
 - [x] Windows Support
 - [x] Linux Support
-- [ ] MacOS Support
+- [x] MacOS Support (Experimental)

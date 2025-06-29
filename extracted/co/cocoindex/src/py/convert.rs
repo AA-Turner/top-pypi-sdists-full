@@ -69,7 +69,7 @@ fn basic_value_to_py_object<'py>(
         value::BasicValue::Float32(v) => v.into_bound_py_any(py)?,
         value::BasicValue::Float64(v) => v.into_bound_py_any(py)?,
         value::BasicValue::Range(v) => pythonize(py, v).into_py_result()?,
-        value::BasicValue::Uuid(v) => v.as_bytes().into_bound_py_any(py)?,
+        value::BasicValue::Uuid(uuid_val) => uuid_val.into_bound_py_any(py)?,
         value::BasicValue::Date(v) => v.into_bound_py_any(py)?,
         value::BasicValue::Time(v) => v.into_bound_py_any(py)?,
         value::BasicValue::LocalDateTime(v) => v.into_bound_py_any(py)?,
@@ -136,9 +136,7 @@ fn basic_value_from_py_object<'py>(
         schema::BasicValueType::Float32 => value::BasicValue::Float32(v.extract::<f32>()?),
         schema::BasicValueType::Float64 => value::BasicValue::Float64(v.extract::<f64>()?),
         schema::BasicValueType::Range => value::BasicValue::Range(depythonize(v)?),
-        schema::BasicValueType::Uuid => {
-            value::BasicValue::Uuid(uuid::Uuid::from_bytes(v.extract::<uuid::Bytes>()?))
-        }
+        schema::BasicValueType::Uuid => value::BasicValue::Uuid(v.extract::<uuid::Uuid>()?),
         schema::BasicValueType::Date => value::BasicValue::Date(v.extract::<chrono::NaiveDate>()?),
         schema::BasicValueType::Time => value::BasicValue::Time(v.extract::<chrono::NaiveTime>()?),
         schema::BasicValueType::LocalDateTime => {

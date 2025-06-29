@@ -245,6 +245,17 @@ def option(*param_decls: str, cls: Optional[Type[click.Option]] = None, **attrs:
     help='Treat target as a factory function, that should be invoked to build the actual target',
 )
 @option(
+    '--working-dir',
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=pathlib.Path),
+    help='Set the working directory',
+)
+@option(
+    '--env-files',
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=pathlib.Path),
+    help='Environment file(s) to load (requires granian[dotenv] extra)',
+    multiple=True,
+)
+@option(
     '--static-path-route',
     default='/static',
     help='Route for static file serving',
@@ -362,6 +373,8 @@ def cli(
     workers_lifetime: Optional[int],
     workers_kill_timeout: Optional[int],
     factory: bool,
+    working_dir: Optional[pathlib.Path],
+    env_files: Optional[List[pathlib.Path]],
     static_path_route: str,
     static_path_mount: Optional[pathlib.Path],
     static_path_expires: int,
@@ -435,6 +448,8 @@ def cli(
         workers_lifetime=workers_lifetime,
         workers_kill_timeout=workers_kill_timeout,
         factory=factory,
+        working_dir=working_dir,
+        env_files=env_files,
         static_path_route=static_path_route,
         static_path_mount=static_path_mount,
         static_path_expires=static_path_expires,

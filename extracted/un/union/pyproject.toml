@@ -53,7 +53,7 @@ classifiers = [
 byoc = ["unionmeta-byoc"]
 vllm = [
     "vllm>=0.8.2",
-    "torch==2.6",
+    "torch>=2.5.1",
     "aiofiles==24.1.0",
     # Pin because of auth issue: https://github.com/developmentseed/obstore/issues/411
     "obstore==0.3.0",
@@ -63,7 +63,7 @@ vllm = [
 sglang = [
     "sglang[all]>=0.4.5",
     "datamodel-code-generator==0.28.5",
-    "torch==2.5.1",
+    "torch>=2.5.1",
     "aiofiles==24.1.0",
     # Pin because of auth issue: https://github.com/developmentseed/obstore/issues/411
     "obstore==0.3.0",

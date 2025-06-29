@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: upsonic
-Version: 0.59.8
+Version: 0.59.9
 Summary: Task oriented AI agent framework for digital workers and vertical AI agents
 Author-email: Onur ULUSOY <onur@upsonic.co>
 License-File: LICENCE
@@ -8,6 +8,7 @@ Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.12.3
 Requires-Dist: boto3>=1.35.99
 Requires-Dist: botocore>=1.35.99
+Requires-Dist: celery[redis]>=5.5.3
 Requires-Dist: duckduckgo-search>=7.3.1
 Requires-Dist: google>=3.0.0
 Requires-Dist: markitdown[all]==0.0.1

@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2021 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from __future__ import annotations
+
 from mwparserfromhell.nodes import (
     Argument,
     Comment,
@@ -32,8 +34,13 @@ from mwparserfromhell.nodes import (
 from mwparserfromhell.smart_list import SmartList
 from mwparserfromhell.wikicode import Wikicode
 
-wrap = lambda L: Wikicode(SmartList(L))
-wraptext = lambda *args: wrap([Text(t) for t in args])
+
+def wrap(L):
+    return Wikicode(SmartList(L))
+
+
+def wraptext(*args):
+    return wrap([Text(t) for t in args])
 
 
 def _assert_node_equal(expected, actual):
@@ -49,8 +56,7 @@ def _assert_node_equal(expected, actual):
         Text: _assert_text_node_equal,
         Wikilink: _assert_wikilink_node_equal,
     }
-    # pylint: disable=unidiomatic-typecheck
-    assert type(expected) == type(actual)
+    assert type(expected) is type(actual)
     registry[type(expected)](expected, actual)
 
 

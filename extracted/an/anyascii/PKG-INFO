@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: anyascii
-Version: 0.3.2
+Version: 0.3.3
 Summary: Unicode to ASCII transliteration
 Keywords: unicode,ascii,transliteration,utf8,romanization,slug,emoji,unidecode,normalization
 Author-email: Hunter WB <hunter@hunterwb.com>
@@ -10,7 +10,10 @@ Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Text Processing :: General
 Classifier: Topic :: Text Processing :: Linguistic
-Project-URL: homepage, https://github.com/anyascii/anyascii
+License-File: LICENSE
+Project-URL: Changelog, https://github.com/anyascii/anyascii/blob/master/CHANGELOG.md
+Project-URL: Demo, https://anyascii.com
+Project-URL: Homepage, https://github.com/anyascii/anyascii
 
 # AnyAscii
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,8 @@
 """
 Test cases for the Comment node.
 """
+
+from __future__ import annotations
 
 import pytest
 
@@ -51,7 +53,7 @@ def test_showtree():
     """test Comment.__showtree__()"""
     output = []
     node = Comment("foobar")
-    node.__showtree__(output.append, None, None)
+    node.__showtree__(output.append, lambda _code: None, lambda: None)
     assert ["<!--foobar-->"] == output
 
 

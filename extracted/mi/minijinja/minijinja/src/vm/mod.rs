@@ -908,7 +908,7 @@ impl<'env> Vm<'env> {
         out: &mut Output,
     ) -> Result<Option<Value>, Error> {
         if let Some((name, block_stack)) = state.blocks.get_key_value(name) {
-            let old_block = mem::replace(&mut state.current_block, Some(name));
+            let old_block = state.current_block.replace(name);
             let old_instructions =
                 mem::replace(&mut state.instructions, block_stack.instructions());
             state.ctx.push_frame(Frame::default())?;
@@ -920,7 +920,7 @@ impl<'env> Vm<'env> {
         } else {
             Err(Error::new(
                 ErrorKind::UnknownBlock,
-                format!("block '{}' not found", name),
+                format!("block '{name}' not found"),
             ))
         }
     }
@@ -1013,7 +1013,7 @@ impl<'env> Vm<'env> {
         } else {
             Err(Error::new(
                 ErrorKind::CannotUnpack,
-                format!("sequence of wrong length (expected {}, got {})", count, n,),
+                format!("sequence of wrong length (expected {count}, got {n})",),
             ))
         }
     }

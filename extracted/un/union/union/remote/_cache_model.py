@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from functools import partial
 from typing import Dict, Generator, Optional, Tuple, Union
 
-from flytekit import FlyteDirectory, ImageSpec, Resources, Secret, Workflow, current_context
+from flytekit import ImageSpec, Resources, Secret, Workflow, current_context
 from flytekit.core.context_manager import ExecutionParameters
 
 import union
@@ -142,34 +142,7 @@ def _yield_files(hfs, repo_id: str, revision: str) -> Generator[dict, None, None
             yield file_details
 
 
-def _stream_file_to_dir(
-    file_details: dict,
-    hfs,
-    prefix_len: int,
-    directory: FlyteDirectory,
-    chunk_size: int,
-):
-    name = file_details["name"]
-    size = file_details["size"]
-    with hfs.open(name, "rb", block_size=0) as res:
-        filename = name[prefix_len:]
-        ff = directory.new_file(filename)
-        copied = 0
-        print(f"Copying {name} to {ff.path}, size: {size}. Total chunks: {size // chunk_size}", flush=True)
-        with ff.open("wb") as sink:
-            while True:
-                chunk = res.read(chunk_size)
-                sink.write(chunk)
-                copied = copied + len(chunk)
-                if copied >= size:
-                    break
-                percent_complete = copied / size * 100
-                if int(percent_complete) > 0 and int(percent_complete) % 10 == 0:
-                    print(f"Completed copying {percent_complete} %...", flush=True)
-        print(f"Copied {name} to {ff.path}", flush=True)
-
-
-def stream_all_files_to_flytedir(
+def download_all_files_to_flytedir(
     repo_id: str,
     commit: str,
     token: str | None = None,
@@ -187,7 +160,7 @@ def stream_all_files_to_flytedir(
     """
     from huggingface_hub import HfFileSystem
 
-    directory = union.FlyteDirectory.new_remote()
+    directory = union.FlyteDirectory.new("local_tmp")
     card = None
 
     hfs = HfFileSystem(token=token)
@@ -195,8 +168,10 @@ def stream_all_files_to_flytedir(
     try:
         readme_file_details = hfs.info(f"{repo_id}/README.md", revision=commit)
         readme_name = readme_file_details["name"]
-        with hfs.open(readme_name, "r") as res:
-            card = res.read()
+        with tempfile.NamedTemporaryFile() as temp_file:
+            hfs.download(readme_name, temp_file.name, revision=commit)
+            with open(temp_file.name, "r") as f:
+                card = f.read()
 
     except FileNotFoundError:
         print("No readme file", flush=True)
@@ -205,16 +180,17 @@ def stream_all_files_to_flytedir(
     prefix = root_name_detail["name"]
     prefix_len = len(prefix) + 1
 
-    stream_file_partial = partial(
-        _stream_file_to_dir,
-        hfs=hfs,
-        prefix_len=prefix_len,
-        directory=directory,
-        chunk_size=chunk_size,
-    )
+    def _download_file_to_dir(file_details: dict):
+        name = file_details["name"]
+        size = file_details["size"]
+        filename = name[prefix_len:]
+
+        ff = directory.new_file(filename)
+        print(f"Downloading {name} to {ff.path}, size: {size}", flush=True)
+        hfs.download(name, ff.path, revision=commit)
 
     for file_details in _yield_files(hfs, repo_id=repo_id, revision=commit):
-        stream_file_partial(file_details)
+        _download_file_to_dir(file_details)
     return directory, card
 
 
@@ -253,7 +229,7 @@ def cache_model_from_hf(
     """
     This task caches a model from the Hugging Face Hub, given the model info.
     Args:
-        info: HugoingFaceModelInfo: The model info.
+        info: HuggingFaceModelInfo: The model info.
         commit: str: The commit id of the model.
 
     Returns:
@@ -280,9 +256,9 @@ def cache_model_from_hf(
     partitions[COMMIT_KEY] = commit
     print(f"Partitions: {partitions}")
 
-    print("Streaming files to blob storage...", flush=True)
-    directory, card = stream_all_files_to_flytedir(info.repo, commit, token, chunk_size=chunk_size)
-    print(f"Data streamed to {directory.path}")
+    print("Downloading files...", flush=True)
+    directory, card = download_all_files_to_flytedir(info.repo, commit, token, chunk_size=chunk_size)
+    print(f"Data downloaded to {directory.path}")
     artifact_name = info.repo.split("/")[-1]
     artifact_name = artifact_name.replace(".", "_")
     if retry > 0:

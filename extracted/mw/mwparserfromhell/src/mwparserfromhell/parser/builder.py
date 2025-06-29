@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,9 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from __future__ import annotations
 
-from . import tokens
-from .errors import ParserError
 from ..nodes import (
     Argument,
     Comment,
@@ -35,6 +34,8 @@ from ..nodes import (
 from ..nodes.extras import Attribute, Parameter
 from ..smart_list import SmartList
 from ..wikicode import Wikicode
+from . import tokens
+from .errors import ParserError
 
 __all__ = ["Builder"]
 
@@ -109,6 +110,7 @@ class Builder:
     @_add_handler(tokens.TemplateOpen)
     def _handle_template(self, token):
         """Handle a case where a template is at the head of the tokens."""
+        name = None
         params = []
         default = 1
         self._push()
@@ -124,6 +126,7 @@ class Builder:
             elif isinstance(token, tokens.TemplateClose):
                 if not params:
                     name = self._pop()
+                assert name is not None
                 return Template(name, params)
             else:
                 self._write(self._handle_token(token))
@@ -271,6 +274,8 @@ class Builder:
     def _handle_tag(self, token):
         """Handle a case where a tag is at the head of the tokens."""
         close_tokens = (tokens.TagCloseSelfclose, tokens.TagCloseClose)
+        tag = None
+        padding = None
         implicit, attrs, contents, closing_tag = False, [], None, None
         wiki_markup, invalid = token.wiki_markup, token.invalid or False
         wiki_style_separator, closing_wiki_markup = None, wiki_markup
@@ -298,6 +303,8 @@ class Builder:
                 else:
                     self_closing = False
                     closing_tag = self._pop()
+                assert tag is not None
+                assert padding is not None
                 return Tag(
                     tag,
                     contents,

@@ -1,16 +1,13 @@
+use crate::builder::exec_ctx::AnalyzedSetupState;
+use crate::ops::get_executor_factory;
 use crate::prelude::*;
 
 use super::plan::*;
-use crate::execution::db_tracking_setup;
 use crate::lib_context::get_auth_registry;
-use crate::setup::{
-    self, DesiredMode, FlowSetupMetadata, FlowSetupState, ResourceIdentifier, SourceSetupState,
-    TargetSetupState, TargetSetupStateCommon,
-};
 use crate::utils::fingerprint::Fingerprinter;
 use crate::{
     base::{schema::*, spec::*},
-    ops::{interface::*, registry::*},
+    ops::interface::*,
 };
 use futures::future::{BoxFuture, try_join3};
 use futures::{FutureExt, future::try_join_all};
@@ -363,9 +360,8 @@ impl DataScopeBuilder {
     }
 }
 
-pub(super) struct AnalyzerContext<'a> {
-    pub registry: &'a ExecutorFactoryRegistry,
-    pub flow_ctx: &'a Arc<FlowInstanceContext>,
+pub(super) struct AnalyzerContext {
+    pub flow_ctx: Arc<FlowInstanceContext>,
 }
 
 #[derive(Debug, Default)]
@@ -661,66 +657,27 @@ struct ExportDataFieldsInfo {
     value_stable: bool,
 }
 
-impl AnalyzerContext<'_> {
-    pub(super) fn analyze_import_op(
+impl AnalyzerContext {
+    pub(super) async fn analyze_import_op(
         &self,
         op_scope: &Arc<OpScope>,
         import_op: NamedSpec<ImportOpSpec>,
-        metadata: Option<&mut FlowSetupMetadata>,
-        existing_source_states: Option<&Vec<&SourceSetupState>>,
     ) -> Result<impl Future<Output = Result<AnalyzedImportOp>> + Send + use<>> {
-        let factory = self.registry.get(&import_op.spec.source.kind);
-        let source_factory = match factory {
-            Some(ExecutorFactory::Source(source_executor)) => source_executor.clone(),
+        let source_factory = match get_executor_factory(&import_op.spec.source.kind)? {
+            ExecutorFactory::Source(source_executor) => source_executor,
             _ => {
                 return Err(anyhow::anyhow!(
-                    "Source executor not found for kind: {}",
+                    "`{}` is not a source op",
                     import_op.spec.source.kind
                 ));
             }
         };
-        let (output_type, executor) = source_factory.build(
-            serde_json::Value::Object(import_op.spec.source.spec),
-            self.flow_ctx.clone(),
-        )?;
-
-        let key_schema_no_attrs = output_type
-            .typ
-            .key_type()
-            .ok_or_else(|| api_error!("Source must produce a type with key"))?
-            .typ
-            .without_attrs();
-
-        let source_id = metadata.map(|metadata| {
-            let existing_source_ids = existing_source_states
-                .iter()
-                .flat_map(|v| v.iter())
-                .filter_map(|state| {
-                    if state.key_schema == key_schema_no_attrs {
-                        Some(state.source_id)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<HashSet<_>>();
-            let source_id = if existing_source_ids.len() == 1 {
-                existing_source_ids.into_iter().next().unwrap()
-            } else {
-                if existing_source_ids.len() > 1 {
-                    warn!("Multiple source states with the same key schema found");
-                }
-                metadata.last_source_id += 1;
-                metadata.last_source_id
-            };
-            metadata.sources.insert(
-                import_op.name.clone(),
-                SourceSetupState {
-                    source_id,
-                    key_schema: key_schema_no_attrs,
-                },
-            );
-            source_id
-        });
+        let (output_type, executor) = source_factory
+            .build(
+                serde_json::Value::Object(import_op.spec.source.spec),
+                self.flow_ctx.clone(),
+            )
+            .await?;
 
         let op_name = import_op.name.clone();
         let primary_key_type = output_type
@@ -735,7 +692,6 @@ impl AnalyzerContext<'_> {
             let executor = executor.await?;
             trace!("Finished building executor for source op `{}`", op_name);
             Ok(AnalyzedImportOp {
-                source_id: source_id.unwrap_or_default(),
                 executor,
                 output,
                 primary_key_type,
@@ -746,7 +702,7 @@ impl AnalyzerContext<'_> {
         Ok(result_fut)
     }
 
-    pub(super) fn analyze_reactive_op(
+    pub(super) async fn analyze_reactive_op(
         &self,
         op_scope: &Arc<OpScope>,
         reactive_op: &NamedSpec<ReactiveOpSpec>,
@@ -762,18 +718,15 @@ impl AnalyzerContext<'_> {
                     })?;
                 let spec = serde_json::Value::Object(op.op.spec.clone());
 
-                let factory = self.registry.get(&op.op.kind);
-                match factory {
-                    Some(ExecutorFactory::SimpleFunction(fn_executor)) => {
+                match get_executor_factory(&op.op.kind)? {
+                    ExecutorFactory::SimpleFunction(fn_executor) => {
                         let input_value_mappings = input_field_schemas
                             .iter()
                             .map(|field| field.analyzed_value.clone())
                             .collect();
-                        let (output_enriched_type, executor) = fn_executor.clone().build(
-                            spec,
-                            input_field_schemas,
-                            self.flow_ctx.clone(),
-                        )?;
+                        let (output_enriched_type, executor) = fn_executor
+                            .build(spec, input_field_schemas, self.flow_ctx.clone())
+                            .await?;
                         let logic_fingerprinter = Fingerprinter::default()
                             .with(&op.op)?
                             .with(&output_enriched_type.without_attrs())?;
@@ -813,12 +766,7 @@ impl AnalyzerContext<'_> {
                         }
                         .boxed()
                     }
-                    _ => {
-                        return Err(anyhow::anyhow!(
-                            "Transform op kind not found: {}",
-                            op.op.kind
-                        ));
-                    }
+                    _ => api_bail!("`{}` is not a function op", op.op.kind),
                 }
             }
 
@@ -828,8 +776,10 @@ impl AnalyzerContext<'_> {
                     &foreach_op.field_path,
                 )?;
                 let analyzed_op_scope_fut = {
-                    let analyzed_op_scope_fut =
-                        self.analyze_op_scope(&sub_op_scope, &foreach_op.op_scope.ops)?;
+                    let analyzed_op_scope_fut = self
+                        .analyze_op_scope(&sub_op_scope, &foreach_op.op_scope.ops)
+                        .boxed_local()
+                        .await?;
                     let sub_op_scope_schema =
                         sub_op_scope.states.lock().unwrap().build_op_scope_schema();
                     op_scope.states.lock().unwrap().sub_scopes.insert(
@@ -873,100 +823,15 @@ impl AnalyzerContext<'_> {
         Ok(result_fut)
     }
 
-    fn merge_export_op_states(
+    async fn analyze_export_op_group(
         &self,
-        target_kind: String,
-        setup_key: serde_json::Value,
-        setup_state: serde_json::Value,
-        setup_by_user: bool,
-        export_factory: &dyn ExportTargetFactory,
-        flow_setup_state: &mut FlowSetupState<DesiredMode>,
-        existing_target_states: &HashMap<&ResourceIdentifier, Vec<&TargetSetupState>>,
-    ) -> Result<i32> {
-        let resource_id = ResourceIdentifier {
-            key: setup_key,
-            target_kind,
-        };
-        let existing_target_states = existing_target_states.get(&resource_id);
-        let mut compatible_target_ids = HashSet::<Option<i32>>::new();
-        let mut reusable_schema_version_ids = HashSet::<Option<i32>>::new();
-        for existing_state in existing_target_states.iter().flat_map(|v| v.iter()) {
-            let compatibility = if setup_by_user == existing_state.common.setup_by_user {
-                export_factory.check_state_compatibility(&setup_state, &existing_state.state)?
-            } else {
-                SetupStateCompatibility::NotCompatible
-            };
-            let compatible_target_id = if compatibility != SetupStateCompatibility::NotCompatible {
-                reusable_schema_version_ids.insert(
-                    (compatibility == SetupStateCompatibility::Compatible)
-                        .then_some(existing_state.common.schema_version_id),
-                );
-                Some(existing_state.common.target_id)
-            } else {
-                None
-            };
-            compatible_target_ids.insert(compatible_target_id);
-        }
-
-        let target_id = if compatible_target_ids.len() == 1 {
-            compatible_target_ids.into_iter().next().flatten()
-        } else {
-            if compatible_target_ids.len() > 1 {
-                warn!("Multiple target states with the same key schema found");
-            }
-            None
-        };
-        let target_id = target_id.unwrap_or_else(|| {
-            flow_setup_state.metadata.last_target_id += 1;
-            flow_setup_state.metadata.last_target_id
-        });
-        let max_schema_version_id = existing_target_states
-            .iter()
-            .flat_map(|v| v.iter())
-            .map(|s| s.common.max_schema_version_id)
-            .max()
-            .unwrap_or(0);
-        let schema_version_id = if reusable_schema_version_ids.len() == 1 {
-            reusable_schema_version_ids
-                .into_iter()
-                .next()
-                .unwrap()
-                .unwrap_or(max_schema_version_id + 1)
-        } else {
-            max_schema_version_id + 1
-        };
-        match flow_setup_state.targets.entry(resource_id) {
-            indexmap::map::Entry::Occupied(entry) => {
-                api_bail!(
-                    "Target resource already exists: kind = {}, key = {}",
-                    entry.key().target_kind,
-                    entry.key().key
-                );
-            }
-            indexmap::map::Entry::Vacant(entry) => {
-                entry.insert(TargetSetupState {
-                    common: TargetSetupStateCommon {
-                        target_id,
-                        schema_version_id,
-                        max_schema_version_id: max_schema_version_id.max(schema_version_id),
-                        setup_by_user,
-                    },
-                    state: setup_state,
-                });
-            }
-        }
-        Ok(target_id)
-    }
-
-    fn analyze_export_op_group(
-        &self,
-        target_kind: String,
+        target_kind: &str,
         op_scope: &Arc<OpScope>,
         flow_inst: &FlowInstanceSpec,
         export_op_group: &AnalyzedExportTargetOpGroup,
         declarations: Vec<serde_json::Value>,
-        flow_setup_state: &mut FlowSetupState<DesiredMode>,
-        existing_target_states: &HashMap<&ResourceIdentifier, Vec<&TargetSetupState>>,
+        targets_analyzed_ss: &mut Vec<Option<exec_ctx::AnalyzedTargetSetupState>>,
+        declarations_analyzed_ss: &mut Vec<exec_ctx::AnalyzedTargetSetupState>,
     ) -> Result<Vec<impl Future<Output = Result<AnalyzedExportOp>> + Send + use<>>> {
         let mut collection_specs = Vec::<interface::ExportDataCollectionSpec>::new();
         let mut data_fields_infos = Vec::<ExportDataFieldsInfo>::new();
@@ -1045,7 +910,8 @@ impl AnalyzerContext<'_> {
         let (data_collections_output, declarations_output) = export_op_group
             .target_factory
             .clone()
-            .build(collection_specs, declarations, self.flow_ctx.clone())?;
+            .build(collection_specs, declarations, self.flow_ctx.clone())
+            .await?;
         let analyzed_export_ops = export_op_group
             .op_idx
             .iter()
@@ -1053,17 +919,17 @@ impl AnalyzerContext<'_> {
             .zip(data_fields_infos.into_iter())
             .map(|((idx, data_coll_output), data_fields_info)| {
                 let export_op = &flow_inst.export_ops[*idx];
-                let target_id = self.merge_export_op_states(
-                    export_op.spec.target.kind.clone(),
-                    data_coll_output.setup_key,
-                    data_coll_output.desired_setup_state,
-                    export_op.spec.setup_by_user,
-                    export_op_group.target_factory.as_ref(),
-                    flow_setup_state,
-                    existing_target_states,
-                )?;
                 let op_name = export_op.name.clone();
                 let export_target_factory = export_op_group.target_factory.clone();
+
+                let export_op_ss = exec_ctx::AnalyzedTargetSetupState {
+                    target_kind: target_kind.to_string(),
+                    setup_key: data_coll_output.setup_key,
+                    desired_setup_state: data_coll_output.desired_setup_state,
+                    setup_by_user: export_op.spec.setup_by_user,
+                };
+                targets_analyzed_ss[*idx] = Some(export_op_ss);
+
                 Ok(async move {
                     trace!("Start building executor for export op `{op_name}`");
                     let export_context = data_coll_output
@@ -1073,7 +939,6 @@ impl AnalyzerContext<'_> {
                     trace!("Finished building executor for export op `{op_name}`");
                     Ok(AnalyzedExportOp {
                         name: op_name,
-                        target_id,
                         input: data_fields_info.local_collector_ref,
                         export_target_factory,
                         export_context,
@@ -1085,30 +950,27 @@ impl AnalyzerContext<'_> {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        for (setup_key, setup_state) in declarations_output.into_iter() {
-            self.merge_export_op_states(
-                target_kind.clone(),
+        for (setup_key, desired_setup_state) in declarations_output {
+            let decl_ss = exec_ctx::AnalyzedTargetSetupState {
+                target_kind: target_kind.to_string(),
                 setup_key,
-                setup_state,
-                /*setup_by_user=*/ false,
-                export_op_group.target_factory.as_ref(),
-                flow_setup_state,
-                existing_target_states,
-            )?;
+                desired_setup_state,
+                setup_by_user: false,
+            };
+            declarations_analyzed_ss.push(decl_ss);
         }
-
         Ok(analyzed_export_ops)
     }
 
-    fn analyze_op_scope(
+    async fn analyze_op_scope(
         &self,
         op_scope: &Arc<OpScope>,
         reactive_ops: &[NamedSpec<ReactiveOpSpec>],
     ) -> Result<impl Future<Output = Result<AnalyzedOpScope>> + Send + use<>> {
-        let op_futs = reactive_ops
-            .iter()
-            .map(|reactive_op| self.analyze_reactive_op(op_scope, reactive_op))
-            .collect::<Result<Vec<_>>>()?;
+        let mut op_futs = Vec::with_capacity(reactive_ops.len());
+        for reactive_op in reactive_ops.iter() {
+            op_futs.push(self.analyze_reactive_op(op_scope, reactive_op).await?);
+        }
         let collector_len = op_scope.states.lock().unwrap().collectors.len();
         let result_fut = async move {
             Ok(AnalyzedOpScope {
@@ -1140,90 +1002,28 @@ fn build_flow_schema(root_op_scope: &OpScope) -> Result<FlowSchema> {
     })
 }
 
-pub fn analyze_flow(
+pub async fn analyze_flow(
     flow_inst: &FlowInstanceSpec,
-    flow_ctx: &Arc<FlowInstanceContext>,
-    existing_flow_ss: Option<&setup::FlowSetupState<setup::ExistingMode>>,
-    registry: &ExecutorFactoryRegistry,
+    flow_ctx: Arc<FlowInstanceContext>,
 ) -> Result<(
     FlowSchema,
+    AnalyzedSetupState,
     impl Future<Output = Result<ExecutionPlan>> + Send + use<>,
-    setup::FlowSetupState<setup::DesiredMode>,
 )> {
-    let existing_metadata_versions = || {
-        existing_flow_ss
-            .iter()
-            .flat_map(|flow_ss| flow_ss.metadata.possible_versions())
-    };
-
-    let mut source_states_by_name = HashMap::<&str, Vec<&SourceSetupState>>::new();
-    for metadata_version in existing_metadata_versions() {
-        for (source_name, state) in metadata_version.sources.iter() {
-            source_states_by_name
-                .entry(source_name.as_str())
-                .or_default()
-                .push(state);
-        }
-    }
-
-    let mut target_states_by_name_type =
-        HashMap::<&ResourceIdentifier, Vec<&TargetSetupState>>::new();
-    for metadata_version in existing_flow_ss.iter() {
-        for (resource_id, target) in metadata_version.targets.iter() {
-            target_states_by_name_type
-                .entry(resource_id)
-                .or_default()
-                .extend(target.possible_versions());
-        }
-    }
-
-    let mut setup_state = setup::FlowSetupState::<setup::DesiredMode> {
-        seen_flow_metadata_version: existing_flow_ss
-            .and_then(|flow_ss| flow_ss.seen_flow_metadata_version),
-        metadata: FlowSetupMetadata {
-            last_source_id: existing_metadata_versions()
-                .map(|metadata| metadata.last_source_id)
-                .max()
-                .unwrap_or(0),
-            last_target_id: existing_metadata_versions()
-                .map(|metadata| metadata.last_target_id)
-                .max()
-                .unwrap_or(0),
-            sources: BTreeMap::new(),
-        },
-        tracking_table: db_tracking_setup::TrackingTableSetupState {
-            table_name: existing_flow_ss
-                .and_then(|flow_ss| {
-                    flow_ss
-                        .tracking_table
-                        .current
-                        .as_ref()
-                        .map(|v| v.table_name.clone())
-                })
-                .unwrap_or_else(|| db_tracking_setup::default_tracking_table_name(&flow_inst.name)),
-            version_id: db_tracking_setup::CURRENT_TRACKING_TABLE_VERSION,
-        },
-        // TODO: Fill it with a meaningful value.
-        targets: IndexMap::new(),
-    };
-
-    let analyzer_ctx = AnalyzerContext { registry, flow_ctx };
+    let analyzer_ctx = AnalyzerContext { flow_ctx };
     let root_data_scope = Arc::new(Mutex::new(DataScopeBuilder::new()));
     let root_op_scope = OpScope::new(ROOT_SCOPE_NAME.to_string(), None, root_data_scope);
-    let import_ops_futs = flow_inst
-        .import_ops
-        .iter()
-        .map(|import_op| {
-            let existing_source_states = source_states_by_name.get(import_op.name.as_str());
-            analyzer_ctx.analyze_import_op(
-                &root_op_scope,
-                import_op.clone(),
-                Some(&mut setup_state.metadata),
-                existing_source_states,
-            )
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let op_scope_fut = analyzer_ctx.analyze_op_scope(&root_op_scope, &flow_inst.reactive_ops)?;
+    let mut import_ops_futs = Vec::with_capacity(flow_inst.import_ops.len());
+    for import_op in flow_inst.import_ops.iter() {
+        import_ops_futs.push(
+            analyzer_ctx
+                .analyze_import_op(&root_op_scope, import_op.clone())
+                .await?,
+        );
+    }
+    let op_scope_fut = analyzer_ctx
+        .analyze_op_scope(&root_op_scope, &flow_inst.reactive_ops)
+        .await?;
 
     #[derive(Default)]
     struct TargetOpGroup {
@@ -1248,32 +1048,47 @@ pub fn analyze_flow(
 
     let mut export_ops_futs = vec![];
     let mut analyzed_target_op_groups = vec![];
+
+    let mut targets_analyzed_ss = Vec::with_capacity(flow_inst.export_ops.len());
+    targets_analyzed_ss.resize_with(flow_inst.export_ops.len(), || None);
+
+    let mut declarations_analyzed_ss = Vec::with_capacity(flow_inst.declarations.len());
+
     for (target_kind, op_ids) in target_op_group.into_iter() {
-        let export_factory = match registry.get(&target_kind) {
-            Some(ExecutorFactory::ExportTarget(export_executor)) => export_executor,
-            _ => {
-                bail!("Export target kind not found: {target_kind}");
-            }
+        let target_factory = match get_executor_factory(&target_kind)? {
+            ExecutorFactory::ExportTarget(export_executor) => export_executor,
+            _ => api_bail!("`{}` is not a export target op", target_kind),
         };
         let analyzed_target_op_group = AnalyzedExportTargetOpGroup {
-            target_factory: export_factory.clone(),
+            target_factory,
             op_idx: op_ids.export_op_ids,
         };
-        export_ops_futs.extend(analyzer_ctx.analyze_export_op_group(
-            target_kind,
-            &root_op_scope,
-            flow_inst,
-            &analyzed_target_op_group,
-            op_ids.declarations,
-            &mut setup_state,
-            &target_states_by_name_type,
-        )?);
+        export_ops_futs.extend(
+            analyzer_ctx
+                .analyze_export_op_group(
+                    target_kind.as_str(),
+                    &root_op_scope,
+                    flow_inst,
+                    &analyzed_target_op_group,
+                    op_ids.declarations,
+                    &mut targets_analyzed_ss,
+                    &mut declarations_analyzed_ss,
+                )
+                .await?,
+        );
         analyzed_target_op_groups.push(analyzed_target_op_group);
     }
 
-    let tracking_table_setup = setup_state.tracking_table.clone();
-
     let flow_schema = build_flow_schema(&root_op_scope)?;
+    let analyzed_ss = exec_ctx::AnalyzedSetupState {
+        targets: targets_analyzed_ss
+            .into_iter()
+            .enumerate()
+            .map(|(idx, v)| v.ok_or_else(|| anyhow!("target op `{}` not found", idx)))
+            .collect::<Result<Vec<_>>>()?,
+        declarations: declarations_analyzed_ss,
+    };
+
     let logic_fingerprint = Fingerprinter::default()
         .with(&flow_inst)?
         .with(&flow_schema.schema)?
@@ -1287,7 +1102,6 @@ pub fn analyze_flow(
         .await?;
 
         Ok(ExecutionPlan {
-            tracking_table_setup,
             logic_fingerprint,
             import_ops,
             op_scope,
@@ -1296,23 +1110,19 @@ pub fn analyze_flow(
         })
     };
 
-    Ok((flow_schema, plan_fut, setup_state))
+    Ok((flow_schema, analyzed_ss, plan_fut))
 }
 
-pub fn analyze_transient_flow<'a>(
+pub async fn analyze_transient_flow<'a>(
     flow_inst: &TransientFlowSpec,
-    flow_ctx: &'_ Arc<FlowInstanceContext>,
+    flow_ctx: Arc<FlowInstanceContext>,
 ) -> Result<(
     EnrichedValueType,
     FlowSchema,
     impl Future<Output = Result<TransientExecutionPlan>> + Send + 'a,
 )> {
     let mut root_data_scope = DataScopeBuilder::new();
-    let registry = crate::ops::executor_factory_registry();
-    let analyzer_ctx = AnalyzerContext {
-        registry: &registry,
-        flow_ctx,
-    };
+    let analyzer_ctx = AnalyzerContext { flow_ctx };
     let mut input_fields = vec![];
     for field in flow_inst.input_fields.iter() {
         let analyzed_field = root_data_scope.add_field(field.name.clone(), &field.value_type)?;
@@ -1323,7 +1133,9 @@ pub fn analyze_transient_flow<'a>(
         None,
         Arc::new(Mutex::new(root_data_scope)),
     );
-    let op_scope_fut = analyzer_ctx.analyze_op_scope(&root_op_scope, &flow_inst.reactive_ops)?;
+    let op_scope_fut = analyzer_ctx
+        .analyze_op_scope(&root_op_scope, &flow_inst.reactive_ops)
+        .await?;
     let (output_value, output_type) =
         analyze_value_mapping(&flow_inst.output_value, &root_op_scope)?;
     let data_schema = build_flow_schema(&root_op_scope)?;

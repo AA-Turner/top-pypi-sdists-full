@@ -276,6 +276,8 @@ class CallTypes(Enum):
     responses = "responses"
     aresponses = "aresponses"
     alist_input_items = "alist_input_items"
+    llm_passthrough_route = "llm_passthrough_route"
+    allm_passthrough_route = "allm_passthrough_route"
 
     #########################################################
     # Google GenAI Native Call Types
@@ -623,7 +625,7 @@ class Message(OpenAIObject):
     def __init__(
         self,
         content: Optional[str] = None,
-        role: Literal["assistant"] = "assistant",
+        role: Literal["assistant", "user", "system", "tool", "function"] = "assistant",
         function_call=None,
         tool_calls: Optional[list] = None,
         audio: Optional[ChatCompletionAudioResponse] = None,
@@ -2300,6 +2302,7 @@ class LlmProviders(str, Enum):
     NEBIUS = "nebius"
     INFINITY = "infinity"
     DEEPGRAM = "deepgram"
+    ELEVENLABS = "elevenlabs"
     NOVITA = "novita"
     AIOHTTP_OPENAI = "aiohttp_openai"
     LANGFUSE = "langfuse"
@@ -2511,3 +2514,12 @@ class CallbacksByType(TypedDict):
     success: List[str]
     failure: List[str]
     success_and_failure: List[str]
+
+
+CostResponseTypes = Union[
+    ModelResponse,
+    TextCompletionResponse,
+    EmbeddingResponse,
+    ImageResponse,
+    TranscriptionResponse,
+]

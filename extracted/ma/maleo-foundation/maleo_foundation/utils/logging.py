@@ -54,7 +54,6 @@ class BaseLogger(logging.Logger):
         dir: str,
         type: BaseEnums.LoggerType,
         service_key: BaseTypes.OptionalString = None,
-        middleware_type: Optional[BaseEnums.MiddlewareLoggerType] = None,
         client_key: BaseTypes.OptionalString = None,
         level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
         google_cloud_logging: Optional[GoogleCloudLogging] = None
@@ -65,11 +64,6 @@ class BaseLogger(logging.Logger):
         self._service_key = service_key or os.getenv("SERVICE_KEY")
         if self._service_key is None:
             raise ValueError("SERVICE_KEY environment variable must be set if 'service_key' is set to None")
-
-        self._middleware_type = middleware_type #* Declare middleware type
-
-        if self._type == BaseEnums.LoggerType.MIDDLEWARE and self._middleware_type is None:
-            raise ValueError("'middleware_type' parameter must be provided if 'logger_type' is 'middleware'")
 
         self._client_key = client_key #* Declare client key
 
@@ -83,11 +77,6 @@ class BaseLogger(logging.Logger):
             if self._client_key is None:
                 raise ValueError("'client_key' parameter must be provided if 'logger_type' is 'client'")
             self._name = f"{self._service_key} - {self._type} - {self._client_key}"
-        elif self._type == BaseEnums.LoggerType.MIDDLEWARE:
-            #* Ensure middleware_type is valid if logger type is middleware
-            if self._middleware_type is None:
-                raise ValueError("'middleware_type' parameter must be provided if 'logger_type' is 'middleware'")
-            self._name = f"{self._service_key} - {self._type} - {self._middleware_type}"
         else:
             self._name = f"{self._service_key} - {self._type}"
 
@@ -114,9 +103,7 @@ class BaseLogger(logging.Logger):
             self.info("Cloud logging is not configured.")
 
         #* Define log directory
-        if self._type == BaseEnums.LoggerType.MIDDLEWARE:
-            log_dir = f"{self._type}/{self._middleware_type}"
-        elif self._type == BaseEnums.LoggerType.CLIENT:
+        if self._type == BaseEnums.LoggerType.CLIENT:
             log_dir = f"{self._type}/{self._client_key}"
         else:
             log_dir = f"{self._type}"
@@ -164,7 +151,6 @@ class MiddlewareLogger(BaseLogger):
         self,
         dir: str,
         service_key: BaseTypes.OptionalString = None,
-        middleware_type = None,
         level = BaseEnums.LoggerLevel.INFO,
         google_cloud_logging = None
     ):
@@ -172,7 +158,6 @@ class MiddlewareLogger(BaseLogger):
             dir=dir,
             type=BaseEnums.LoggerType.MIDDLEWARE,
             service_key=service_key,
-            middleware_type=middleware_type,
             client_key=None,
             level=level,
             google_cloud_logging=google_cloud_logging
@@ -191,7 +176,6 @@ class ServiceLogger(BaseLogger):
             dir=dir,
             type=type,
             service_key=service_key,
-            middleware_type=None,
             client_key=None,
             level=level,
             google_cloud_logging=google_cloud_logging
@@ -210,7 +194,6 @@ class ClientLogger(BaseLogger):
             dir=dir,
             type=BaseEnums.LoggerType.CLIENT,
             service_key=service_key,
-            middleware_type=None,
             client_key=client_key,
             level=level,
             google_cloud_logging=google_cloud_logging

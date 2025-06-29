@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import datetime as dt
 from enum import Enum, auto
 from functools import partial
 from typing import Any
 
+import hypothesis.strategies
 from hypothesis.strategies import (
     SearchStrategy,
     booleans,
@@ -51,6 +53,7 @@ from utilities.hypothesis import (
     zoned_datetimes,
 )
 from utilities.math import MAX_INT64, MIN_INT64
+from utilities.zoneinfo import UTC
 
 
 def objects(
@@ -81,6 +84,12 @@ def objects(
     base = (
         booleans()
         | dates()
+        | hypothesis.strategies.dates()
+        | hypothesis.strategies.datetimes(
+            min_value=dt.datetime(2000, 1, 1),  # noqa: DTZ001
+            max_value=dt.datetime(2000, 12, 31),  # noqa: DTZ001
+            timezones=just(UTC) | none(),
+        )
         | floats(allow_nan=floats_allow_nan)
         | (int64s() if parsable else integers())
         | month_days()
@@ -90,6 +99,7 @@ def objects(
         | text_printable().filter(lambda x: not x.startswith("["))
         | time_deltas()
         | times()
+        | hypothesis.strategies.times()
         | uuids()
         | versions()
         | year_months()

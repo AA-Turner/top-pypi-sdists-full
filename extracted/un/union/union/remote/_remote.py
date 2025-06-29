@@ -84,7 +84,7 @@ class DeployableModel:
 _hf_download_image = ImageSpec(
     name="hfhub-cache",
     registry="ghcr.io/unionai-oss",
-    packages=["huggingface_hub[hf_transfer]==0.26.3", "union==0.1.150"],
+    packages=["huggingface_hub[hf_transfer]==0.26.3", "union==0.1.183"],
 )
 
 

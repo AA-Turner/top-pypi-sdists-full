@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,12 @@
 Test cases for the ExternalLink node.
 """
 
+from __future__ import annotations
+
 import pytest
 
 from mwparserfromhell.nodes import ExternalLink, Text
+
 from .conftest import assert_wikicode_equal, wrap, wraptext
 
 
@@ -74,8 +77,13 @@ def test_showtree():
     """test ExternalLink.__showtree__()"""
     output = []
     getter, marker = object(), object()
-    get = lambda code: output.append((getter, code))
-    mark = lambda: output.append(marker)
+
+    def get(code):
+        return output.append((getter, code))
+
+    def mark():
+        return output.append(marker)
+
     node1 = ExternalLink(wraptext("http://example.com"), brackets=False)
     node2 = ExternalLink(wraptext("http://example.com"), wraptext("Link"))
     node1.__showtree__(output.append, get, mark)

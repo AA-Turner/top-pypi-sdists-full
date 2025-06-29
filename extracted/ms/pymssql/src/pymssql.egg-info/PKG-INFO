@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymssql
-Version: 2.3.5
+Version: 2.3.6
 Summary: DB-API interface to Microsoft SQL Server for Python. (new Cython-based version)
 Author-email: Damien Churchill <damoxc@gmail.com>
 Maintainer-email: Mikhail Terekhov <termim@gmail.com>
@@ -109,6 +109,14 @@ Recent Changes
 ==============
 
 
+Version 2.3.6 - 2025-06-28 - Mikhail Terekhov
+=============================================
+
+General
+-------
+
+- Build manylinux wheels using manylinux2014 image.
+
 Version 2.3.5 - 2025-06-24 - Mikhail Terekhov
 =============================================
 
@@ -125,11 +133,3 @@ Internals
 ---------
 
 - Use cibuildwheel in GitHub Actions.
-
-Version 2.3.4 - 2025-04-01 - Mikhail Terekhov
-=============================================
-
-General
--------
-
-- Update packaging to fix metadata, thanks to AbigailColwell.

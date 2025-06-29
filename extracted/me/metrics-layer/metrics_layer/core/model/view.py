@@ -163,8 +163,9 @@ class View(MetricsLayerBase, SQLReplacement):
             elif "model" in self._definition:
                 model: Model = self._definition["model"]
                 return model
-        except AccessDeniedOrDoesNotExistException:
-            raise QueryError(f"View {self.name} is missing the required model_name property")
+        except AccessDeniedOrDoesNotExistException as e:
+            e.message = str(e) + f" in view {self.name}"
+            raise e
 
     @property
     def week_start_day(self):
@@ -253,7 +254,7 @@ class View(MetricsLayerBase, SQLReplacement):
             )
             if self.model is None:
                 return [self._error(self._definition.get("model_name"), model_error)]
-        except QueryError:
+        except AccessDeniedOrDoesNotExistException:
             return [self._error(self._definition.get("model_name"), model_error)]
 
         if not self.valid_name(self.name):
@@ -282,7 +283,7 @@ class View(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["description"],
                         (
-                            f"View {self.name} has a description that is too long"
+                            f"Warning: View {self.name} has a description that is too long"
                             f" ({len(self.description)} characters). Descriptions must be"
                             f" {view_description_max_chars} characters or less. It will be truncated to the"
                             f" first {view_description_max_chars} characters."

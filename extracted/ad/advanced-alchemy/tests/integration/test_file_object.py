@@ -1,4 +1,3 @@
-# ruff: noqa: PLC2701 DOC402 ANN201 RUF043
 import logging
 from collections.abc import AsyncGenerator, Generator
 from contextlib import suppress
@@ -999,7 +998,7 @@ async def test_obstore_backend_storage_registry_management(storage_registry: Sto
 async def test_obstore_backend_storage_registry_error_handling(storage_registry: StorageRegistry) -> None:
     """Test StorageRegistry error handling."""
     # Test get_backend with non-existent key
-    with pytest.raises(ImproperConfigurationError, match="No storage backend registered with key nonexistent"):
+    with pytest.raises(ImproperConfigurationError, match='No storage backend registered with key "nonexistent"'):
         storage_registry.get_backend("nonexistent")
 
     # Test unregister_backend with non-existent key

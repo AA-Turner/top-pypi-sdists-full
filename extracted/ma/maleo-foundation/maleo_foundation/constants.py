@@ -26,11 +26,11 @@ STATUS_UPDATE_CRITERIAS: dict[
     ]
 }
 IDENTIFIER_TYPE_VALUE_TYPE_MAP: dict[
-    BaseEnums.IdentifierTypes,
+    BaseEnums.IdentifierType,
     object
 ] = {
-    BaseEnums.IdentifierTypes.ID: int,
-    BaseEnums.IdentifierTypes.UUID: UUID
+    BaseEnums.IdentifierType.ID: int,
+    BaseEnums.IdentifierType.UUID: UUID
 }
 ALL_STATUSES: List[BaseEnums.StatusType] = [
     BaseEnums.StatusType.ACTIVE,

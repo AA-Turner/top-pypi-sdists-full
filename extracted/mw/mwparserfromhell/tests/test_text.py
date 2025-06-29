@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,8 @@
 """
 Test cases for the Text node.
 """
+
+from __future__ import annotations
 
 import pytest
 
@@ -46,7 +48,7 @@ def test_children():
 def test_strip():
     """test Text.__strip__()"""
     node = Text("foobar")
-    assert node is node.__strip__()
+    assert node == node.__strip__()
 
 
 def test_showtree():
@@ -55,9 +57,9 @@ def test_showtree():
     node1 = Text("foobar")
     node2 = Text("fóóbar")
     node3 = Text("𐌲𐌿𐍄")
-    node1.__showtree__(output.append, None, None)
-    node2.__showtree__(output.append, None, None)
-    node3.__showtree__(output.append, None, None)
+    node1.__showtree__(output.append, lambda _code: None, lambda: None)
+    node2.__showtree__(output.append, lambda _code: None, lambda: None)
+    node3.__showtree__(output.append, lambda _code: None, lambda: None)
     res = ["foobar", r"f\xf3\xf3bar", "\\U00010332\\U0001033f\\U00010344"]
     assert res == output
 

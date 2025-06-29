@@ -1,4 +1,3 @@
-# ruff: noqa: TC004
 """Common base classes for SQLAlchemy declarative models."""
 
 import contextlib
@@ -50,6 +49,7 @@ __all__ = (
     "BigIntBase",
     "BigIntBaseT",
     "CommonTableAttributes",
+    "DefaultBase",
     "IdentityAuditBase",
     "IdentityBase",
     "IdentityBaseT",

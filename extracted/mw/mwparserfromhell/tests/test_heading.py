@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,12 @@
 Test cases for the Heading node.
 """
 
+from __future__ import annotations
+
 import pytest
 
 from mwparserfromhell.nodes import Heading, Text
+
 from .conftest import assert_wikicode_equal, wrap, wraptext
 
 
@@ -55,11 +58,14 @@ def test_showtree():
     """test Heading.__showtree__()"""
     output = []
     getter = object()
-    get = lambda code: output.append((getter, code))
+
+    def get(code):
+        return output.append((getter, code))
+
     node1 = Heading(wraptext("foobar"), 3)
     node2 = Heading(wraptext(" baz "), 4)
-    node1.__showtree__(output.append, get, None)
-    node2.__showtree__(output.append, get, None)
+    node1.__showtree__(output.append, get, lambda: None)
+    node2.__showtree__(output.append, get, lambda: None)
     valid = ["===", (getter, node1.title), "===", "====", (getter, node2.title), "===="]
     assert valid == output
 

@@ -6,6 +6,8 @@ from flytekit.core.artifact import ArtifactQuery
 
 from union.app import App, Input
 
+DEFAULT_VLLM_IMAGE = "managed.cr.union.ai/vllm:stable"
+
 
 @dataclass
 class VLLMApp(App):
@@ -34,6 +36,7 @@ class VLLMApp(App):
     :param type: Type of app
     :param description: Description of app
     :param subdomain: Custom subdomain for your app.
+    :param custom_domain: Custom full domain for your app.
     :param extra_args: Extra args to pass to `vllm serve`. See
         https://docs.vllm.ai/en/stable/serving/engine_args.html for details.
     :param model: Artifact URI for model.
@@ -86,6 +89,9 @@ class VLLMApp(App):
         else:
             msg = "model must be a string of ArtifactQuery"
             raise TypeError(msg)
+
+        if self.container_image is None:
+            self.container_image = DEFAULT_VLLM_IMAGE
 
         input_kwargs = {}
         if self.stream_model:

@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,8 @@
 """
 Test cases for the Token class and its subclasses.
 """
+
+from __future__ import annotations
 
 import pytest
 
@@ -94,4 +96,4 @@ def test_equality():
 )
 def test_repr_equality(token):
     """check that eval(repr(token)) == token"""
-    assert token == eval(repr(token), vars(tokens))
+    assert token == eval(repr(token), dict(vars(tokens)))

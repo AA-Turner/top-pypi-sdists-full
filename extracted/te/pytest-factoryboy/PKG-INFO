@@ -1,35 +1,35 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pytest-factoryboy
-Version: 2.7.0
+Version: 2.8.0
 Summary: Factory Boy support for pytest.
-Home-page: https://pytest-factoryboy.readthedocs.io/
 License: MIT
 Author: Oleg Pidsadnyi
 Author-email: oleg.pidsadnyi@gmail.com
 Maintainer: Alessio Bogon
 Maintainer-email: 778703+youtux@users.noreply.github.com
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development :: Testing
-Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: factory_boy (>=2.10.0)
 Requires-Dist: inflection
 Requires-Dist: packaging
-Requires-Dist: pytest (>=6.2)
+Requires-Dist: pytest (>=7.0)
 Requires-Dist: typing_extensions
 Project-URL: Documentation, https://pytest-factoryboy.readthedocs.io/
+Project-URL: Homepage, https://pytest-factoryboy.readthedocs.io/
 Project-URL: Repository, https://github.com/pytest-dev/pytest-factoryboy
 Description-Content-Type: text/x-rst
 

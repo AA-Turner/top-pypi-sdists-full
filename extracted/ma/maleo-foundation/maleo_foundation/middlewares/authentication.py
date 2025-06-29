@@ -16,12 +16,10 @@ class Backend(AuthenticationBackend):
     def __init__(
         self,
         keys: BaseGeneralSchemas.RSAKeys,
-        logger: MiddlewareLogger,
         maleo_foundation: MaleoFoundationClientManager
     ):
         super().__init__()
         self._keys = keys
-        self._logger = logger
         self._maleo_foundation = maleo_foundation
 
     async def authenticate(
@@ -100,7 +98,6 @@ class Backend(AuthenticationBackend):
 def add_authentication_middleware(
     app: FastAPI,
     keys: BaseGeneralSchemas.RSAKeys,
-    logger: MiddlewareLogger,
     maleo_foundation: MaleoFoundationClientManager
 ) -> None:
     """
@@ -109,9 +106,6 @@ def add_authentication_middleware(
     Args:
         app: FastAPI
             The FastAPI application instance to which the middleware will be added.
-
-        logger: MiddlewareLogger
-            Authentication middleware logger to be used.
 
         key: str
             Public key to be used for token decoding.
@@ -130,6 +124,6 @@ def add_authentication_middleware(
     """
     app.add_middleware(
         AuthenticationMiddleware,
-        backend=Backend(keys, logger, maleo_foundation),
+        backend=Backend(keys, maleo_foundation),
         on_error=BaseExceptions.authentication_error_handler
     )

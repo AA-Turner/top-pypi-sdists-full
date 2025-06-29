@@ -3,6 +3,7 @@ use crate::{prelude::*, py::Pythonized};
 use pyo3::{exceptions::PyException, prelude::*};
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::{collections::btree_map, ops::Deref};
+use tokio::task::LocalSet;
 
 use super::analyzer::{
     AnalyzerContext, CollectorBuilder, DataScopeBuilder, OpScope, build_flow_instance_context,
@@ -301,6 +302,7 @@ impl FlowBuilder {
     #[pyo3(signature = (kind, op_spec, target_scope, name, refresh_options=None))]
     pub fn add_source(
         &mut self,
+        py: Python<'_>,
         kind: String,
         op_spec: py::Pythonized<serde_json::Map<String, serde_json::Value>>,
         target_scope: Option<OpScopeRef>,
@@ -325,11 +327,14 @@ impl FlowBuilder {
             },
         };
         let analyzer_ctx = AnalyzerContext {
-            registry: &crate::ops::executor_factory_registry(),
-            flow_ctx: &self.flow_inst_context,
+            flow_ctx: self.flow_inst_context.clone(),
         };
-        let analyzed = analyzer_ctx
-            .analyze_import_op(&self.root_op_scope, import_op.clone(), None, None)
+        let analyzed = py
+            .allow_threads(|| {
+                get_runtime().block_on(
+                    analyzer_ctx.analyze_import_op(&self.root_op_scope, import_op.clone()),
+                )
+            })
             .into_py_result()?;
         std::mem::drop(analyzed);
 
@@ -387,6 +392,7 @@ impl FlowBuilder {
     #[pyo3(signature = (kind, op_spec, args, target_scope, name))]
     pub fn transform(
         &mut self,
+        py: Python<'_>,
         kind: String,
         op_spec: py::Pythonized<serde_json::Map<String, serde_json::Value>>,
         args: Vec<(DataSlice, Option<String>)>,
@@ -418,11 +424,12 @@ impl FlowBuilder {
         };
 
         let analyzer_ctx = AnalyzerContext {
-            registry: &crate::ops::executor_factory_registry(),
-            flow_ctx: &self.flow_inst_context,
+            flow_ctx: self.flow_inst_context.clone(),
         };
-        let analyzed = analyzer_ctx
-            .analyze_reactive_op(op_scope, &reactive_op)
+        let analyzed = py
+            .allow_threads(|| {
+                get_runtime().block_on(analyzer_ctx.analyze_reactive_op(op_scope, &reactive_op))
+            })
             .into_py_result()?;
         std::mem::drop(analyzed);
 
@@ -435,6 +442,7 @@ impl FlowBuilder {
     #[pyo3(signature = (collector, fields, auto_uuid_field=None))]
     pub fn collect(
         &mut self,
+        py: Python<'_>,
         collector: &DataCollector,
         fields: Vec<(FieldName, DataSlice)>,
         auto_uuid_field: Option<FieldName>,
@@ -463,11 +471,12 @@ impl FlowBuilder {
         };
 
         let analyzer_ctx = AnalyzerContext {
-            registry: &crate::ops::executor_factory_registry(),
-            flow_ctx: &self.flow_inst_context,
+            flow_ctx: self.flow_inst_context.clone(),
         };
-        let analyzed = analyzer_ctx
-            .analyze_reactive_op(common_scope, &reactive_op)
+        let analyzed = py
+            .allow_threads(|| {
+                get_runtime().block_on(analyzer_ctx.analyze_reactive_op(common_scope, &reactive_op))
+            })
             .into_py_result()?;
         std::mem::drop(analyzed);
 
@@ -564,14 +573,16 @@ impl FlowBuilder {
             &self.flow_instance_name,
             Some(crate::py::PythonExecutionContext::new(py, py_event_loop)),
         );
-        let analyzed_flow = py
+        let flow_ctx = py
             .allow_threads(|| {
-                get_runtime().block_on(super::AnalyzedFlow::from_flow_instance(
-                    spec,
-                    flow_instance_ctx,
-                    self.existing_flow_ss.as_ref(),
-                    &crate::ops::executor_factory_registry(),
-                ))
+                get_runtime().block_on(async move {
+                    let analyzed_flow =
+                        super::AnalyzedFlow::from_flow_instance(spec, flow_instance_ctx).await?;
+                    let execution_ctx =
+                        FlowContext::new(Arc::new(analyzed_flow), self.existing_flow_ss.as_ref())
+                            .await?;
+                    anyhow::Ok(execution_ctx)
+                })
             })
             .into_py_result()?;
         let mut flow_ctxs = self.lib_context.flows.lock().unwrap();
@@ -583,7 +594,7 @@ impl FlowBuilder {
                 )));
             }
             btree_map::Entry::Vacant(entry) => {
-                let flow_ctx = Arc::new(FlowContext::new(Arc::new(analyzed_flow)));
+                let flow_ctx = Arc::new(flow_ctx);
                 entry.insert(flow_ctx.clone());
                 flow_ctx
             }
@@ -612,12 +623,17 @@ impl FlowBuilder {
         };
         let py_ctx = crate::py::PythonExecutionContext::new(py, py_event_loop);
 
+        let analyzed_flow = get_runtime().spawn_blocking(|| {
+            let local_set = LocalSet::new();
+            local_set.block_on(
+                get_runtime(),
+                super::AnalyzedTransientFlow::from_transient_flow(spec, Some(py_ctx)),
+            )
+        });
         future_into_py(py, async move {
-            let analyzed_flow =
-                super::AnalyzedTransientFlow::from_transient_flow(spec, Some(py_ctx))
-                    .await
-                    .into_py_result()?;
-            Ok(py::TransientFlow(Arc::new(analyzed_flow)))
+            Ok(py::TransientFlow(Arc::new(
+                analyzed_flow.await.into_py_result()?.into_py_result()?,
+            )))
         })
     }
 

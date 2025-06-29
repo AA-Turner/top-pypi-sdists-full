@@ -16,6 +16,22 @@ class BaseEnums:
         CORE = "core"
         AI = "ai"
 
+    class ShortService(StrEnum):
+        STUDIO = "studio"
+        NEXUS = "nexus"
+        TELEMETRY = "telemetry"
+        METADATA = "metadata"
+        IDENTITY = "identity"
+        ACCESS = "access"
+        WORKSHOP = "workshop"
+        SOAPIE = "soapie"
+        MEDIX = "medix"
+        DICOM = "dicom"
+        SCRIBE = "scribe"
+        CDS = "cds"
+        IMAGING = "imaging"
+        MCU = "mcu"
+
     class Service(StrEnum):
         MALEO_STUDIO = "maleo-studio"
         MALEO_NEXUS = "maleo-nexus"
@@ -66,12 +82,13 @@ class BaseEnums:
         RESTORE = "restore"
         DELETE = "delete"
 
-    class IdentifierTypes(StrEnum):
+    class IdentifierType(StrEnum):
         ID = "id"
         UUID = "uuid"
 
     class ServiceControllerType(StrEnum):
         REST = "rest"
+        MESSAGE = "message"
 
     class ClientControllerType(StrEnum):
         HTTP = "http"
@@ -108,10 +125,6 @@ class BaseEnums:
                 BaseEnums.RESTControllerResponseType.STREAMING: responses.StreamingResponse,
                 BaseEnums.RESTControllerResponseType.FILE: responses.FileResponse,
             }.get(self, responses.Response)
-
-    class MiddlewareLoggerType(StrEnum):
-        BASE = "base"
-        AUTHENTICATION = "authentication"
 
     class ServiceLoggerType(StrEnum):
         REPOSITORY = "repository"

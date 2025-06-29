@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,17 +22,25 @@
 Test cases for the Template node.
 """
 
+from __future__ import annotations
+
 from difflib import unified_diff
 
 import pytest
 
+from mwparserfromhell import parse
 from mwparserfromhell.nodes import HTMLEntity, Template, Text
 from mwparserfromhell.nodes.extras import Parameter
-from mwparserfromhell import parse
+
 from .conftest import assert_wikicode_equal, wrap, wraptext
 
-pgens = lambda k, v: Parameter(wraptext(k), wraptext(v), showkey=True)
-pgenh = lambda k, v: Parameter(wraptext(k), wraptext(v), showkey=False)
+
+def pgens(k, v):
+    return Parameter(wraptext(k), wraptext(v), showkey=True)
+
+
+def pgenh(k, v):
+    return Parameter(wraptext(k), wraptext(v), showkey=False)
 
 
 def test_str():
@@ -91,8 +99,13 @@ def test_showtree():
     """test Template.__showtree__()"""
     output = []
     getter, marker = object(), object()
-    get = lambda code: output.append((getter, code))
-    mark = lambda: output.append(marker)
+
+    def get(code):
+        return output.append((getter, code))
+
+    def mark():
+        return output.append(marker)
+
     node1 = Template(wraptext("foobar"))
     node2 = Template(wraptext("foo"), [pgenh("1", "bar"), pgens("abc", "def")])
     node1.__showtree__(output.append, get, mark)
@@ -334,6 +347,14 @@ def test_add():
     node40.add("3", "d")
     node41.add("3", "d")
     node42.add("b", "hello")
+    node43 = Template(
+        wraptext("a"), [pgens("b", "c"), pgens("d", "e"), pgens("f", "g")]
+    )
+    node44 = Template(
+        wraptext("a"), [pgens("b", "c"), pgens("d", "e"), pgens("f", "g")]
+    )
+    node43.add("new_param", "value", after="d")
+    node44.add("new_param", "value", after="f")
 
     assert "{{a|b=c|d|e=f}}" == node1
     assert "{{a|b=c|d|g}}" == node2
@@ -382,6 +403,23 @@ def test_add():
     assert "{{a| b| c|d}}" == node40
     assert "{{a|1= b|2= c|3= d}}" == node41
     assert "{{a|b=hello  \n}}" == node42
+    assert "{{a|b=c|d=e|new_param=value|f=g}}" == node43
+    assert "{{a|b=c|d=e|f=g|new_param=value}}" == node44
+
+
+def test_update():
+    """test template.update()"""
+    node1 = Template(wraptext("a"))
+    node1.update({"b": "c", "d": "e"})
+    assert "{{a|b=c|d=e}}" == node1
+
+    node2 = Template(wraptext("a"))
+    node2.update({"1": "b"}, showkey=False)
+    assert "{{a|b}}" == node2
+
+    node3 = Template(wraptext("a\n"), [pgens("b ", "c\n"), pgens("d ", " e")])
+    node3.update({"b ": "f"}, preserve_spacing=False)
+    assert "{{a\n|b =f|d = e}}" == node3
 
 
 def test_remove():

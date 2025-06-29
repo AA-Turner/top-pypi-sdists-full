@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2020 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,8 @@ modules: the :mod:`.tokenizer` and the :mod:`.builder`. This module joins them
 together into one interface.
 """
 
+from __future__ import annotations
+
 from .builder import Builder
 from .errors import ParserError
 
@@ -32,8 +34,6 @@ try:
 
     use_c = True
 except ImportError:
-    from .tokenizer import Tokenizer
-
     CTokenizer = None
     use_c = False
 

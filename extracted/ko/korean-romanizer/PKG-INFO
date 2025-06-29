@@ -1,9 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: korean_romanizer
-Version: 0.25.1
+Version: 0.27.1
 Summary: A Python library for Korean romanization
 Home-page: https://github.com/osori/korean-romanizer
-Download-URL: https://github.com/osori/korean-romanizer/archive/0.25.1.tar.gz
 Author: Ilkyu Ju
 Author-email: ju.ilkyu@gmail.com
 License: GNU GPLv3
@@ -18,3 +17,11 @@ Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 License-File: LICENSE
 License-File: COPYING
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary

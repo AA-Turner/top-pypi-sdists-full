@@ -362,6 +362,7 @@ class App:
           you can set `args` directly.
     :param dependencies: List of apps that this app depends on.
     :param subdomain: Custom subdomain for your app.
+    :param custom_domain: Custom full domain for your app.
     :param links: Links to external URLs or relative paths.
     """
 
@@ -394,6 +395,7 @@ class App:
     dependencies: List["App"] = field(default_factory=list)
     config: Optional[AppConfigProtocol] = None
     subdomain: Optional[str] = None
+    custom_domain: Optional[str] = None
     links: List[Link] = field(default_factory=list)
 
     _include_resolved: Optional[List[ResolvedInclude]] = field(default=None, init=False)
@@ -735,7 +737,11 @@ class App:
             ),
             spec=Spec(
                 desired_state=settings.desired_state,
-                ingress=IngressConfig(private=False, subdomain=self.subdomain if self.subdomain else None),
+                ingress=IngressConfig(
+                    private=False,
+                    subdomain=self.subdomain if self.subdomain else None,
+                    cname=self.custom_domain if self.custom_domain else None,
+                ),
                 autoscaling=autoscaling,
                 security_context=security_context,
                 cluster_pool=self.cluster_pool,

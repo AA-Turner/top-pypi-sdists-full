@@ -3,10 +3,10 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.5.43.0',
+    'passagemath-setup ~= 10.5.44.0',
     'jinja2',
-    'passagemath-environment ~= 10.5.43.0',
-    'passagemath-objects ~= 10.5.43.0',
+    'passagemath-environment ~= 10.5.44.0',
+    'passagemath-objects ~= 10.5.44.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'gmpy2 ~=2.1.b999',
     'memory_allocator',
@@ -19,7 +19,7 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-categories"
 description = "passagemath: Sage categories and basic rings"
 dependencies = [
-    'passagemath-objects ~= 10.5.43.0',
+    'passagemath-objects ~= 10.5.44.0',
     'memory_allocator',
 ]
 dynamic = ["version"]

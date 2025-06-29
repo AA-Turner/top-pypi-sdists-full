@@ -33,6 +33,7 @@ class SGLangApp(App):
     :param type: Type of app
     :param description: Description of app
     :param subdomain: Custom subdomain for your app.
+    :param custom_domain: Custom full domain for your app.
     :param extra_args: Extra args to pass to `python -m sglang.launch_server`. See
         https://docs.sglang.ai/backend/server_arguments.html for details.
     :param model: Artifact URI for model.

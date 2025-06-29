@@ -65,6 +65,7 @@ class PrivateRegistriesClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         OrgsOrgPrivateRegistriesGetResponse200,
         OrgsOrgPrivateRegistriesGetResponse200Type,
@@ -98,6 +99,7 @@ class PrivateRegistriesClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgsOrgPrivateRegistriesGetResponse200,
             error_models={
                 "400": BasicError,
@@ -112,6 +114,7 @@ class PrivateRegistriesClient:
         per_page: Missing[int] = UNSET,
         page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         OrgsOrgPrivateRegistriesGetResponse200,
         OrgsOrgPrivateRegistriesGetResponse200Type,
@@ -145,6 +148,7 @@ class PrivateRegistriesClient:
             url,
             params=exclude_unset(params),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgsOrgPrivateRegistriesGetResponse200,
             error_models={
                 "400": BasicError,
@@ -158,6 +162,7 @@ class PrivateRegistriesClient:
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: OrgsOrgPrivateRegistriesPostBodyType,
     ) -> Response[
         OrgPrivateRegistryConfigurationWithSelectedRepositories,
@@ -171,7 +176,9 @@ class PrivateRegistriesClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         registry_type: Literal["maven_repository", "nuget_feed", "goproxy_server"],
+        url: str,
         username: Missing[Union[str, None]] = UNSET,
         encrypted_value: str,
         key_id: str,
@@ -187,6 +194,7 @@ class PrivateRegistriesClient:
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[OrgsOrgPrivateRegistriesPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[
@@ -230,6 +238,7 @@ class PrivateRegistriesClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgPrivateRegistryConfigurationWithSelectedRepositories,
             error_models={
                 "404": BasicError,
@@ -243,6 +252,7 @@ class PrivateRegistriesClient:
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: OrgsOrgPrivateRegistriesPostBodyType,
     ) -> Response[
         OrgPrivateRegistryConfigurationWithSelectedRepositories,
@@ -256,7 +266,9 @@ class PrivateRegistriesClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         registry_type: Literal["maven_repository", "nuget_feed", "goproxy_server"],
+        url: str,
         username: Missing[Union[str, None]] = UNSET,
         encrypted_value: str,
         key_id: str,
@@ -272,6 +284,7 @@ class PrivateRegistriesClient:
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[OrgsOrgPrivateRegistriesPostBodyType] = UNSET,
         **kwargs,
     ) -> Response[
@@ -315,6 +328,7 @@ class PrivateRegistriesClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgPrivateRegistryConfigurationWithSelectedRepositories,
             error_models={
                 "404": BasicError,
@@ -327,6 +341,7 @@ class PrivateRegistriesClient:
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         OrgsOrgPrivateRegistriesPublicKeyGetResponse200,
         OrgsOrgPrivateRegistriesPublicKeyGetResponse200Type,
@@ -353,6 +368,7 @@ class PrivateRegistriesClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgsOrgPrivateRegistriesPublicKeyGetResponse200,
             error_models={
                 "404": BasicError,
@@ -364,6 +380,7 @@ class PrivateRegistriesClient:
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[
         OrgsOrgPrivateRegistriesPublicKeyGetResponse200,
         OrgsOrgPrivateRegistriesPublicKeyGetResponse200Type,
@@ -390,6 +407,7 @@ class PrivateRegistriesClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgsOrgPrivateRegistriesPublicKeyGetResponse200,
             error_models={
                 "404": BasicError,
@@ -402,6 +420,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[OrgPrivateRegistryConfiguration, OrgPrivateRegistryConfigurationType]:
         """private-registries/get-org-private-registry
 
@@ -425,6 +444,7 @@ class PrivateRegistriesClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgPrivateRegistryConfiguration,
             error_models={
                 "404": BasicError,
@@ -437,6 +457,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response[OrgPrivateRegistryConfiguration, OrgPrivateRegistryConfigurationType]:
         """private-registries/get-org-private-registry
 
@@ -460,6 +481,7 @@ class PrivateRegistriesClient:
             "GET",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             response_model=OrgPrivateRegistryConfiguration,
             error_models={
                 "404": BasicError,
@@ -472,6 +494,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """private-registries/delete-org-private-registry
 
@@ -495,6 +518,7 @@ class PrivateRegistriesClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "400": BasicError,
                 "404": BasicError,
@@ -507,6 +531,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
     ) -> Response:
         """private-registries/delete-org-private-registry
 
@@ -530,6 +555,7 @@ class PrivateRegistriesClient:
             "DELETE",
             url,
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "400": BasicError,
                 "404": BasicError,
@@ -543,6 +569,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: OrgsOrgPrivateRegistriesSecretNamePatchBodyType,
     ) -> Response: ...
 
@@ -554,9 +581,11 @@ class PrivateRegistriesClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         registry_type: Missing[
             Literal["maven_repository", "nuget_feed", "goproxy_server"]
         ] = UNSET,
+        url: Missing[str] = UNSET,
         username: Missing[Union[str, None]] = UNSET,
         encrypted_value: Missing[str] = UNSET,
         key_id: Missing[str] = UNSET,
@@ -570,6 +599,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[OrgsOrgPrivateRegistriesSecretNamePatchBodyType] = UNSET,
         **kwargs,
     ) -> Response:
@@ -611,6 +641,7 @@ class PrivateRegistriesClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "422": ValidationError,
@@ -624,6 +655,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: OrgsOrgPrivateRegistriesSecretNamePatchBodyType,
     ) -> Response: ...
 
@@ -635,9 +667,11 @@ class PrivateRegistriesClient:
         *,
         data: UnsetType = UNSET,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         registry_type: Missing[
             Literal["maven_repository", "nuget_feed", "goproxy_server"]
         ] = UNSET,
+        url: Missing[str] = UNSET,
         username: Missing[Union[str, None]] = UNSET,
         encrypted_value: Missing[str] = UNSET,
         key_id: Missing[str] = UNSET,
@@ -651,6 +685,7 @@ class PrivateRegistriesClient:
         secret_name: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
         data: Missing[OrgsOrgPrivateRegistriesSecretNamePatchBodyType] = UNSET,
         **kwargs,
     ) -> Response:
@@ -692,6 +727,7 @@ class PrivateRegistriesClient:
             url,
             json=exclude_unset(json),
             headers=exclude_unset(headers),
+            stream=stream,
             error_models={
                 "404": BasicError,
                 "422": ValidationError,

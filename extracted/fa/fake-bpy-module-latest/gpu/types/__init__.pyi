@@ -405,11 +405,13 @@ class GPUShaderCreateInfo:
         :type source: str
         """
 
-    def define(self, name, value) -> None:
+    def define(self, name: str, value: str) -> None:
         """Add a preprocessing define directive. In GLSL it would be something like:
 
-        :param name:
-        :param value:
+        :param name: Token name.
+        :type name: str
+        :param value: Text that replaces token occurrences.
+        :type value: str
         """
 
     def depth_write(self, value) -> None:
@@ -778,10 +780,11 @@ class GPUShaderCreateInfo:
                 :type name: str
         """
 
-    def typedef_source(self, source) -> None:
+    def typedef_source(self, source: str) -> None:
         """Source code included before resource declaration. Useful for defining structs used by Uniform Buffers.Example:
 
-        :param source:
+        :param source: The source code defining types.
+        :type source: str
         """
 
     def uniform_buf(self, slot: int, type_name: str, name: str) -> None:

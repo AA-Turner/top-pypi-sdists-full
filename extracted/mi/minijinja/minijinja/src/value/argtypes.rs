@@ -432,6 +432,7 @@ primitive_int_try_from!(i32);
 primitive_int_try_from!(i64);
 primitive_int_try_from!(i128);
 primitive_int_try_from!(usize);
+primitive_int_try_from!(isize);
 
 primitive_try_from!(bool, {
     ValueRepr::Bool(val) => val,
@@ -835,7 +836,7 @@ impl Kwargs {
     {
         T::from_value(self.values.get(&Value::from(key))).map_err(|mut err| {
             if err.kind() == ErrorKind::MissingArgument && err.detail().is_none() {
-                err.set_detail(format!("missing keyword argument '{}'", key));
+                err.set_detail(format!("missing keyword argument '{key}'"));
             }
             err
         })
@@ -889,7 +890,7 @@ impl Kwargs {
                 if !used.contains(key) {
                     return Err(Error::new(
                         ErrorKind::TooManyArguments,
-                        format!("unknown keyword argument '{}'", key),
+                        format!("unknown keyword argument '{key}'"),
                     ));
                 }
             } else {

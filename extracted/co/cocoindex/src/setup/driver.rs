@@ -1,4 +1,8 @@
-use crate::{lib_context::get_auth_registry, ops::interface::ExportTargetFactory, prelude::*};
+use crate::{
+    lib_context::get_auth_registry,
+    ops::{get_optional_executor_factory, interface::ExportTargetFactory},
+    prelude::*,
+};
 
 use sqlx::PgPool;
 use std::{
@@ -13,10 +17,7 @@ use super::{
     StateChange, TargetSetupState, db_metadata,
 };
 use crate::execution::db_tracking_setup;
-use crate::{
-    lib_context::FlowContext,
-    ops::{executor_factory_registry, interface::ExecutorFactory},
-};
+use crate::{lib_context::FlowContext, ops::interface::ExecutorFactory};
 
 enum MetadataRecordType {
     FlowVersion,
@@ -78,9 +79,8 @@ fn from_metadata_record<S: DeserializeOwned + Debug + Clone>(
 fn get_export_target_factory(
     target_type: &str,
 ) -> Option<Arc<dyn ExportTargetFactory + Send + Sync>> {
-    let registry = executor_factory_registry();
-    match registry.get(&target_type) {
-        Some(ExecutorFactory::ExportTarget(factory)) => Some(factory.clone()),
+    match get_optional_executor_factory(target_type) {
+        Some(ExecutorFactory::ExportTarget(factory)) => Some(factory),
         _ => None,
     }
 }
@@ -363,12 +363,17 @@ pub async fn sync_setup(
     flows: &BTreeMap<String, Arc<FlowContext>>,
     all_setup_state: &AllSetupState<ExistingMode>,
 ) -> Result<AllSetupStatus> {
-    let mut flow_setup_statuss = BTreeMap::new();
+    let mut flow_setup_status = BTreeMap::new();
     for (flow_name, flow_context) in flows {
         let existing_state = all_setup_state.flows.get(flow_name);
-        flow_setup_statuss.insert(
+        let execution_ctx = flow_context.get_execution_ctx_for_setup().await;
+        flow_setup_status.insert(
             flow_name.clone(),
-            check_flow_setup_status(Some(&flow_context.flow.desired_state), existing_state).await?,
+            check_flow_setup_status(
+                Some(&execution_ctx.setup_execution_context.setup_state),
+                existing_state,
+            )
+            .await?,
         );
     }
     Ok(AllSetupStatus {
@@ -376,7 +381,7 @@ pub async fn sync_setup(
             metadata_table_missing: !all_setup_state.has_metadata_table,
         }
         .into_setup_info(),
-        flows: flow_setup_statuss,
+        flows: flow_setup_status,
     })
 }
 

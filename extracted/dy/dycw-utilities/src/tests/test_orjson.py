@@ -52,7 +52,6 @@ from tests.test_typing_funcs.with_future import (
 )
 from utilities.functions import is_sequence_of
 from utilities.hypothesis import (
-    assume_does_not_raise,
     dates,
     int64s,
     paths,
@@ -64,7 +63,7 @@ from utilities.hypothesis import (
 from utilities.iterables import always_iterable, one
 from utilities.logging import get_logging_level_number
 from utilities.math import MAX_INT64, MIN_INT64
-from utilities.operator import IsEqualError, is_equal
+from utilities.operator import is_equal
 from utilities.orjson import (
     _LOG_RECORD_DEFAULT_ATTRS,
     OrjsonFormatter,
@@ -76,7 +75,9 @@ from utilities.orjson import (
     _SerializeIntegerError,
     deserialize,
     get_log_records,
+    read_json,
     serialize,
+    write_json,
 )
 from utilities.polars import check_polars_dataframe, zoned_datetime
 from utilities.sentinel import Sentinel, sentinel
@@ -358,8 +359,7 @@ class TestGetLogRecords:
         logger = getLogger(str(tmp_path))
         logger.addHandler(handler := FileHandler(file := tmp_path.joinpath("log")))
         handler.setFormatter(OrjsonFormatter())
-        with file.open(mode="w") as fh:
-            _ = fh.write("\n")
+        _ = file.write_text("\n")
         logger.warning("", extra={"a": 1, "b": 2, "_ignored": 3})
         result = get_log_records(tmp_path, parallelism="threads")
         assert result.path == tmp_path
@@ -380,8 +380,7 @@ class TestGetLogRecords:
     @SKIPIF_CI_AND_WINDOWS
     def test_error_file(self, *, tmp_path: Path) -> None:
         file = tmp_path.joinpath("log")
-        with file.open(mode="wb") as fh:
-            _ = fh.write(b"\x80")
+        _ = file.write_bytes(b"\x80")
         result = get_log_records(tmp_path, parallelism="threads")
         assert result.path == tmp_path
         assert result.files == [file]
@@ -407,8 +406,7 @@ class TestGetLogRecords:
 
     def test_error_deserialize_due_to_decode(self, *, tmp_path: Path) -> None:
         file = tmp_path.joinpath("log")
-        with file.open(mode="w") as fh:
-            _ = fh.write("message")
+        _ = file.write_text("message")
         result = get_log_records(tmp_path, parallelism="threads")
         assert result.path == tmp_path
         assert result.files == [file]
@@ -470,8 +468,7 @@ class TestSerializeAndDeserialize:
                 TruthEnum,
             },
         )
-        with assume_does_not_raise(IsEqualError):
-            assert is_equal(result, obj)
+        assert is_equal(result, obj)
 
     @given(obj=objects(parsable=True))
     def test_base(self, *, obj: Any) -> None:
@@ -532,8 +529,7 @@ class TestSerializeAndDeserialize:
     @given(obj=objects(dataclass_literal_nullable=True, parsable=True))
     def test_dataclass_literal_nullable(self, *, obj: Any) -> None:
         result = deserialize(serialize(obj), objects={DataClassFutureLiteralNullable})
-        with assume_does_not_raise(IsEqualError):
-            assert is_equal(result, obj)
+        assert is_equal(result, obj)
 
     @given(obj=objects(dataclass_nested=True, parsable=True))
     def test_dataclass_nested(self, *, obj: Any) -> None:
@@ -565,8 +561,7 @@ class TestSerializeAndDeserialize:
         result = deserialize(
             serialize(obj), objects={DataClassFutureTypeLiteralNullable}
         )
-        with assume_does_not_raise(IsEqualError):
-            assert is_equal(result, obj)
+        assert is_equal(result, obj)
 
     @given(obj=builds(DataClassFutureNone))
     def test_dataclass_no_objects_error(self, *, obj: DataClassFutureNone) -> None:
@@ -605,20 +600,17 @@ class TestSerializeAndDeserialize:
     @given(obj=objects(enum=True, parsable=True))
     def test_enum(self, *, obj: Any) -> None:
         result = deserialize(serialize(obj), objects={TruthEnum})
-        with assume_does_not_raise(IsEqualError):
-            assert is_equal(result, obj)
+        assert is_equal(result, obj)
 
     @given(obj=objects(exception_class=True, parsable=True))
     def test_exception_class(self, *, obj: Any) -> None:
         result = deserialize(serialize(obj), objects={CustomError})
-        with assume_does_not_raise(IsEqualError):
-            assert is_equal(result, obj)
+        assert is_equal(result, obj)
 
     @given(obj=objects(exception_instance=True, parsable=True))
     def test_exception_instance(self, *, obj: Any) -> None:
         result = deserialize(serialize(obj), objects={CustomError})
-        with assume_does_not_raise(IsEqualError):
-            assert is_equal(result, obj)
+        assert is_equal(result, obj)
 
     @mark.parametrize("value", [param(inf), param(-inf)])
     def test_inf(self, *, value: float) -> None:
@@ -749,3 +741,13 @@ class TestObjectHookGetObject:
             match=r"Unable to find object to deserialize 'qualname' from .*",
         ):
             _ = _object_hook_get_object("qualname", objects=set())
+
+
+class TestReadAndWriteJSON:
+    @given(root=temp_paths(), obj=objects(parsable=True), compress=booleans())
+    def test_main(self, *, root: Path, obj: Any, compress: bool) -> None:
+        path = root.joinpath("file.json")
+        write_json(obj, path, compress=compress)
+        assert path.is_file()
+        result = read_json(path, decompress=compress)
+        assert is_equal(result, obj)

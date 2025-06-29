@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: pysimdjson
-Version: 7.0.1
+Version: 7.0.2
 Summary: Add your description here
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pysimdjson
 Dynamic: license-file
 
 ![PyPI - License](https://img.shields.io/pypi/l/pysimdjson.svg?style=flat-square)

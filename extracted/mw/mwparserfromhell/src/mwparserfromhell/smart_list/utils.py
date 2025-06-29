@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2023 Ben Kurtovic <ben.kurtovic@gmail.com>
+# Copyright (C) 2012-2025 Ben Kurtovic <ben.kurtovic@gmail.com>
 # Copyright (C) 2019-2020 Yuri Astrakhan <YuriAstrakhan@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,7 +19,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from sys import maxsize
+from __future__ import annotations
+
+import sys
+from collections.abc import Sized
+from typing import Literal, overload
 
 __all__ = []
 
@@ -34,18 +38,32 @@ def inheritdoc(method):
     return method
 
 
-class _SliceNormalizerMixIn:
+class _SliceNormalizerMixIn(Sized):
     """MixIn that provides a private method to normalize slices."""
 
     __slots__ = ()
 
-    def _normalize_slice(self, key, clamp=False):
+    @overload
+    def _normalize_slice(
+        self,
+        key: slice[int | None, int | None, int | None],
+        clamp: Literal[False] = False,
+    ) -> slice[int, int | None, int]: ...
+
+    @overload
+    def _normalize_slice(
+        self, key: slice[int | None, int | None, int | None], clamp: Literal[True]
+    ) -> slice[int, int, int]: ...
+
+    def _normalize_slice(
+        self, key: slice[int | None, int | None, int | None], clamp: bool = False
+    ) -> slice[int, int | None, int]:
         """Return a slice equivalent to the input *key*, standardized."""
         if key.start is None:
             start = 0
         else:
             start = (len(self) + key.start) if key.start < 0 else key.start
-        if key.stop is None or key.stop == maxsize:
+        if key.stop is None or key.stop == sys.maxsize:
             stop = len(self) if clamp else None
         else:
             stop = (len(self) + key.stop) if key.stop < 0 else key.stop

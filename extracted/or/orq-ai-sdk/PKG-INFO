@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: orq-ai-sdk
-Version: 3.8.8
+Version: 3.8.9
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Requires-Python: >=3.9.2

@@ -13,6 +13,21 @@ def delete(
     :type undo: bool | None
     """
 
+def drop_scene_asset(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    session_uid: int | None = 0,
+) -> None:
+    """Import scene and set it as the active one in the window
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param session_uid: Session UID, Session UID of the data-block to use by the operator
+    :type session_uid: int | None
+    """
+
 def freestyle_add_edge_marks_to_keying_set(
     execution_context: int | str | None = None, undo: bool | None = None
 ) -> None:

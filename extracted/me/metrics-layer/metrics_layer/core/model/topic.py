@@ -6,7 +6,7 @@ from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
     QueryError,
 )
-
+from metrics_layer.core.exceptions import JoinError
 from .base import MetricsLayerBase
 from .field import Field
 from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
@@ -54,6 +54,10 @@ class Topic(MetricsLayerBase):
     @property
     def model(self):
         return self.project.get_model(self.model_name)
+
+    @property
+    def hidden(self):
+        return bool(self._definition.get("hidden", False))
 
     def _views(self):
         topic_view_names = [self.base_view]
@@ -145,7 +149,7 @@ class Topic(MetricsLayerBase):
                         self._error(
                             self.description,
                             (
-                                "The description property, must be"
+                                "Warning: The description property, must be"
                                 f" {topic_description_max_chars} characters or less in the topic {self.label}"
                             ),
                         )
@@ -167,17 +171,17 @@ class Topic(MetricsLayerBase):
                         self._error(
                             self.zoe_description,
                             (
-                                "The zoe_description property, must be"
+                                "Warning: The zoe_description property, must be"
                                 f" {topic_description_max_chars} characters or less in the topic {self.label}"
                             ),
                         )
                     )
         if "hidden" in self._definition:
-            if not isinstance(self.hidden, bool):
+            if not isinstance(self._definition["hidden"], bool):
                 errors.append(
                     self._error(
-                        self.hidden,
-                        f"The hidden property, {self.hidden} must be a boolean in the topic {self.label}",
+                        self._definition["hidden"],
+                        f"The hidden property, {self._definition['hidden']} must be a boolean in the topic {self.label}",
                     )
                 )
 
@@ -491,9 +495,10 @@ class Topic(MetricsLayerBase):
         invalid_views = set(requested_views) - set(available_views)
         if invalid_views:
             invalid_views_str = ", ".join(sorted(invalid_views))
-            raise QueryError(
+            raise JoinError(
                 f"The following views are not included in the topic {self.label}: {invalid_views_str}\n\nYou"
-                " can add them to the topic by adding the requested views to the topic."
+                " can add them to the topic by adding the requested views to the topic.",
+                location="topic",
             )
 
     def order_required_views(self, view_names: List[str]) -> List[str]:
@@ -545,3 +550,9 @@ class Topic(MetricsLayerBase):
             return join
         except KeyError:
             raise ValueError(f"Join not found between {self.base_view} and {view_name}")
+
+    def join_graphs(self):
+        join_graphs = []
+        for view in self._views():
+            join_graphs.append(self.project.join_graph.join_graph_hash(view.name))
+        return join_graphs

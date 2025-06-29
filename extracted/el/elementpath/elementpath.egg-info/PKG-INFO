@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elementpath
-Version: 5.0.2
+Version: 5.0.3
 Summary: XPath 1.0/2.0/3.0/3.1 parsers and selectors for ElementTree and lxml
 Author-email: Davide Brunato <brunato@sissa.it>
 License-Expression: MIT

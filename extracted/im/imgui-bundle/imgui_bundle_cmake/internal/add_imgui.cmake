@@ -21,10 +21,6 @@ function(add_imgui imgui_dir)
     if(NOT TARGET imgui)
         file(GLOB imgui_sources ${imgui_dir}/*.h ${imgui_dir}/*.cpp ${imgui_dir}/misc/cpp/*.cpp ${imgui_dir}/misc/cpp/*.h)
         add_library(imgui STATIC ${imgui_sources})
-        if (IMGUI_BUNDLE_BUILD_PYTHON)
-            # For python bindings we add opengl2 backend
-            target_sources(imgui PRIVATE ${imgui_dir}/backends/imgui_impl_opengl2.cpp ${imgui_dir}/backends/imgui_impl_opengl2.h)
-        endif()
         set(HELLOIMGUI_IMGUI_SOURCE_DIR ${imgui_dir})
         target_include_directories(imgui PUBLIC
             $<BUILD_INTERFACE:${HELLOIMGUI_IMGUI_SOURCE_DIR}>
@@ -49,6 +45,10 @@ function(add_imgui imgui_dir)
 
         if(IMGUI_BUNDLE_INSTALL_CPP)
             ibd_add_installable_dependency(imgui)
+        endif()
+
+        if (IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
+            target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
         endif()
     endif()
 endfunction()

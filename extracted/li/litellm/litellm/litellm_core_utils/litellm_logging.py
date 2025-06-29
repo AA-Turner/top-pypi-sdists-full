@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime as dt_object
 from functools import lru_cache
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -26,6 +27,7 @@ from typing import (
     cast,
 )
 
+from httpx import Response
 from pydantic import BaseModel
 
 import litellm
@@ -81,6 +83,7 @@ from litellm.types.rerank import RerankResponse
 from litellm.types.router import CustomPricingLiteLLMParams
 from litellm.types.utils import (
     CallTypes,
+    CostResponseTypes,
     DynamicPromptManagementParamLiteral,
     EmbeddingResponse,
     ImageResponse,
@@ -148,6 +151,8 @@ from .initialize_dynamic_callback_params import (
 )
 from .specialty_caches.dynamic_logging_cache import DynamicLoggingCache
 
+if TYPE_CHECKING:
+    from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig
 try:
     from litellm_enterprise.enterprise_callbacks.callback_controls import (
         EnterpriseCallbackControls,
@@ -1254,6 +1259,46 @@ class Logging(LiteLLMLoggingBaseClass):
         self.completion_start_time = completion_start_time
         self.model_call_details["completion_start_time"] = self.completion_start_time
 
+    def normalize_logging_result(self, result: Any) -> Any:
+        """
+        Some endpoints return a different type of result than what is expected by the logging system.
+        This function is used to normalize the result to the expected type.
+        """
+        logging_result = result
+        if self.call_type == CallTypes.arealtime.value and isinstance(result, list):
+            combined_usage_object = RealtimeAPITokenUsageProcessor.collect_and_combine_usage_from_realtime_stream_results(
+                results=result
+            )
+            logging_result = (
+                RealtimeAPITokenUsageProcessor.create_logging_realtime_object(
+                    usage=combined_usage_object,
+                    results=result,
+                )
+            )
+
+        elif (
+            self.call_type == CallTypes.llm_passthrough_route.value
+            or self.call_type == CallTypes.allm_passthrough_route.value
+        ) and isinstance(result, Response):
+            from litellm.utils import ProviderConfigManager
+
+            provider_config = ProviderConfigManager.get_provider_passthrough_config(
+                provider=self.model_call_details.get("custom_llm_provider", ""),
+                model=self.model,
+            )
+            if provider_config is not None:
+                logging_result = provider_config.logging_non_streaming_response(
+                    model=self.model,
+                    custom_llm_provider=self.model_call_details.get(
+                        "custom_llm_provider", ""
+                    ),
+                    httpx_response=result,
+                    request_data=self.model_call_details.get("request_data", {}),
+                    logging_obj=self,
+                    endpoint=self.model_call_details.get("endpoint", ""),
+                )
+        return logging_result
+
     def _success_handler_helper_fn(
         self,
         result=None,
@@ -1278,35 +1323,17 @@ class Logging(LiteLLMLoggingBaseClass):
             if self.call_type == CallTypes.anthropic_messages.value:
                 result = self._handle_anthropic_messages_response_logging(result=result)
             elif (
-                self.call_type == CallTypes.generate_content.value or 
-                self.call_type == CallTypes.agenerate_content.value
+                self.call_type == CallTypes.generate_content.value
+                or self.call_type == CallTypes.agenerate_content.value
             ):
-                result = self._handle_non_streaming_google_genai_generate_content_response_logging(result=result)
+                result = self._handle_non_streaming_google_genai_generate_content_response_logging(
+                    result=result
+                )
             ## if model in model cost map - log the response cost
             ## else set cost to None
 
-            logging_result = result
+            logging_result = self.normalize_logging_result(result=result)
 
-            if self.call_type == CallTypes.arealtime.value and isinstance(result, list):
-                combined_usage_object = RealtimeAPITokenUsageProcessor.collect_and_combine_usage_from_realtime_stream_results(
-                    results=result
-                )
-                logging_result = (
-                    RealtimeAPITokenUsageProcessor.create_logging_realtime_object(
-                        usage=combined_usage_object,
-                        results=result,
-                    )
-                )
-
-                # self.model_call_details[
-                #     "response_cost"
-                # ] = handle_realtime_stream_cost_calculation(
-                #     results=result,
-                #     combined_usage_object=combined_usage_object,
-                #     custom_llm_provider=self.custom_llm_provider,
-                #     litellm_model_name=self.model,
-                # )
-                # self.model_call_details["combined_usage_object"] = combined_usage_object
             if (
                 standard_logging_object is None
                 and result is not None
@@ -1423,6 +1450,59 @@ class Logging(LiteLLMLoggingBaseClass):
             return start_time, end_time, result
         except Exception as e:
             raise Exception(f"[Non-Blocking] LiteLLM.Success_Call Error: {str(e)}")
+
+    def _flush_passthrough_collected_chunks_helper(
+        self,
+        raw_bytes: List[bytes],
+        provider_config: "BasePassthroughConfig",
+    ) -> Optional["CostResponseTypes"]:
+        all_chunks = provider_config._convert_raw_bytes_to_str_lines(raw_bytes)
+        complete_streaming_response = provider_config.handle_logging_collected_chunks(
+            all_chunks=all_chunks,
+            litellm_logging_obj=self,
+            model=self.model,
+            custom_llm_provider=self.model_call_details.get("custom_llm_provider", ""),
+            endpoint=self.model_call_details.get("endpoint", ""),
+        )
+        return complete_streaming_response
+
+    def flush_passthrough_collected_chunks(
+        self,
+        raw_bytes: List[bytes],
+        provider_config: "BasePassthroughConfig",
+    ):
+        """
+        Flush collected chunks from the logging object
+        This is used to log the collected chunks once streaming is done on passthrough endpoints
+
+        1. Decode the raw bytes to string lines
+        2. Get the complete streaming response from the provider config
+        3. Log the complete streaming response (trigger success handler)
+        This is used for passthrough endpoints
+        """
+        complete_streaming_response = self._flush_passthrough_collected_chunks_helper(
+            raw_bytes=raw_bytes,
+            provider_config=provider_config,
+        )
+
+        if complete_streaming_response is not None:
+
+            self.success_handler(result=complete_streaming_response)
+        return
+
+    async def async_flush_passthrough_collected_chunks(
+        self,
+        raw_bytes: List[bytes],
+        provider_config: "BasePassthroughConfig",
+    ):
+        complete_streaming_response = self._flush_passthrough_collected_chunks_helper(
+            raw_bytes=raw_bytes,
+            provider_config=provider_config,
+        )
+
+        if complete_streaming_response is not None:
+            await self.async_success_handler(result=complete_streaming_response)
+        return
 
     def success_handler(  # noqa: PLR0915
         self, result=None, start_time=None, end_time=None, cache_hit=None, **kwargs
@@ -1917,18 +1997,32 @@ class Logging(LiteLLMLoggingBaseClass):
             return
 
         ## CALCULATE COST FOR BATCH JOBS
-        if (
-            self.call_type == CallTypes.aretrieve_batch.value
-            and isinstance(result, LiteLLMBatch)
-            and result.status == "completed"
+        if self.call_type == CallTypes.aretrieve_batch.value and isinstance(
+            result, LiteLLMBatch
         ):
+            litellm_params = self.litellm_params or {}
+            litellm_metadata = litellm_params.get("litellm_metadata", {})
+            if (
+                litellm_metadata.get("batch_ignore_default_logging", False) is True
+            ):  # polling job will query these frequently, don't spam db logs
+                return
+
             from litellm.proxy.openai_files_endpoints.common_utils import (
                 _is_base64_encoded_unified_file_id,
             )
 
             # check if file id is a unified file id
             is_base64_unified_file_id = _is_base64_encoded_unified_file_id(result.id)
-            if not is_base64_unified_file_id:  # only run for non-unified file ids
+
+            batch_cost = kwargs.get("batch_cost", None)
+            batch_usage = kwargs.get("batch_usage", None)
+            batch_models = kwargs.get("batch_models", None)
+            if all([batch_cost, batch_usage, batch_models]) is not None:
+                result._hidden_params["response_cost"] = batch_cost
+                result._hidden_params["batch_models"] = batch_models
+                result.usage = batch_usage
+
+            elif not is_base64_unified_file_id:  # only run for non-unified file ids
                 response_cost, batch_usage, batch_models = (
                     await _handle_completed_batch(
                         batch=result, custom_llm_provider=self.custom_llm_provider
@@ -1966,6 +2060,7 @@ class Logging(LiteLLMLoggingBaseClass):
             self.model_call_details["async_complete_streaming_response"] = (
                 complete_streaming_response
             )
+
             try:
                 if self.model_call_details.get("cache_hit", False) is True:
                     self.model_call_details["response_cost"] = 0.0
@@ -2045,6 +2140,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 )
 
         self.has_run_logging(event_type="async_success")
+
         for callback in callbacks:
             # check if callback can run for this request
             litellm_params = self.model_call_details.get("litellm_params", {})
@@ -2707,6 +2803,8 @@ class Logging(LiteLLMLoggingBaseClass):
             return result
         elif isinstance(result, ResponseCompletedEvent):
             return result.response
+        else:
+            return None
         return None
 
     def _handle_anthropic_messages_response_logging(self, result: Any) -> ModelResponse:
@@ -2757,12 +2855,15 @@ class Logging(LiteLLMLoggingBaseClass):
                 json_mode=None,
             )
         return result
-    
-    def _handle_non_streaming_google_genai_generate_content_response_logging(self, result: Any) -> ModelResponse:
+
+    def _handle_non_streaming_google_genai_generate_content_response_logging(
+        self, result: Any
+    ) -> ModelResponse:
         """
         Handles logging for Google GenAI generate content responses.
         """
         import httpx
+
         httpx_response = self.model_call_details.get("httpx_response", None)
         if httpx_response is None:
             raise ValueError("Google GenAI Generate Content: httpx_response is None")
@@ -2775,7 +2876,7 @@ class Logging(LiteLLMLoggingBaseClass):
             raw_response=httpx.Response(
                 status_code=200,
                 headers={},
-            ),  
+            ),
         )
         return result
 
