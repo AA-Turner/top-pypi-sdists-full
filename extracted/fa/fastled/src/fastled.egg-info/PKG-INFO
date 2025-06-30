@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastled
-Version: 1.3.29
+Version: 1.3.30
 Summary: FastLED Wasm Compiler
 Home-page: https://github.com/zackees/fastled-wasm
 Maintainer: Zachary Vorhies
@@ -19,6 +19,7 @@ Requires-Dist: rapidfuzz>=3.10.1
 Requires-Dist: progress>=1.6
 Requires-Dist: watchfiles>=1.0.5
 Requires-Dist: Flask>=3.0.0
+Requires-Dist: flask-cors>=4.0.0
 Requires-Dist: livereload
 Requires-Dist: disklru>=2.0.4
 Dynamic: home-page
@@ -55,7 +56,9 @@ Compile times are extremely fast, thanks to aggressive object caching for C++ an
 
 If you have docker installed, the compiler will download the docker image and run a private local server on your machine. If you don't have Docker installed then the app will fall back to using the public web compiler.
 
+
 In every conceivable way, the local compiler will be much faster than the web version.
+
 
 # Run
 
@@ -67,6 +70,7 @@ Example:
 $ cd mysketchdirectory
 $ fastled
 ```
+
 
 
 # Install

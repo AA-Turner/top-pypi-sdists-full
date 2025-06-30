@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ast-comments
-Version: 1.2.2
+Version: 1.2.3
 Summary: 
 Home-page: https://github.com/t3rn0/ast-comments
 License: MIT
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Project-URL: Repository, https://github.com/t3rn0/ast-comments
 Description-Content-Type: text/markdown
 

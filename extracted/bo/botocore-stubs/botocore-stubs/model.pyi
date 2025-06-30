@@ -4,7 +4,8 @@ Type annotations for botocore.model module.
 Copyright 2025 Vlad Emelianov
 """
 
-from typing import Any, Mapping, NamedTuple, TypeVar
+from collections.abc import Mapping
+from typing import Any, NamedTuple, TypeVar
 
 from botocore.utils import CachedProperty
 
@@ -112,6 +113,8 @@ class ServiceModel:
     def protocol(self) -> str: ...
     @CachedProperty
     def protocols(self) -> list[str]: ...
+    @CachedProperty
+    def resolved_protocol(self) -> str: ...
     @CachedProperty
     def endpoint_prefix(self) -> str: ...
     @CachedProperty

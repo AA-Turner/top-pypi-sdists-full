@@ -17,7 +17,7 @@ def __command():
         "project.api.asgi:app",
         port=get_cached_settings().api_port,
         host="localhost",
-        workers=1,
+        workers=get_cached_settings().api_workers,
         reload=False
     )
 

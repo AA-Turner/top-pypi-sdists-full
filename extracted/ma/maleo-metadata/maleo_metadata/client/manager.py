@@ -38,9 +38,9 @@ from maleo_metadata.client.services import (
 
 class MaleoMetadataClientManager(MaleoClientManager):
     def __init__(self, service_manager:ServiceManager):
-        key = service_manager.configs.client.maleo.metadata.key
-        name = service_manager.configs.client.maleo.metadata.name
-        url = service_manager.configs.client.maleo.metadata.url
+        key = service_manager.configurations.client.maleo.metadata.key
+        name = service_manager.configurations.client.maleo.metadata.name
+        url = service_manager.configurations.client.maleo.metadata.url
         super().__init__(key, name, url, service_manager)
         self._initialize_controllers()
         self._initialize_services()

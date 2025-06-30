@@ -17,7 +17,7 @@ OptionalController = Optional[Controller]
 class SubscriptionConfigurations(BaseModel):
     subscription_name: str
     max_messages: int = 10
-    ack_deadline: int = 30
+    ack_deadline: int = 10
     controller: OptionalController = None
 
 class SubscriptionManager(GoogleClientManager):

@@ -1,18 +1,38 @@
 Metadata-Version: 2.3
 Name: poethepoet
-Version: 0.35.0
+Version: 0.36.0
 Summary: A task runner that works well with poetry and uv.
 License: MIT
 Keywords: automation,tasks,task-runner,plugin,poetry,poe
 Author: Nat Noordanus
 Author-email: n@noordan.us
 Requires-Python: >=3.9
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
 Provides-Extra: poetry-plugin
 Requires-Dist: pastel (>=0.2.1,<0.3.0)
 Requires-Dist: poetry (>=1.2.0,<3.0.0) ; (python_version < "4.0") and (extra == "poetry-plugin")
 Requires-Dist: pyyaml (>=6.0.2,<7.0)
 Requires-Dist: tomli (>=1.2.2) ; python_version < "3.11"
+Project-URL: Documentation, https://poethepoet.natn.io/
+Project-URL: Homepage, https://poethepoet.natn.io/
+Project-URL: Issues, https://github.com/nat-n/poethepoet/issues
+Project-URL: Repository, https://github.com/nat-n/poethepoet
+Project-URL: Releases, https://github.com/nat-n/poethepoet/releases
 Description-Content-Type: text/markdown
 
 # Poe the Poet

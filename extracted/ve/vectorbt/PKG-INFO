@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vectorbt
-Version: 0.27.3
+Version: 0.28.0
 Summary: Python library for backtesting and analyzing trading strategies at scale
 Home-page: https://github.com/polakowo/vectorbt
 Author: Oleg Polakow

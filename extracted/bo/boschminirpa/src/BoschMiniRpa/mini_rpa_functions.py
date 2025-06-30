@@ -1225,7 +1225,7 @@ class MiniRpaFunction(MiniRPACore):
             raise ValueError(f'File {from_file_name} or {update_file_name} does not exist in the specified folder.')
 
     def save_pdf_table_into_excel(self, pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name,
-                                  sheet_name='Sheet1'):
+                                  sheet_name='Sheet1', extract_all_pages=False, extract_all_tables=False):
         """
         Save the extracted table from a PDF file into an Excel file.
 
@@ -1239,13 +1239,17 @@ class MiniRpaFunction(MiniRPACore):
             excel_folder_path (str): The folder path where the Excel file will be saved.
             excel_file_name (str): The name of the Excel file to save the extracted table.
             sheet_name (str): Name of the sheet in the Excel file.
+            extract_all_pages(bool): If True, extract tables from all pages. Defaults to False.
+            extract_all_tables(bool): If True, extract all tables from the specified page. Defaults to False.
         """
-        page_number = int(page_number)
-        table_index = int(table_index)
+        page_number = int(page_number) if str(page_number).isdigit() else 1
+        table_index = int(table_index) if str(table_index).isdigit() else 1
         pdf_folder_path = self.replace_variables_in_string(pdf_folder_path)
         pdf_file_name = self.prepare_file_name(pdf_file_name)
         excel_folder_path = self.replace_variables_in_string(excel_folder_path)
         excel_file_name = self.prepare_file_name(excel_file_name)
+        extract_all_pages= extract_all_pages if extract_all_pages else False
+        extract_all_tables= extract_all_tables if extract_all_tables else False
 
         if not pdf_folder_path:
             pdf_folder_path = self.report_save_path
@@ -1256,7 +1260,92 @@ class MiniRpaFunction(MiniRPACore):
         excel_file_path = excel_folder_path + os.sep + excel_file_name
 
         save_pdf_table_into_excel(self.user_name, self.user_password, self.server_name, self.share_name, self.port, pdf_file_path, page_number, table_index, first_column_name,
-                                  save_column_names, excel_file_path, sheet_name)
+                                  save_column_names, excel_file_path, sheet_name, extract_all_pages, extract_all_tables)
+
+    def batch_save_pdf_table_into_excel(self, pdf_folder_path, search_key_word, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name,
+                                        sheet_name='Sheet1', extract_all_pages=False, extract_all_tables=False, enable_pdf_history=False, history_folder_path=''):
+        """
+        Save the extracted table from a PDF file into an Excel file.
+
+        Args:
+            search_key_word(str): The keyword to search for in the PDF file names.
+            pdf_folder_path (str): The folder path where the PDF file is located.
+            page_number (int): The page number to extract the table from.
+            table_index (int): The index of the table to extract.
+            first_column_name (str): The name of the first column to locate first row.
+            save_column_names(str): List of column names to save in the Excel file.
+            excel_folder_path (str): The folder path where the Excel file will be saved.
+            excel_file_name (str): The name of the Excel file to save the extracted table.
+            sheet_name (str): Name of the sheet in the Excel file.
+            extract_all_pages(bool): If True, extract tables from all pages. Defaults to False.
+            extract_all_tables(bool): If True, extract all tables from the specified page. Defaults to False.
+            enable_pdf_history(bool): If True, enable PDF history saving.
+            history_folder_path(str): The folder path where the PDF history will be saved.
+        """
+        table_df_list = []
+        search_key_word = str(search_key_word).upper().strip()
+        page_number = int(page_number) if str(page_number).isdigit() else 1
+        table_index = int(table_index) if str(table_index).isdigit() else 1
+        pdf_folder_path = self.replace_variables_in_string(pdf_folder_path)
+        history_folder_path = self.replace_variables_in_string(history_folder_path)
+        excel_folder_path = self.replace_variables_in_string(excel_folder_path)
+        excel_file_name = self.prepare_file_name(excel_file_name)
+        enable_pdf_history = enable_pdf_history if enable_pdf_history else False
+        extract_all_pages= extract_all_pages if extract_all_pages else False
+        extract_all_tables= extract_all_tables if extract_all_tables else False
+
+        if not excel_folder_path:
+            excel_folder_path = self.report_save_path
+        excel_file_path = excel_folder_path + os.sep + excel_file_name
+
+        if not pdf_folder_path:
+            pdf_folder_path = self.report_save_path
+
+        if not history_folder_path:
+            history_folder_path = pdf_folder_path + os.sep + 'PDF History'
+
+        if enable_pdf_history:
+            is_folder_exist = smb_check_folder_exist(self.user_name, self.user_password, self.server_name, self.share_name, history_folder_path, self.port)
+            if not is_folder_exist:
+                smb_create_folder(self.user_name, self.user_password, self.server_name, self.share_name, history_folder_path, self.port)
+
+        pdf_file_list = smb_traverse_remote_folder(self.user_name, self.user_password, self.server_name, self.share_name, pdf_folder_path, self.port)
+
+        for pdf_file_dict in pdf_file_list:
+            if pdf_file_dict['is_file']:
+                pdf_file_name = pdf_file_dict['name']
+                if search_key_word in pdf_file_name.upper():
+                    pdf_file_path = pdf_folder_path + os.sep + pdf_file_name
+                    table_df = collect_tables_from_pdf_file(self.user_name, self.user_password, self.server_name, self.share_name, pdf_file_path, self.port, page_number,
+                                                            table_index, first_column_name, extract_all_pages, extract_all_tables)
+                    if table_df is not None and not table_df.empty:
+                        table_df_list.append(table_df)
+
+                        if enable_pdf_history:
+                            history_file_path = history_folder_path + os.sep + pdf_file_name
+                            smb_move_remote_file(self.user_name, self.user_password, self.server_name, self.share_name, pdf_file_path, self.server_name, self.share_name,
+                                                 history_file_path, self.port)
+
+        if table_df_list:
+            combined_table_df = pd.concat(table_df_list, ignore_index=True)
+            if not combined_table_df.empty:
+                save_column_name_list = save_column_names.replace('，', ',').split(',')
+                save_column_name_list = [name.strip() for name in save_column_name_list if name.strip()]
+                if save_column_name_list:
+                    combined_table_df = combined_table_df.loc[:, save_column_name_list]
+
+                file_obj = BytesIO()
+
+                with pd.ExcelWriter(file_obj, engine='xlsxwriter') as writer:
+                    combined_table_df.to_excel(writer, sheet_name=sheet_name, index=False, float_format='%.2f')
+
+                file_obj.seek(0)
+                smb_store_remote_file_by_obj(self.user_name, self.user_password, self.server_name, self.share_name, excel_file_path, file_obj, self.port)
+                print(f'-----Data saved into {excel_file_path} successfully!-----')
+            else:
+                print('No data found to save.')
+        else:
+            print('No data found to save.')
 
     def save_excel_data_into_text(self, excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name='Sheet1', save_column_names='', keep_header=True):
         """

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pillow_heif
-Version: 0.22.0
+Version: 1.0.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -9,7 +9,7 @@ License: BSD-3-Clause
 Project-URL: Documentation, https://pillow-heif.readthedocs.io
 Project-URL: Source, https://github.com/bigcat88/pillow_heif
 Project-URL: Changelog, https://github.com/bigcat88/pillow_heif/blob/master/CHANGELOG.md
-Keywords: heif,heic,avif,pillow
+Keywords: heif,heic,pillow
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
@@ -32,7 +32,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: LICENSES_bundled.txt
-Requires-Dist: pillow>=10.1.0
+Requires-Dist: pillow>=11.1.0
 Provides-Extra: docs
 Requires-Dist: sphinx>=4.4; extra == "docs"
 Requires-Dist: sphinx-issues>=3.0.1; extra == "docs"
@@ -58,6 +58,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
+Dynamic: license-file
 
 # pillow-heif
 

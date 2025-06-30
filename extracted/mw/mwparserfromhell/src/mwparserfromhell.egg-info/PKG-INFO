@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: mwparserfromhell
-Version: 0.7.0
-Summary: MWParserFromHell is a parser for MediaWiki wikicode.
-Home-page: https://github.com/earwig/mwparserfromhell
-Download-URL: https://github.com/earwig/mwparserfromhell/tarball/v0.7.0
-Author: Ben Kurtovic
-Author-email: ben.kurtovic@gmail.com
-License: MIT License
-Keywords: earwig mwparserfromhell wikipedia wiki mediawiki wikicode template parsing
+Version: 0.7.1
+Summary: MWParserFromHell is a parser for MediaWiki wikicode
+Author-email: Ben Kurtovic <ben@benkurtovic.com>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/earwig/mwparserfromhell
+Project-URL: Documentation, https://mwparserfromhell.readthedocs.io/
+Project-URL: Issues, https://github.com/earwig/mwparserfromhell/issues
+Project-URL: Changelog, https://github.com/earwig/mwparserfromhell/blob/main/CHANGELOG
+Keywords: mwparserfromhell,wikipedia,wiki,mediawiki,wikicode,wikitext
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -20,19 +20,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Text Processing :: Markup
-Requires-Python: >= 3.9
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-python
-Dynamic: summary
 
 mwparserfromhell
 ================
@@ -43,7 +34,7 @@ mwparserfromhell
 
 **mwparserfromhell** (the *MediaWiki Parser from Hell*) is a Python package
 that provides an easy-to-use and outrageously powerful parser for MediaWiki_
-wikicode. It supports Python 3.8+.
+wikicode. It supports Python 3.9+.
 
 Developed by Earwig_ with contributions from `Σ`_, Legoktm_, and others.
 Full documentation is available on ReadTheDocs_. Development occurs on GitHub_.
@@ -51,20 +42,30 @@ Full documentation is available on ReadTheDocs_. Development occurs on GitHub_.
 Installation
 ------------
 
-The easiest way to install the parser is through the `Python Package Index`_;
-you can install the latest release with ``pip install mwparserfromhell``
-(`get pip`_). Make sure your pip is up-to-date first, especially on Windows.
+The easiest way to install the parser is from `PyPI`_; you can install the
+latest release with ``pip install mwparserfromhell``.
 
-Alternatively, get the latest development version:
+Prebuilt wheels are available on PyPI with a fast, compiled C tokenizer
+extension for most environments (Linux x86_64 and arm64, macOS x86_64 and
+arm64, Windows x86 and x86_64). If building from source and the C tokenizer
+cannot be built, you can fall back to the slower pure-Python implementation by
+setting the environment variable ``WITH_EXTENSION=0`` when installing.
+
+To get the latest development version (with `uv`_):
 
 .. code-block:: sh
 
     git clone https://github.com/earwig/mwparserfromhell.git
     cd mwparserfromhell
-    python setup.py install
+    uv sync
+    uv run python -c 'import mwparserfromhell; print(mwparserfromhell.__version__)'
 
-The comprehensive unit testing suite requires `pytest`_ (``pip install pytest``)
-and can be run with ``python -m pytest``.
+The comprehensive test suite can be run with ``pytest``. If using ``uv``, pass
+``--reinstall-package`` so updates to the extension module are properly tested:
+
+.. code-block:: sh
+
+    uv run --reinstall-package mwparserfromhell pytest
 
 Usage
 -----
@@ -254,11 +255,11 @@ Python 3 code (using the API_ and the requests_ library):
 .. _Σ:                      https://en.wikipedia.org/wiki/User:%CE%A3
 .. _Legoktm:                https://en.wikipedia.org/wiki/User:Legoktm
 .. _GitHub:                 https://github.com/earwig/mwparserfromhell
-.. _Python Package Index:   https://pypi.org/
-.. _get pip:                https://pypi.org/project/pip/
+.. _PyPI:                   https://pypi.org/project/mwparserfromhell/
+.. _uv:                     https://docs.astral.sh/uv/
 .. _pytest:                 https://docs.pytest.org/
 .. _Word-ending links:      https://www.mediawiki.org/wiki/Help:Links#linktrail
 .. _EarwigBot:              https://github.com/earwig/earwigbot
 .. _Pywikibot:              https://www.mediawiki.org/wiki/Manual:Pywikibot
 .. _API:                    https://www.mediawiki.org/wiki/API:Main_page
-.. _requests:               https://2.python-requests.org
+.. _requests:               https://pypi.org/project/requests/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.4.2
+Version: 0.4.5
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -357,7 +357,7 @@ Recipes make Gway scripting modular and composable. Include them in your automat
 Design Philosophies
 ===================
 
-This section contains notes from the author on the nature of the code that may provide insight and guidance to future developers.
+This section contains notes from the author that **may** provide insight to future developers.
 
 
 Keep a Goal in Mind by Making it a TODO

@@ -8,12 +8,12 @@ An ensemble model which uses a regression model to compute the ensemble forecast
 from collections.abc import Sequence
 from typing import Optional, Union
 
+from darts import TimeSeries, concatenate
 from darts.logging import get_logger, raise_if, raise_if_not
 from darts.models.forecasting.ensemble_model import EnsembleModel
 from darts.models.forecasting.forecasting_model import ForecastingModel
 from darts.models.forecasting.linear_regression_model import LinearRegressionModel
-from darts.models.forecasting.regression_model import RegressionModel
-from darts.timeseries import TimeSeries, concatenate
+from darts.models.forecasting.sklearn_model import SKLearnModel
 from darts.utils.ts_utils import seq2series, series2seq
 
 logger = get_logger(__name__)
@@ -37,7 +37,7 @@ class RegressionEnsembleModel(EnsembleModel):
         The provided regression model must implement ``fit()`` and ``predict()`` methods
         (e.g. scikit-learn regression models). Note that here the regression model is used to learn how to
         best ensemble the individual forecasting models' forecasts. It is not the same usage of regression
-        as in :class:`RegressionModel`, where the regression model is used to produce forecasts based on the
+        as in :class:`SKLearnModel`, where the regression model is used to produce forecasts based on the
         lagged series.
 
         If `future_covariates` or `past_covariates` are provided at training or inference time,
@@ -124,7 +124,7 @@ class RegressionEnsembleModel(EnsembleModel):
             regression_model = LinearRegressionModel(
                 lags=None, lags_future_covariates=[0], fit_intercept=False
             )
-        elif isinstance(regression_model, RegressionModel):
+        elif isinstance(regression_model, SKLearnModel):
             raise_if_not(
                 regression_model.multi_models,
                 "Cannot use `regression_model` that was created with `multi_models = False`.",
@@ -133,7 +133,7 @@ class RegressionEnsembleModel(EnsembleModel):
             regression_model = regression_model
         else:
             # scikit-learn like model
-            regression_model = RegressionModel(
+            regression_model = SKLearnModel(
                 lags_future_covariates=[0], model=regression_model
             )
 
@@ -145,7 +145,7 @@ class RegressionEnsembleModel(EnsembleModel):
             f"{regression_model.lags}",
         )
 
-        self.regression_model: RegressionModel = regression_model
+        self.regression_model: SKLearnModel = regression_model
 
         raise_if(
             regression_train_n_points == -1
@@ -451,6 +451,7 @@ class RegressionEnsembleModel(EnsembleModel):
         series: Union[TimeSeries, Sequence[TimeSeries]],
         num_samples: int = 1,
         predict_likelihood_parameters: bool = False,
+        random_state: Optional[int] = None,
     ) -> Union[TimeSeries, Sequence[TimeSeries]]:
         is_single_series = isinstance(series, TimeSeries) or series is None
         predictions = series2seq(predictions)
@@ -463,6 +464,7 @@ class RegressionEnsembleModel(EnsembleModel):
                 future_covariates=prediction,
                 num_samples=num_samples,
                 predict_likelihood_parameters=predict_likelihood_parameters,
+                random_state=random_state,
             )
             for serie, prediction in zip(series, predictions)
         ]

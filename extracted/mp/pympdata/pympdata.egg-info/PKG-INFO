@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pympdata
-Version: 1.6.0
+Version: 1.6.1
 Summary: Numba-accelerated Pythonic implementation of MPDATA with examples in Python, Julia, Rust and Matlab
 Author: https://github.com/open-atmos/PyMPDATA/graphs/contributors
 Author-email: sylwester.arabas@agh.edu.pl

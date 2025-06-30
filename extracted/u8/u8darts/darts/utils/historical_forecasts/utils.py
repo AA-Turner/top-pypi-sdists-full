@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 
+from darts import TimeSeries
 from darts.dataprocessing.pipeline import Pipeline
 from darts.dataprocessing.transformers import (
     BaseDataTransformer,
     FittableDataTransformer,
 )
 from darts.logging import get_logger, raise_log
-from darts.timeseries import TimeSeries
 from darts.utils.ts_utils import SeriesType, get_series_seq_type, series2seq
 from darts.utils.utils import generate_index, n_steps_between
 
@@ -31,14 +31,14 @@ def _historical_forecasts_general_checks(
     model, series, kwargs, is_conformal: bool = False
 ):
     """
-    Performs checks common to ForecastingModel and RegressionModel backtest() methods
+    Performs checks common to ForecastingModel and SKLearnModel backtest() methods
 
     Parameters
     ----------
     model
         The forecasting model.
     series
-        Either series when called from ForecastingModel, or target_series if called from RegressionModel
+        Either series when called from ForecastingModel, or target_series if called from SKLearnModel
     kwargs
         Params specified by the caller of backtest(), they take precedence over the arguments' default values
     """
@@ -755,7 +755,7 @@ def _get_historical_forecastable_time_index(
     if intersect_[1] < intersect_[0]:
         return None
 
-    # if RegressionModel is not multi_models, it looks further in the past
+    # if SKLearnModel is not multi_models, it looks further in the past
     is_multi_models = getattr(model, "multi_models", None)
     if is_multi_models is not None and not is_multi_models:
         intersect_ = (
@@ -1132,7 +1132,7 @@ def _process_historical_forecast_input(
     past_covariates = series2seq(past_covariates)
     future_covariates = series2seq(future_covariates)
 
-    # manage covariates, usually handled by RegressionModel.predict()
+    # manage covariates, usually handled by SKLearnModel.predict()
     if past_covariates is None and model.past_covariate_series is not None:
         past_covariates = [model.past_covariate_series] * len(series)
     if future_covariates is None and model.future_covariate_series is not None:

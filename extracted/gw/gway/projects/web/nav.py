@@ -8,7 +8,7 @@ def render(*, homes=None):
     """
     Renders the sidebar navigation including search, home links, visited links, and a QR compass.
     """
-    cookies_ok = gw.web.app.is_enabled('web.cookies') and gw.web.cookies.check_consent()
+    cookies_ok = gw.web.app.is_setup('web.cookies') and gw.web.cookies.check_consent()
     gw.debug(f"Render nav with {homes=} {cookies_ok=}")
 
     visited = []
@@ -18,7 +18,7 @@ def render(*, homes=None):
             visited = visited_cookie.split("|")
 
     current_route = request.fullpath.strip("/")
-    current_title = (current_route.split("/")[-1] or "readme").replace('-', ' ').replace('_', ' ').title()
+    current_title = current_route.split("/")[-1].replace('-', ' ').replace('_', ' ').title()
 
     visited_set = set()
     entries = []
@@ -74,7 +74,7 @@ def render(*, homes=None):
     # --- QR code for this page ---
     compass = ""
     try:
-        url = get_current_url()
+        url = current_url()
         qr_url = gw.qr.generate_url(url)
         compass = f'''
             <div class="compass">
@@ -87,7 +87,7 @@ def render(*, homes=None):
     gw.debug(f"Visited cookie raw: {gw.web.cookies.get('visited')}")
     return f"<aside>{search_box}<ul>{links}</ul><br>{compass}</aside>"
 
-def get_style():
+def active_style():
     """
     Returns the current user's preferred style path (to .css file), checking:
     - URL ?css= param (for preview/testing)
@@ -96,7 +96,7 @@ def get_style():
     This should be called by render_template for every page load.
     """
     styles = list_styles()
-    style_cookie = gw.web.cookies.get("css") if gw.web.app.is_enabled('web.cookies') else None
+    style_cookie = gw.web.cookies.get("css") if gw.web.app.is_setup('web.cookies') else None
     style_query = request.query.get("css")
     style_path = None
 
@@ -119,14 +119,7 @@ def get_style():
     # Fallback to base
     return style_path or "/static/styles/base.css"
 
-def get_selected_style():
-    """
-    (Deprecated for site-wide theme—use get_style instead.)
-    Returns the CSS <link> href for the selected style for this user/session.
-    """
-    return get_style()
-
-def get_current_url():
+def current_url():
     """Returns the current full URL path (with querystring)."""
     url = request.fullpath
     if request.query_string:
@@ -181,7 +174,7 @@ def view_style_switcher(*, css=None, project=None):
     all_styles = [fname for _, fname in styles]
     style_sources = {fname: src for src, fname in styles}
 
-    cookies_enabled = gw.web.app.is_enabled('web.cookies')
+    cookies_enabled = gw.web.app.is_setup('web.cookies')
     cookies_accepted = gw.web.cookies.check_consent() if cookies_enabled else False
     css_cookie = gw.web.cookies.get("css")
 

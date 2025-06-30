@@ -18,7 +18,7 @@ def __command():
         host="127.0.0.1",
         port=get_cached_settings().api_port,
         reload=False,
-        workers=4
+        workers=get_cached_settings().api_workers
     )
 
 

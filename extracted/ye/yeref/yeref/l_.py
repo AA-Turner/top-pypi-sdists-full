@@ -13239,31 +13239,32 @@ l_find_need_subscribe = {
 
 # region FereyTONestBot
 l_tonest_btn1 = {
-    'ru': "🏞️ Коллекции",
-    'en': "👩🏽‍💻 Projects",
-    'es': "👩🏽‍💻 Proyectos",
-    'fr': "👩🏽‍💻 Projets",
-    'zh': "👩🏽‍💻 项目",
-    'ar': "👩🏽‍💻 المشاريع",
+    "ru": "👩🏽‍💻 Блокчейн-активы",
+    "en": "👩🏽‍💻 Blockchain assets",
+    "es": "👩🏽‍💻 Activos de blockchain",
+    "fr": "👩🏽‍💻 Actifs blockchain",
+    "zh": "👩🏽‍💻 区块链资产",
+    "ar": "👩🏽‍💻 أصول البلوك تشين",
+}
+l_tonest_btn4 = {
+    "ru": "🪙 Монеты",
+    "en": "🪙 Coins",
+    "es": "🪙 Monedas",
+    "fr": "🪙 Pièces",
+    "zh": "🪙 硬币",
+    "ar": "🪙 عملات",
 }
 l_tonest_btn2 = {
-    'ru': "🪙 Монеты",
-    'en': "👩🏽‍💻 Projects",
-    'es': "👩🏽‍💻 Proyectos",
-    'fr': "👩🏽‍💻 Projets",
-    'zh': "👩🏽‍💻 项目",
-    'ar': "👩🏽‍💻 المشاريع",
+    "ru": "💨 Подписка",
+    "en": "💨 Subscription",
+    "es": "💨 Suscripción",
+    "fr": "💨 Abonnement",
+    "zh": "💨 订阅",
+    "ar": "💨 الاشتراك",
 }
-l_tonest_btn3 = {
-    'ru': "💨 Подписка",
-    'en': "💨 Subscription",
-    'es': "💨 Suscripción",
-    'fr': "💨 Abonnement",
-    'zh': "💨 订阅",
-    'ar': "💨 الاشتراك",
-}
+
 l_tonest_welcome = {
-    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(жетоны) FT\n▪️смарт-контракты</blockquote>",
+    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(жетоны) FT\n▪️смарт-контракты\n▪️NFT-диалоги</blockquote>",
     "en": "🌱 <b>{0}</b>, welcome to the <i>@tg-app</i> for creating Web3ᵀᴼᴺ projects on the blockchain:\n\n<blockquote>▪️solo/NFT album\n▪️coins (tokens) FT\n▪️smart contracts</blockquote>",
     "es": "🌱 <b>{0}</b>, bienvenido a la <i>@tg-app</i> para la creación de proyectos Web3ᵀᴼᴺ en la blockchain:\n\n<blockquote>▪️álbum solo/NFT\n▪️monedas (tokens) FT\n▪️contratos inteligentes</blockquote>",
     "fr": "🌱 <b>{0}</b>, bienvenue dans l’<i>@tg-app</i> de création de projets Web3ᵀᴼᴺ sur la blockchain:\n\n<blockquote>▪️solo/album NFT\n▪️pièces (jetons) FT\n▪️contrats intelligents</blockquote>",

@@ -1,6 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List
-from maleo_foundation.utils.logging import MiddlewareLogger
 
 _ALLOW_METHODS: List[str] = [
     "GET",
@@ -36,11 +35,10 @@ class CORSMiddlewareConfigurations(BaseModel):
     expose_headers: List[str] = Field(_EXPOSE_HEADERS, description="Exposed headers")
 
 class MiddlewareStaticConfigurations(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     general: GeneralMiddlewareConfigurations = Field(..., description="Middleware's general configurations")
     cors: CORSMiddlewareConfigurations = Field(..., description="CORS middleware's configurations")
-
-    class Config:
-        arbitrary_types_allowed=True
 
 class BaseMiddlewareConfigurations(BaseModel):
     limit: int = Field(10, description="Request limit (per 'window' seconds)")
@@ -49,10 +47,9 @@ class BaseMiddlewareConfigurations(BaseModel):
     ip_timeout: int = Field(300, description="Idle IP's timeout (seconds)")
 
 class MiddlewareRuntimeConfigurations(BaseModel):
-    base: BaseMiddlewareConfigurations = Field(..., description="Base middleware's configurations")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed=True
+    base: BaseMiddlewareConfigurations = Field(..., description="Base middleware's configurations")
 
 class MiddlewareConfigurations(BaseModel):
     general: GeneralMiddlewareConfigurations = Field(..., description="Middleware's general configurations")

@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from maleo_foundation.managers.client.base import (
     ClientManager,
     ClientHTTPControllerManager,
@@ -25,10 +25,9 @@ class MaleoClientHTTPController(ClientHTTPController):
         return self._service_manager
 
 class MaleoClientServiceControllers(ClientServiceControllers):
-    http:MaleoClientHTTPController = Field(..., description="Maleo's HTTP Client Controller")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed=True
+    http:MaleoClientHTTPController = Field(..., description="Maleo's HTTP Client Controller")
 
 class MaleoClientService(ClientService):
     def __init__(

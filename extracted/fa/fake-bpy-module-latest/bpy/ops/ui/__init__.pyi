@@ -417,6 +417,15 @@ def view_item_rename(
     :type undo: bool | None
     """
 
+def view_item_select(
+    execution_context: int | str | None = None, undo: bool | None = None
+) -> None:
+    """Activate selected view item
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
 def view_scroll(
     execution_context: int | str | None = None, undo: bool | None = None
 ) -> None:

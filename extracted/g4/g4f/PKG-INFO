@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 0.5.5.7
+Version: 0.5.6.0
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
 Author-email: <support@g4f.ai>
 Project-URL: Source Code, https://github.com/xtekky/gpt4free
 Project-URL: Bug Tracker, https://github.com/xtekky/gpt4free/issues
-Keywords: python,chatbot,reverse-engineering,openai,chatbots,gpt,language-model,gpt-3,gpt3,openai-api,gpt-4,gpt4,chatgpt,chatgpt-api,openai-chatgpt,chatgpt-free,chatgpt-4,chatgpt4,chatgpt4-api,free,free-gpt,gpt4free,g4f
+Keywords: gpt4free,gpt4free.js,g4f,g4f.dev,javascript,npm,browser,gpt,chatgpt,deepseek,openai,ai,client,sdk,free,ai,gpt-4,gpt-4o,chat,api,browser,ai,ai,js,client,text,generation,image,generation,in-browser,ai,frontend,ai,openai,alternative,javascript,ai,library,nodejs,prompt,engineering,chatbot,ai,integration
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3

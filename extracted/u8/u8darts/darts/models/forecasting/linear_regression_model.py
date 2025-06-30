@@ -12,14 +12,14 @@ from typing import Optional, Union
 from scipy.optimize import linprog
 from sklearn.linear_model import LinearRegression, PoissonRegressor, QuantileRegressor
 
+from darts import TimeSeries
 from darts.logging import get_logger
-from darts.models.forecasting.regression_model import (
+from darts.models.forecasting.sklearn_model import (
     FUTURE_LAGS_TYPE,
     LAGS_TYPE,
-    RegressionModel,
+    SKLearnModel,
     _QuantileModelContainer,
 )
-from darts.timeseries import TimeSeries
 from darts.utils.likelihood_models.sklearn import (
     QuantileRegression,
     _check_likelihood,
@@ -29,7 +29,7 @@ from darts.utils.likelihood_models.sklearn import (
 logger = get_logger(__name__)
 
 
-class LinearRegressionModel(RegressionModel):
+class LinearRegressionModel(SKLearnModel):
     def __init__(
         self,
         lags: Optional[LAGS_TYPE] = None,
@@ -127,11 +127,7 @@ class LinearRegressionModel(RegressionModel):
         quantiles
             Fit the model to these quantiles if the `likelihood` is set to `quantile`.
         random_state
-            Control the randomness of the sampling. Used as seed for
-            `numpy.random.Generator
-            <https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator>`_. Ignored when
-            no `likelihood` is set.
-            Default: ``None``.
+            Controls the randomness for reproducible forecasting.
         multi_models
             If True, a separate model will be trained for each future lag to predict. If False, a single model
             is trained to predict all the steps in 'output_chunk_length' (features lags are shifted back by
@@ -193,7 +189,6 @@ class LinearRegressionModel(RegressionModel):
         self._likelihood = _get_likelihood(
             likelihood=likelihood,
             n_outputs=output_chunk_length if multi_models else 1,
-            random_state=random_state,
             quantiles=quantiles,
         )
 
@@ -207,6 +202,7 @@ class LinearRegressionModel(RegressionModel):
             model=model,
             multi_models=multi_models,
             use_static_covariates=use_static_covariates,
+            random_state=random_state,
         )
 
     def fit(

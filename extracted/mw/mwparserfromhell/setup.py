@@ -22,94 +22,79 @@
 
 from __future__ import annotations
 
+import glob
 import os
 import sys
-from glob import glob
+from enum import Enum
 
-from setuptools import Extension, find_packages, setup
+from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from mwparserfromhell import __version__
+class UseExtension(Enum):
+    REQUIRED = 1
+    OPTIONAL = 2
+    IGNORED = 3
 
-with open("README.rst") as fp:
-    long_docs = fp.read()
 
-use_extension = True
-fallback = True
+if "WITH_EXTENSION" in os.environ:
+    if "WITHOUT_EXTENSION" in os.environ:
+        raise RuntimeError("Cannot set both $WITH_EXTENSION and $WITHOUT_EXTENSION")
+    value = os.environ["WITH_EXTENSION"].lower()
+    if value in ("1", "true", "yes", "required"):
+        use_extension = UseExtension.REQUIRED
+    elif value == "optional":
+        use_extension = UseExtension.OPTIONAL
+    elif value in ("0", "false", "no"):
+        use_extension = UseExtension.IGNORED
+    else:
+        raise RuntimeError(
+            f"Unknown value for $WITH_EXTENSION; should be '1', '0', or 'optional', "
+            f"but found {value!r}"
+        )
+elif "WITHOUT_EXTENSION" in os.environ:
+    value = os.environ["WITHOUT_EXTENSION"].lower()
+    if value in ("1", "true", "yes"):
+        use_extension = UseExtension.IGNORED
+    elif value in ("0", "false", "no"):
+        use_extension = UseExtension.REQUIRED
+    else:
+        raise RuntimeError(
+            f"Unknown value for $WITHOUT_EXTENSION; should be '1', or '0', "
+            f"but found {value!r}"
+        )
+else:
+    use_extension = UseExtension.REQUIRED
 
-# Allow env var WITHOUT_EXTENSION and args --with[out]-extension:
-
-env_var = os.environ.get("WITHOUT_EXTENSION")
-if "--without-extension" in sys.argv:
-    use_extension = False
-elif "--with-extension" in sys.argv:
-    fallback = False
-elif env_var is not None:
-    if env_var == "1":
-        use_extension = False
-    elif env_var == "0":
-        fallback = False
-
-# Remove the command line argument as it isn't understood by setuptools:
-
-sys.argv = [
-    arg for arg in sys.argv if arg not in ("--without-extension", "--with-extension")
-]
+if use_extension == UseExtension.IGNORED:
+    ext_modules = []
+else:
+    tokenizer = Extension(
+        "mwparserfromhell.parser._tokenizer",
+        sources=sorted(glob.glob("src/mwparserfromhell/parser/ctokenizer/*.c")),
+        depends=sorted(glob.glob("src/mwparserfromhell/parser/ctokenizer/*.h")),
+        optional=use_extension == UseExtension.OPTIONAL,
+    )
+    ext_modules = [tokenizer]
 
 
 def build_ext_patched(self):
     try:
         build_ext_original(self)
-    except Exception as exc:
-        print("error: " + str(exc))
-        print("Falling back to pure Python mode.")
-        del self.extensions[:]
+    except Exception:
+        print(
+            """
+**********
+Note: To avoid building the C tokenizer extension, set the environment variable \
+`WITH_EXTENSION=0`.
+This will fall back to a pure-Python tokenizer.
+**********
+""",
+            file=sys.stderr,
+        )
+        raise
 
 
-if fallback:
-    build_ext.run, build_ext_original = build_ext_patched, build_ext.run
+build_ext.run, build_ext_original = build_ext_patched, build_ext.run
 
-# Project-specific part begins here:
-
-tokenizer = Extension(
-    "mwparserfromhell.parser._tokenizer",
-    sources=sorted(glob("src/mwparserfromhell/parser/ctokenizer/*.c")),
-    depends=sorted(glob("src/mwparserfromhell/parser/ctokenizer/*.h")),
-)
-
-setup(
-    name="mwparserfromhell",
-    packages=find_packages("src"),
-    package_dir={"": "src"},
-    ext_modules=[tokenizer] if use_extension else [],
-    setup_requires=(
-        ["pytest-runner"] if "test" in sys.argv or "pytest" in sys.argv else []
-    ),
-    tests_require=["pytest"],
-    version=__version__,
-    python_requires=">= 3.9",
-    author="Ben Kurtovic",
-    author_email="ben.kurtovic@gmail.com",
-    url="https://github.com/earwig/mwparserfromhell",
-    description="MWParserFromHell is a parser for MediaWiki wikicode.",
-    long_description=long_docs,
-    download_url=f"https://github.com/earwig/mwparserfromhell/tarball/v{__version__}",
-    keywords="earwig mwparserfromhell wikipedia wiki mediawiki wikicode template parsing",
-    license="MIT License",
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Environment :: Console",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Topic :: Text Processing :: Markup",
-    ],
-)
+setup(ext_modules=ext_modules)

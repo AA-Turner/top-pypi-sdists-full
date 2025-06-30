@@ -72,31 +72,43 @@ class ServiceManager:
     @property
     def settings(self) -> Settings:
         return self._settings
-    
+
     @property
     def log_config(self) -> SimpleConfig:
         return self._log_config
-    
+
     @property
     def google_credentials(self) -> Credentials:
         return self._credential_manager.google_credentials
-    
+
     @property
     def secret_manager(self) -> GoogleSecretManager:
         return self._credential_manager.secret_manager
-    
+
     @property
     def maleo_credentials(self) -> MaleoCredentials:
         return self._credential_manager.maleo_credentials
-    
+
     @property
     def configurations(self) -> Configurations:
         return self._configuration_manager.configurations
 
     def _load_keys(self) -> None:
-        password = self.secret_manager.get(name="maleo-key-password")
-        private = self.secret_manager.get(name="maleo-private-key")
-        public = self.secret_manager.get(name="maleo-public-key")
+        if self.settings.KEY_PASSWORD is not None:
+            password = self.settings.KEY_PASSWORD
+        else:
+            password = self.secret_manager.get(name="maleo-key-password")
+
+        if self.settings.PRIVATE_KEY is not None:
+            private = self.settings.PRIVATE_KEY
+        else:
+            private = self.secret_manager.get(name="maleo-private-key")
+
+        if self.settings.PUBLIC_KEY is not None:
+            public = self.settings.PUBLIC_KEY
+        else:
+            public = self.secret_manager.get(name="maleo-public-key")
+
         self._keys = BaseGeneralSchemas.RSAKeys(
             password=password,
             private=private,
@@ -231,12 +243,14 @@ class ServiceManager:
     def create_app(
         self,
         router: APIRouter,
-        lifespan: Optional[Lifespan[AppType]] = None
+        lifespan: Optional[Lifespan[AppType]] = None,
+        version: str = "unknown"
     ) -> FastAPI:
         self._loggers.application.info("Creating FastAPI application")
-        root_path = "" if self._settings.ENVIRONMENT == "local" else f"/{self.configurations.service.key.removeprefix("maleo-")}"
+        root_path = self._settings.ROOT_PATH
         self._app = FastAPI(
             title=self.configurations.service.name,
+            version=version,
             lifespan=lifespan,
             root_path=root_path
         )

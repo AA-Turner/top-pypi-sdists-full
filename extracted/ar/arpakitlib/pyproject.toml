@@ -1,6 +1,6 @@
 [project]
 name = "arpakitlib"
-version = "1.8.134"
+version = "1.8.138"
 description = "arpakitlib"
 authors = [
     { name = "arpakit_support", email = "support@arpakit.com" }
@@ -63,6 +63,7 @@ dependencies = [
     "aiohttp (>=3.11.16,<4.0.0)",
     "speechrecognition (>=3.14.3,<4.0.0)",
     "aiosqlite (>=0.21.0,<0.22.0)",
+    "pytelegrambotapi (>=4.27.0,<5.0.0)",
 ]
 
 

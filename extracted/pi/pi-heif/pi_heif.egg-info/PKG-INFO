@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pi_heif
-Version: 0.22.0
+Version: 1.0.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -32,7 +32,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: LICENSES_bundled.txt
-Requires-Dist: pillow>=10.1.0
+Requires-Dist: pillow>=11.1.0
 Provides-Extra: tests-min
 Requires-Dist: pytest; extra == "tests-min"
 Requires-Dist: defusedxml; extra == "tests-min"
@@ -43,6 +43,7 @@ Requires-Dist: defusedxml; extra == "tests"
 Requires-Dist: packaging; extra == "tests"
 Requires-Dist: numpy; extra == "tests"
 Requires-Dist: pympler; extra == "tests"
+Dynamic: license-file
 
 # pi-heif
 

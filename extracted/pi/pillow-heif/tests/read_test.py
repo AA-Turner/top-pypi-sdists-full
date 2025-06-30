@@ -16,7 +16,6 @@ import pillow_heif
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-pillow_heif.register_avif_opener()
 pillow_heif.register_heif_opener()
 
 
@@ -292,7 +291,7 @@ def test_pillow_read_images(image_path):
     images_count = len(list(ImageSequence.Iterator(pillow_image)))
     for i, image in enumerate(ImageSequence.Iterator(pillow_image)):
         assert image.info
-        assert image.custom_mimetype in ("image/heic", "image/heif", "image/heif-sequence", "image/avif")
+        assert image.custom_mimetype in ("image/heic", "image/heif", "image/heif-sequence")
         if "icc_profile" in image.info and len(image.info["icc_profile"]) > 0:
             ImageCms.getOpenProfile(BytesIO(pillow_image.info["icc_profile"]))
         collect()
@@ -391,36 +390,6 @@ def test_hdr_read(im_path, original_path):
 
 
 @pytest.mark.parametrize(
-    "im_path,original_path",
-    (
-        ("images/heif/L_8__29x100.avif", "images/non_heif/L_8__29x100.png"),
-        ("images/heif/L_8__128x128.avif", "images/non_heif/L_8__128x128.png"),
-        ("images/heif/L_10__29x100.avif", "images/non_heif/L_16__29x100.png"),
-        ("images/heif/L_10__128x128.avif", "images/non_heif/L_16__128x128.png"),
-        ("images/heif/L_12__29x100.avif", "images/non_heif/L_16__29x100.png"),
-        ("images/heif/L_12__128x128.avif", "images/non_heif/L_16__128x128.png"),
-        ("images/heif/LA_8__29x100.avif", "images/non_heif/LA_8__29x100.png"),
-        ("images/heif/LA_8__128x128.avif", "images/non_heif/LA_8__128x128.png"),
-        ("images/heif/RGB_8__29x100.avif", "images/non_heif/RGB_8__29x100.png"),
-        ("images/heif/RGB_8__128x128.avif", "images/non_heif/RGB_8__128x128.png"),
-        ("images/heif/RGBA_8__29x100.avif", "images/non_heif/RGBA_8__29x100.png"),
-        ("images/heif/RGBA_8__128x128.avif", "images/non_heif/RGBA_8__128x128.png"),
-        ("images/heif/RGB_10__29x100.avif", "images/non_heif/RGB_16__29x100.png"),
-        ("images/heif/RGB_10__128x128.avif", "images/non_heif/RGB_16__128x128.png"),
-        ("images/heif/RGB_12__29x100.avif", "images/non_heif/RGB_16__29x100.png"),
-        ("images/heif/RGB_12__128x128.avif", "images/non_heif/RGB_16__128x128.png"),
-        ("images/heif/RGBA_10__29x100.avif", "images/non_heif/RGBA_16__29x100.png"),
-        ("images/heif/RGBA_10__128x128.avif", "images/non_heif/RGBA_16__128x128.png"),
-        ("images/heif/RGBA_12__29x100.avif", "images/non_heif/RGBA_16__29x100.png"),
-        ("images/heif/RGBA_12__128x128.avif", "images/non_heif/RGBA_16__128x128.png"),
-    ),
-)
-@pytest.mark.skipif(not helpers.aom(), reason="requires AVIF support.")
-def test_hdr_read_avif(im_path, original_path):
-    helpers.compare_hashes([im_path, original_path], hash_size=16)
-
-
-@pytest.mark.parametrize(
     "image_path",
     (
         "images/heif_special/L_8__29(255)x100.heif",
@@ -510,6 +479,20 @@ def test_aux_image():
     assert aux_pil.mode == "L"
 
 
+def test_aux_image_ycbcr():
+    im = pillow_heif.open_heif("images/heif_special/aux_YCbCr.heic")
+    assert len(im.info["aux"]) == 1
+    assert "urn:com:samsung:photo:2024:aux:hdrgainmap" in im.info["aux"]
+    assert len(im.info["aux"]["urn:com:samsung:photo:2024:aux:hdrgainmap"]) == 1
+    aux_id = im.info["aux"]["urn:com:samsung:photo:2024:aux:hdrgainmap"][0]
+    aux_image = im.get_aux_image(aux_id)
+    assert str(aux_image) == "<HeifAuxImage 1000x462 RGB>"
+    assert isinstance(aux_image, pillow_heif.HeifAuxImage)
+    aux_pil = aux_image.to_pillow()
+    assert aux_pil.size == (1000, 462)
+    assert aux_pil.mode == "RGB"
+
+
 @pytest.mark.skipif(
     parse_version(pillow_heif.libheif_version()) < parse_version("1.18.0"), reason="requires LibHeif 1.18+"
 )
@@ -548,15 +531,6 @@ def test_invalid_decoder():
         Image.open("images/heif/RGB_8__128x128.heif").load()
     finally:
         pillow_heif.options.PREFERRED_DECODER["HEIF"] = ""
-
-
-@pytest.mark.skipif("dav1d" not in pillow_heif.libheif_info()["decoders"], reason="Requires DAV1D AVIF decoder.")
-def test_dav1d_decoder():
-    try:
-        pillow_heif.options.PREFERRED_DECODER["AVIF"] = "dav1d"
-        Image.open("images/heif/RGB_8__128x128.avif").load()
-    finally:
-        pillow_heif.options.PREFERRED_DECODER["AVIF"] = ""
 
 
 @pytest.mark.skipif(

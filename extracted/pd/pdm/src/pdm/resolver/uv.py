@@ -8,6 +8,7 @@ from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pdm._types import HiddenText
 from pdm.models.candidates import Candidate
 from pdm.models.markers import get_marker
 from pdm.models.repositories import Package
@@ -31,7 +32,7 @@ GIT_URL = re.compile(r"(?P<repo>[^:/]+://[^\?#]+)(?:\?rev=(?P<ref>[^#]+?))?(?:#(
 class UvResolver(Resolver):
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.default_source = self.project.sources[0].url
+
         if self.locked_repository is None:
             self.locked_repository = self.project.get_locked_repository()
         if self.update_strategy not in {"reuse", "all"}:
@@ -53,22 +54,27 @@ class UvResolver(Resolver):
                 "the resolution may be inaccurate."
             )
 
-    def _build_lock_command(self) -> list[str]:
-        cmd = [*self.project.core.uv_cmd, "lock", "-p", str(self.environment.interpreter.executable)]
+    def _build_lock_command(self) -> list[str | HiddenText]:
+        cmd: list[str | HiddenText] = [
+            *self.project.core.uv_cmd,
+            "lock",
+            "-p",
+            str(self.environment.interpreter.executable),
+        ]
         if self.project.core.ui.verbosity > 0:
             cmd.append("--verbose")
         if not self.project.core.state.enable_cache:
             cmd.append("--no-cache")
         first_index = True
         for source in self.project.sources:
-            assert source.url is not None
+            url = source.url_with_credentials
             if source.type == "find_links":
-                cmd.extend(["--find-links", source.url])
+                cmd.extend(["--find-links", url])
             elif first_index:
-                cmd.extend(["--index-url", source.url])
+                cmd.extend(["--index-url", url])
                 first_index = False
             else:
-                cmd.extend(["--extra-index-url", source.url])
+                cmd.extend(["--extra-index-url", url])
         if self.project.pyproject.settings.get("resolution", {}).get("respect-source-order", False):
             cmd.append("--index-strategy=unsafe-first-match")
         else:
@@ -122,6 +128,8 @@ class UvResolver(Resolver):
                 req.specifier = get_specifier(f"=={version}")
             if marker := dep.get("marker"):
                 req.marker = get_marker(marker)
+            if extra := dep.get("extra"):
+                req.extras = extra
             return req.as_line()
 
         def make_hash(item: dict[str, Any]) -> FileHash:
@@ -185,7 +193,8 @@ class UvResolver(Resolver):
                     self.reporter.stop()
                 uv_lock_command = self._build_lock_command()
                 self.project.core.ui.echo(f"Running uv lock command: {uv_lock_command}", verbosity=Verbosity.DETAIL)
-                subprocess.run(uv_lock_command, cwd=self.project.root, check=True)
+                real_command = [s.secret if isinstance(s, HiddenText) else s for s in uv_lock_command]
+                subprocess.run(real_command, cwd=self.project.root, check=True)
             finally:
                 if isinstance(self.reporter, RichLockReporter):
                     self.reporter.start()

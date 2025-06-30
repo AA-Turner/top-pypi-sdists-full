@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 from statsforecast.models import AutoARIMA as SFAutoARIMA
 
+from darts import TimeSeries
 from darts.datasets import AirPassengersDataset, IceCreamHeaterDataset
 from darts.logging import get_logger
 from darts.metrics import mape
@@ -34,8 +35,8 @@ from darts.models import (
     NaiveMovingAverage,
     NaiveSeasonal,
     Prophet,
-    RandomForest,
-    RegressionModel,
+    RandomForestModel,
+    SKLearnModel,
     StatsForecastModel,
     Theta,
 )
@@ -43,7 +44,6 @@ from darts.models.forecasting.forecasting_model import (
     LocalForecastingModel,
     TransferableFutureCovariatesLocalForecastingModel,
 )
-from darts.timeseries import TimeSeries
 from darts.utils import timeseries_generation as tg
 from darts.utils.utils import (
     ModelMode,
@@ -80,7 +80,7 @@ models = [
     (FFT(trend="poly"), 13),
     (KalmanForecaster(dim_x=3), 20),
     (LinearRegressionModel(lags=12), 13),
-    (RandomForest(lags=12, n_estimators=5, max_depth=3), 14),
+    (RandomForestModel(lags=12, n_estimators=5, max_depth=3), 14),
     (
         TBATS(season_length=12, use_trend=True, use_arma_errors=True, use_boxcox=True),
         10,
@@ -124,6 +124,7 @@ class TestLocalForecastingModels:
     # dummy timeseries for runnability tests
     np.random.seed(1)
     ts_gaussian = tg.gaussian_timeseries(length=100, mean=50)
+    ts_gaussian_copy = ts_gaussian.copy()
     # for testing covariate slicing
     ts_gaussian_long = tg.gaussian_timeseries(
         length=len(ts_gaussian) + 2 * forecasting_horizon,
@@ -218,10 +219,12 @@ class TestLocalForecastingModels:
     @pytest.mark.parametrize("config", models)
     def test_models_runnability(self, config):
         model, _ = config
-        if not isinstance(model, RegressionModel):
+        if not isinstance(model, SKLearnModel):
             assert isinstance(model, LocalForecastingModel)
         prediction = model.fit(self.ts_gaussian).predict(self.forecasting_horizon)
         assert len(prediction) == self.forecasting_horizon
+        # check that the input series was not mutated
+        assert self.ts_gaussian == self.ts_gaussian_copy
 
     @pytest.mark.parametrize("config", models)
     def test_models_performance(self, config):
@@ -348,10 +351,15 @@ class TestLocalForecastingModels:
         model = model_object.__class__(**model_params)
 
         # Test models with user supplied covariates
+        fc_copy = fc.copy() if fc is not None else None
         model.fit(series, future_covariates=fc)
 
         prediction = model.predict(n, future_covariates=fc)
         assert len(prediction) == n
+
+        if fc_copy is not None:
+            # check that the input covariates were not mutated
+            assert fc == fc_copy
 
         if isinstance(model, TransferableFutureCovariatesLocalForecastingModel):
             prediction = model.predict(n, series=series, future_covariates=fc)
@@ -657,7 +665,7 @@ class TestLocalForecastingModels:
             (
                 ExponentialSmoothing(),
                 "ExponentialSmoothing(trend=ModelMode.ADDITIVE, damped=False, seasonal=SeasonalityMode.ADDITIVE, "
-                + "seasonal_periods=None, random_state=0, kwargs=None)",
+                + "seasonal_periods=None, random_state=None, kwargs=None)",
             ),  # no params changed
             (
                 ARIMA(1, 1, 1),

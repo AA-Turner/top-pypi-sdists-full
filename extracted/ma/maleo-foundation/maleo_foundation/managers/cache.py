@@ -1,9 +1,8 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from redis.asyncio.client import Redis
 
 class CacheManagers(BaseModel):
-    redis:Redis = Field(..., description="Redis client")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed=True
+    redis:Redis = Field(..., description="Redis client")

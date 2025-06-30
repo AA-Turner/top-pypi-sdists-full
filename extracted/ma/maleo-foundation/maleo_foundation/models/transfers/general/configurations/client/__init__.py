@@ -1,8 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from .maleo import MaleoClientsConfigurations
 
 class ClientConfigurations(BaseModel):
-    maleo: MaleoClientsConfigurations = Field(..., description="Maleo client's configurations")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed=True
+    maleo: MaleoClientsConfigurations = Field(..., description="Maleo client's configurations")

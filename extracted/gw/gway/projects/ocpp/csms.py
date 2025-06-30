@@ -1,5 +1,5 @@
 # file: projects/ocpp/csms.py
-# path: ocpp/csms/
+# web.app path: ocpp/csms/
 
 import json
 import os
@@ -13,14 +13,11 @@ from bottle import request, redirect, HTTPError
 from typing import Dict, Optional
 from gway import gw
 
-
 _csms_loop: Optional[asyncio.AbstractEventLoop] = None
 _transactions: Dict[str, dict] = {}           # charger_id → latest transaction
 _active_cons: Dict[str, WebSocket] = {}      # charger_id → live WebSocket
 _latest_heartbeat: Dict[str, str] = {}  # charger_id → ISO8601 UTC time string
 _abnormal_status: Dict[str, dict] = {}  # charger_id → {"status": ..., "errorCode": ..., "info": ...}
-
-
 
 def authorize_balance(**record):
     """
@@ -32,7 +29,6 @@ def authorize_balance(**record):
     except Exception:
         return False
     
-
 def setup_app(*,
     app=None,
     allowlist=None,
@@ -40,9 +36,10 @@ def setup_app(*,
     location=None,
     authorize=authorize_balance,
     email=None,
+    auth_required=False,
 ):
     global _transactions, _active_cons, _abnormal_status
-    email = email if isinstance(email, str) else gw.resolve('[ADMIN_EMAIL]')
+    email = email if isinstance(email, str) else (gw.resolve('[ADMIN_EMAIL]') if email else email)
 
     oapp = app
     from fastapi import FastAPI as _FastAPI
@@ -67,8 +64,13 @@ def setup_app(*,
     @app.websocket("/{path:path}")
     async def websocket_ocpp(websocket: WebSocket, path: str):
         global _csms_loop, _abnormal_status
-        _csms_loop = asyncio.get_running_loop()
+        if auth_required:
+            if not gw.web.auth.check_websocket_auth(websocket):
+                await websocket.close(code=4401, reason="Unauthorized")
+                gw.warn(f"[OCPP] Unauthorized WebSocket connection attempt for charger_id={path}")
+                return
 
+        _csms_loop = asyncio.get_running_loop()
         charger_id = path.strip("/").split("/")[-1]
         gw.info(f"[OCPP] WebSocket connected: charger_id={charger_id}")
 
@@ -262,7 +264,6 @@ def setup_app(*,
 
     return (app if not oapp else (oapp, app)) if _is_new_app else oapp
 
-
 def is_abnormal_status(status: str, error_code: str) -> bool:
     """Determine if a status/errorCode is 'abnormal' per OCPP 1.6."""
     status = (status or "").capitalize()
@@ -277,20 +278,14 @@ def is_abnormal_status(status: str, error_code: str) -> bool:
         return True
     return False
 
-...
+# Bottle-based views are used for the interface, params injected by GWAY from query/payload
+# GWAY allows us to have the WS FastAPI server and Bottle UI server share memory space,
+# simply by placing both functions in the same project file.
 
 # TODO: <Details> no longer works properly, clicking the button stretches the card box vertically
 #       for a second and the log flashes on screen before closing and going back to not showing.
 
 # TODO: The graph link doesn't take us anywhere, screen stays the same after clicking.
-
-# TODO: Dashbord upgrades include link to online evcs simulator if is_enabled('ocpp.evcs')
-
-# TODO: Show the correct url to the server WS including domain name if available from env.
-
-# Bottle-based views are used for the interface, params injected by GWAY from query/payload
-# GWAY allows us to have the WS FastAPI server and Bottle UI server share memory space,
-# simply by placing both functions in the same project file.
 
 def view_charger_status(*, action=None, charger_id=None, **_):
     """
@@ -391,7 +386,7 @@ def view_charger_status(*, action=None, charger_id=None, **_):
         html.append('</div>')  # end .ocpp-dashboard
 
     # WebSocket URL bar
-    ws_url = gw.build_ws_url()
+    ws_url = gw.web.build_ws_url()
     html.append(f"""
     <div class="ocpp-wsbar">
       <input type="text" id="ocpp-ws-url" value="{ws_url}" readonly
@@ -405,6 +400,17 @@ def view_charger_status(*, action=None, charger_id=None, **_):
       </button>
     </div>
     """)
+
+    # TODO: This next link should ideally be placed on the right column, right to the 
+    #       box with the ocpp link and copy button. If there is no existing CSS to do this
+    #       create a separate block of css that we can add to our static data.
+
+    if gw.web.app.is_setup('ocpp.evcs'):
+        html.append("""
+        <div>
+            <a href="/ocpp/evcs/cp-simulator">Activate or visualize the online simulator.</a>
+        </div>
+        """)
     return "".join(html)
 
 

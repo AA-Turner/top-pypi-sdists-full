@@ -14,12 +14,12 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostRegressor, Pool
 
+from darts import TimeSeries
 from darts.logging import get_logger
-from darts.models.forecasting.regression_model import (
-    RegressionModelWithCategoricalCovariates,
+from darts.models.forecasting.sklearn_model import (
+    SKLearnModelWithCategoricalCovariates,
     _QuantileModelContainer,
 )
-from darts.timeseries import TimeSeries
 from darts.utils.likelihood_models.sklearn import (
     QuantileRegression,
     _check_likelihood,
@@ -29,7 +29,7 @@ from darts.utils.likelihood_models.sklearn import (
 logger = get_logger(__name__)
 
 
-class CatBoostModel(RegressionModelWithCategoricalCovariates):
+class CatBoostModel(SKLearnModelWithCategoricalCovariates):
     def __init__(
         self,
         lags: Union[int, list] = None,
@@ -132,8 +132,7 @@ class CatBoostModel(RegressionModelWithCategoricalCovariates):
         quantiles
             Fit the model to these quantiles if the `likelihood` is set to `quantile`.
         random_state
-            Control the randomness in the fitting procedure and for sampling.
-            Default: ``None``.
+            Controls the randomness for reproducible forecasting.
         multi_models
             If True, a separate model will be trained for each future lag to predict. If False, a single model
             is trained to predict all the steps in 'output_chunk_length' (features lags are shifted back by
@@ -216,7 +215,6 @@ class CatBoostModel(RegressionModelWithCategoricalCovariates):
         self._likelihood = _get_likelihood(
             likelihood=likelihood,
             n_outputs=output_chunk_length if multi_models else 1,
-            random_state=random_state,
             quantiles=quantiles,
         )
 
@@ -237,6 +235,7 @@ class CatBoostModel(RegressionModelWithCategoricalCovariates):
             categorical_past_covariates=categorical_past_covariates,
             categorical_future_covariates=categorical_future_covariates,
             categorical_static_covariates=categorical_static_covariates,
+            random_state=random_state,
         )
 
         # if no loss provided, get the default loss from the model
@@ -353,6 +352,7 @@ class CatBoostModel(RegressionModelWithCategoricalCovariates):
         val_future_covariates: Optional[Sequence[TimeSeries]],
         val_sample_weight: Optional[Union[Sequence[TimeSeries], str]],
         max_samples_per_ts: int,
+        stride: int,
     ) -> dict:
         # CatBoostRegressor requires sample weights to be passed with a validation set `Pool`
         kwargs = super()._add_val_set_to_kwargs(
@@ -362,6 +362,7 @@ class CatBoostModel(RegressionModelWithCategoricalCovariates):
             val_future_covariates=val_future_covariates,
             val_sample_weight=val_sample_weight,
             max_samples_per_ts=max_samples_per_ts,
+            stride=stride,
         )
         val_set_name, val_weight_name = self.val_set_params
         val_sets = kwargs[val_set_name]

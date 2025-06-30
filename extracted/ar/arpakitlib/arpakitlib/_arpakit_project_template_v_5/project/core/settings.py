@@ -108,6 +108,8 @@ class Settings(SimpleSettings):
 
     api_create_first_data: bool = True
 
+    api_workers: int = 4
+
     sqladmin_secret_key: str | None = "85a9583cb91c4de7a78d7eb1e5306a04418c9c43014c447ea8ec8dd5deb4cf71"
 
     sqladmin_authorize_keys: list[str] | None = ["1"]

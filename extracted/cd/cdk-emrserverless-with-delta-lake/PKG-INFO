@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk_emrserverless_with_delta_lake
-Version: 2.0.829
+Version: 2.0.830
 Summary: A construct for the quick demo of EMR Serverless.
 Home-page: https://github.com/HsiehShuJeng/cdk-emrserverless-with-delta-lake.git
 Author: Shu-Jeng Hsieh

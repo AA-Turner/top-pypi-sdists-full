@@ -21,5 +21,5 @@ class RedisCacheConfigurations(BaseModel):
     port: int = Field(6379, description="Redis instance's port")
     db: int = Field(0, description="Redis instance's db")
     password: BaseTypes.OptionalString = Field(None, description="AUTH password")
-    decode_responses: bool = Field(False, description="Whether to decode responses")
+    decode_responses: bool = Field(True, description="Whether to decode responses")
     health_check_interval: int = Field(30, description="Health check interval")

@@ -1,16 +1,15 @@
 from __future__ import annotations
 from httpx import Response
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Any
 
 class BaseClientHTTPControllerResults(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     response: Response = Field(..., description="Client's HTTP Controller response")
     status_code: int = Field(..., description="Client's HTTP Controller response status code")
     content: Any = Field(..., description="Client's HTTP Controller response content")
     success: bool = Field(..., description="Client's HTTP Controller success status")
-
-    class Config:
-        arbitrary_types_allowed=True
 
     @model_validator(mode="before")
     @classmethod

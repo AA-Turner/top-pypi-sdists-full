@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: imap-tools
-Version: 1.10.0
+Version: 1.11.0
 Summary: Work with email by IMAP
 Home-page: https://github.com/ikvk/imap_tools
 Author: Vladimir Kaukin
@@ -20,6 +20,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: summary
 
 .. http://docutils.sourceforge.net/docs/user/rst/quickref.html
@@ -67,7 +68,8 @@ Guide
 Basic
 ^^^^^
 
-Info about lib are at: *this page*, docstrings, issues, pull requests, examples, source, stackoverflow.com
+Info about lib are at: *this page*, docstrings, issues, pull requests,
+`examples <https://github.com/ikvk/imap_tools/tree/master/examples>`_, source, stackoverflow.com
 
 .. code-block:: python
 
@@ -80,9 +82,9 @@ Info about lib are at: *this page*, docstrings, issues, pull requests, examples,
 
 `Description of this^ example <https://github.com/ikvk/imap_tools/blob/master/examples/basic.py>`_.
 
-``MailBox, MailBoxTls, MailBoxUnencrypted`` - for create mailbox client. `TLS example <https://github.com/ikvk/imap_tools/blob/master/examples/tls.py>`_.
+``MailBox, MailBoxStartTls, MailBoxUnencrypted`` - for create mailbox client. `TLS example <https://github.com/ikvk/imap_tools/blob/master/examples/tls.py>`_.
 
-``BaseMailBox.<auth>`` - login, login_utf8, xoauth2, logout - authentication functions, they support context manager.
+``BaseMailBox.<auth>`` - ``login, login_utf8, xoauth2, logout`` - authentication functions, support context manager.
 
 ``BaseMailBox.fetch`` - first searches email uids by criteria in current folder, then fetch and yields `MailMessage <#email-attributes>`_, args:
 
@@ -92,10 +94,10 @@ Info about lib are at: *this page*, docstrings, issues, pull requests, examples,
 * *mark_seen* = True, mark emails as seen on fetch
 * *reverse* = False, in order from the larger date to the smaller
 * *headers_only* = False, get only email headers (without text, html, attachments)
-* *bulk* = False, False - fetch each message separately per N commands - low memory consumption, slow; True - fetch all messages per 1 command - high memory consumption, fast; int - fetch all messages by bulks of the specified size, for 20 messages and bulk=5 -> 4 commands
+* *bulk* = False, False - fetch each message separately per N commands - low memory consumption, slow; True - fetch all messages per 1 command - high memory consumption, fast; int - fetch all messages by bulks of the specified size, for 20 messages and bulk=5 -> 4 IMAP commands
 * *sort* = None, criteria for sort messages on server, use SortCriteria constants. Charset arg is important for sort
 
-``BaseMailBox.uids`` - search mailbox for matching message uids in current folder, returns [str | None], None when MailMessage.from_bytes used, args:
+``BaseMailBox.uids`` - search mailbox for matching message uids in current folder, returns List[str], args:
 
 * *criteria* = 'ALL', message search criteria, `query builder <#search-criteria>`_
 * *charset* = 'US-ASCII', indicates charset of the strings that appear in the search criteria. See rfc2978
@@ -161,7 +163,7 @@ MailMessage and MailAttachment public attributes are cached by functools.cached_
 Search criteria
 ^^^^^^^^^^^^^^^
 
-The *"criteria"* argument is used at *fetch, uids, numbers* methods of MailBox. Criteria can be of three types:
+The ``criteria`` argument is used at ``fetch, uids, numbers`` methods of MailBox. Criteria can be of three types:
 
 .. code-block:: python
 
@@ -171,7 +173,7 @@ The *"criteria"* argument is used at *fetch, uids, numbers* methods of MailBox. 
     mailbox.fetch('TEXT "hello"')          # str
     mailbox.fetch(b'TEXT "\xd1\x8f"')      # bytes
 
-Use *"charset"* argument for encode criteria to the desired encoding. If criteria is bytes - encoding will be ignored.
+Use ``charset`` argument for encode criteria to the desired encoding. If criteria is bytes - encoding will be ignored.
 
 .. code-block:: python
 
@@ -190,21 +192,23 @@ Header    H      Header value for search by header key      name: str, value: st
 UidRange  U      UID range value for search by uid key      start: str, end: str
 ========  =====  ========================================== ======================================
 
-See `query examples <https://github.com/ikvk/imap_tools/blob/master/examples/search.py>`_. A few examples:
+A few examples below. See `detailed query examples <https://github.com/ikvk/imap_tools/blob/master/examples/search.py>`_.
 
 .. code-block:: python
 
     from imap_tools import A, AND, OR, NOT
-    # AND
-    A(text='hello', new=True)  # '(TEXT "hello" NEW)'
-    # OR
-    OR(text='hello', date=datetime.date(2000, 3, 15))  # '(OR TEXT "hello" ON 15-Mar-2000)'
-    # NOT
-    NOT(text='hello', new=True)  # 'NOT (TEXT "hello" NEW)'
-    # complex
-    A(OR(from_='from@ya.ru', text='"the text"'), NOT(OR(A(answered=False), A(new=True))), to='to@ya.ru')
-    # python note: you can't do: A(text='two', NOT(subject='one'))
-    A(NOT(subject='one'), text='two')  # use kwargs after logic classes (args)
+
+    # AND: subject contains "cat" AND message is unseen
+    A(subject='cat', seen=False)
+
+    # OR: header or body contains "hello" OR date equal 2000-3-15
+    OR(text='hello', date=datetime.date(2000, 3, 15))
+
+    # NOT: date not in the date list
+    NOT(OR(date=[dt.date(2019, 10, 1), dt.date(2019, 10, 10)]))
+
+    # PYTHON NOTE: you can't do A(text='a', NOT(subject='b')), use kwargs after logic classes (args)
+    A(NOT(subject='b'), text='a')
 
 Server side search notes:
 
@@ -261,8 +265,10 @@ Action's uid_list arg may takes:
 
 To get uids, use the maibox methods: uids, fetch.
 
-For actions with a large number of messages imap command may be too large and will cause exception at server side,
-use ``chunks`` argument for ``copy,move,delete,flag`` OR ``limit`` argument for ``fetch`` in this case.
+For actions with large number of messages IMAP command may be too large and will cause exception at server side:
+
+* Use ``chunks`` arg at ``copy,move,delete,flag`` to specify number of UIDs to process at one IMAP command
+* Use ``limit`` arg at ``fetch`` to limit the number of messages returned
 
 .. code-block:: python
 
@@ -289,7 +295,7 @@ use ``chunks`` argument for ``copy,move,delete,flag`` OR ``limit`` argument for 
 Actions with folders
 ^^^^^^^^^^^^^^^^^^^^
 
-BaseMailBox.login/xoauth2 has initial_folder arg, that is "INBOX" by default, use None for not set folder on login.
+BaseMailBox ``login,xoauth2`` arg ``initial_folder`` is "INBOX" by default, use None for not set folder on login.
 
 .. code-block:: python
 
@@ -327,7 +333,7 @@ BaseMailBox.login/xoauth2 has initial_folder arg, that is "INBOX" by default, us
 IDLE workflow
 ^^^^^^^^^^^^^
 
-IDLE logic are in mailbox.idle manager, its methods are in the table below:
+IDLE logic are in ``mailbox.idle`` manager, its methods are in the table below:
 
 ======== ============================================================================== ================================
 Method   Description                                                                    Arguments
@@ -370,7 +376,7 @@ Contribute
 
 If you found a bug or have a question, then:
 
-1. Look for answer at: this page, issues, pull requests, examples, source, RFCs, stackoverflow.com, internet.
+1. Look for answer at: this page, issues, pull requests, `examples <https://github.com/ikvk/imap_tools/tree/master/examples>`_, source, RFCs, stackoverflow.com, internet.
 2. And only then - create merge request or issue.
 
 Reasons
@@ -454,7 +460,8 @@ Big thanks to people who helped develop this library:
 `sphh <https://github.com/sphh>`_,
 `bh <https://github.com/bh>`_,
 `tomasmach <https://github.com/tomasmach>`_,
-`errror <https://github.com/errror>`_
+`errror <https://github.com/errror>`_,
+`hurricane-dorian <https://github.com/hurricane-dorian>`_
 
 Help the project
 ----------------

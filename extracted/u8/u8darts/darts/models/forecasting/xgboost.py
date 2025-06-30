@@ -13,14 +13,14 @@ from typing import Optional, Union
 import numpy as np
 import xgboost as xgb
 
+from darts import TimeSeries
 from darts.logging import get_logger, raise_if_not
-from darts.models.forecasting.regression_model import (
+from darts.models.forecasting.sklearn_model import (
     FUTURE_LAGS_TYPE,
     LAGS_TYPE,
-    RegressionModel,
+    SKLearnModel,
     _QuantileModelContainer,
 )
-from darts.timeseries import TimeSeries
 from darts.utils.likelihood_models.sklearn import (
     QuantileRegression,
     _check_likelihood,
@@ -49,7 +49,7 @@ def xgb_quantile_loss(labels: np.ndarray, preds: np.ndarray, quantile: float):
     return grad, hess
 
 
-class XGBModel(RegressionModel):
+class XGBModel(SKLearnModel):
     def __init__(
         self,
         lags: Optional[LAGS_TYPE] = None,
@@ -146,8 +146,7 @@ class XGBModel(RegressionModel):
         quantiles
             Fit the model to these quantiles if the `likelihood` is set to `quantile`.
         random_state
-            Control the randomness in the fitting procedure and for sampling.
-            Default: ``None``.
+            Controls the randomness for reproducible forecasting.
         multi_models
             If True, a separate model will be trained for each future lag to predict. If False, a single model
             is trained to predict all the steps in 'output_chunk_length' (features lags are shifted back by
@@ -206,7 +205,6 @@ class XGBModel(RegressionModel):
         self._likelihood = _get_likelihood(
             likelihood=likelihood,
             n_outputs=output_chunk_length if multi_models else 1,
-            random_state=random_state,
             quantiles=quantiles,
         )
 
@@ -220,6 +218,7 @@ class XGBModel(RegressionModel):
             multi_models=multi_models,
             model=xgb.XGBRegressor(**self.kwargs),
             use_static_covariates=use_static_covariates,
+            random_state=random_state,
         )
 
     def fit(

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "poetry-plugin-dotenv"
-version = "2.12.0"
+version = "2.13.0"
 description = "poetry-plugin-dotenv - is the plugin that automatically loads environment variables from a dotenv file into the environment before poetry commands are run."
 license = "MIT"
 authors = ["Volodymyr Pivoshenko <volodymyr.pivoshenko@gmail.com>"]
@@ -57,7 +57,7 @@ poetry = ">=1.5.0,<3.0.0"
 python = ">=3.9,<4.0"
 
 [tool.poetry.group.ci.dependencies]
-python-semantic-release = "9.21.0"
+python-semantic-release = "10.1.0"
 
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
@@ -66,24 +66,17 @@ poethepoet = "^0.35.0"
 
 [tool.poetry.group.formatters.dependencies]
 pyupgrade = "^3.20.0"
-ruff = "^0.11.13"
+ruff = "^0.12.1"
 
 [tool.poetry.group.linters.dependencies]
 codespell = "^2.4.1"
 commitizen = "^4.8.3"
-deptry = "^0.23.0"
-mypy = "^1.16.0"
-ruff = "^0.11.13"
-
-[tool.poetry.group.lsp.dependencies]
-pylsp-mypy = "^0.7.0"
-pylsp-rope = "^0.1.17"
-python-lsp-server = { extras = ["all"], version = "^1.12.2" }
+mypy = "^1.16.1"
+ruff = "^0.12.1"
 
 [tool.poetry.group.tests.dependencies]
 coverage = { version = "^7.9.1", extras = ["toml"] }
 pytest = "7.4.4"
-pytest-codeblocks = "^0.17.0"
 pytest-cov = "^6.2.1"
 pytest-lazy-fixture = "^0.6.3"
 pytest-mock = "^3.14.1"
@@ -108,9 +101,6 @@ allowed_prefixes = ["0", "1", "2", "3", "Initial", "Merge", "build", "tests"]
 [tool.coverage.run]
 omit = ["*/__init__.py"]
 
-[tool.deptry.per_rule_ignores]
-DEP003 = ["cleo", "poetry_plugin_dotenv", "tomlkit"]
-
 [tool.mypy]
 namespace_packages = true
 python_version = "3.13"
@@ -123,17 +113,7 @@ reportArgumentType = false
 reportPossiblyUnboundVariable = false
 
 [tool.pytest.ini_options]
-addopts = [
-  "--basetemp=tests/fixtures",
-  "--color=yes",
-  "--cov-report=term-missing",
-  "--cov-report=xml",
-  "--cov=src",
-  "-l",
-  "-rx",
-  "-vv",
-  "--xdoc"
-]
+addopts = ["--basetemp=tests/fixtures", "--color=yes", "--cov-report=xml", "--xdoc"]
 testpaths = ["tests"]
 
 [tool.ruff]
@@ -143,7 +123,7 @@ target-version = "py313"
 unsafe-fixes = true
 
 [tool.ruff.lint]
-ignore = ["ANN002", "ANN003", "ARG002", "D202", "D203", "D213", "PTH"]
+ignore = ["D202", "D203", "D213", "COM812"]
 select = ["ALL"]
 
 [tool.ruff.lint.isort]
@@ -157,7 +137,8 @@ required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.per-file-ignores]
 "docs/examples/main.py" = ["INP001", "T201"]
 "src/poetry_plugin_dotenv/__init__.py" = ["E501"]
-"src/poetry_plugin_dotenv/dotenv/core.py" = ["PTH"]
+"src/poetry_plugin_dotenv/plugin.py" = ["ARG002", "ANN002", "ANN003"]
+"src/poetry_plugin_dotenv/dotenv/variables.py" = ["ARG002", "ANN002", "ANN003"]
 "tests/*.*" = ["D103", "INP001", "S101"]
 
 [tool.ruff.format]
@@ -194,7 +175,6 @@ sequence = [
 [tool.poe.tasks.lint]
 help = "Run linters"
 sequence = [
-  { shell = "deptry .", help = "Run dependencies linter" },
   { shell = "mypy .", help = "Run types linter" },
   { shell = "ruff check .", help = "Run code linter" },
   { shell = "codespell .", help = "Run spell linter" },

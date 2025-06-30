@@ -1,6 +1,6 @@
 import httpx
 from contextlib import asynccontextmanager
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import AsyncGenerator, Generator
 from maleo_foundation.types import BaseTypes
 from maleo_foundation.utils.logging import ClientLogger, SimpleConfig
@@ -51,10 +51,9 @@ class ClientHTTPControllerManager:
         await self._client.aclose()
 
 class ClientControllerManagers(BaseModel):
-    http:ClientHTTPControllerManager = Field(..., description="HTTP Client Controller")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed=True
+    http:ClientHTTPControllerManager = Field(..., description="HTTP Client Controller")
 
 class ClientHTTPController:
     def __init__(self, manager:ClientHTTPControllerManager):
@@ -65,15 +64,13 @@ class ClientHTTPController:
         return self._manager
 
 class ClientServiceControllers(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     http:ClientHTTPController = Field(..., description="HTTP Client Controller")
 
-    class Config:
-        arbitrary_types_allowed=True
-
 class ClientControllers(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     #* Reuse this class while also adding all controllers of the client
-    class Config:
-        arbitrary_types_allowed=True
 
 class ClientService:
     def __init__(self, logger:ClientLogger):
@@ -88,9 +85,8 @@ class ClientService:
         return self._logger
 
 class ClientServices(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     #* Reuse this class while also adding all the services of the client
-    class Config:
-        arbitrary_types_allowed=True
 
 class ClientManager:
     def __init__(

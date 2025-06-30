@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-semantic-release
-Version: 10.1.0
+Version: 10.2.0
 Summary: Automatic Semantic Versioning for Python projects
 Author-email: Rolf Erik Lekang <me@rolflekang.com>
 License: MIT
@@ -62,7 +62,7 @@ Requires-Dist: pre-commit~=3.5; extra == "dev"
 Requires-Dist: tox~=4.11; extra == "dev"
 Requires-Dist: ruff==0.6.1; extra == "dev"
 Provides-Extra: mypy
-Requires-Dist: mypy==1.16.0; extra == "mypy"
+Requires-Dist: mypy==1.16.1; extra == "mypy"
 Requires-Dist: types-Deprecated~=1.2; extra == "mypy"
 Requires-Dist: types-requests~=2.32.0; extra == "mypy"
 Requires-Dist: types-pyyaml~=6.0; extra == "mypy"

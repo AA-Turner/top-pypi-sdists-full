@@ -1,10 +1,12 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from maleo_foundation.types import BaseTypes
 
 class RequestContext(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     request_id: UUID = Field(..., description="Unique identifier for tracing the request")
     requested_at: datetime = Field(datetime.now(tz=timezone.utc), description="Request timestamp")
     method: str = Field(..., description="Request's method")
@@ -22,6 +24,3 @@ class RequestContext(BaseModel):
     host: BaseTypes.OptionalString = Field(None, description="Host header from request")
     forwarded_proto: BaseTypes.OptionalString = Field(None, description="Forwarded protocol (http/https)")
     language: BaseTypes.OptionalString = Field(None, description="Accepted languages from client")
-
-    class Config:
-        arbitrary_types_allowed = True

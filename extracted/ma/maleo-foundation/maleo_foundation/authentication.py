@@ -1,9 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.authentication import AuthCredentials, BaseUser
 from typing import Optional, Sequence
 from maleo_foundation.enums import BaseEnums
 from maleo_foundation.models.transfers.general.token import MaleoFoundationTokenGeneralTransfers
-from maleo_foundation.types import BaseTypes
 
 class Token(BaseModel):
     type: BaseEnums.TokenType = Field(..., description="Token's type")
@@ -46,8 +45,7 @@ class User(BaseUser):
         return self._email
 
 class Authentication(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     credentials: Credentials = Field(..., description="Credentials's information")
     user: User = Field(..., description="User's information")
-
-    class Config:
-        arbitrary_types_allowed=True

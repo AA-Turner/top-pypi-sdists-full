@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sling
-Version: 1.4.11
+Version: 1.4.12
 Summary: Slings data from a source to a target
 Home-page: https://github.com/slingdata-io/sling-python
 Download-URL: https://github.com/slingdata-io/sling-python/archive/master.zip

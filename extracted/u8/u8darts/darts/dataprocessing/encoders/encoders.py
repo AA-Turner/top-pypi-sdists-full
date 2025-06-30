@@ -285,18 +285,18 @@ class PastCyclicEncoder(CyclicTemporalEncoder):
             <darts.utils.timeseries_generation.datetime_attribute_timeseries>`
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the past covariate lags. Accepts integer lag values <= -1.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`SKLearnModel`.
         tz
             Optionally, a time zone to convert the time index to before computing the attributes.
         """
@@ -334,18 +334,18 @@ class FutureCyclicEncoder(CyclicTemporalEncoder):
             <darts.utils.timeseries_generation.datetime_attribute_timeseries>`
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the future covariate lags. Accepts all integer values.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`SKLearnModel`.
         tz
             Optionally, a time zone to convert the time index to before computing the attributes.
         """
@@ -445,18 +445,18 @@ class PastDatetimeAttributeEncoder(DatetimeAttributeEncoder):
             <darts.utils.timeseries_generation.datetime_attribute_timeseries>`
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the past covariate lags. Accepts integer lag values <= -1.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`SKLearnModel`.
         tz
             Optionally, a time zone to convert the time index to before computing the attributes.
         """
@@ -494,18 +494,18 @@ class FutureDatetimeAttributeEncoder(DatetimeAttributeEncoder):
             <darts.utils.timeseries_generation.datetime_attribute_timeseries>`
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the future covariate lags. Accepts all integer values.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`SKLearnModel`.
         tz
             Optionally, a time zone to convert the time index to before computing the attributes.
         """
@@ -568,14 +568,16 @@ class IntegerIndexEncoder(SingleEncoder):
             )
         else:
             idx_diff = 0
-        return TimeSeries.from_times_and_values(
+        return TimeSeries(
             times=index,
             values=np.arange(
                 start=idx_diff - idx_larger_end,
                 stop=idx_diff - idx_larger_end + len(index),
+                dtype=np.dtype(dtype),
             ),
-            columns=[self.base_component_name + self.attribute],
-        ).astype(np.dtype(dtype))
+            components=[self.base_component_name + self.attribute],
+            copy=False,
+        )
 
     @property
     def accept_transformer(self) -> list[bool]:
@@ -618,18 +620,18 @@ class PastIntegerIndexEncoder(IntegerIndexEncoder):
             target series end time will be used as a reference to evaluate the relative index positions.
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the past covariate lags. Accepts integer lag values <= -1.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`SKLearnModel`.
         """
         super().__init__(
             index_generator=PastCovariatesIndexGenerator(
@@ -662,18 +664,18 @@ class FutureIntegerIndexEncoder(IntegerIndexEncoder):
             target series end time will be used as a reference to evaluate the relative index positions.
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the future covariate lags. Accepts all integer values.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`SKLearnModel`.
         """
         super().__init__(
             index_generator=FutureCovariatesIndexGenerator(
@@ -721,11 +723,12 @@ class CallableIndexEncoder(SingleEncoder):
         """Apply the user-defined callable to encode the index"""
         super()._encode(index, target_end, dtype)
 
-        return TimeSeries.from_times_and_values(
+        return TimeSeries(
             times=index,
-            values=self.attribute(index),
-            columns=[self.base_component_name + "custom"],
-        ).astype(np.dtype(dtype))
+            values=self.attribute(index).astype(np.dtype(dtype)),
+            components=[self.base_component_name + "custom"],
+            copy=False,
+        )
 
     @property
     def accept_transformer(self) -> list[bool]:
@@ -769,18 +772,18 @@ class PastCallableIndexEncoder(CallableIndexEncoder):
             ``attribute = lambda index: (index - 1950) / 50``
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the past covariate lags. Accepts integer lag values <= -1.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`SKLearnModel`.
         """
         super().__init__(
             index_generator=PastCovariatesIndexGenerator(
@@ -816,18 +819,18 @@ class FutureCallableIndexEncoder(CallableIndexEncoder):
             ``attribute = lambda index: (index - 1950) / 50``
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_covariates
             Optionally, a list of integers representing the future covariate lags. Accepts all integer values.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`SKLearnModel`.
         """
         super().__init__(
             index_generator=FutureCovariatesIndexGenerator(
@@ -920,22 +923,22 @@ class SequentialEncoder(Encoder):
             A dictionary with the encoder settings.
         input_chunk_length
             Optionally, the number of input target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `input_chunk_length` from :class:`TorchForecastingModel`, or to the absolute
-            minimum target lag value `abs(min(lags))` for :class:`RegressionModel`.
+            minimum target lag value `abs(min(lags))` for :class:`SKLearnModel`.
         output_chunk_length
             Optionally, the number of output target time steps per chunk. Only required for
-            :class:`TorchForecastingModel`, and :class:`RegressionModel`.
+            :class:`TorchForecastingModel`, and :class:`SKLearnModel`.
             Corresponds to parameter `output_chunk_length` from both :class:`TorchForecastingModel`, and
-            :class:`RegressionModel`.
+            :class:`SKLearnModel`.
         lags_past_covariates
             Optionally, a list of integers representing the past covariate lags. Accepts integer lag values <= -1.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_past_covariates` of :class:`SKLearnModel`.
         lags_future_covariates
             Optionally, a list of integers representing the future covariate lags. Accepts all integer values.
-            Only required for :class:`RegressionModel`.
-            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`RegressionModel`.
+            Only required for :class:`SKLearnModel`.
+            Corresponds to the lag values from parameter `lags_future_covariates` from :class:`SKLearnModel`.
         takes_past_covariates
             Whether to encode/generate past covariates.
         takes_future_covariates

@@ -12,6 +12,8 @@ To add a new arg:
     * update Project.run() 
 
 Main code is api_logic_server.py (PR)
+
+To expand commands: ctx.forward(existing_command))
 '''
 
 from contextlib import closing
@@ -447,7 +449,7 @@ def curl_test(ctx, message):
               help="App directory name")
 @click.option('--admin-app', 'admin_app',
               default='admin',
-              help="Input admin app")
+              help="Input admin app (schema)")
 @click.pass_context
 def app_create(ctx, project_name, app, admin_app):
     """
@@ -778,13 +780,16 @@ def genai_graphics(ctx, using, genai_version: str, replace_with: str):
     pass
     log.info("")
 
-
-
-
-@main.command("genai-app", cls=HideDunderCommand)
+@main.command("genai-add-app", cls=HideDunderCommand)
 @click.option('--app-name', 'app_name',
               default='react_app',
               help="Name of generated app in ui/")
+@click.option('--vibe/--no-vibe',
+              default=True, is_flag=True,
+              help="Show vibe docs")
+@click.option('--retries',
+              default=1,
+              help="lint retries - 1 means none (see setup)")
 @click.option('--schema',
               default='admin.yaml',
               help="Model file in ui/admin/")
@@ -792,9 +797,9 @@ def genai_graphics(ctx, using, genai_version: str, replace_with: str):
               default='gpt-4o',
               help="Eg, gpt-3.5-turbo, gpt-4o")
 @click.pass_context
-def genai_admin_app(ctx, app_name: str, schema: str, genai_version: str):
+def genai_add_app(ctx, app_name: str, vibe: click.BOOL, retries: int, schema: str, genai_version: str):
     """
-        Adds a customizable react app to project
+        Creates a customizable react app in ui/, ready for vibe
     """
     global command
     project_dir = resolve_blank_project_name('')
@@ -817,9 +822,55 @@ def genai_admin_app(ctx, app_name: str, schema: str, genai_version: str):
         log.info(f'... Typical usage - cd into project, use --project_name=. \n')
         exit (1)
     from api_logic_server_cli.genai.genai_admin_app import GenAIAdminApp
-    genai_admin = GenAIAdminApp(project=project, app_name=app_name, schema=schema, genai_version=genai_version)
+    genai_admin = GenAIAdminApp(project=project, app_name=app_name, vibe=vibe, schema=schema, retries=retries, genai_version=genai_version)
     pass
     log.info("")
+
+
+@main.command("genai-add-mcp-client", cls=HideDunderCommand)
+@click.option('--admin-app', is_flag=True,
+              default=True,
+              help="Update Admin App")
+@click.pass_context
+def genai_add_mcp_client(ctx, admin_app: click.BOOL):
+    """
+        Adds mcp-client to project: db, logic, admin app
+    """
+    global command
+
+    project_name = resolve_blank_project_name('')
+    log.info("")
+
+    mcp_db_path = get_api_logic_server_path().joinpath("database/mcp.sqlite")
+    assert mcp_db_path.exists(), "Unable to find api_logic_server_cli/database/mcp.sqlite"
+    mcp_uri = fr"sqlite:////{str(mcp_db_path)}"
+    project = PR.ProjectRun(command="add_db", 
+              project_name=project_name, 
+              api_name='api', 
+              db_url=mcp_uri, 
+              bind_key='mcp',
+              bind_key_url_separator=default_bind_key_url_separator
+              )
+    print("MCP DB Added")
+
+    project.project_directory, project.api_name, project.merge_into_prototype = \
+        create_utils.get_project_directory_and_api_name(project)
+    project.project_directory_actual = os.path.abspath(os.getcwd())  # make path absolute, not relative (no /../)
+    project.project_directory_path = Path(project.project_directory_actual)
+    models_py_path = project.project_directory_path.joinpath('database/models.py')
+    project.abs_db_url, project.nw_db_status, project.model_file_name = \
+        create_utils.get_abs_db_url("0. Using Sample DB", project, is_auth=True)
+
+    if not models_py_path.exists():
+        log.info(f'... Error - does not appear to be a project: {str(project.project_directory_path)}')
+        log.info(f'... Typical usage - cd into project, use --project_name=. \n')
+        exit (1)
+    from api_logic_server_cli.genai.genai_mcp import GenMCP
+    genai_mcp = GenMCP(project=project, admin_app=admin_app, api_logic_server_path=get_api_logic_server_path())
+    pass
+
+    log.info("")
+
 
 
 @main.command("genai-create", cls=HideDunderCommand) 
@@ -1386,7 +1437,7 @@ def rebuild_from_database(ctx, project_name: str, db_url: str, api_name: str, no
 \b
         ex
 \b
-        ApiLogicServer rebuild-from-database --project_name=~/dev/servers/ApiLogicProject --db_url=nw
+        genai-logic rebuild-from-database --project_name=~/dev/servers/ApiLogicProject --db_url=nw
 
     """
     db_types = ""
@@ -2053,7 +2104,7 @@ def check_ports():
 
 
 def start():               # target of setup.py
-    sys.stdout.write("\nWelcome to API Logic Server " + PR.__version__ + "\n\n")
+    sys.stdout.write("\nWelcome to Genai-Logic " + PR.__version__ + "\n\n")
     hostname, local_ip = check_ports()  #  = socket.gethostname()
     # sys.stdout.write("    SQLAlchemy Database URI help: https://docs.sqlalchemy.org/en/14/core/engines.html\n")
     main(obj={})

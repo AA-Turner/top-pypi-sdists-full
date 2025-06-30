@@ -32,6 +32,9 @@ jobs:
       - name: Sync dependencies with uv
         run: uv sync
 
+      - name: Install pytest
+        run: pip install pytest
+
       - name: Authenticate GitHub CLI
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
@@ -75,12 +78,20 @@ jobs:
           sed -i -E "s/(user_agent: str = \"sfq\/)[0-9]+\.[0-9]+\.[0-9]+(\")/\1$VERSION\2/" src/sfq/__init__.py
           sed -i -E "s/(default is \"sfq\/)[0-9]+\.[0-9]+\.[0-9]+(\")/\1$VERSION\2/" src/sfq/__init__.py
 
+      - name: Run tests
+        run: pytest --verbose --strict-config
+        env:
+          SF_INSTANCE_URL: ${{ secrets.SF_INSTANCE_URL }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_CLIENT_SECRET: ${{ secrets.SF_CLIENT_SECRET }}
+          SF_REFRESH_TOKEN: ${{ secrets.SF_REFRESH_TOKEN }}
+
       - name: Commit version updates
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml uv.lock src/sfq/__init__.py
-          git commit -m "chore: bump version to ${{ steps.get_version.outputs.version }}"
+          git commit -m "CI: bump version to ${{ steps.get_version.outputs.version }}"
           git push
 
       - name: Create and push git tag
@@ -104,3 +115,52 @@ jobs:
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install pdoc
+        run: pip install pdoc
+
+      - name: Generate docs
+        run: pdoc src/sfq/__init__.py -o docs --no-search
+
+      - name: Set sfq.html as default index page
+        run: |
+          rm docs/index.html
+          mv docs/sfq.html docs/index.html
+
+
+      - name: Prepare docs branch (first-time safe)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin
+          rm -rf docs-branch
+
+          if git show-ref --verify --quiet refs/remotes/origin/docs; then
+            echo "Branch 'docs' exists. Checking it out with worktree..."
+            git worktree add -B docs docs-branch origin/docs
+          else
+            echo "Branch 'docs' does not exist. Creating new orphan branch..."
+            mkdir docs-branch
+            cd docs-branch
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git init
+            git checkout --orphan docs
+            git commit --allow-empty -m "CI: Initial empty commit"
+            git remote add origin https://github.com/${{ github.repository }}.git
+            git push origin docs
+            cd ..
+            git worktree add -B docs docs-branch origin/docs
+          fi
+
+      - name: Push generated docs to docs branch
+        run: |
+          rm -rf docs-branch/*
+          cp -r docs/* docs-branch/
+          cd docs-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "CI: Update documentation" || echo "No changes to commit"
+          git push origin docs --force

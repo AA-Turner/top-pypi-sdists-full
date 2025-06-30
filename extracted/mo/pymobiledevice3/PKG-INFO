@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 4.21.6
+Version: 4.21.8
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
-License: GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/doronz88/pymobiledevice3
 Project-URL: Bug Reports, https://github.com/doronz88/pymobiledevice3/issues
 Keywords: ios,protocol,lockdownd,instruments,automation,cli,afc
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -58,7 +57,7 @@ Requires-Dist: qh3<2,>=1.0.0
 Requires-Dist: developer_disk_image>=0.0.2
 Requires-Dist: opack2
 Requires-Dist: psutil
-Requires-Dist: pytun-pmd3>=2.1.0
+Requires-Dist: pytun-pmd3>=2.2.2
 Requires-Dist: prompt_toolkit
 Requires-Dist: sslpsk-pmd3>=1.0.3; python_version < "3.13"
 Requires-Dist: python-pcapng>=2.1.1

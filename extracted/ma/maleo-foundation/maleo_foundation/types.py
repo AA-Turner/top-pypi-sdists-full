@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from pathlib import Path
 from typing import Dict, Optional, Union, Literal, List, Any
 from uuid import UUID
 from maleo_foundation.enums import BaseEnums
@@ -24,9 +23,6 @@ class BaseTypes:
     ListOfIntegers = List[int]
     OptionalInteger = Optional[int]
     OptionalListOfIntegers = Optional[List[int]]
-
-    #* Path-related types
-    OptionalPath = Optional[Path]
 
     #* String-related types
     ListOfStrings = List[str]

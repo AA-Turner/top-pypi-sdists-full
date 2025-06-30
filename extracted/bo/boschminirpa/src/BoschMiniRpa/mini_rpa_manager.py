@@ -442,20 +442,33 @@ class MiniRpaManager(MiniRpaFunction):
                                                  update_file_name, update_sheet_name, update_column_by, config_folder_path, config_file_name, config_sheet_name,
                                                  compare_result_file_name)
             elif function_name == 'save_pdf_table_into_excel':
-                pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name, sheet_name = (
+                (pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name, sheet_name, extract_all_pages,
+                 extract_all_tables) = (
                     self.process_dict.get('pdf_folder_path', ''), self.process_dict.get('pdf_file_name', ''), self.process_dict.get('page_number', 1),
                     self.process_dict.get('table_index', 1), self.process_dict.get('first_column_name', ''), self.process_dict.get('save_column_names', ''),
                     self.process_dict.get('excel_folder_path', ''), self.process_dict.get('excel_file_name', ''), self.process_dict.get('sheet_name', ''),
+                    self.process_dict.get('extract_all_pages', False), self.process_dict.get('extract_all_tables', False)
                 )
                 self.save_pdf_table_into_excel(pdf_folder_path, pdf_file_name, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name,
-                                               sheet_name)
+                                               sheet_name, extract_all_pages, extract_all_tables)
+            elif function_name == 'batch_save_pdf_table_into_excel':
+                (pdf_folder_path, search_key_word, page_number, table_index, first_column_name, save_column_names, excel_folder_path, excel_file_name, sheet_name, extract_all_pages,
+                 extract_all_tables, enable_pdf_history, history_folder_path) = (
+                    self.process_dict.get('pdf_folder_path', ''), self.process_dict.get('search_key_word', ''), self.process_dict.get('page_number', 1),
+                    self.process_dict.get('table_index', 1), self.process_dict.get('first_column_name', ''), self.process_dict.get('save_column_names', ''),
+                    self.process_dict.get('excel_folder_path', ''), self.process_dict.get('excel_file_name', ''), self.process_dict.get('sheet_name', ''),
+                    self.process_dict.get('extract_all_pages', False), self.process_dict.get('extract_all_tables', False),
+                    self.process_dict.get('enable_pdf_history', False), self.process_dict.get('history_folder_path', '')
+                )
+                self.batch_save_pdf_table_into_excel(pdf_folder_path, search_key_word, page_number, table_index, first_column_name, save_column_names, excel_folder_path,
+                                                     excel_file_name, sheet_name, extract_all_pages, extract_all_tables, enable_pdf_history, history_folder_path)
             elif function_name == 'save_excel_data_into_text':
-                excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name, save_column_names,keep_header = (
+                excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name, save_column_names, keep_header = (
                     self.process_dict.get('excel_folder_path', ''), self.process_dict.get('excel_file_name', ''), self.process_dict.get('text_folder_path', ''),
                     self.process_dict.get('text_file_name', ''), self.process_dict.get('sheet_name', 'Sheet1'), self.process_dict.get('save_column_names', ''),
                     self.process_dict.get('keep_header', True)
                 )
-                self.save_excel_data_into_text(excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name, save_column_names,keep_header)
+                self.save_excel_data_into_text(excel_folder_path, excel_file_name, text_folder_path, text_file_name, sheet_name, save_column_names, keep_header)
             elif function_name == 'transfer_xls_into_xlsx':
                 (xls_folder_path, xls_file_name, xlsx_folder_path, xlsx_file_name, sheet_name, encoding) = (self.process_dict.get('xls_folder_path', ''),
                                                                                                             self.process_dict.get('xls_file_name', ''),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: botocore-stubs
-Version: 1.38.30
+Version: 1.38.46
 Summary: Type annotations and code completion for botocore
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License: MIT License
@@ -37,7 +37,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -48,7 +47,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: types-awscrt

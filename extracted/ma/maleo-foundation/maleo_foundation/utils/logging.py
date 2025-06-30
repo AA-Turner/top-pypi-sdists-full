@@ -5,7 +5,7 @@ from google.cloud.logging import Client
 from google.cloud.logging.handlers import CloudLoggingHandler
 from google.oauth2.service_account import Credentials
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Union
 from maleo_foundation.enums import BaseEnums
 from maleo_foundation.types import BaseTypes
@@ -41,12 +41,11 @@ class GoogleCloudLogging:
         return CloudLoggingHandler(client=self._client, name=name)
 
 class SimpleConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     dir: str = Field(..., description="Log's directory")
     level: BaseEnums.LoggerLevel = Field(BaseEnums.LoggerLevel.INFO, description="Log's level")
     google_cloud_logging: Optional[GoogleCloudLogging] = Field(default_factory=GoogleCloudLogging, description="Google cloud logging")
-
-    class Config:
-        arbitrary_types_allowed=True
 
 class BaseLogger(logging.Logger):
     def __init__(

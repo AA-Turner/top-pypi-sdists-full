@@ -7,6 +7,7 @@ import pytest
 from darts import TimeSeries
 from darts.utils.timeseries_generation import (
     ONE_INDEXED_FREQS,
+    _build_forecast_series_from_schema,
     autoregressive_timeseries,
     constant_timeseries,
     datetime_attribute_timeseries,
@@ -95,8 +96,8 @@ class TestTimeSeriesGeneration:
                 value_amplitude=value_amplitude,
                 value_y_offset=value_y_offset,
             )
-            assert (sine_ts <= value_y_offset + value_amplitude).all().all()
-            assert (sine_ts >= value_y_offset - value_amplitude).all().all()
+            assert (sine_ts <= value_y_offset + value_amplitude).all()
+            assert (sine_ts >= value_y_offset - value_amplitude).all()
             assert len(sine_ts) == length_assert
 
         for length_assert in [1, 2, 5, 10, 100]:
@@ -633,3 +634,66 @@ class TestTimeSeriesGeneration:
         self.helper_routine(
             index_weeks_ext, "week_of_year", vals_exp=vals_exp, one_hot=True
         )
+
+    @pytest.mark.parametrize("is_dt", [True, False])
+    def test_build_forecast_series_from_schema(self, is_dt):
+        components = ["total", "b"]
+        if is_dt:
+            idx = pd.date_range("2000-01-01", freq="d", periods=3)
+        else:
+            idx = pd.RangeIndex(start=0, stop=3, step=1)
+        vals = np.zeros((len(idx), len(components)))
+        static_covs = pd.DataFrame({"sc1": [1.0]})
+        series = TimeSeries.from_times_and_values(
+            times=idx,
+            values=vals,
+            columns=components,
+            static_covariates=static_covs,
+            metadata={"md1": "dummy1"},
+            hierarchy={"b": ["total"]},
+        )
+
+        # building a forecast series from values, schema and start being the same, yields identical `TimeSeries`
+        series_new = _build_forecast_series_from_schema(
+            values=vals,
+            schema=series.schema(),
+            pred_start=series.start_time(),
+            predict_likelihood_parameters=False,
+        )
+
+        assert series_new == series
+
+        # `predict_likelihood_parameters` requires a function to generate the component names
+        with pytest.raises(ValueError) as exc:
+            _build_forecast_series_from_schema(
+                values=vals,
+                schema=series.schema(),
+                pred_start=series.start_time(),
+                predict_likelihood_parameters=True,
+                likelihood_component_names_fn=None,
+            )
+        assert str(exc.value) == (
+            "Must pass `likelihood_component_names_fn` with `predict_likelihood_parameters=True`"
+        )
+
+        # creating some dummy likelihood parameter names should be represented as columns in the new series
+        def components_f(*args, **kwargs):
+            return ["new1", "new2"]
+
+        series_new = _build_forecast_series_from_schema(
+            values=vals,
+            schema=series.schema(),
+            pred_start=series.start_time(),
+            predict_likelihood_parameters=True,
+            likelihood_component_names_fn=components_f,
+        )
+        series_renamed = series.with_columns_renamed(["total", "b"], ["new1", "new2"])
+        # static covariates and hierarchy are not transferred due to `components_f`
+        assert series_new.hierarchy is None
+        assert series_new.static_covariates is None
+        assert series_new != series_renamed
+
+        # adding information back yields equality
+        series_new = series_new.with_static_covariates(static_covs)
+        series_new = series_new.with_hierarchy({"new2": ["new1"]})
+        assert series_new == series_renamed

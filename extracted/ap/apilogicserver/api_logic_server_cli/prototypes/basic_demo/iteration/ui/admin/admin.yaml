@@ -131,15 +131,15 @@ resources:
       resource: Customer
     type: SysEmail
     user_key: id
-  SysMcp:
+  mcp-SysMcp:
     attributes:
+    - name: request
+      type: textarea
     - label: ' id*'
       name: id
       search: true
       sort: true
-    - name: request
-    - name: request_prompt
-    - name: completion
+      show_when: isInserting == false
     type: SysMcp
     user_key: id
 settings:
