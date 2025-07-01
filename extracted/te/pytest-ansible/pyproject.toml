@@ -326,7 +326,7 @@ filterwarnings = [
   "ignore:This process \\(pid=.*\\) is multi-threaded, use of fork\\(\\) may lead to deadlocks in the child.:DeprecationWarning",
   "ignore:AnsibleCollectionFinder has already been configured:UserWarning"
 ]
-junit_family = "legacy" # see https://docs.codecov.com/docs/test-analytics
+junit_family = "xunit2" # see https://docs.codecov.com/docs/test-analytics
 markers = ["old", "unit", "requires_ansible_v2"]
 testpaths = "tests"
 tmp_path_retention_policy = "failed"
@@ -342,7 +342,8 @@ target-version = "py310"
 [tool.ruff.lint]
 ignore = [
   "COM812", # conflicts with ISC001 on format
-  "ISC001" # conflicts with COM812 on format
+  "ISC001", # conflicts with COM812 on format
+  "PLC0415" # import should be at the top-level of a file
 ]
 select = ["ALL"]
 

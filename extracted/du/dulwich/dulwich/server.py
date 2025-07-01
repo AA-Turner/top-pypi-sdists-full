@@ -52,8 +52,11 @@ import time
 import zlib
 from collections.abc import Iterable, Iterator
 from functools import partial
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 from typing import Protocol as TypingProtocol
+
+if TYPE_CHECKING:
+    from .object_store import BaseObjectStore
 
 from dulwich import log_utils
 
@@ -67,8 +70,8 @@ from .errors import (
     ObjectFormatException,
     UnexpectedCommandError,
 )
-from .object_store import peel_sha
-from .objects import Commit, ObjectID, valid_hexsha
+from .object_store import find_shallow
+from .objects import Commit, ObjectID, Tree, valid_hexsha
 from .pack import ObjectContainer, PackedObjectContainer, write_pack_from_container
 from .protocol import (
     CAPABILITIES_REF,
@@ -113,7 +116,7 @@ from .protocol import (
     format_unshallow_line,
     symref_capabilities,
 )
-from .refs import PEELED_TAG_SUFFIX, RefsContainer, write_info_refs
+from .refs import PEELED_TAG_SUFFIX, Ref, RefsContainer, write_info_refs
 from .repo import Repo
 
 logger = log_utils.getLogger(__name__)
@@ -201,6 +204,10 @@ class FileSystemBackend(Backend):
 
     def open_repository(self, path):
         logger.debug("opening repository at %s", path)
+        # Ensure path is a string to avoid TypeError when joining with self.root
+        path = os.fspath(path)
+        if isinstance(path, bytes):
+            path = os.fsdecode(path)
         abspath = os.path.abspath(os.path.join(self.root, path)) + os.sep
         normcase_abspath = os.path.normcase(abspath)
         normcase_root = os.path.normcase(self.root)
@@ -459,47 +466,6 @@ def _split_proto_line(line, allowed):
     raise GitProtocolError(f"Received invalid line from client: {line!r}")
 
 
-def _find_shallow(store: ObjectContainer, heads, depth):
-    """Find shallow commits according to a given depth.
-
-    Args:
-      store: An ObjectStore for looking up objects.
-      heads: Iterable of head SHAs to start walking from.
-      depth: The depth of ancestors to include. A depth of one includes
-        only the heads themselves.
-    Returns: A tuple of (shallow, not_shallow), sets of SHAs that should be
-        considered shallow and unshallow according to the arguments. Note that
-        these sets may overlap if a commit is reachable along multiple paths.
-    """
-    parents: dict[bytes, list[bytes]] = {}
-
-    def get_parents(sha):
-        result = parents.get(sha, None)
-        if not result:
-            result = store[sha].parents
-            parents[sha] = result
-        return result
-
-    todo = []  # stack of (sha, depth)
-    for head_sha in heads:
-        _unpeeled, peeled = peel_sha(store, head_sha)
-        if isinstance(peeled, Commit):
-            todo.append((peeled.id, 1))
-
-    not_shallow = set()
-    shallow = set()
-    while todo:
-        sha, cur_depth = todo.pop()
-        if cur_depth < depth:
-            not_shallow.add(sha)
-            new_depth = cur_depth + 1
-            todo.extend((p, new_depth) for p in get_parents(sha))
-        else:
-            shallow.add(sha)
-
-    return shallow, not_shallow
-
-
 def _want_satisfied(store: ObjectContainer, haves, want, earliest) -> bool:
     o = store[want]
     pending = collections.deque([o])
@@ -719,7 +685,7 @@ class _ProtocolGraphWalker:
             self.client_shallow.add(val)
         self.read_proto_line((None,))  # consume client's flush-pkt
 
-        shallow, not_shallow = _find_shallow(self.store, wants, depth)
+        shallow, not_shallow = find_shallow(self.store, wants, depth)
 
         # Update self.shallow instead of reassigning it since we passed a
         # reference to it before this method was called.
@@ -727,6 +693,9 @@ class _ProtocolGraphWalker:
         new_shallow = self.shallow - self.client_shallow
         unshallow = self.unshallow = not_shallow & self.client_shallow
 
+        self.update_shallow(new_shallow, unshallow)
+
+    def update_shallow(self, new_shallow, unshallow):
         for sha in sorted(new_shallow):
             self.proto.write_pkt_line(format_shallow_line(sha))
         for sha in sorted(unshallow):
@@ -963,8 +932,8 @@ class ReceivePackHandler(PackHandler):
         ]
 
     def _apply_pack(
-        self, refs: list[tuple[bytes, bytes, bytes]]
-    ) -> list[tuple[bytes, bytes]]:
+        self, refs: list[tuple[ObjectID, ObjectID, Ref]]
+    ) -> Iterator[tuple[bytes, bytes]]:
         all_exceptions = (
             IOError,
             OSError,
@@ -975,7 +944,6 @@ class ReceivePackHandler(PackHandler):
             zlib.error,
             ObjectFormatException,
         )
-        status = []
         will_send_pack = False
 
         for command in refs:
@@ -988,15 +956,15 @@ class ReceivePackHandler(PackHandler):
             try:
                 recv = getattr(self.proto, "recv", None)
                 self.repo.object_store.add_thin_pack(self.proto.read, recv)
-                status.append((b"unpack", b"ok"))
+                yield (b"unpack", b"ok")
             except all_exceptions as e:
-                status.append((b"unpack", str(e).replace("\n", "").encode("utf-8")))
+                yield (b"unpack", str(e).replace("\n", "").encode("utf-8"))
                 # The pack may still have been moved in, but it may contain
                 # broken objects. We trust a later GC to clean it up.
         else:
             # The git protocol want to find a status entry related to unpack
             # process even if no pack data has been sent.
-            status.append((b"unpack", b"ok"))
+            yield (b"unpack", b"ok")
 
         for oldsha, sha, ref in refs:
             ref_status = b"ok"
@@ -1017,9 +985,7 @@ class ReceivePackHandler(PackHandler):
                         ref_status = b"failed to write"
             except KeyError:
                 ref_status = b"bad ref"
-            status.append((ref, ref_status))
-
-        return status
+            yield (ref, ref_status)
 
     def _report_status(self, status: list[tuple[bytes, bytes]]) -> None:
         if self.has_capability(CAPABILITY_SIDE_BAND_64K):
@@ -1045,7 +1011,7 @@ class ReceivePackHandler(PackHandler):
                 write(b"ok " + name + b"\n")
             else:
                 write(b"ng " + name + b" " + msg + b"\n")
-        write(None)
+        write(None)  # type: ignore
         flush()
 
     def _on_post_receive(self, client_refs) -> None:
@@ -1071,7 +1037,7 @@ class ReceivePackHandler(PackHandler):
                 format_ref_line(
                     refs[0][0],
                     refs[0][1],
-                    self.capabilities() + symref_capabilities(symrefs),
+                    list(self.capabilities()) + symref_capabilities(symrefs),
                 )
             )
             for i in range(1, len(refs)):
@@ -1094,11 +1060,12 @@ class ReceivePackHandler(PackHandler):
 
         # client will now send us a list of (oldsha, newsha, ref)
         while ref:
-            client_refs.append(ref.split())
+            (oldsha, newsha, ref) = ref.split()
+            client_refs.append((oldsha, newsha, ref))
             ref = self.proto.read_pkt_line()
 
         # backend can now deal with this refs and read a pack using self.read
-        status = self._apply_pack(client_refs)
+        status = list(self._apply_pack(client_refs))
 
         self._on_post_receive(client_refs)
 
@@ -1126,7 +1093,7 @@ class UploadArchiveHandler(Handler):
         prefix = b""
         format = "tar"
         i = 0
-        store: ObjectContainer = self.repo.object_store
+        store: BaseObjectStore = self.repo.object_store
         while i < len(arguments):
             argument = arguments[i]
             if argument == b"--prefix":
@@ -1137,12 +1104,16 @@ class UploadArchiveHandler(Handler):
                 format = arguments[i].decode("ascii")
             else:
                 commit_sha = self.repo.refs[argument]
-                tree = store[cast(Commit, store[commit_sha]).tree]
+                tree = cast(Tree, store[cast(Commit, store[commit_sha]).tree])
             i += 1
         self.proto.write_pkt_line(b"ACK")
         self.proto.write_pkt_line(None)
         for chunk in tar_stream(
-            store, tree, mtime=time.time(), prefix=prefix, format=format
+            store,
+            tree,
+            mtime=int(time.time()),
+            prefix=prefix,
+            format=format,  # type: ignore
         ):
             write(chunk)
         self.proto.write_pkt_line(None)
@@ -1168,7 +1139,7 @@ class TCPGitRequestHandler(socketserver.StreamRequestHandler):
 
         cls = self.handlers.get(command, None)
         if not callable(cls):
-            raise GitProtocolError(f"Invalid service {command}")
+            raise GitProtocolError(f"Invalid service {command!r}")
         h = cls(self.server.backend, args, proto)  # type: ignore
         h.handle()
 

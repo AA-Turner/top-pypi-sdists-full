@@ -76,6 +76,7 @@ __all__ = (
     "TableStatusType",
     "TimeToLiveStatusType",
     "WaiterName",
+    "WitnessStatusType",
 )
 
 
@@ -139,11 +140,14 @@ ProjectionTypeType = Literal["ALL", "INCLUDE", "KEYS_ONLY"]
 QueryPaginatorName = Literal["query"]
 ReplicaStatusType = Literal[
     "ACTIVE",
+    "ARCHIVED",
+    "ARCHIVING",
     "CREATING",
     "CREATION_FAILED",
     "DELETING",
     "INACCESSIBLE_ENCRYPTION_CREDENTIALS",
     "REGION_DISABLED",
+    "REPLICATION_NOT_AUTHORIZED",
     "UPDATING",
 ]
 ReturnConsumedCapacityType = Literal["INDEXES", "NONE", "TOTAL"]
@@ -167,15 +171,18 @@ TableStatusType = Literal[
     "CREATING",
     "DELETING",
     "INACCESSIBLE_ENCRYPTION_CREDENTIALS",
+    "REPLICATION_NOT_AUTHORIZED",
     "UPDATING",
 ]
 TimeToLiveStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
+WitnessStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DynamoDBServiceName = Literal["dynamodb"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -316,6 +323,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -373,6 +381,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -428,6 +437,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -468,7 +478,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -529,7 +538,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -537,6 +545,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",
@@ -573,6 +582,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -594,6 +604,7 @@ WaiterName = Literal["table_exists", "table_not_exists"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

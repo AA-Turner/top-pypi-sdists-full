@@ -1,27 +1,27 @@
 Metadata-Version: 2.3
 Name: pyuploadcare
-Version: 6.1.0
+Version: 6.2.0
 Summary: Python library for Uploadcare.com
 Author: Uploadcare Inc
 Author-email: hello@uploadcare.com
-Requires-Python: >=3.8.1,<4.0.0
+Requires-Python: >=3.8,<3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.8
 Provides-Extra: django
 Requires-Dist: Django (>=2.2) ; extra == "django"
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: pydantic[email] (>=2.5.2,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
-Requires-Dist: pytz (>=2023.3.post1,<2024.0)
+Requires-Dist: pytz (>=2025.1,<2026.0)
 Requires-Dist: typing-extensions (>=4.9.0,<5.0.0)
 Project-URL: Bug Tracker, https://github.com/uploadcare/pyuploadcare/issues
 Project-URL: Homepage, https://uploadcare.com
@@ -38,11 +38,11 @@ Description-Content-Type: text/markdown
   </a>
 </p>
 <p align="center">
-  <a href="https://pyuploadcare.readthedocs.io/en/latest/">Package Docs</a> • 
-  <a href="https://uploadcare.com/docs/">Uploadcare Docs</a> • 
-  <a href="https://uploadcare.com/api-refs/upload-api/">Upload API Reference</a> • 
-  <a href="https://uploadcare.com/api-refs/rest-api/">REST API Reference</a> • 
-  <a href="https://uploadcare.com/api-refs/url-api/">URL API Reference</a> • 
+  <a href="https://pyuploadcare.readthedocs.io/en/latest/">Package Docs</a> •
+  <a href="https://uploadcare.com/docs/">Uploadcare Docs</a> •
+  <a href="https://uploadcare.com/api-refs/upload-api/">Upload API Reference</a> •
+  <a href="https://uploadcare.com/api-refs/rest-api/">REST API Reference</a> •
+  <a href="https://uploadcare.com/api-refs/url-api/">URL API Reference</a> •
   <a href="https://uploadcare.com/">Website</a>
 </p>
 
@@ -55,13 +55,17 @@ Description-Content-Type: text/markdown
 
 Build file handling in minutes. Upload or accept user-generated content, store, transform, optimize, and deliver images, videos, and documents to billions of users.
 
-* [Description](#description)
-* [Documentation](#documentation)
-* [Installation](#installation)
-* [Requirements](#requirements)
-* [Usage](#usage)
-* [Testing](#testing)
-* [Demo app (Docker)](#demo-app)
+- [Python API client for Uploadcare](#python-api-client-for-uploadcare)
+  - [Description](#description)
+  - [Documentation](#documentation)
+  - [Installation](#installation)
+  - [Requirements](#requirements)
+  - [Usage](#usage)
+    - [Basic usage](#basic-usage)
+    - [Django integration](#django-integration)
+  - [Testing](#testing)
+  - [Demo app](#demo-app)
+  - [Suggestions and questions](#suggestions-and-questions)
 
 ## Description
 
@@ -94,7 +98,7 @@ pip install pyuploadcare[django]
 
 ## Requirements
 
-* Python 3.8, 3.9, 3.10, 3.11, 3.12
+* Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
 
 To use pyuploadcare with Python 3.6 or 3.7 please install `pyuploadcare < 5.0`.
 
@@ -269,7 +273,7 @@ We've developed a demo app that showcases most of the features. You can install 
 
 ## Suggestions and questions
 
-[Contributing guide](https://github.com/uploadcare/.github/blob/master/CONTRIBUTING.md)  
-[Security policy](https://github.com/uploadcare/pyuploadcare/security/policy)  
-[Support](https://github.com/uploadcare/.github/blob/master/SUPPORT.md)  
+[Contributing guide](https://github.com/uploadcare/.github/blob/master/CONTRIBUTING.md)
+[Security policy](https://github.com/uploadcare/pyuploadcare/security/policy)
+[Support](https://github.com/uploadcare/.github/blob/master/SUPPORT.md)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.10.0
+Version: 1.11.0
 License-File: LICENSE
 Summary: Static analysis for GitHub Actions
 Keywords: cli,github-actions,static-analysis,security
@@ -33,7 +33,7 @@ including:
 
 [and much more]: https://docs.zizmor.sh/audits/
 
-![zizmor demo](https://raw.githubusercontent.com/zizmorcore/zizmor/main/docs/assets/zizmor-demo.gif)
+![zizmor demo](https://zizmor.sh/assets/zizmor-demo.gif)
 
 See [`zizmor`'s documentation](https://docs.zizmor.sh/)
 for [installation steps], as well as a [quickstart] and
@@ -108,6 +108,13 @@ Tenki Cloud
 </tbody>
 </table>
 <!-- @@end-sponsors@@ -->
+
+Is your name missing above? Consider becoming one of our sponsors through
+one of the following:
+
+- [GitHub Sponsors](https://github.com/sponsors/woodruffw) (preferred)
+- [thanks.dev](https://thanks.dev/u/gh/woodruffw)
+- [ko-fi](https://ko-fi.com/woodruffw)
 
 ## Star History
 

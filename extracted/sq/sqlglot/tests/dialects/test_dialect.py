@@ -627,6 +627,7 @@ class TestDialect(Validator):
                 "clickhouse": "SELECT CASE WHEN NOT (a IS NULL) THEN b ELSE c END",
                 "databricks": "SELECT NVL2(a, b, c)",
                 "doris": "SELECT CASE WHEN NOT a IS NULL THEN b ELSE c END",
+                "dremio": "SELECT CASE WHEN NOT a IS NULL THEN b ELSE c END",
                 "drill": "SELECT CASE WHEN NOT a IS NULL THEN b ELSE c END",
                 "duckdb": "SELECT CASE WHEN NOT a IS NULL THEN b ELSE c END",
                 "hive": "SELECT CASE WHEN NOT a IS NULL THEN b ELSE c END",
@@ -653,6 +654,7 @@ class TestDialect(Validator):
                 "clickhouse": "SELECT CASE WHEN NOT (a IS NULL) THEN b END",
                 "databricks": "SELECT NVL2(a, b)",
                 "doris": "SELECT CASE WHEN NOT a IS NULL THEN b END",
+                "dremio": "SELECT CASE WHEN NOT a IS NULL THEN b END",
                 "drill": "SELECT CASE WHEN NOT a IS NULL THEN b END",
                 "duckdb": "SELECT CASE WHEN NOT a IS NULL THEN b END",
                 "hive": "SELECT CASE WHEN NOT a IS NULL THEN b END",
@@ -1339,6 +1341,48 @@ class TestDialect(Validator):
         )
 
         self.validate_identity("SELECT ARRAY_INTERSECT(x, y, z)")
+
+        self.validate_all(
+            "ARRAY_REVERSE(x)",
+            read={
+                "clickhouse": "arrayReverse(x)",
+                "bigquery": "ARRAY_REVERSE(x)",
+                "snowflake": "ARRAY_REVERSE(x)",
+                "duckdb": "ARRAY_REVERSE(x)",
+            },
+            write={
+                "clickhouse": "arrayReverse(x)",
+                "bigquery": "ARRAY_REVERSE(x)",
+                "snowflake": "ARRAY_REVERSE(x)",
+                "duckdb": "ARRAY_REVERSE(x)",
+            },
+        )
+
+        self.validate_all(
+            "ARRAY_SLICE(x, 1, 3)",
+            read={
+                "clickhouse": "arraySlice(x, 1, 3)",
+                "bigquery": "ARRAY_SLICE(x, 1, 3)",
+                "snowflake": "ARRAY_SLICE(x, 1, 3)",
+                "duckdb": "ARRAY_SLICE(x, 1, 3)",
+                "spark2": "SLICE(x, 1, 3)",
+                "spark": "SLICE(x, 1, 3)",
+                "databricks": "SLICE(x, 1, 3)",
+                "presto": "SLICE(x, 1, 3)",
+                "trino": "SLICE(x, 1, 3)",
+            },
+            write={
+                "clickhouse": "arraySlice(x, 1, 3)",
+                "bigquery": "ARRAY_SLICE(x, 1, 3)",
+                "snowflake": "ARRAY_SLICE(x, 1, 3)",
+                "duckdb": "ARRAY_SLICE(x, 1, 3)",
+                "spark2": "SLICE(x, 1, 3)",
+                "spark": "SLICE(x, 1, 3)",
+                "databricks": "SLICE(x, 1, 3)",
+                "presto": "SLICE(x, 1, 3)",
+                "trino": "SLICE(x, 1, 3)",
+            },
+        )
 
     def test_order_by(self):
         self.validate_identity(
@@ -2663,6 +2707,7 @@ SELECT
                         "bigquery": f"LOG{base}(a)",
                         "clickhouse": f"LOG{base}(a)",
                         "databricks": f"LOG{base}(a)",
+                        "dremio": f"LOG{base}(a)",
                         "duckdb": f"LOG{base}(a)",
                         "mysql": f"LOG{base}(a)",
                         "postgres": f"LOG{base}(a)",
@@ -2675,6 +2720,7 @@ SELECT
                     write={
                         "bigquery": f"LOG(a, {base})",
                         "clickhouse": f"LOG{base}(a)",
+                        "dremio": f"LOG({base}, a)",
                         "duckdb": f"LOG({base}, a)",
                         "mysql": f"LOG({base}, a)",
                         "oracle": f"LOG({base}, a)",
@@ -2705,6 +2751,7 @@ SELECT
         self.validate_all(
             "LN(x)",
             read={
+                "dremio": "LOG(x)",
                 "bigquery": "LOG(x)",
                 "clickhouse": "LOG(x)",
                 "databricks": "LOG(x)",

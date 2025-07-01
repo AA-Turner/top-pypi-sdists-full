@@ -4428,45 +4428,48 @@ class datasource_api_SearchFilteredChannelsRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'fuzzy_search_text': ConjureFieldDefinition('fuzzySearchText', str),
-            'exact_match': ConjureFieldDefinition('exactMatch', List[str]),
+            'substrings': ConjureFieldDefinition('substrings', OptionalTypeWrapper[List[str]]),
+            'subsequences': ConjureFieldDefinition('subsequences', OptionalTypeWrapper[List[str]]),
             'data_sources': ConjureFieldDefinition('dataSources', List[api_rids_DataSourceRid]),
-            'previously_selected_channels': ConjureFieldDefinition('previouslySelectedChannels', OptionalTypeWrapper[Dict[api_rids_DataSourceRid, List[api_Channel]]]),
             'result_size': ConjureFieldDefinition('resultSize', OptionalTypeWrapper[int]),
             'tags': ConjureFieldDefinition('tags', Dict[api_rids_DataSourceRid, Dict[api_TagName, api_TagValue]]),
             'min_data_updated_time': ConjureFieldDefinition('minDataUpdatedTime', OptionalTypeWrapper[scout_run_api_UtcTimestamp]),
-            'max_data_start_time': ConjureFieldDefinition('maxDataStartTime', OptionalTypeWrapper[scout_run_api_UtcTimestamp])
+            'max_data_start_time': ConjureFieldDefinition('maxDataStartTime', OptionalTypeWrapper[scout_run_api_UtcTimestamp]),
+            'previously_selected_channels': ConjureFieldDefinition('previouslySelectedChannels', OptionalTypeWrapper[Dict[api_rids_DataSourceRid, List[api_Channel]]]),
+            'fuzzy_search_text': ConjureFieldDefinition('fuzzySearchText', OptionalTypeWrapper[str]),
+            'exact_match': ConjureFieldDefinition('exactMatch', OptionalTypeWrapper[List[str]])
         }
 
-    __slots__: List[str] = ['_fuzzy_search_text', '_exact_match', '_data_sources', '_previously_selected_channels', '_result_size', '_tags', '_min_data_updated_time', '_max_data_start_time']
+    __slots__: List[str] = ['_substrings', '_subsequences', '_data_sources', '_result_size', '_tags', '_min_data_updated_time', '_max_data_start_time', '_previously_selected_channels', '_fuzzy_search_text', '_exact_match']
 
-    def __init__(self, data_sources: List[str], exact_match: List[str], fuzzy_search_text: str, tags: Dict[str, Dict[str, str]], max_data_start_time: Optional["scout_run_api_UtcTimestamp"] = None, min_data_updated_time: Optional["scout_run_api_UtcTimestamp"] = None, previously_selected_channels: Optional[Dict[str, List[str]]] = None, result_size: Optional[int] = None) -> None:
-        self._fuzzy_search_text = fuzzy_search_text
-        self._exact_match = exact_match
+    def __init__(self, data_sources: List[str], tags: Dict[str, Dict[str, str]], exact_match: Optional[List[str]] = None, fuzzy_search_text: Optional[str] = None, max_data_start_time: Optional["scout_run_api_UtcTimestamp"] = None, min_data_updated_time: Optional["scout_run_api_UtcTimestamp"] = None, previously_selected_channels: Optional[Dict[str, List[str]]] = None, result_size: Optional[int] = None, subsequences: Optional[List[str]] = None, substrings: Optional[List[str]] = None) -> None:
+        self._substrings = substrings
+        self._subsequences = subsequences
         self._data_sources = data_sources
-        self._previously_selected_channels = previously_selected_channels
         self._result_size = result_size
         self._tags = tags
         self._min_data_updated_time = min_data_updated_time
         self._max_data_start_time = max_data_start_time
+        self._previously_selected_channels = previously_selected_channels
+        self._fuzzy_search_text = fuzzy_search_text
+        self._exact_match = exact_match
 
     @builtins.property
-    def fuzzy_search_text(self) -> str:
-        return self._fuzzy_search_text
-
-    @builtins.property
-    def exact_match(self) -> List[str]:
-        """Will return only channels that contain all strings specified as exact matches (case insensitive).
+    def substrings(self) -> Optional[List[str]]:
+        """All of the strings in the set must appear exactly as substrings within the channel name.
         """
-        return self._exact_match
+        return self._substrings
+
+    @builtins.property
+    def subsequences(self) -> Optional[List[str]]:
+        """All of the characters in the string will appear in the same order (not necessarily adjacently)
+within the channel name. Only supports one subsequence to match at this time.
+        """
+        return self._subsequences
 
     @builtins.property
     def data_sources(self) -> List[str]:
         return self._data_sources
-
-    @builtins.property
-    def previously_selected_channels(self) -> Optional[Dict[str, List[str]]]:
-        return self._previously_selected_channels
 
     @builtins.property
     def result_size(self) -> Optional[int]:
@@ -4493,6 +4496,20 @@ in this map, or if a data source points to an empty map of tags, it will be sear
         """If specified, search will only return channels that have data before the specified time.
         """
         return self._max_data_start_time
+
+    @builtins.property
+    def previously_selected_channels(self) -> Optional[Dict[str, List[str]]]:
+        return self._previously_selected_channels
+
+    @builtins.property
+    def fuzzy_search_text(self) -> Optional[str]:
+        return self._fuzzy_search_text
+
+    @builtins.property
+    def exact_match(self) -> Optional[List[str]]:
+        """Will return only channels that contain all strings specified as exact matches (case insensitive).
+        """
+        return self._exact_match
 
 
 datasource_api_SearchFilteredChannelsRequest.__name__ = "SearchFilteredChannelsRequest"
@@ -10103,17 +10120,23 @@ class ingest_api_IngestResponse(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'details': ConjureFieldDefinition('details', ingest_api_IngestDetails)
+            'details': ConjureFieldDefinition('details', ingest_api_IngestDetails),
+            'ingest_job_rid': ConjureFieldDefinition('ingestJobRid', OptionalTypeWrapper[ingest_api_IngestJobRid])
         }
 
-    __slots__: List[str] = ['_details']
+    __slots__: List[str] = ['_details', '_ingest_job_rid']
 
-    def __init__(self, details: "ingest_api_IngestDetails") -> None:
+    def __init__(self, details: "ingest_api_IngestDetails", ingest_job_rid: Optional[str] = None) -> None:
         self._details = details
+        self._ingest_job_rid = ingest_job_rid
 
     @builtins.property
     def details(self) -> "ingest_api_IngestDetails":
         return self._details
+
+    @builtins.property
+    def ingest_job_rid(self) -> Optional[str]:
+        return self._ingest_job_rid
 
 
 ingest_api_IngestResponse.__name__ = "IngestResponse"
@@ -31627,6 +31650,7 @@ class scout_checks_api_CheckJobSpec(ConjureBeanType):
             'data_review_rid': ConjureFieldDefinition('dataReviewRid', scout_rids_api_DataReviewRid),
             'check_rid': ConjureFieldDefinition('checkRid', scout_rids_api_CheckRid),
             'run_rid': ConjureFieldDefinition('runRid', OptionalTypeWrapper[scout_run_api_RunRid]),
+            'asset_rid': ConjureFieldDefinition('assetRid', OptionalTypeWrapper[scout_rids_api_AssetRid]),
             'check_implementation_index': ConjureFieldDefinition('checkImplementationIndex', OptionalTypeWrapper[int]),
             'check_evaluation_rid': ConjureFieldDefinition('checkEvaluationRid', api_rids_AutomaticCheckEvaluationRid),
             'check_condition': ConjureFieldDefinition('checkCondition', scout_checks_api_CheckCondition),
@@ -31635,12 +31659,13 @@ class scout_checks_api_CheckJobSpec(ConjureBeanType):
             'context': ConjureFieldDefinition('context', scout_compute_api_Context)
         }
 
-    __slots__: List[str] = ['_data_review_rid', '_check_rid', '_run_rid', '_check_implementation_index', '_check_evaluation_rid', '_check_condition', '_start', '_end', '_context']
+    __slots__: List[str] = ['_data_review_rid', '_check_rid', '_run_rid', '_asset_rid', '_check_implementation_index', '_check_evaluation_rid', '_check_condition', '_start', '_end', '_context']
 
-    def __init__(self, check_condition: "scout_checks_api_CheckCondition", check_evaluation_rid: str, check_rid: str, context: "scout_compute_api_Context", data_review_rid: str, end: "api_Timestamp", start: "api_Timestamp", check_implementation_index: Optional[int] = None, run_rid: Optional[str] = None) -> None:
+    def __init__(self, check_condition: "scout_checks_api_CheckCondition", check_evaluation_rid: str, check_rid: str, context: "scout_compute_api_Context", data_review_rid: str, end: "api_Timestamp", start: "api_Timestamp", asset_rid: Optional[str] = None, check_implementation_index: Optional[int] = None, run_rid: Optional[str] = None) -> None:
         self._data_review_rid = data_review_rid
         self._check_rid = check_rid
         self._run_rid = run_rid
+        self._asset_rid = asset_rid
         self._check_implementation_index = check_implementation_index
         self._check_evaluation_rid = check_evaluation_rid
         self._check_condition = check_condition
@@ -31659,6 +31684,10 @@ class scout_checks_api_CheckJobSpec(ConjureBeanType):
     @builtins.property
     def run_rid(self) -> Optional[str]:
         return self._run_rid
+
+    @builtins.property
+    def asset_rid(self) -> Optional[str]:
+        return self._asset_rid
 
     @builtins.property
     def check_implementation_index(self) -> Optional[int]:
@@ -60974,26 +61003,35 @@ scout_datareview_api_ClosedWithFurtherActionState.__module__ = "nominal_api.scou
 
 class scout_datareview_api_CreateDataReviewRequest(ConjureBeanType):
     """If commit not is provided, the latest commit on main will be used.
+Asset RID is required only for multi-asset runs.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'run_rid': ConjureFieldDefinition('runRid', scout_run_api_RunRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', OptionalTypeWrapper[scout_rids_api_AssetRid]),
             'checklist_rid': ConjureFieldDefinition('checklistRid', scout_rids_api_ChecklistRid),
             'commit': ConjureFieldDefinition('commit', OptionalTypeWrapper[scout_versioning_api_CommitId])
         }
 
-    __slots__: List[str] = ['_run_rid', '_checklist_rid', '_commit']
+    __slots__: List[str] = ['_run_rid', '_asset_rid', '_checklist_rid', '_commit']
 
-    def __init__(self, checklist_rid: str, run_rid: str, commit: Optional[str] = None) -> None:
+    def __init__(self, checklist_rid: str, run_rid: str, asset_rid: Optional[str] = None, commit: Optional[str] = None) -> None:
         self._run_rid = run_rid
+        self._asset_rid = asset_rid
         self._checklist_rid = checklist_rid
         self._commit = commit
 
     @builtins.property
     def run_rid(self) -> str:
         return self._run_rid
+
+    @builtins.property
+    def asset_rid(self) -> Optional[str]:
+        """Selects asset to execute data review on. Required for multi-asset runs.
+        """
+        return self._asset_rid
 
     @builtins.property
     def checklist_rid(self) -> str:
@@ -69079,6 +69117,8 @@ class scout_metadata_ResourceType(ConjureEnumType):
     '''ASSET'''
     EVENT = 'EVENT'
     '''EVENT'''
+    DATASET = 'DATASET'
+    '''DATASET'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -83296,12 +83336,13 @@ class timeseries_logicalseries_api_CreateLogicalSeries(ConjureBeanType):
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'unit': ConjureFieldDefinition('unit', OptionalTypeWrapper[api_Unit]),
             'series_data_type': ConjureFieldDefinition('seriesDataType', OptionalTypeWrapper[api_SeriesDataType]),
-            'granularity': ConjureFieldDefinition('granularity', OptionalTypeWrapper[api_Granularity])
+            'granularity': ConjureFieldDefinition('granularity', OptionalTypeWrapper[api_Granularity]),
+            'series_archetype_rid': ConjureFieldDefinition('seriesArchetypeRid', OptionalTypeWrapper[api_SeriesArchetypeRid])
         }
 
-    __slots__: List[str] = ['_channel', '_locator', '_id_locator', '_data_source_rid', '_description', '_unit', '_series_data_type', '_granularity']
+    __slots__: List[str] = ['_channel', '_locator', '_id_locator', '_data_source_rid', '_description', '_unit', '_series_data_type', '_granularity', '_series_archetype_rid']
 
-    def __init__(self, channel: str, data_source_rid: str, locator: "timeseries_logicalseries_api_Locator", description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, id_locator: Optional[str] = None, series_data_type: Optional["api_SeriesDataType"] = None, unit: Optional[str] = None) -> None:
+    def __init__(self, channel: str, data_source_rid: str, locator: "timeseries_logicalseries_api_Locator", description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, id_locator: Optional[str] = None, series_archetype_rid: Optional[str] = None, series_data_type: Optional["api_SeriesDataType"] = None, unit: Optional[str] = None) -> None:
         self._channel = channel
         self._locator = locator
         self._id_locator = id_locator
@@ -83310,6 +83351,7 @@ class timeseries_logicalseries_api_CreateLogicalSeries(ConjureBeanType):
         self._unit = unit
         self._series_data_type = series_data_type
         self._granularity = granularity
+        self._series_archetype_rid = series_archetype_rid
 
     @builtins.property
     def channel(self) -> str:
@@ -83345,6 +83387,12 @@ with this id, will throw a CONFLICT.
     @builtins.property
     def granularity(self) -> Optional["api_Granularity"]:
         return self._granularity
+
+    @builtins.property
+    def series_archetype_rid(self) -> Optional[str]:
+        """Deprecated. Do not use.
+        """
+        return self._series_archetype_rid
 
 
 timeseries_logicalseries_api_CreateLogicalSeries.__name__ = "CreateLogicalSeries"

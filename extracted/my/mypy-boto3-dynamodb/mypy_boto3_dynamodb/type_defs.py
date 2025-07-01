@@ -64,6 +64,7 @@ from .literals import (
     TableClassType,
     TableStatusType,
     TimeToLiveStatusType,
+    WitnessStatusType,
 )
 
 if sys.version_info >= (3, 9):
@@ -121,6 +122,7 @@ __all__ = (
     "CreateGlobalSecondaryIndexActionTypeDef",
     "CreateGlobalTableInputTypeDef",
     "CreateGlobalTableOutputTypeDef",
+    "CreateGlobalTableWitnessGroupMemberActionTypeDef",
     "CreateReplicaActionTypeDef",
     "CreateReplicationGroupMemberActionTypeDef",
     "CreateTableInputServiceResourceCreateTableTypeDef",
@@ -131,6 +133,7 @@ __all__ = (
     "DeleteBackupInputTypeDef",
     "DeleteBackupOutputTypeDef",
     "DeleteGlobalSecondaryIndexActionTypeDef",
+    "DeleteGlobalTableWitnessGroupMemberActionTypeDef",
     "DeleteItemInputTableDeleteItemTypeDef",
     "DeleteItemInputTypeDef",
     "DeleteItemOutputTableTypeDef",
@@ -206,6 +209,8 @@ __all__ = (
     "GlobalTableDescriptionTypeDef",
     "GlobalTableGlobalSecondaryIndexSettingsUpdateTypeDef",
     "GlobalTableTypeDef",
+    "GlobalTableWitnessDescriptionTypeDef",
+    "GlobalTableWitnessGroupUpdateTypeDef",
     "ImportSummaryTypeDef",
     "ImportTableDescriptionTypeDef",
     "ImportTableInputTypeDef",
@@ -515,6 +520,12 @@ ReplicaTypeDef = TypedDict(
         "RegionName": NotRequired[str],
     },
 )
+CreateGlobalTableWitnessGroupMemberActionTypeDef = TypedDict(
+    "CreateGlobalTableWitnessGroupMemberActionTypeDef",
+    {
+        "RegionName": str,
+    },
+)
 CreateReplicaActionTypeDef = TypedDict(
     "CreateReplicaActionTypeDef",
     {
@@ -565,6 +576,12 @@ class DeleteGlobalSecondaryIndexActionTypeDef(TypedDict):
     IndexName: str
 
 
+DeleteGlobalTableWitnessGroupMemberActionTypeDef = TypedDict(
+    "DeleteGlobalTableWitnessGroupMemberActionTypeDef",
+    {
+        "RegionName": str,
+    },
+)
 DeleteReplicaActionTypeDef = TypedDict(
     "DeleteReplicaActionTypeDef",
     {
@@ -700,6 +717,15 @@ class ProvisionedThroughputDescriptionTypeDef(TypedDict):
     NumberOfDecreasesToday: NotRequired[int]
     ReadCapacityUnits: NotRequired[int]
     WriteCapacityUnits: NotRequired[int]
+
+
+GlobalTableWitnessDescriptionTypeDef = TypedDict(
+    "GlobalTableWitnessDescriptionTypeDef",
+    {
+        "RegionName": NotRequired[str],
+        "WitnessStatus": NotRequired[WitnessStatusType],
+    },
+)
 
 
 class S3BucketSourceTypeDef(TypedDict):
@@ -1076,6 +1102,11 @@ class InputFormatOptionsOutputTypeDef(TypedDict):
 
 class InputFormatOptionsTypeDef(TypedDict):
     Csv: NotRequired[CsvOptionsTypeDef]
+
+
+class GlobalTableWitnessGroupUpdateTypeDef(TypedDict):
+    Create: NotRequired[CreateGlobalTableWitnessGroupMemberActionTypeDef]
+    Delete: NotRequired[DeleteGlobalTableWitnessGroupMemberActionTypeDef]
 
 
 class ReplicaUpdateTypeDef(TypedDict):
@@ -2054,6 +2085,7 @@ class TableDescriptionTypeDef(TypedDict):
     LatestStreamArn: NotRequired[str]
     GlobalTableVersion: NotRequired[str]
     Replicas: NotRequired[List[ReplicaDescriptionTypeDef]]
+    GlobalTableWitnesses: NotRequired[List[GlobalTableWitnessDescriptionTypeDef]]
     RestoreSummary: NotRequired[RestoreSummaryTypeDef]
     SSEDescription: NotRequired[SSEDescriptionTypeDef]
     ArchivalSummary: NotRequired[ArchivalSummaryTypeDef]
@@ -2279,6 +2311,7 @@ class UpdateTableInputTableUpdateTypeDef(TypedDict):
     TableClass: NotRequired[TableClassType]
     DeletionProtectionEnabled: NotRequired[bool]
     MultiRegionConsistency: NotRequired[MultiRegionConsistencyType]
+    GlobalTableWitnessUpdates: NotRequired[Sequence[GlobalTableWitnessGroupUpdateTypeDef]]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
 
@@ -2295,6 +2328,7 @@ class UpdateTableInputTypeDef(TypedDict):
     TableClass: NotRequired[TableClassType]
     DeletionProtectionEnabled: NotRequired[bool]
     MultiRegionConsistency: NotRequired[MultiRegionConsistencyType]
+    GlobalTableWitnessUpdates: NotRequired[Sequence[GlobalTableWitnessGroupUpdateTypeDef]]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
 

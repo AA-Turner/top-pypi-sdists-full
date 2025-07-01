@@ -5,6 +5,8 @@ from email.utils import formataddr
 import pandas as pd
 import requests
 import json
+import mimetypes
+
 from mini_rpa_hrs_customized_functions import *
 from BoschRpaMagicBox.remote_excel_functions import *
 from BoschRpaMagicBox.helper_functions import *
@@ -952,14 +954,21 @@ class MiniRpaFunction(MiniRPACore):
         """
         is_file_exist, file_obj = smb_check_file_exist(self.user_name, self.user_password, self.server_name, self.share_name, file_path, self.port)
         if is_file_exist:
-            files = {'file': file_obj}
+            filename = os.path.basename(file_path)
+            content_type, _ = mimetypes.guess_type(filename)
+            if content_type is None:
+                content_type = 'application/octet-stream'
+
+            files = {'file': (filename, file_obj, content_type)}
             headers = {}
             if api_add_token:
                 headers = {
                     'Bearer': api_bearer,
                     'Token': api_token
                 }
-            res = requests.post(api, files=files, headers=headers, verify=False)
+
+            ssl_cert_path = '/opt/ca-bundle.crt'
+            res = requests.post(api, files=files, headers=headers, verify=ssl_cert_path)
             if int(res.status_code) == 200:
                 res_json = res.json()
                 if res_json['isSuccess']:
@@ -1248,8 +1257,8 @@ class MiniRpaFunction(MiniRPACore):
         pdf_file_name = self.prepare_file_name(pdf_file_name)
         excel_folder_path = self.replace_variables_in_string(excel_folder_path)
         excel_file_name = self.prepare_file_name(excel_file_name)
-        extract_all_pages= extract_all_pages if extract_all_pages else False
-        extract_all_tables= extract_all_tables if extract_all_tables else False
+        extract_all_pages = extract_all_pages if extract_all_pages else False
+        extract_all_tables = extract_all_tables if extract_all_tables else False
 
         if not pdf_folder_path:
             pdf_folder_path = self.report_save_path
@@ -1291,8 +1300,8 @@ class MiniRpaFunction(MiniRPACore):
         excel_folder_path = self.replace_variables_in_string(excel_folder_path)
         excel_file_name = self.prepare_file_name(excel_file_name)
         enable_pdf_history = enable_pdf_history if enable_pdf_history else False
-        extract_all_pages= extract_all_pages if extract_all_pages else False
-        extract_all_tables= extract_all_tables if extract_all_tables else False
+        extract_all_pages = extract_all_pages if extract_all_pages else False
+        extract_all_tables = extract_all_tables if extract_all_tables else False
 
         if not excel_folder_path:
             excel_folder_path = self.report_save_path
@@ -1415,6 +1424,7 @@ class MiniRpaFunction(MiniRPACore):
             "apiCredential": api_credential,
         }
 
-        res = requests.post(url=bot_url, data=request_data, verify=False)
+        ssl_cert_path = '/opt/ca-bundle.crt'
+        res = requests.post(url=bot_url, data=request_data, verify=ssl_cert_path)
         print(res.status_code)
         print(res.text)

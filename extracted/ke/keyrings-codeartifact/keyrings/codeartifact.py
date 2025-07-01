@@ -1,8 +1,10 @@
 # codeartifact.py -- keyring backend
 
 import re
-import boto3
 import logging
+
+import boto3
+import boto3.session
 
 from datetime import datetime
 from urllib.parse import urlparse
@@ -45,7 +47,8 @@ class CodeArtifactKeyringConfig:
         config_parser.default_section = self.DEFAULT_SECTION
 
         # Load the configuration file.
-        config_parser.read(config_file)
+        if not config_parser.read(config_file):
+            logging.warning(f"{config_file} does not exist!")
 
         # Collect the defaults before we go further.
         self.defaults = config_parser.defaults()
@@ -103,19 +106,37 @@ class CodeArtifactKeyringConfig:
         return self.config.get(found_key)
 
 
+def make_codeartifact_client(options):
+    # Build a session with the provided options.
+    session = boto3.session.Session(
+        # NOTE: Only the session accepts 'profile_name'.
+        profile_name=options.pop("profile_name", None),
+        region_name=options.get("region_name"),
+    )
+
+    # Create a client for this new session.
+    return session.client("codeartifact", **options)
+
+
 class CodeArtifactBackend(backend.KeyringBackend):
     HOST_REGEX = r"^(.+)-(\d{12})\.d\.codeartifact\.([^\.]+)\.amazonaws\.com$"
     PATH_REGEX = r"^/pypi/([^/]+)/?"
 
     priority = 9.9
 
-    def __init__(self, config_file=None):
+    def __init__(self, /, config=None, make_client=make_codeartifact_client):
         super().__init__()
 
-        if not config_file:
+        if config:
+            # Use the provided configuration.
+            self.config = config
+        else:
+            # Use the global configuration file.
             config_file = config_root() / "keyringrc.cfg"
+            self.config = CodeArtifactKeyringConfig(config_file)
 
-        self.config = CodeArtifactKeyringConfig(config_file)
+        # Use our default built-in CodeArtifact client producer.
+        self.make_client = make_client
 
     def get_credential(self, service, username):
         authorization_token = self.get_password(service, username)
@@ -134,7 +155,7 @@ class CodeArtifactBackend(backend.KeyringBackend):
 
         # If it didn't match the regex, it doesn't apply to us.
         if not host_match:
-            logging.warning("Not an AWS CodeArtifact repository URL!")
+            logging.warning(f"Not an AWS CodeArtifact repository URL: {service}")
             return
 
         # Extract the domain, account and region for this repository.
@@ -148,7 +169,7 @@ class CodeArtifactBackend(backend.KeyringBackend):
 
         repository_name = path_match.group(1)
 
-        # Load our configuration file.
+        # Lookup configuration options.
         config = self.config.lookup(
             domain=domain,
             account=account,
@@ -156,16 +177,43 @@ class CodeArtifactBackend(backend.KeyringBackend):
             name=repository_name,
         )
 
-        # Create session with any supplied configuration.
-        session = boto3.Session(
-            region_name=region,
-            profile_name=config.get("profile_name"),
-            aws_access_key_id=config.get("aws_access_key_id"),
-            aws_secret_access_key=config.get("aws_secret_access_key"),
-        )
+        # Options for the client callback.
+        options = {
+            # Pass in the region name.
+            "region_name": region,
+        }
 
-        # Create a CodeArtifact client for this repository's region.
-        client = session.client("codeartifact", region_name=region)
+        # Extract any AWS profile name we should use.
+        profile_name = config.get("profile_name")
+        if profile_name:
+            options.update({"profile_name": profile_name})
+
+        # Provide option to disable SSL/TLS verification.
+        verify = config.get("verify")
+        if verify:
+            if verify.lower() in {"1", "yes", "on", "true"}:
+                # Enable SSL/TLS verification explicitly.
+                options.update({"verify": True})
+            elif verify.lower() in {"0", "no", "off", "false"}:
+                # Disable SSL/TLS verification entirely.
+                options.update({"verify": False})
+            else:
+                # The SSL/TLS certificate to verify against.
+                options.update({"verify": verify.strip('"')})
+
+        # If static access/secret keys were provided, use them.
+        aws_access_key_id = config.get("aws_access_key_id")
+        aws_secret_access_key = config.get("aws_secret_access_key")
+        if aws_access_key_id and aws_secret_access_key:
+            options.update(
+                {
+                    "aws_access_key_id": aws_access_key_id,
+                    "aws_secret_access_key": aws_secret_access_key,
+                }
+            )
+
+        # Generate a CodeArtifact client using the callback.
+        client = self.make_client(options)
 
         # Authorization tokens should be good for an hour by default.
         token_duration = int(config.get("token_duration", 3600))

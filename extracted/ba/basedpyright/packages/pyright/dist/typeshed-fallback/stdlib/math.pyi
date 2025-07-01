@@ -151,11 +151,7 @@ def fabs(x: _SupportsFloatOrIndex, /) -> float:
     """Return the absolute value of the float x."""
     ...
 def factorial(x: SupportsIndex, /) -> int:
-    """
-    Find n!.
-
-    Raise a ValueError if x is negative or non-integral.
-    """
+    """Find n!."""
     ...
 
 class _SupportsFloor(Protocol[_T_co]):

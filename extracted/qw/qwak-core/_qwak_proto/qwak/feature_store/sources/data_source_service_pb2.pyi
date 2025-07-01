@@ -202,6 +202,31 @@ class ListDataSourcesResponse(google.protobuf.message.Message):
 
 global___ListDataSourcesResponse = ListDataSourcesResponse
 
+class ListDataSourcesByAccountRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___ListDataSourcesByAccountRequest = ListDataSourcesByAccountRequest
+
+class ListDataSourcesByAccountResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DATA_SOURCES_FIELD_NUMBER: builtins.int
+    @property
+    def data_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[qwak.feature_store.sources.data_source_pb2.DataSource]:
+        """List of registered data sources"""
+    def __init__(
+        self,
+        *,
+        data_sources: collections.abc.Iterable[qwak.feature_store.sources.data_source_pb2.DataSource] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data_sources", b"data_sources"]) -> None: ...
+
+global___ListDataSourcesByAccountResponse = ListDataSourcesByAccountResponse
+
 class CreateDataSourceUploadURLRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

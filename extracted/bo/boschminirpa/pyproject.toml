@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "BoschMiniRpa"
-version = "0.1.102"
+version = "0.1.105"
 authors = [
     { name = "LV Zhichao", email = "zhichao.lv@cn.bosch.com" },
 ]
@@ -24,7 +24,7 @@ dependencies = [
     'pandas',
     'openpyxl',
     'XlsxWriter',
-    'natsort'
+    'natsort',
 ]
 
 [project.urls]

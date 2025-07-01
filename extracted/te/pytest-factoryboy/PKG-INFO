@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pytest-factoryboy
-Version: 2.8.0
+Version: 2.8.1
 Summary: Factory Boy support for pytest.
 License: MIT
 Author: Oleg Pidsadnyi

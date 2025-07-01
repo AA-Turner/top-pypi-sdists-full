@@ -172,14 +172,14 @@ class PrivilegedApiControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/change_privileged_api_control_compartment.py.html>`__ to see an example of how to use change_privileged_api_control_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/change_privileged_api_control_compartment.py.html>`__ to see an example of how to use change_privileged_api_control_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiControlId']
         resource_path = "/privilegedApiControls/{privilegedApiControlId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_privileged_api_control_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/PrivilegedApiControl/ChangePrivilegedApiControlCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -285,14 +285,14 @@ class PrivilegedApiControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/create_privileged_api_control.py.html>`__ to see an example of how to use create_privileged_api_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/create_privileged_api_control.py.html>`__ to see an example of how to use create_privileged_api_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/privilegedApiControls"
         method = "POST"
         operation_name = "create_privileged_api_control"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/PrivilegedApiControl/CreatePrivilegedApiControl"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -390,14 +390,14 @@ class PrivilegedApiControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/delete_privileged_api_control.py.html>`__ to see an example of how to use delete_privileged_api_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/delete_privileged_api_control.py.html>`__ to see an example of how to use delete_privileged_api_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiControlId']
         resource_path = "/privilegedApiControls/{privilegedApiControlId}"
         method = "DELETE"
         operation_name = "delete_privileged_api_control"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/PrivilegedApiControl/DeletePrivilegedApiControl"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -501,14 +501,14 @@ class PrivilegedApiControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/get_privileged_api_control.py.html>`__ to see an example of how to use get_privileged_api_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/get_privileged_api_control.py.html>`__ to see an example of how to use get_privileged_api_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiControlId']
         resource_path = "/privilegedApiControls/{privilegedApiControlId}"
         method = "GET"
         operation_name = "get_privileged_api_control"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/PrivilegedApiControl/GetPrivilegedApiControl"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -646,14 +646,14 @@ class PrivilegedApiControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/list_privileged_api_controls.py.html>`__ to see an example of how to use list_privileged_api_controls API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/list_privileged_api_controls.py.html>`__ to see an example of how to use list_privileged_api_controls API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/privilegedApiControls"
         method = "GET"
         operation_name = "list_privileged_api_controls"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/PrivilegedApiControlCollection/ListPrivilegedApiControls"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -791,14 +791,14 @@ class PrivilegedApiControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/update_privileged_api_control.py.html>`__ to see an example of how to use update_privileged_api_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/update_privileged_api_control.py.html>`__ to see an example of how to use update_privileged_api_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiControlId']
         resource_path = "/privilegedApiControls/{privilegedApiControlId}"
         method = "PUT"
         operation_name = "update_privileged_api_control"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/PrivilegedApiControl/UpdatePrivilegedApiControl"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

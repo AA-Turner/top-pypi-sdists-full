@@ -88,6 +88,7 @@ from .type_defs import (
     UpdateTransformerRequestTypeDef,
     UpdateTransformerResponseTypeDef,
 )
+from .waiter import TransformerJobSucceededWaiter
 
 if sys.version_info >= (3, 9):
     from builtins import type as Type
@@ -504,4 +505,14 @@ class B2BIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/b2bi/client/get_paginator.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_b2bi/client/#get_paginator)
+        """
+
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["transformer_job_succeeded"]
+    ) -> TransformerJobSucceededWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/b2bi/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_b2bi/client/#get_waiter)
         """

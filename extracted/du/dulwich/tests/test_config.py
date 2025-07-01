@@ -23,6 +23,7 @@
 
 import os
 import sys
+import tempfile
 from io import BytesIO
 from unittest import skipIf
 from unittest.mock import patch
@@ -166,6 +167,21 @@ class ConfigFileTests(TestCase):
     def test_from_file_subsection_not_quoted(self) -> None:
         cf = self.from_file(b"[branch.foo]\nfoo = bar\n")
         self.assertEqual(b"bar", cf.get((b"branch", b"foo"), b"foo"))
+
+    def test_from_file_includeif_hasconfig(self) -> None:
+        """Test parsing includeIf sections with hasconfig conditions."""
+        # Test case from issue #1216
+        cf = self.from_file(
+            b'[includeIf "hasconfig:remote.*.url:ssh://org-*@github.com/**"]\n'
+            b"    path = ~/.config/git/.work\n"
+        )
+        self.assertEqual(
+            b"~/.config/git/.work",
+            cf.get(
+                (b"includeIf", b"hasconfig:remote.*.url:ssh://org-*@github.com/**"),
+                b"path",
+            ),
+        )
 
     def test_write_preserve_multivar(self) -> None:
         cf = self.from_file(b"[core]\nfoo = bar\nfoo = blah\n")
@@ -356,6 +372,380 @@ who\"
         finally:
             # Clean up
             os.unlink(temp_path)
+
+    def test_include_basic(self) -> None:
+        """Test basic include functionality."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create included config file
+            included_path = os.path.join(tmpdir, "included.config")
+            with open(included_path, "wb") as f:
+                f.write(
+                    b"[user]\n    name = Included User\n    email = included@example.com\n"
+                )
+
+            # Create main config with include
+            main_config = self.from_file(
+                b"[user]\n    name = Main User\n[include]\n    path = included.config\n"
+            )
+
+            # Should not include anything without proper directory context
+            self.assertEqual(b"Main User", main_config.get((b"user",), b"name"))
+            with self.assertRaises(KeyError):
+                main_config.get((b"user",), b"email")
+
+            # Now test with proper file loading
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                f.write(
+                    b"[user]\n    name = Main User\n[include]\n    path = included.config\n"
+                )
+
+            # Load from path to get include functionality
+            cf = ConfigFile.from_path(main_path)
+            self.assertEqual(b"Included User", cf.get((b"user",), b"name"))
+            self.assertEqual(b"included@example.com", cf.get((b"user",), b"email"))
+
+    def test_include_absolute_path(self) -> None:
+        """Test include with absolute path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Use realpath to resolve any symlinks (important on macOS and Windows)
+            tmpdir = os.path.realpath(tmpdir)
+
+            # Create included config file
+            included_path = os.path.join(tmpdir, "included.config")
+            with open(included_path, "wb") as f:
+                f.write(b"[core]\n    bare = true\n")
+
+            # Create main config with absolute include path
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                # Properly escape backslashes in Windows paths
+                escaped_path = included_path.replace("\\", "\\\\")
+                f.write(f"[include]\n    path = {escaped_path}\n".encode())
+
+            cf = ConfigFile.from_path(main_path)
+            self.assertEqual(b"true", cf.get((b"core",), b"bare"))
+
+    def test_includeif_hasconfig(self) -> None:
+        """Test includeIf with hasconfig conditions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create included config file
+            work_included_path = os.path.join(tmpdir, "work.config")
+            with open(work_included_path, "wb") as f:
+                f.write(b"[user]\n    email = work@company.com\n")
+
+            personal_included_path = os.path.join(tmpdir, "personal.config")
+            with open(personal_included_path, "wb") as f:
+                f.write(b"[user]\n    email = personal@example.com\n")
+
+            # Create main config with hasconfig conditions
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                f.write(
+                    b'[remote "origin"]\n'
+                    b"    url = ssh://org-work@github.com/company/project\n"
+                    b'[includeIf "hasconfig:remote.*.url:ssh://org-*@github.com/**"]\n'
+                    b"    path = work.config\n"
+                    b'[includeIf "hasconfig:remote.*.url:https://github.com/opensource/**"]\n'
+                    b"    path = personal.config\n"
+                )
+
+            # Load config - should match the work config due to org-work remote
+            # The second condition won't match since url doesn't have /opensource/ path
+            cf = ConfigFile.from_path(main_path)
+            self.assertEqual(b"work@company.com", cf.get((b"user",), b"email"))
+
+    def test_includeif_hasconfig_wildcard(self) -> None:
+        """Test includeIf hasconfig with wildcard patterns."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create included config
+            included_path = os.path.join(tmpdir, "included.config")
+            with open(included_path, "wb") as f:
+                f.write(b"[user]\n    name = IncludedUser\n")
+
+            # Create main config with hasconfig condition using wildcards
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                f.write(
+                    b"[core]\n"
+                    b"    autocrlf = true\n"
+                    b'[includeIf "hasconfig:core.autocrlf:true"]\n'
+                    b"    path = included.config\n"
+                )
+
+            # Load config - should include based on core.autocrlf value
+            cf = ConfigFile.from_path(main_path)
+            self.assertEqual(b"IncludedUser", cf.get((b"user",), b"name"))
+
+    def test_includeif_hasconfig_no_match(self) -> None:
+        """Test includeIf hasconfig when condition doesn't match."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create included config
+            included_path = os.path.join(tmpdir, "included.config")
+            with open(included_path, "wb") as f:
+                f.write(b"[user]\n    name = IncludedUser\n")
+
+            # Create main config with non-matching hasconfig condition
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                f.write(
+                    b"[core]\n"
+                    b"    autocrlf = false\n"
+                    b'[includeIf "hasconfig:core.autocrlf:true"]\n'
+                    b"    path = included.config\n"
+                )
+
+            # Load config - should NOT include since condition doesn't match
+            cf = ConfigFile.from_path(main_path)
+            with self.assertRaises(KeyError):
+                cf.get((b"user",), b"name")
+
+    def test_include_circular(self) -> None:
+        """Test that circular includes are handled properly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create two configs that include each other
+            config1_path = os.path.join(tmpdir, "config1")
+            config2_path = os.path.join(tmpdir, "config2")
+
+            with open(config1_path, "wb") as f:
+                f.write(b"[user]\n    name = User1\n[include]\n    path = config2\n")
+
+            with open(config2_path, "wb") as f:
+                f.write(
+                    b"[user]\n    email = user2@example.com\n[include]\n    path = config1\n"
+                )
+
+            # Should handle circular includes gracefully
+            cf = ConfigFile.from_path(config1_path)
+            self.assertEqual(b"User1", cf.get((b"user",), b"name"))
+            self.assertEqual(b"user2@example.com", cf.get((b"user",), b"email"))
+
+    def test_include_missing_file(self) -> None:
+        """Test that missing include files are ignored."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create config with include of non-existent file
+            config_path = os.path.join(tmpdir, "config")
+            with open(config_path, "wb") as f:
+                f.write(
+                    b"[user]\n    name = TestUser\n[include]\n    path = missing.config\n"
+                )
+
+            # Should not fail, just ignore missing include
+            cf = ConfigFile.from_path(config_path)
+            self.assertEqual(b"TestUser", cf.get((b"user",), b"name"))
+
+    def test_include_depth_limit(self) -> None:
+        """Test that excessive include depth is prevented."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a chain of includes that exceeds depth limit
+            for i in range(15):
+                config_path = os.path.join(tmpdir, f"config{i}")
+                with open(config_path, "wb") as f:
+                    if i == 0:
+                        f.write(b"[user]\n    name = User0\n")
+                    f.write(f"[include]\n    path = config{i + 1}\n".encode())
+
+            # Should raise error due to depth limit
+            with self.assertRaises(ValueError) as cm:
+                ConfigFile.from_path(os.path.join(tmpdir, "config0"))
+            self.assertIn("include depth", str(cm.exception))
+
+    def test_include_with_custom_file_opener(self) -> None:
+        """Test include functionality with a custom file opener for security."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create config files
+            included_path = os.path.join(tmpdir, "included.config")
+            with open(included_path, "wb") as f:
+                f.write(b"[user]\n    email = custom@example.com\n")
+
+            restricted_path = os.path.join(tmpdir, "restricted.config")
+            with open(restricted_path, "wb") as f:
+                f.write(b"[user]\n    email = restricted@example.com\n")
+
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                f.write(b"[user]\n    name = Test User\n")
+                f.write(b"[include]\n    path = included.config\n")
+                f.write(b"[include]\n    path = restricted.config\n")
+
+            # Define a custom file opener that restricts access
+            allowed_files = {included_path, main_path}
+
+            def secure_file_opener(path):
+                path_str = os.fspath(path)
+                if path_str not in allowed_files:
+                    raise PermissionError(f"Access denied to {path}")
+                return open(path_str, "rb")
+
+            # Load config with restricted file access
+            cf = ConfigFile.from_path(main_path, file_opener=secure_file_opener)
+
+            # Should have the main config and included config, but not restricted
+            self.assertEqual(b"Test User", cf.get((b"user",), b"name"))
+            self.assertEqual(b"custom@example.com", cf.get((b"user",), b"email"))
+            # Email from restricted.config should not be loaded
+
+    def test_unknown_includeif_condition(self) -> None:
+        """Test that unknown includeIf conditions are silently ignored (like Git)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create included config file
+            included_path = os.path.join(tmpdir, "included.config")
+            with open(included_path, "wb") as f:
+                f.write(b"[user]\n    email = included@example.com\n")
+
+            # Create main config with unknown includeIf condition
+            main_path = os.path.join(tmpdir, "main.config")
+            with open(main_path, "wb") as f:
+                f.write(b"[user]\n    name = Main User\n")
+                f.write(
+                    b'[includeIf "unknowncondition:foo"]\n    path = included.config\n'
+                )
+
+            # Should not fail, just ignore the unknown condition
+            cf = ConfigFile.from_path(main_path)
+            self.assertEqual(b"Main User", cf.get((b"user",), b"name"))
+            # Email should not be included because condition is unknown
+            with self.assertRaises(KeyError):
+                cf.get((b"user",), b"email")
+
+    def test_missing_include_file_logging(self) -> None:
+        """Test that missing include files are logged but don't cause failure."""
+        import logging
+        from io import StringIO
+
+        # Set up logging capture
+        log_capture = StringIO()
+        handler = logging.StreamHandler(log_capture)
+        handler.setLevel(logging.DEBUG)
+        logger = logging.getLogger("dulwich.config")
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                config_path = os.path.join(tmpdir, "test.config")
+                with open(config_path, "wb") as f:
+                    f.write(b"[user]\n    name = Test User\n")
+                    f.write(b"[include]\n    path = nonexistent.config\n")
+
+                # Should not fail, just log
+                cf = ConfigFile.from_path(config_path)
+                self.assertEqual(b"Test User", cf.get((b"user",), b"name"))
+
+                # Check that it was logged
+                log_output = log_capture.getvalue()
+                self.assertIn("Invalid include path", log_output)
+                self.assertIn("nonexistent.config", log_output)
+        finally:
+            logger.removeHandler(handler)
+
+    def test_invalid_include_path_logging(self) -> None:
+        """Test that invalid include paths are logged but don't cause failure."""
+        import logging
+        from io import StringIO
+
+        # Set up logging capture
+        log_capture = StringIO()
+        handler = logging.StreamHandler(log_capture)
+        handler.setLevel(logging.DEBUG)
+        logger = logging.getLogger("dulwich.config")
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                config_path = os.path.join(tmpdir, "test.config")
+                with open(config_path, "wb") as f:
+                    f.write(b"[user]\n    name = Test User\n")
+                    # Use null bytes which are invalid in paths
+                    f.write(b"[include]\n    path = /invalid\x00path/file.config\n")
+
+                # Should not fail, just log
+                cf = ConfigFile.from_path(config_path)
+                self.assertEqual(b"Test User", cf.get((b"user",), b"name"))
+
+                # Check that it was logged
+                log_output = log_capture.getvalue()
+                self.assertIn("Invalid include path", log_output)
+        finally:
+            logger.removeHandler(handler)
+
+    def test_unknown_includeif_condition_logging(self) -> None:
+        """Test that unknown includeIf conditions are logged."""
+        import logging
+        from io import StringIO
+
+        # Set up logging capture
+        log_capture = StringIO()
+        handler = logging.StreamHandler(log_capture)
+        handler.setLevel(logging.DEBUG)
+        logger = logging.getLogger("dulwich.config")
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                config_path = os.path.join(tmpdir, "test.config")
+                with open(config_path, "wb") as f:
+                    f.write(b"[user]\n    name = Test User\n")
+                    f.write(
+                        b'[includeIf "futurefeature:value"]\n    path = other.config\n'
+                    )
+
+                # Should not fail, just log
+                cf = ConfigFile.from_path(config_path)
+                self.assertEqual(b"Test User", cf.get((b"user",), b"name"))
+
+                # Check that it was logged
+                log_output = log_capture.getvalue()
+                self.assertIn("Unknown includeIf condition", log_output)
+                self.assertIn("futurefeature:value", log_output)
+        finally:
+            logger.removeHandler(handler)
+
+    def test_custom_file_opener_with_include_depth(self) -> None:
+        """Test that custom file opener is passed through include chain."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Use realpath to resolve any symlinks
+            tmpdir = os.path.realpath(tmpdir)
+
+            # Create a chain of includes
+            final_config = os.path.join(tmpdir, "final.config")
+            with open(final_config, "wb") as f:
+                f.write(b"[feature]\n    enabled = true\n")
+
+            middle_config = os.path.join(tmpdir, "middle.config")
+            with open(middle_config, "wb") as f:
+                f.write(b"[user]\n    email = test@example.com\n")
+                escaped_final_config = final_config.replace("\\", "\\\\")
+                f.write(f"[include]\n    path = {escaped_final_config}\n".encode())
+
+            main_config = os.path.join(tmpdir, "main.config")
+            with open(main_config, "wb") as f:
+                f.write(b"[user]\n    name = Test User\n")
+                escaped_middle_config = middle_config.replace("\\", "\\\\")
+                f.write(f"[include]\n    path = {escaped_middle_config}\n".encode())
+
+            # Track file access order
+            access_order = []
+
+            def ordering_file_opener(path):
+                path_str = os.fspath(path)
+                access_order.append(os.path.basename(path_str))
+                return open(path_str, "rb")
+
+            # Load config
+            cf = ConfigFile.from_path(main_config, file_opener=ordering_file_opener)
+
+            # Verify all values were loaded
+            self.assertEqual(b"Test User", cf.get((b"user",), b"name"))
+            self.assertEqual(b"test@example.com", cf.get((b"user",), b"email"))
+            self.assertEqual(b"true", cf.get((b"feature",), b"enabled"))
+
+            # Verify access order
+            self.assertEqual(
+                ["main.config", "middle.config", "final.config"], access_order
+            )
 
 
 class ConfigDictTests(TestCase):

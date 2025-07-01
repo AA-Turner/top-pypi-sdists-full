@@ -25,7 +25,7 @@ from ibm_watsonx_orchestrate.agent_builder.agents import (
     AgentKind,
     SpecVersion
 )
-from ibm_watsonx_orchestrate.client.agents.agent_client import AgentClient
+from ibm_watsonx_orchestrate.client.agents.agent_client import AgentClient, AgentUpsertResponse
 from ibm_watsonx_orchestrate.client.agents.external_agent_client import ExternalAgentClient
 from ibm_watsonx_orchestrate.client.agents.assistant_agent_client import AssistantAgentClient
 from ibm_watsonx_orchestrate.client.tools.tool_client import ToolClient
@@ -99,6 +99,7 @@ def parse_create_native_args(name: str, kind: AgentKind, description: str | None
         "style": args.get("style"),
         "custom_join_tool": args.get("custom_join_tool"),
         "structured_output": args.get("structured_output"),
+        "context_access_enabled": args.get("context_access_enabled", True),
     }
 
     collaborators = args.get("collaborators", [])
@@ -115,6 +116,23 @@ def parse_create_native_args(name: str, kind: AgentKind, description: str | None
     knowledge_base = knowledge_base if knowledge_base else []
     knowledge_base = [x.strip() for x in knowledge_base if x.strip() != ""]
     agent_details["knowledge_base"] = knowledge_base
+
+    context_variables = args.get("context_variables", [])
+    context_variables = context_variables if context_variables else []
+    context_variables = [x.strip() for x in context_variables if x.strip() != ""]
+    agent_details["context_variables"] = context_variables
+
+    # hidden = args.get("hidden")
+    # if hidden:
+    #     agent_details["hidden"] = hidden 
+
+    # starter_prompts = args.get("starter_prompts")
+    # if starter_prompts:
+    #     agent_details["starter_prompts"] = starter_prompts 
+
+    # welcome_content = args.get("welcome_content")
+    # if welcome_content:
+    #     agent_details["welcome_content"] = welcome_content 
 
     return agent_details
 
@@ -133,7 +151,13 @@ def parse_create_external_args(name: str, kind: AgentKind, description: str | No
         "config": args.get("config", {}),
         "nickname": args.get("nickname"),
         "app_id": args.get("app_id"),
+        "context_access_enabled": args.get("context_access_enabled", True),
     }
+
+    context_variables = args.get("context_variables", [])
+    context_variables = context_variables if context_variables else []
+    context_variables = [x.strip() for x in context_variables if x.strip() != ""]
+    agent_details["context_variables"] = context_variables
 
     return agent_details
 
@@ -146,7 +170,13 @@ def parse_create_assistant_args(name: str, kind: AgentKind, description: str | N
         "tags": args.get("tags", []),
         "config": args.get("config", {}),
         "nickname": args.get("nickname"),
+        "context_access_enabled": args.get("context_access_enabled", True),
     }
+
+    context_variables = args.get("context_variables", [])
+    context_variables = context_variables if context_variables else []
+    context_variables = [x.strip() for x in context_variables if x.strip() != ""]
+    agent_details["context_variables"] = context_variables
 
     return agent_details
 
@@ -176,6 +206,10 @@ def get_agent_details(name: str, client: AgentClient | ExternalAgentClient | Ass
             sys.exit(1)
 
     return agent_specs[0]
+
+def _raise_guidelines_warning(response: AgentUpsertResponse) -> None:
+    if response.warning:
+        logger.warning(f"Agent Configuration Issue: {response.warning}")
 
 class AgentsController:
     def __init__(self):
@@ -420,6 +454,72 @@ class AgentsController:
         ref_agent.knowledge_base = ref_knowledge_bases
         return ref_agent
     
+    def dereference_guidelines(self, agent: Agent) -> Agent:
+        tool_client = self.get_tool_client()
+        
+        guideline_tool_names = set()
+
+        for guideline in agent.guidelines:
+            if guideline.tool:
+                guideline_tool_names.add(guideline.tool)
+        
+        if len(guideline_tool_names) == 0:
+            return agent
+
+        deref_agent = deepcopy(agent)
+
+        matching_tools = tool_client.get_drafts_by_names(list(guideline_tool_names))
+
+        name_id_lookup = {}
+        for tool in matching_tools:
+            if tool.get("name") in name_id_lookup:
+                logger.error(f"Duplicate draft entries for tool '{tool.get('name')}'")
+                sys.exit(1)
+            name_id_lookup[tool.get("name")] = tool.get("id")
+        
+        for guideline in deref_agent.guidelines:
+            if guideline.tool:
+                id = name_id_lookup.get(guideline.tool)
+                if not id:
+                    logger.error(f"Failed to find guideline tool. No tools found with the name '{guideline.tool}'")
+                    sys.exit(1)
+                guideline.tool = id
+
+        return deref_agent
+    
+    def reference_guidelines(self, agent: Agent) -> Agent:
+        tool_client = self.get_tool_client()
+        
+        guideline_tool_ids = set()
+
+        for guideline in agent.guidelines:
+            if guideline.tool:
+                guideline_tool_ids.add(guideline.tool)
+        
+        if len(guideline_tool_ids) == 0:
+            return agent
+
+        ref_agent = deepcopy(agent)
+
+        matching_tools = tool_client.get_drafts_by_ids(list(guideline_tool_ids))
+
+        id_name_lookup = {}
+        for tool in matching_tools:
+            if tool.get("id") in id_name_lookup:
+                logger.error(f"Duplicate draft entries for tool '{tool.get('id')}'")
+                sys.exit(1)
+            id_name_lookup[tool.get("id")] = tool.get("name")
+        
+        for guideline in ref_agent.guidelines:
+            if guideline.tool:
+                name = id_name_lookup.get(guideline.tool)
+                if not name:
+                    logger.error(f"Failed to find guideline tool. No tools found with the id '{guideline.tool}'")
+                    sys.exit(1)
+                guideline.tool = name
+
+        return ref_agent
+
     @staticmethod
     def dereference_app_id(agent: ExternalAgent | AssistantAgent) -> ExternalAgent | AssistantAgent:
         if agent.kind == AgentKind.EXTERNAL:
@@ -448,6 +548,8 @@ class AgentsController:
             agent = self.dereference_tools(agent)
         if agent.knowledge_base and len(agent.knowledge_base):
             agent = self.dereference_knowledge_bases(agent)
+        if agent.guidelines and len(agent.guidelines):
+            agent = self.dereference_guidelines(agent)
 
         return agent
     
@@ -458,10 +560,12 @@ class AgentsController:
             agent = self.reference_tools(agent)
         if agent.knowledge_base and len(agent.knowledge_base):
             agent = self.reference_knowledge_bases(agent)
+        if agent.guidelines and len(agent.guidelines):
+            agent = self.reference_guidelines(agent)
 
         return agent
     
-    def dereference_external_or_assistant_agent_dependencies(self, agent: ExternalAgent | AssistantAgent) -> ExternalAgent | AssistantAgent: 
+    def dereference_external_or_assistant_agent_dependencies(self, agent: ExternalAgent | AssistantAgent) -> ExternalAgent | AssistantAgent:
         agent_dict = agent.model_dump()
 
         if agent_dict.get("app_id") or agent.config.model_dump().get("app_id"):
@@ -469,7 +573,7 @@ class AgentsController:
 
         return agent
 
-    def reference_external_or_assistant_agent_dependencies(self, agent: ExternalAgent | AssistantAgent) -> ExternalAgent | AssistantAgent: 
+    def reference_external_or_assistant_agent_dependencies(self, agent: ExternalAgent | AssistantAgent) -> ExternalAgent | AssistantAgent:
         agent_dict = agent.model_dump()
 
         if agent_dict.get("connection_id") or agent.config.model_dump().get("connection_id"):
@@ -543,7 +647,8 @@ class AgentsController:
 
     def publish_agent(self, agent: Agent, **kwargs) -> None:
         if isinstance(agent, Agent):
-            self.get_native_client().create(agent.model_dump(exclude_none=True))
+            response = self.get_native_client().create(agent.model_dump(exclude_none=True))
+            _raise_guidelines_warning(response)
             logger.info(f"Agent '{agent.name}' imported successfully")
         if isinstance(agent, ExternalAgent):
             self.get_external_client().create(agent.model_dump(exclude_none=True))
@@ -557,7 +662,8 @@ class AgentsController:
     ) -> None:
         if isinstance(agent, Agent):
             logger.info(f"Existing Agent '{agent.name}' found. Updating...")
-            self.get_native_client().update(agent_id, agent.model_dump(exclude_none=True))
+            response = self.get_native_client().update(agent_id, agent.model_dump(exclude_none=True))
+            _raise_guidelines_warning(response)
             logger.info(f"Agent '{agent.name}' updated successfully")
         if isinstance(agent, ExternalAgent):
             logger.info(f"Existing External Agent '{agent.name}' found. Updating...")
@@ -641,14 +747,25 @@ class AgentsController:
         return knowledge_bases
 
     def list_agents(self, kind: AgentKind=None, verbose: bool=False):
+        parse_errors = []
+
         if kind == AgentKind.NATIVE or kind is None:
             response = self.get_native_client().get()
-            native_agents = [Agent.model_validate(agent) for agent in response]
+            native_agents = []
+            for agent in response:
+                try:
+                    native_agents.append(Agent.model_validate(agent))
+                except Exception as e:
+                    name = agent.get('name', None)
+                    parse_errors.append([
+                        f"Agent '{name}' could not be parsed",
+                        json.dumps(agent),
+                        e
+                    ])
 
             if verbose:
                 agents_list = []
                 for agent in native_agents:
-
                     agents_list.append(json.loads(agent.dumps_spec()))
 
                 rich.print(rich.json.JSON(json.dumps(agents_list, indent=4)))
@@ -660,14 +777,14 @@ class AgentsController:
                     show_lines=True
                 )
                 column_args = {
-                    "Name": {},
+                    "Name": {"overflow": "fold"},
                     "Description": {},
                     "LLM": {"overflow": "fold"},
                     "Style": {},
                     "Collaborators": {},
                     "Tools": {},
                     "Knowledge Base": {},
-                    "ID": {},
+                    "ID": {"overflow": "fold"},
                 }
                 for column in column_args:
                     native_table.add_column(column, **column_args[column])
@@ -693,7 +810,13 @@ class AgentsController:
         if kind == AgentKind.EXTERNAL or kind is None:
             response = self.get_external_client().get()
 
-            external_agents = [ExternalAgent.model_validate(agent) for agent in response]
+            external_agents = []
+            for agent in response:
+                try:
+                    external_agents.append(ExternalAgent.model_validate(agent))
+                except Exception as e:
+                    name = agent.get('name', None)
+                    parse_errors.append([f"External Agent {name} could not be parsed", e])
 
             response_dict = {agent["id"]: agent for agent in response}
 
@@ -717,7 +840,7 @@ class AgentsController:
                     show_lines=True
                 )
                 column_args = {
-                    "Name": {},
+                    "Name": {"overflow": "fold"},
                     "Title": {},
                     "Description": {},
                     "Tags": {},
@@ -725,9 +848,9 @@ class AgentsController:
                     "Chat Params": {},
                     "Config": {},
                     "Nickname": {},
-                    "App ID": {},
-                    "ID": {}
-                    }
+                    "App ID": {"overflow": "fold"},
+                    "ID": {"overflow": "fold"}
+                }
                 
                 for column in column_args:
                     external_table.add_column(column, **column_args[column])
@@ -753,7 +876,13 @@ class AgentsController:
         if kind == AgentKind.ASSISTANT or kind is None:
             response = self.get_assistant_client().get()
 
-            assistant_agents = [AssistantAgent.model_validate(agent) for agent in response]
+            assistant_agents = []
+            for agent in response:
+                try:
+                    assistant_agents.append(AssistantAgent.model_validate(agent))
+                except Exception as e:
+                    name = agent.get('name', None)
+                    parse_errors.append([f"Assistant Agent {name} could not be parsed", e])
 
             response_dict = {agent["id"]: agent for agent in response}
 
@@ -778,17 +907,17 @@ class AgentsController:
                     title="Assistant Agents",
                     show_lines=True)
                 column_args = {
-                    "Name": {},
+                    "Name": {"overflow": "fold"},
                     "Title": {},
                     "Description": {},
                     "Tags": {},
                     "Nickname": {},
                     "CRN": {},
                     "Instance URL": {},
-                    "Assistant ID": {},
-                    "Environment ID": {},
-                    "ID": {}
-                    }
+                    "Assistant ID": {"overflow": "fold"},
+                    "Environment ID": {"overflow": "fold"},
+                    "ID": {"overflow": "fold"}
+                }
                 
                 for column in column_args:
                     assistants_table.add_column(column, **column_args[column])
@@ -807,6 +936,10 @@ class AgentsController:
                         agent.id
                     )
                 rich.print(assistants_table)
+
+        for error in parse_errors:
+            for l in error:
+                logger.error(l)
 
     def remove_agent(self, name: str, kind: AgentKind):
         try:
@@ -875,7 +1008,6 @@ class AgentsController:
         
 
     def export_agent(self, name: str, kind: AgentKind, output_path: str, agent_only_flag: bool=False, zip_file_out: zipfile.ZipFile | None = None) -> None:
-    
         output_file = Path(output_path)
         output_file_extension = output_file.suffix
         output_file_name = output_file.stem

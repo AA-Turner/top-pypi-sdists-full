@@ -158,12 +158,13 @@ class GraphNodePropertiesRunner(GraphEntityOpsBaseRunner):
             duplicate_properties = set(db_node_properties).intersection(set(node_properties))
             if duplicate_properties:
                 raise ValueError(
-                    f"Duplicate property keys '{duplicate_properties}' in db_node_properties and " f"node_properties."
+                    f"Duplicate property keys '{duplicate_properties}' in db_node_properties and node_properties."
                 )
 
             unique_node_ids = result["nodeId"].drop_duplicates().tolist()
-            db_properties_df = query_runner.run_cypher(
-                GraphNodePropertiesRunner._build_query(db_node_properties), {"ids": unique_node_ids}
+
+            db_properties_df = query_runner.run_retryable_cypher(
+                GraphNodePropertiesRunner._build_query(db_node_properties), params={"ids": unique_node_ids}
             )
 
             if "propertyValue" not in result.keys():
@@ -342,7 +343,7 @@ class GraphRelationshipsRunner(GraphEntityOpsBaseRunner):
     def stream(self, G: Graph, relationship_types: list[str] = ["*"], **config: Any) -> TopologyDataFrame:
         self._namespace += ".stream"
         params = CallParameters(graph_name=G.name(), relationship_types=relationship_types, config=config)
-        result = self._query_runner.call_procedure(endpoint=self._namespace, params=params)
+        result = self._query_runner.call_procedure(endpoint=self._namespace, params=params, retryable=True)
 
         return TopologyDataFrame(result)
 
@@ -360,7 +361,9 @@ class GraphRelationshipsBetaRunner(GraphEntityOpsBaseRunner):
         self._namespace += ".stream"
         params = CallParameters(graph_name=G.name(), relationship_types=relationship_types, config=config)
 
-        return TopologyDataFrame(self._query_runner.call_procedure(endpoint=self._namespace, params=params))
+        return TopologyDataFrame(
+            self._query_runner.call_procedure(endpoint=self._namespace, params=params, retryable=True)
+        )
 
     @property
     @compatible_with("toUndirected", min_inclusive=ServerVersion(2, 3, 0))
@@ -381,7 +384,7 @@ class GraphPropertyRunner(UncallableNamespace, IllegalAttrChecker):
         self._namespace += ".stream"
         params = CallParameters(graph_name=G.name(), graph_property=graph_property, config=config)
 
-        return self._query_runner.call_procedure(endpoint=self._namespace, params=params)
+        return self._query_runner.call_procedure(endpoint=self._namespace, params=params, retryable=True)
 
     @compatible_with("drop", min_inclusive=ServerVersion(2, 2, 0))
     @graph_type_check

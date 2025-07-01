@@ -4,6 +4,7 @@ from enum import Enum
 class EditLargeFileStorageConfigJsonBodyLargeFileStorageSecondaryStorageAdditionalPropertyType(str, Enum):
     AZUREBLOBSTORAGE = "AzureBlobStorage"
     AZUREWORKLOADIDENTITY = "AzureWorkloadIdentity"
+    GOOGLECLOUDSTORAGE = "GoogleCloudStorage"
     S3AWSOIDC = "S3AwsOidc"
     S3STORAGE = "S3Storage"
 

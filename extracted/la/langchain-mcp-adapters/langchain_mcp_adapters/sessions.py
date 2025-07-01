@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import os
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, AsyncIterator, Literal, Protocol, TypedDict
+from typing import Any, AsyncIterator, Literal, Protocol
 
 import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
+from typing_extensions import NotRequired, TypedDict
 
 EncodingErrorHandler = Literal["strict", "ignore", "replace"]
 
@@ -54,11 +57,11 @@ class StdioConnection(TypedDict):
     The text encoding error handler.
 
     See https://docs.python.org/3/library/codecs.html#codec-base-classes for
-    explanations of possible values
+    explanations of possible values.
     """
 
     session_kwargs: dict[str, Any] | None
-    """Additional keyword arguments to pass to the ClientSession"""
+    """Additional keyword arguments to pass to the ClientSession."""
 
 
 class SSEConnection(TypedDict):
@@ -68,19 +71,22 @@ class SSEConnection(TypedDict):
     """The URL of the SSE endpoint to connect to."""
 
     headers: dict[str, Any] | None
-    """HTTP headers to send to the SSE endpoint"""
+    """HTTP headers to send to the SSE endpoint."""
 
     timeout: float
-    """HTTP timeout"""
+    """HTTP timeout."""
 
     sse_read_timeout: float
-    """SSE read timeout"""
+    """SSE read timeout."""
 
     session_kwargs: dict[str, Any] | None
-    """Additional keyword arguments to pass to the ClientSession"""
+    """Additional keyword arguments to pass to the ClientSession."""
 
     httpx_client_factory: McpHttpClientFactory | None
-    """Custom factory for httpx.AsyncClient (optional)"""
+    """Custom factory for httpx.AsyncClient (optional)."""
+
+    auth: NotRequired[httpx.Auth]
+    """Optional authentication for the HTTP client."""
 
 
 class StreamableHttpConnection(TypedDict):
@@ -100,13 +106,16 @@ class StreamableHttpConnection(TypedDict):
     All other HTTP operations are controlled by `timeout`."""
 
     terminate_on_close: bool
-    """Whether to terminate the session on close"""
+    """Whether to terminate the session on close."""
 
     session_kwargs: dict[str, Any] | None
-    """Additional keyword arguments to pass to the ClientSession"""
+    """Additional keyword arguments to pass to the ClientSession."""
 
     httpx_client_factory: McpHttpClientFactory | None
-    """Custom factory for httpx.AsyncClient (optional)"""
+    """Custom factory for httpx.AsyncClient (optional)."""
+
+    auth: NotRequired[httpx.Auth]
+    """Optional authentication for the HTTP client."""
 
 
 class WebsocketConnection(TypedDict):
@@ -133,7 +142,7 @@ async def _create_stdio_session(
     encoding_error_handler: Literal["strict", "ignore", "replace"] = DEFAULT_ENCODING_ERROR_HANDLER,
     session_kwargs: dict[str, Any] | None = None,
 ) -> AsyncIterator[ClientSession]:
-    """Create a new session to an MCP server using stdio
+    """Create a new session to an MCP server using stdio.
 
     Args:
         command: Command to execute
@@ -175,8 +184,9 @@ async def _create_sse_session(
     sse_read_timeout: float = DEFAULT_SSE_READ_TIMEOUT,
     session_kwargs: dict[str, Any] | None = None,
     httpx_client_factory: McpHttpClientFactory | None = None,
+    auth: httpx.Auth | None = None,
 ) -> AsyncIterator[ClientSession]:
-    """Create a new session to an MCP server using SSE
+    """Create a new session to an MCP server using SSE.
 
     Args:
         url: URL of the SSE server
@@ -185,13 +195,17 @@ async def _create_sse_session(
         sse_read_timeout: SSE read timeout
         session_kwargs: Additional keyword arguments to pass to the ClientSession
         httpx_client_factory: Custom factory for httpx.AsyncClient (optional)
+        auth: httpx.Auth | None = None
     """
     # Create and store the connection
     kwargs = {}
     if httpx_client_factory is not None:
         kwargs["httpx_client_factory"] = httpx_client_factory
 
-    async with sse_client(url, headers, timeout, sse_read_timeout, **kwargs) as (read, write):
+    async with sse_client(url, headers, timeout, sse_read_timeout, auth=auth, **kwargs) as (
+        read,
+        write,
+    ):
         async with ClientSession(read, write, **(session_kwargs or {})) as session:
             yield session
 
@@ -206,17 +220,19 @@ async def _create_streamable_http_session(
     terminate_on_close: bool = True,
     session_kwargs: dict[str, Any] | None = None,
     httpx_client_factory: McpHttpClientFactory | None = None,
+    auth: httpx.Auth | None = None,
 ) -> AsyncIterator[ClientSession]:
-    """Create a new session to an MCP server using Streamable HTTP
+    """Create a new session to an MCP server using Streamable HTTP.
 
     Args:
         url: URL of the endpoint to connect to
         headers: HTTP headers to send to the endpoint
         timeout: HTTP timeout
-        sse_read_timeout: How long (in seconds) the client will wait for a new event before disconnecting.
+        sse_read_timeout: How long (in seconds) the client will wait for a new event before disconnecting
         terminate_on_close: Whether to terminate the session on close
         session_kwargs: Additional keyword arguments to pass to the ClientSession
         httpx_client_factory: Custom factory for httpx.AsyncClient (optional)
+        auth: httpx.Auth | None = None
     """
     # Create and store the connection
     kwargs = {}
@@ -224,7 +240,7 @@ async def _create_streamable_http_session(
         kwargs["httpx_client_factory"] = httpx_client_factory
 
     async with streamablehttp_client(
-        url, headers, timeout, sse_read_timeout, terminate_on_close, **kwargs
+        url, headers, timeout, sse_read_timeout, terminate_on_close, auth=auth, **kwargs
     ) as (read, write, _):
         async with ClientSession(read, write, **(session_kwargs or {})) as session:
             yield session
@@ -236,7 +252,7 @@ async def _create_websocket_session(
     url: str,
     session_kwargs: dict[str, Any] | None = None,
 ) -> AsyncIterator[ClientSession]:
-    """Create a new session to an MCP server using Websockets
+    """Create a new session to an MCP server using Websockets.
 
     Args:
         url: URL of the Websocket endpoint
@@ -275,6 +291,15 @@ async def create_session(
     Yields:
         A ClientSession
     """
+
+    if "transport" not in connection:
+        raise ValueError(
+            "Configuration error: Missing 'transport' key in server configuration. "
+            "Each server must include 'transport' with one of: "
+            "'stdio', 'sse', 'websocket', 'streamable_http'. "
+            "Please refer to the langchain-mcp-adapters documentation for more details."
+        )
+
     transport = connection["transport"]
     if transport == "sse":
         if "url" not in connection:
@@ -286,6 +311,7 @@ async def create_session(
             sse_read_timeout=connection.get("sse_read_timeout", DEFAULT_SSE_READ_TIMEOUT),
             session_kwargs=connection.get("session_kwargs"),
             httpx_client_factory=connection.get("httpx_client_factory"),
+            auth=connection.get("auth"),
         ) as session:
             yield session
     elif transport == "streamable_http":
@@ -300,6 +326,7 @@ async def create_session(
             ),
             session_kwargs=connection.get("session_kwargs"),
             httpx_client_factory=connection.get("httpx_client_factory"),
+            auth=connection.get("auth"),
         ) as session:
             yield session
     elif transport == "stdio":
@@ -329,5 +356,6 @@ async def create_session(
             yield session
     else:
         raise ValueError(
-            f"Unsupported transport: {transport}. Must be one of: 'stdio', 'sse', 'websocket', 'streamable_http'"
+            f"Unsupported transport: {transport}. "
+            f"Must be one of: 'stdio', 'sse', 'websocket', 'streamable_http'"
         )

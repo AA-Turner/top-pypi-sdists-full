@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-ansible
-Version: 25.6.0
+Version: 25.6.1
 Summary: Plugin for pytest to simplify calling ansible modules from tests or fixtures
 Author-email: Ansible by Red Hat <info@ansible.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -30,6 +30,7 @@ Requires-Dist: ansible-core>=2.14
 Requires-Dist: ansible-compat>=4.1.11
 Requires-Dist: pytest>=6
 Requires-Dist: packaging
+Requires-Dist: typing-extensions
 Provides-Extra: docs
 Requires-Dist: mkdocs-ansible>=0.2.0; extra == "docs"
 Provides-Extra: test

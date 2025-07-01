@@ -122,10 +122,11 @@ def run(
         )
 
 
-def wait_for_job_done(job_id: int):
+def wait_for_job_done(job_id: int, timeout: int | None = None) -> str | None:
+    timeout_at = time.monotonic() + timeout if timeout is not None else None
     with coiled.Cloud() as cloud:
         url = f"{cloud.server}/api/v2/jobs/{job_id}"
-        while True:
+        while timeout_at is None or time.monotonic() < timeout_at:
             try:
                 response = sync_request(cloud, url, "get", data=None, json_output=True)
             except ServerDisconnectedError:
@@ -134,6 +135,8 @@ def wait_for_job_done(job_id: int):
             if state and "done" in state:
                 return state
             time.sleep(5)
+    # if we timed out waiting for job to finish
+    return None
 
 
 def status(

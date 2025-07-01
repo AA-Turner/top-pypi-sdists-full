@@ -8,8 +8,8 @@ use pyrefly_derive::TypeEq;
 use pyrefly_util::visit::VisitMut;
 use starlark_map::small_map::SmallMap;
 
-use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::variance_visitor::Injectivity;
 use crate::alt::class::variance_inference::variance_visitor::TParamArray;
@@ -235,7 +235,7 @@ pub mod variance_visitor {
                 continue;
             }
 
-            if let Some((ty, _, readonly, descriptor_getter, descriptor_setter)) =
+            if let Some((ty, _, read_only, descriptor_getter, descriptor_setter)) =
                 field.for_variance_inference()
             {
                 // Case 1: Regular attribute
@@ -245,7 +245,7 @@ pub mod variance_visitor {
                 if descriptor_getter.is_none() && descriptor_setter.is_none() {
                     let variance = if ty.is_function_type()
                         || is_private_field(name)
-                        || readonly
+                        || read_only
                         || field.is_final()
                     {
                         Variance::Covariant
@@ -336,6 +336,7 @@ fn loop_fn<'a>(
     contains_bivariant: &mut bool,
     get_metadata: &impl Fn(&Class) -> Arc<ClassMetadata>,
     get_fields: &impl Fn(&Class) -> SmallMap<String, Arc<ClassField>>,
+    get_tparams: &impl Fn(&Class) -> Arc<TParams>,
 ) -> TParamArray {
     let class_name = class.qname();
 
@@ -344,14 +345,22 @@ fn loop_fn<'a>(
     }
 
     let params: Vec<(String, Variance, bool)> =
-        params_from_gp(class.tparams().as_vec(), contains_bivariant);
+        params_from_gp(get_tparams(class).as_vec(), contains_bivariant);
 
     environment.insert(class_name.clone(), params.clone());
     let mut on_var = |_name: &str, _variance: Variance, _inj: Injectivity| {};
 
     // get the variance results of a given class c
-    let mut on_edge =
-        |c: &Class| loop_fn(c, environment, contains_bivariant, get_metadata, get_fields);
+    let mut on_edge = |c: &Class| {
+        loop_fn(
+            c,
+            environment,
+            contains_bivariant,
+            get_metadata,
+            get_fields,
+            get_tparams,
+        )
+    };
 
     variance_visitor::on_class(class, &mut on_edge, &mut on_var, get_metadata, get_fields);
 
@@ -362,7 +371,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn variance_map(&self, class: &Class) -> Arc<VarianceMap> {
         let mut contains_bivariant: bool = false;
 
-        let post_inference_initial = convert_gp_to_map(class.tparams(), &mut contains_bivariant);
+        let post_inference_initial =
+            convert_gp_to_map(&self.get_class_tparams(class), &mut contains_bivariant);
 
         fn to_map(
             params: &TParamArray,
@@ -401,8 +411,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for (class_name, params) in env.iter() {
                 let mut params_prime = params.clone();
 
-                let metadata = solver.get_metadata_for_class(class);
-                let ancestor_class = metadata.ancestors(solver.stdlib).find(|ancestor| {
+                let mro = solver.get_mro_for_class(class);
+                let ancestor_class = mro.ancestors(solver.stdlib).find(|ancestor| {
                     let class_obj = ancestor.class_object();
                     class_obj.qname() == class_name
                 });
@@ -414,7 +424,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else if class.qname() == class_name {
                     class
                 } else {
-                    let class_name_module = class_name.module_info().name();
+                    let class_name_module = class_name.module_name();
                     let curr_module = solver.module_info().name();
 
                     if class_name_module != curr_module {
@@ -428,8 +438,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
 
                     let ty = solver.get_from_module(
-                        class_name.module_info().name(),
-                        Some(class_name.module_info().path()),
+                        class_name.module_name(),
+                        Some(class_name.module_path()),
                         &KeyExport(class_name.id().clone()),
                     );
                     if let Type::ClassDef(cls) = &*ty {
@@ -483,6 +493,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &mut contains_bivariant,
                 &|c| self.get_metadata_for_class(c),
                 &|c| self.get_class_field_map(c),
+                &|c| self.get_class_tparams(c),
             );
 
             let environment = fixpoint(self, class, &environment);

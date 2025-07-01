@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: h5netcdf
-Version: 1.6.2
+Version: 1.6.3
 Summary: netCDF4 via h5py
 Author-email: Stephan Hoyer <shoyer@gmail.com>, Kai Mühlbauer <kmuehlbauer@wradlib.org>
 Maintainer-email: h5netcdf developers <devteam@h5netcdf.org>

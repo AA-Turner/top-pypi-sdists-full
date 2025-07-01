@@ -6,6 +6,7 @@ from typing import Any, Optional
 from pandas import DataFrame
 
 from graphdatascience.query_runner.arrow_authentication import ArrowAuthentication
+from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.retry_utils.retry_config import RetryConfig
 
 from ..call_parameters import CallParameters
@@ -68,6 +69,15 @@ class ArrowQueryRunner(QueryRunner):
     ) -> DataFrame:
         return self._fallback_query_runner.run_cypher(query, params, database, custom_error)
 
+    def run_retryable_cypher(
+        self,
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+        database: Optional[str] = None,
+        custom_error: bool = True,
+    ) -> DataFrame:
+        return self._fallback_query_runner.run_retryable_cypher(query, params, database, custom_error=custom_error)
+
     def call_function(self, endpoint: str, params: Optional[CallParameters] = None) -> Any:
         return self._fallback_query_runner.call_function(endpoint, params)
 
@@ -77,7 +87,9 @@ class ArrowQueryRunner(QueryRunner):
         params: Optional[CallParameters] = None,
         yields: Optional[list[str]] = None,
         database: Optional[str] = None,
+        mode: QueryMode = QueryMode.READ,
         logging: bool = False,
+        retryable: bool = False,
         custom_error: bool = True,
     ) -> DataFrame:
         if params is None:
@@ -171,7 +183,9 @@ class ArrowQueryRunner(QueryRunner):
                 graph_name, self._database_or_throw(), relationship_types, concurrency
             )
 
-        return self._fallback_query_runner.call_procedure(endpoint, params, yields, database, logging, custom_error)
+        return self._fallback_query_runner.call_procedure(
+            endpoint, params, yields, database, logging=logging, retryable=retryable, custom_error=custom_error
+        )
 
     def server_version(self) -> ServerVersion:
         return self._fallback_query_runner.server_version()
@@ -211,10 +225,10 @@ class ArrowQueryRunner(QueryRunner):
         self._fallback_query_runner.close()
         self._gds_arrow_client.close()
 
-    def clone(self, host: str, port: int) -> "QueryRunner":
+    def cloneWithoutRouting(self, host: str, port: int) -> "QueryRunner":
         return ArrowQueryRunner(
             self._gds_arrow_client,
-            self._fallback_query_runner.clone(host, port),
+            self._fallback_query_runner.cloneWithoutRouting(host, port),
             self._server_version,
         )
 

@@ -45,7 +45,7 @@ class JoggingApi:
         self.api_client = api_client
 
     @validate_call
-    async def execute_jogging(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], client_request_generator: Callable[[AsyncGenerator[ExecuteJoggingResponse, None]], AsyncGenerator[ExecuteJoggingRequest, None]]) -> None:  # noqa: E501
+    async def execute_jogging(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], client_request_generator: Callable[[AsyncGenerator[ExecuteJoggingResponse, None]], AsyncGenerator[ExecuteJoggingRequest, None]]) -> None:  # noqa: E501
         """Execute Jogging  # noqa: E501
 
         <!-- theme: danger -->  > Websocket endpoint  Provides execution control over a dynamically adaptable jogging motion for a motion group.  Jogging describes controlling a motion group by sending real-time commands to move either its joints or the TCP (Tool Center Point). The commands contain target velocities that may change at any time during execution, so the resulting motion cannot be computed upfront.  ### Preconditions  The motion group is not moved by any other endpoint.  ### Requests  #### 1. Send InitializeJoggingRequest to configure the jogging.  Sets robot controller mode to control mode. Sets rate and coordinate system for the jogging response.  #### 2. Send JointVelocityRequest or TcpVelocityRequest to start the jogging motion.  #### 3. Change or stop the jogging motion  - Change the jogging direction and/or velocity during the jogging motion with JointVelocityRequest or TcpVelocityRequest. - To stop the jogging motion, send zero velocities via either request.  ### Responses  - InitializeJoggingResponse is sent to signal the success or failure of the InitializeJoggingRequest. - Jogging responses are streamed continuously after an InitializeJoggingRequest is processed.   Jogging responses contain the robot controller state and the state of the jogging control. - JoggingErrorResponse with error details is sent in case of an unexpected error, e.g., controller disconnects during jogging.  ### Tips and Tricks  - In the JoggingResponse, verify that the robot control is in the desired state, e.g. standstill, with JoggingState. - Ensure that the websocket connection remains open until the jogging motion is stopped to avoid unexpected stops.   # noqa: E501
@@ -72,10 +72,30 @@ class JoggingApi:
                 response_data = json.loads(response)
                 if "result" not in response_data:
                     raise Exception(response_data)
-                yield ExecuteJoggingResponse.from_dict(response_data["result"])
+                result_data = response_data["result"]
+                if isinstance(result_data, list):
+                    # Handle list of objects
+                    import re
+                    # Extract the base type from List[BaseType] pattern
+                    return_type_str = "ExecuteJoggingResponse"
+                    if return_type_str.startswith("List[") and return_type_str.endswith("]"):
+                        base_type_name = return_type_str[5:-1]  # Remove "List[" and "]"
+                        # Get the actual class from the module
+                        base_type_class = globals().get(base_type_name)
+                        if base_type_class and hasattr(base_type_class, 'from_dict'):
+                            result_list = [base_type_class.from_dict(item) for item in result_data]
+                            yield result_list
+                        else:
+                            yield result_data
+                    else:
+                        yield result_data
+                else:
+                    # Handle single object
+                    yield ExecuteJoggingResponse.from_dict(result_data)
 
-        path = format_path_parameters("/cells/{cell}/execution/jogging")
-        path = path.format(cell=cell,)
+
+        path = format_path_parameters("/cells/{cell}/controllers/{controller}/execution/jogging")
+        path = path.format(cell=cell,controller=controller,)
 
         headers = websockets.Headers()
         tmp_host = self.api_client.configuration.host

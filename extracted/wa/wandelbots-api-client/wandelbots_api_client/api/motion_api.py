@@ -615,7 +615,27 @@ class MotionApi:
                 response_data = json.loads(response)
                 if "result" not in response_data:
                     raise Exception(response_data)
-                yield ExecuteTrajectoryResponse.from_dict(response_data["result"])
+                result_data = response_data["result"]
+                if isinstance(result_data, list):
+                    # Handle list of objects
+                    import re
+                    # Extract the base type from List[BaseType] pattern
+                    return_type_str = "ExecuteTrajectoryResponse"
+                    if return_type_str.startswith("List[") and return_type_str.endswith("]"):
+                        base_type_name = return_type_str[5:-1]  # Remove "List[" and "]"
+                        # Get the actual class from the module
+                        base_type_class = globals().get(base_type_name)
+                        if base_type_class and hasattr(base_type_class, 'from_dict'):
+                            result_list = [base_type_class.from_dict(item) for item in result_data]
+                            yield result_list
+                        else:
+                            yield result_data
+                    else:
+                        yield result_data
+                else:
+                    # Handle single object
+                    yield ExecuteTrajectoryResponse.from_dict(result_data)
+
 
         path = format_path_parameters("/cells/{cell}/motions/executetrajectory")
         path = path.format(cell=cell,)
@@ -3540,7 +3560,27 @@ class MotionApi:
                 response_data = json.loads(response)
                 if "result" not in response_data:
                     raise Exception(response_data)
-                yield StreamMoveResponse.from_dict(response_data["result"])
+                result_data = response_data["result"]
+                if isinstance(result_data, list):
+                    # Handle list of objects
+                    import re
+                    # Extract the base type from List[BaseType] pattern
+                    return_type_str = "StreamMoveResponse"
+                    if return_type_str.startswith("List[") and return_type_str.endswith("]"):
+                        base_type_name = return_type_str[5:-1]  # Remove "List[" and "]"
+                        # Get the actual class from the module
+                        base_type_class = globals().get(base_type_name)
+                        if base_type_class and hasattr(base_type_class, 'from_dict'):
+                            result_list = [base_type_class.from_dict(item) for item in result_data]
+                            yield result_list
+                        else:
+                            yield result_data
+                    else:
+                        yield result_data
+                else:
+                    # Handle single object
+                    yield StreamMoveResponse.from_dict(result_data)
+
 
         path = format_path_parameters("/cells/{cell}/motions/streammove")
         path = path.format(cell=cell,)

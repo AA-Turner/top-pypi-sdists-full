@@ -77,6 +77,18 @@ __all__ = (
     "BidirectionalOutputPayloadPartTypeDef",
     "BlobTypeDef",
     "CachePointBlockTypeDef",
+    "CitationGeneratedContentTypeDef",
+    "CitationLocationTypeDef",
+    "CitationOutputTypeDef",
+    "CitationSourceContentDeltaTypeDef",
+    "CitationSourceContentTypeDef",
+    "CitationTypeDef",
+    "CitationUnionTypeDef",
+    "CitationsConfigTypeDef",
+    "CitationsContentBlockOutputTypeDef",
+    "CitationsContentBlockTypeDef",
+    "CitationsContentBlockUnionTypeDef",
+    "CitationsDeltaTypeDef",
     "ContentBlockDeltaEventTypeDef",
     "ContentBlockDeltaTypeDef",
     "ContentBlockOutputTypeDef",
@@ -99,6 +111,10 @@ __all__ = (
     "DocumentBlockOutputTypeDef",
     "DocumentBlockTypeDef",
     "DocumentBlockUnionTypeDef",
+    "DocumentCharLocationTypeDef",
+    "DocumentChunkLocationTypeDef",
+    "DocumentContentBlockTypeDef",
+    "DocumentPageLocationTypeDef",
     "DocumentSourceOutputTypeDef",
     "DocumentSourceTypeDef",
     "DocumentSourceUnionTypeDef",
@@ -259,6 +275,40 @@ CachePointBlockTypeDef = TypedDict(
 )
 
 
+class CitationGeneratedContentTypeDef(TypedDict):
+    text: NotRequired[str]
+
+
+class DocumentCharLocationTypeDef(TypedDict):
+    documentIndex: NotRequired[int]
+    start: NotRequired[int]
+    end: NotRequired[int]
+
+
+class DocumentChunkLocationTypeDef(TypedDict):
+    documentIndex: NotRequired[int]
+    start: NotRequired[int]
+    end: NotRequired[int]
+
+
+class DocumentPageLocationTypeDef(TypedDict):
+    documentIndex: NotRequired[int]
+    start: NotRequired[int]
+    end: NotRequired[int]
+
+
+class CitationSourceContentTypeDef(TypedDict):
+    text: NotRequired[str]
+
+
+class CitationSourceContentDeltaTypeDef(TypedDict):
+    text: NotRequired[str]
+
+
+class CitationsConfigTypeDef(TypedDict):
+    enabled: bool
+
+
 class ReasoningContentBlockDeltaTypeDef(TypedDict):
     text: NotRequired[str]
     redactedContent: NotRequired[bytes]
@@ -367,6 +417,10 @@ class GuardrailStreamConfigurationTypeDef(TypedDict):
 
 class PromptRouterTraceTypeDef(TypedDict):
     invokedModelId: NotRequired[str]
+
+
+class DocumentContentBlockTypeDef(TypedDict):
+    text: NotRequired[str]
 
 
 class S3LocationTypeDef(TypedDict):
@@ -583,10 +637,10 @@ class InvokeModelWithResponseStreamRequestTypeDef(TypedDict):
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
 
 
-class ContentBlockDeltaTypeDef(TypedDict):
-    text: NotRequired[str]
-    toolUse: NotRequired[ToolUseBlockDeltaTypeDef]
-    reasoningContent: NotRequired[ReasoningContentBlockDeltaTypeDef]
+class CitationLocationTypeDef(TypedDict):
+    documentChar: NotRequired[DocumentCharLocationTypeDef]
+    documentPage: NotRequired[DocumentPageLocationTypeDef]
+    documentChunk: NotRequired[DocumentChunkLocationTypeDef]
 
 
 class ContentBlockStartTypeDef(TypedDict):
@@ -598,6 +652,8 @@ DocumentSourceOutputTypeDef = TypedDict(
     {
         "bytes": NotRequired[bytes],
         "s3Location": NotRequired[S3LocationTypeDef],
+        "text": NotRequired[str],
+        "content": NotRequired[List[DocumentContentBlockTypeDef]],
     },
 )
 DocumentSourceTypeDef = TypedDict(
@@ -605,6 +661,8 @@ DocumentSourceTypeDef = TypedDict(
     {
         "bytes": NotRequired[BlobTypeDef],
         "s3Location": NotRequired[S3LocationTypeDef],
+        "text": NotRequired[str],
+        "content": NotRequired[Sequence[DocumentContentBlockTypeDef]],
     },
 )
 ImageSourceOutputTypeDef = TypedDict(
@@ -793,9 +851,22 @@ GuardrailImageBlockTypeDef = TypedDict(
 )
 
 
-class ContentBlockDeltaEventTypeDef(TypedDict):
-    delta: ContentBlockDeltaTypeDef
-    contentBlockIndex: int
+class CitationOutputTypeDef(TypedDict):
+    title: NotRequired[str]
+    sourceContent: NotRequired[List[CitationSourceContentTypeDef]]
+    location: NotRequired[CitationLocationTypeDef]
+
+
+class CitationTypeDef(TypedDict):
+    title: NotRequired[str]
+    sourceContent: NotRequired[Sequence[CitationSourceContentTypeDef]]
+    location: NotRequired[CitationLocationTypeDef]
+
+
+class CitationsDeltaTypeDef(TypedDict):
+    title: NotRequired[str]
+    sourceContent: NotRequired[List[CitationSourceContentDeltaTypeDef]]
+    location: NotRequired[CitationLocationTypeDef]
 
 
 class ContentBlockStartEventTypeDef(TypedDict):
@@ -806,9 +877,11 @@ class ContentBlockStartEventTypeDef(TypedDict):
 DocumentBlockOutputTypeDef = TypedDict(
     "DocumentBlockOutputTypeDef",
     {
-        "format": DocumentFormatType,
         "name": str,
         "source": DocumentSourceOutputTypeDef,
+        "format": NotRequired[DocumentFormatType],
+        "context": NotRequired[str],
+        "citations": NotRequired[CitationsConfigTypeDef],
     },
 )
 DocumentSourceUnionTypeDef = Union[DocumentSourceTypeDef, DocumentSourceOutputTypeDef]
@@ -888,12 +961,29 @@ class GuardrailContentBlockTypeDef(TypedDict):
     image: NotRequired[GuardrailImageBlockTypeDef]
 
 
+class CitationsContentBlockOutputTypeDef(TypedDict):
+    content: NotRequired[List[CitationGeneratedContentTypeDef]]
+    citations: NotRequired[List[CitationOutputTypeDef]]
+
+
+CitationUnionTypeDef = Union[CitationTypeDef, CitationOutputTypeDef]
+
+
+class ContentBlockDeltaTypeDef(TypedDict):
+    text: NotRequired[str]
+    toolUse: NotRequired[ToolUseBlockDeltaTypeDef]
+    reasoningContent: NotRequired[ReasoningContentBlockDeltaTypeDef]
+    citation: NotRequired[CitationsDeltaTypeDef]
+
+
 DocumentBlockTypeDef = TypedDict(
     "DocumentBlockTypeDef",
     {
-        "format": DocumentFormatType,
         "name": str,
         "source": DocumentSourceUnionTypeDef,
+        "format": NotRequired[DocumentFormatType],
+        "context": NotRequired[str],
+        "citations": NotRequired[CitationsConfigTypeDef],
     },
 )
 ImageBlockTypeDef = TypedDict(
@@ -949,6 +1039,16 @@ class ApplyGuardrailRequestTypeDef(TypedDict):
     outputScope: NotRequired[GuardrailOutputScopeType]
 
 
+class CitationsContentBlockTypeDef(TypedDict):
+    content: NotRequired[Sequence[CitationGeneratedContentTypeDef]]
+    citations: NotRequired[Sequence[CitationUnionTypeDef]]
+
+
+class ContentBlockDeltaEventTypeDef(TypedDict):
+    delta: ContentBlockDeltaTypeDef
+    contentBlockIndex: int
+
+
 DocumentBlockUnionTypeDef = Union[DocumentBlockTypeDef, DocumentBlockOutputTypeDef]
 ImageBlockUnionTypeDef = Union[ImageBlockTypeDef, ImageBlockOutputTypeDef]
 
@@ -984,6 +1084,11 @@ class GuardrailConverseContentBlockTypeDef(TypedDict):
     image: NotRequired[GuardrailConverseImageBlockUnionTypeDef]
 
 
+CitationsContentBlockUnionTypeDef = Union[
+    CitationsContentBlockTypeDef, CitationsContentBlockOutputTypeDef
+]
+
+
 class ContentBlockOutputTypeDef(TypedDict):
     text: NotRequired[str]
     image: NotRequired[ImageBlockOutputTypeDef]
@@ -994,6 +1099,7 @@ class ContentBlockOutputTypeDef(TypedDict):
     guardContent: NotRequired[GuardrailConverseContentBlockOutputTypeDef]
     cachePoint: NotRequired[CachePointBlockTypeDef]
     reasoningContent: NotRequired[ReasoningContentBlockOutputTypeDef]
+    citationsContent: NotRequired[CitationsContentBlockOutputTypeDef]
 
 
 class ToolResultContentBlockTypeDef(TypedDict):
@@ -1095,6 +1201,7 @@ class ContentBlockTypeDef(TypedDict):
     guardContent: NotRequired[GuardrailConverseContentBlockUnionTypeDef]
     cachePoint: NotRequired[CachePointBlockTypeDef]
     reasoningContent: NotRequired[ReasoningContentBlockUnionTypeDef]
+    citationsContent: NotRequired[CitationsContentBlockUnionTypeDef]
 
 
 ContentBlockUnionTypeDef = Union[ContentBlockTypeDef, ContentBlockOutputTypeDef]

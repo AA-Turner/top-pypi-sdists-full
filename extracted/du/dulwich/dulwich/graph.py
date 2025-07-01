@@ -22,9 +22,13 @@
 
 from collections.abc import Iterator
 from heapq import heappop, heappush
-from typing import Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from .repo import BaseRepo
 
 from .lru_cache import LRUCache
+from .objects import ObjectID
 
 T = TypeVar("T")
 
@@ -52,7 +56,14 @@ class WorkList(Generic[T]):
             yield (-pr, cmt)
 
 
-def _find_lcas(lookup_parents, c1, c2s, lookup_stamp, min_stamp=0):
+def _find_lcas(
+    lookup_parents: Callable[[ObjectID], list[ObjectID]],
+    c1: ObjectID,
+    c2s: list[ObjectID],
+    lookup_stamp: Callable[[ObjectID], int],
+    min_stamp: int = 0,
+    shallows: Optional[set[ObjectID]] = None,
+) -> list[ObjectID]:
     cands = []
     cstates = {}
 
@@ -62,7 +73,7 @@ def _find_lcas(lookup_parents, c1, c2s, lookup_stamp, min_stamp=0):
     _DNC = 4  # Do Not Consider
     _LCA = 8  # potential LCA (Lowest Common Ancestor)
 
-    def _has_candidates(wlst, cstates) -> bool:
+    def _has_candidates(wlst: WorkList[ObjectID], cstates: dict[ObjectID, int]) -> bool:
         for dt, cmt in wlst.iter():
             if cmt in cstates:
                 if not ((cstates[cmt] & _DNC) == _DNC):
@@ -71,18 +82,36 @@ def _find_lcas(lookup_parents, c1, c2s, lookup_stamp, min_stamp=0):
 
     # initialize the working list states with ancestry info
     # note possibility of c1 being one of c2s should be handled
-    wlst = WorkList()
+    wlst: WorkList[bytes] = WorkList()
     cstates[c1] = _ANC_OF_1
-    wlst.add((lookup_stamp(c1), c1))
+    try:
+        wlst.add((lookup_stamp(c1), c1))
+    except KeyError:
+        # If c1 doesn't exist and we have shallow commits, it might be a missing parent
+        if shallows is None or not shallows:
+            raise
+        # For missing commits in shallow repos, use a minimal timestamp
+        wlst.add((0, c1))
+
     for c2 in c2s:
         cflags = cstates.get(c2, 0)
         cstates[c2] = cflags | _ANC_OF_2
-        wlst.add((lookup_stamp(c2), c2))
+        try:
+            wlst.add((lookup_stamp(c2), c2))
+        except KeyError:
+            # If c2 doesn't exist and we have shallow commits, it might be a missing parent
+            if shallows is None or not shallows:
+                raise
+            # For missing commits in shallow repos, use a minimal timestamp
+            wlst.add((0, c2))
 
     # loop while at least one working list commit is still viable (not marked as _DNC)
     # adding any parents to the list in a breadth first manner
     while _has_candidates(wlst, cstates):
-        dt, cmt = wlst.get()
+        result = wlst.get()
+        if result is None:
+            break
+        dt, cmt = result
         # Look only at ANCESTRY and _DNC flags so that already
         # found _LCAs can still be marked _DNC by lower _LCAS
         cflags = cstates[cmt] & (_ANC_OF_1 | _ANC_OF_2 | _DNC)
@@ -94,7 +123,15 @@ def _find_lcas(lookup_parents, c1, c2s, lookup_stamp, min_stamp=0):
             # mark any parents of this node _DNC as all parents
             # would be one generation further removed common ancestors
             cflags = cflags | _DNC
-        parents = lookup_parents(cmt)
+        try:
+            parents = lookup_parents(cmt)
+        except KeyError:
+            # If we can't get parents in a shallow repo, skip this node
+            # This is safer than pretending it has no parents
+            if shallows is not None and shallows:
+                continue
+            raise
+
         if parents:
             for pcmt in parents:
                 pflags = cstates.get(pcmt, 0)
@@ -102,7 +139,13 @@ def _find_lcas(lookup_parents, c1, c2s, lookup_stamp, min_stamp=0):
                 # do not add it to the working list again
                 if (pflags & cflags) == cflags:
                     continue
-                pdt = lookup_stamp(pcmt)
+                try:
+                    pdt = lookup_stamp(pcmt)
+                except KeyError:
+                    # Parent doesn't exist - if we're in a shallow repo, skip it
+                    if shallows is not None and shallows:
+                        continue
+                    raise
                 if pdt < min_stamp:
                     continue
                 cstates[pcmt] = pflags | cflags
@@ -120,7 +163,7 @@ def _find_lcas(lookup_parents, c1, c2s, lookup_stamp, min_stamp=0):
 
 
 # actual git sorts these based on commit times
-def find_merge_base(repo, commit_ids):
+def find_merge_base(repo: "BaseRepo", commit_ids: list[ObjectID]) -> list[ObjectID]:
     """Find lowest common ancestors of commit_ids[0] and *any* of commits_ids[1:].
 
     Args:
@@ -129,15 +172,15 @@ def find_merge_base(repo, commit_ids):
     Returns:
       list of lowest common ancestor commit_ids
     """
-    cmtcache = LRUCache(max_cache=128)
+    cmtcache: LRUCache[ObjectID, Any] = LRUCache(max_cache=128)
     parents_provider = repo.parents_provider()
 
-    def lookup_stamp(cmtid):
+    def lookup_stamp(cmtid: ObjectID) -> int:
         if cmtid not in cmtcache:
             cmtcache[cmtid] = repo.object_store[cmtid]
         return cmtcache[cmtid].commit_time
 
-    def lookup_parents(cmtid):
+    def lookup_parents(cmtid: ObjectID) -> list[ObjectID]:
         commit = None
         if cmtid in cmtcache:
             commit = cmtcache[cmtid]
@@ -152,11 +195,13 @@ def find_merge_base(repo, commit_ids):
     c2s = commit_ids[1:]
     if c1 in c2s:
         return [c1]
-    lcas = _find_lcas(lookup_parents, c1, c2s, lookup_stamp)
+    lcas = _find_lcas(
+        lookup_parents, c1, c2s, lookup_stamp, shallows=parents_provider.shallows
+    )
     return lcas
 
 
-def find_octopus_base(repo, commit_ids):
+def find_octopus_base(repo: "BaseRepo", commit_ids: list[ObjectID]) -> list[ObjectID]:
     """Find lowest common ancestors of *all* provided commit_ids.
 
     Args:
@@ -165,15 +210,15 @@ def find_octopus_base(repo, commit_ids):
     Returns:
       list of lowest common ancestor commit_ids
     """
-    cmtcache = LRUCache(max_cache=128)
+    cmtcache: LRUCache[ObjectID, Any] = LRUCache(max_cache=128)
     parents_provider = repo.parents_provider()
 
-    def lookup_stamp(cmtid):
+    def lookup_stamp(cmtid: ObjectID) -> int:
         if cmtid not in cmtcache:
             cmtcache[cmtid] = repo.object_store[cmtid]
         return cmtcache[cmtid].commit_time
 
-    def lookup_parents(cmtid):
+    def lookup_parents(cmtid: ObjectID) -> list[ObjectID]:
         commit = None
         if cmtid in cmtcache:
             commit = cmtcache[cmtid]
@@ -189,13 +234,19 @@ def find_octopus_base(repo, commit_ids):
     for cmt in others:
         next_lcas = []
         for ca in lcas:
-            res = _find_lcas(lookup_parents, cmt, [ca], lookup_stamp)
+            res = _find_lcas(
+                lookup_parents,
+                cmt,
+                [ca],
+                lookup_stamp,
+                shallows=parents_provider.shallows,
+            )
             next_lcas.extend(res)
         lcas = next_lcas[:]
     return lcas
 
 
-def can_fast_forward(repo, c1, c2):
+def can_fast_forward(repo: "BaseRepo", c1: bytes, c2: bytes) -> bool:
     """Is it possible to fast-forward from c1 to c2?
 
     Args:
@@ -203,15 +254,15 @@ def can_fast_forward(repo, c1, c2):
       c1: Commit id for first commit
       c2: Commit id for second commit
     """
-    cmtcache = LRUCache(max_cache=128)
+    cmtcache: LRUCache[ObjectID, Any] = LRUCache(max_cache=128)
     parents_provider = repo.parents_provider()
 
-    def lookup_stamp(cmtid):
+    def lookup_stamp(cmtid: ObjectID) -> int:
         if cmtid not in cmtcache:
             cmtcache[cmtid] = repo.object_store[cmtid]
         return cmtcache[cmtid].commit_time
 
-    def lookup_parents(cmtid):
+    def lookup_parents(cmtid: ObjectID) -> list[ObjectID]:
         commit = None
         if cmtid in cmtcache:
             commit = cmtcache[cmtid]
@@ -222,6 +273,24 @@ def can_fast_forward(repo, c1, c2):
         return True
 
     # Algorithm: Find the common ancestor
-    min_stamp = lookup_stamp(c1)
-    lcas = _find_lcas(lookup_parents, c1, [c2], lookup_stamp, min_stamp=min_stamp)
+    try:
+        min_stamp = lookup_stamp(c1)
+    except KeyError:
+        # If c1 doesn't exist in the object store, we can't determine fast-forward
+        # This can happen in shallow clones where c1 is a missing parent
+        # Check if any shallow commits have c1 as a parent
+        if parents_provider.shallows:
+            # We're in a shallow repository and c1 doesn't exist
+            # We can't determine if fast-forward is possible
+            return False
+        raise
+
+    lcas = _find_lcas(
+        lookup_parents,
+        c1,
+        [c2],
+        lookup_stamp,
+        min_stamp=min_stamp,
+        shallows=parents_provider.shallows,
+    )
     return lcas == [c1]

@@ -40,7 +40,11 @@ class VersionFinder(ast.NodeVisitor):
     def visit_Assign(self, node):
         try:
             if node.targets[0].id == '__version__':
-                self.version = node.value.s
+                try:
+                    # Python 3.8+
+                    self.version = node.value.value
+                except AttributeError:
+                    self.version = node.value.s
         except:
             pass
 
@@ -102,6 +106,7 @@ if __name__ == '__main__':
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Programming Language :: Python :: Implementation',
             'Programming Language :: Python :: Implementation :: CPython',
             'Programming Language :: Python :: Implementation :: PyPy'

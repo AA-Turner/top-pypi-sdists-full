@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional
 
 class MaleoClientConfigurations(BaseModel):
     key: str = Field(..., description="Client's key")
@@ -8,15 +9,15 @@ class MaleoClientConfigurations(BaseModel):
 class MaleoClientsConfigurations(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    telemetry: MaleoClientConfigurations = Field(..., description="MaleoTelemetry client's configuration")
-    metadata: MaleoClientConfigurations = Field(..., description="MaleoMetadata client's configuration")
-    identity: MaleoClientConfigurations = Field(..., description="MaleoIdentity client's configuration")
-    access: MaleoClientConfigurations = Field(..., description="MaleoAccess client's configuration")
-    workshop: MaleoClientConfigurations = Field(..., description="MaleoWorkshop client's configuration")
-    soapie: MaleoClientConfigurations = Field(..., description="MaleoSOAPIE client's configuration")
-    medix: MaleoClientConfigurations = Field(..., description="MaleoMedix client's configuration")
-    dicom: MaleoClientConfigurations = Field(..., description="MaleoDICOM client's configuration")
-    scribe: MaleoClientConfigurations = Field(..., description="MaleoScribe client's configuration")
-    cds: MaleoClientConfigurations = Field(..., description="MaleoCDS client's configuration")
-    imaging: MaleoClientConfigurations = Field(..., description="MaleoImaging client's configuration")
-    mcu: MaleoClientConfigurations = Field(..., description="MaleoMCU client's configuration")
+    telemetry: Optional[MaleoClientConfigurations] = Field(None, description="MaleoTelemetry client's configuration")
+    metadata: Optional[MaleoClientConfigurations] = Field(None, description="MaleoMetadata client's configuration")
+    identity: Optional[MaleoClientConfigurations] = Field(None, description="MaleoIdentity client's configuration")
+    access: Optional[MaleoClientConfigurations] = Field(None, description="MaleoAccess client's configuration")
+    workshop: Optional[MaleoClientConfigurations] = Field(None, description="MaleoWorkshop client's configuration")
+    soapie: Optional[MaleoClientConfigurations] = Field(None, description="MaleoSOAPIE client's configuration")
+    medix: Optional[MaleoClientConfigurations] = Field(None, description="MaleoMedix client's configuration")
+    dicom: Optional[MaleoClientConfigurations] = Field(None, description="MaleoDICOM client's configuration")
+    scribe: Optional[MaleoClientConfigurations] = Field(None, description="MaleoScribe client's configuration")
+    cds: Optional[MaleoClientConfigurations] = Field(None, description="MaleoCDS client's configuration")
+    imaging: Optional[MaleoClientConfigurations] = Field(None, description="MaleoImaging client's configuration")
+    mcu: Optional[MaleoClientConfigurations] = Field(None, description="MaleoMCU client's configuration")

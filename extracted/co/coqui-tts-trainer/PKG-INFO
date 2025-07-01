@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coqui-tts-trainer
-Version: 0.3.0
+Version: 0.3.1
 Summary: General purpose model trainer for PyTorch that is more flexible than it should be, by 🐸Coqui.
 Project-URL: Homepage, https://github.com/idiap/coqui-ai-Trainer
 Project-URL: Repository, https://github.com/idiap/coqui-ai-Trainer

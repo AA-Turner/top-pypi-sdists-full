@@ -247,21 +247,43 @@ async def integracao_contabil_generica(
         ).wrapper_object()
         combobox.click_input()
 
-        await worker_sleep(5)
+        await worker_sleep(10)
 
+        console.print("Verificar se existem lotes")
         try:
             # Verifica mensagem sem lote pra integrar
             imagem_alvo = "assets\\integracao_contabil\\sem_lote.png"
 
-            localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.997)
+            localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
 
             if localizacao:
-                print("Imagem encontrada!")
-
+                console.print("Imagem sem lote para integrar encontrada!")
+                app = Application(backend="win32").connect(class_name="TMsgBox", found_index=0)
+                main_window = app["TMsgBox"]
+                main_window.child_window(class_name="TBitBtn", found_index=0).click_input()
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Sem lotes para integrar.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                )
             else:
-                print("Imagem não encontrada.")
+                console.print("Imagem não encontrada.")
+
         except ImageNotFoundException:
-            print("Imagem não encontrada (exceção capturada).")
+            console.print("Imagem não encontrada (exceção capturada). Tentando clicar no OK.")
+            try:
+                app = Application(backend="win32").connect(class_name="TMsgBox", found_index=0)
+                main_window = app["TMsgBox"]
+                main_window.child_window(class_name="TBitBtn", found_index=0).click_input()
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Sem lotes para integrar.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                )
+            except Exception as e:
+                console.print(f"Não foi possível clicar no botão OK: {e}")
 
         await worker_sleep(5)
 

@@ -262,7 +262,7 @@ class Rebaser:
 
         # Initialize state
         self._original_head: Optional[bytes] = None
-        self._onto = None
+        self._onto: Optional[bytes] = None
         self._todo: list[Commit] = []
         self._done: list[Commit] = []
         self._rebasing_branch: Optional[bytes] = None
@@ -316,7 +316,9 @@ class Rebaser:
         # Return in chronological order (oldest first)
         return list(reversed(commits))
 
-    def _cherry_pick(self, commit: Commit, onto: bytes) -> tuple[bytes, list[bytes]]:
+    def _cherry_pick(
+        self, commit: Commit, onto: bytes
+    ) -> tuple[Optional[bytes], list[bytes]]:
         """Cherry-pick a commit onto another commit.
 
         Args:
@@ -328,7 +330,7 @@ class Rebaser:
         """
         # Get the parent of the commit being cherry-picked
         if not commit.parents:
-            raise RebaseError(f"Cannot cherry-pick root commit {commit.id}")
+            raise RebaseError(f"Cannot cherry-pick root commit {commit.id!r}")
 
         parent = self.repo[commit.parents[0]]
         onto_commit = self.repo[onto]
@@ -341,7 +343,7 @@ class Rebaser:
         if conflicts:
             # Store merge state for conflict resolution
             self.repo._put_named_file("rebase-merge/stopped-sha", commit.id)
-            return commit.id, conflicts
+            return None, conflicts
 
         # Create new commit
         new_commit = Commit()
@@ -431,6 +433,8 @@ class Rebaser:
         if self._done:
             onto = self._done[-1].id
         else:
+            if self._onto is None:
+                raise RebaseError("No onto commit set")
             onto = self._onto
 
         # Cherry-pick the commit

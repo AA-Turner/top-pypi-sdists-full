@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: inngest
-Version: 0.5.0
+Version: 0.5.1
 Summary: Python SDK for Inngest
-Author-email: "Inngest Inc." <hello@inngest.com>
 Project-URL: Homepage, https://github.com/inngest/inngest-py
 Project-URL: Bug Tracker, https://github.com/inngest/inngest-py/issues
+Author-email: "Inngest Inc." <hello@inngest.com>
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: FastAPI
@@ -15,15 +15,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
 Requires-Dist: httpx>=0.26.0
 Requires-Dist: jcs>=0.2.1
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: typing-extensions>=4.13.0
 Provides-Extra: connect
-Requires-Dist: protobuf>=5.29.4; extra == "connect"
-Requires-Dist: psutil>=6.0.0; extra == "connect"
-Requires-Dist: websockets>=15.0.0; extra == "connect"
+Requires-Dist: protobuf>=5.29.4; extra == 'connect'
+Requires-Dist: psutil>=6.0.0; extra == 'connect'
+Requires-Dist: websockets>=15.0.0; extra == 'connect'
+Description-Content-Type: text/markdown
 
 <div align="center">
   <br/>

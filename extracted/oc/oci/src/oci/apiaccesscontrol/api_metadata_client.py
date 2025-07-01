@@ -153,14 +153,14 @@ class ApiMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/get_api_metadata.py.html>`__ to see an example of how to use get_api_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/get_api_metadata.py.html>`__ to see an example of how to use get_api_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apiMetadataId']
         resource_path = "/apiMetadatas/{apiMetadataId}"
         method = "GET"
         operation_name = "get_api_metadata"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/ApiMetadata/GetApiMetadata"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -293,14 +293,14 @@ class ApiMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/list_api_metadata.py.html>`__ to see an example of how to use list_api_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/list_api_metadata.py.html>`__ to see an example of how to use list_api_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/apiMetadatas"
         method = "GET"
         operation_name = "list_api_metadata"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/ApiMetadata/ListApiMetadata"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -464,14 +464,14 @@ class ApiMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.3/apiaccesscontrol/list_api_metadata_by_entity_types.py.html>`__ to see an example of how to use list_api_metadata_by_entity_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.0/apiaccesscontrol/list_api_metadata_by_entity_types.py.html>`__ to see an example of how to use list_api_metadata_by_entity_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/apiMetadatas/byEntityType"
         method = "GET"
         operation_name = "list_api_metadata_by_entity_types"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/oracle-api-access-control/20241130/ApiMetadata/ListApiMetadataByEntityTypes"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

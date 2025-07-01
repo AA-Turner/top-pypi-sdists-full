@@ -863,7 +863,7 @@ class ConnectClient(BaseClient):
         self, **kwargs: Unpack[CreateContactRequestTypeDef]
     ) -> CreateContactResponseTypeDef:
         """
-        Only the EMAIL and VOICE channels are supported.
+        Only the VOICE, EMAIL, and TASK channels are supported.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#create_contact)

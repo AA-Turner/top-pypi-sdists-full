@@ -229,14 +229,17 @@ from argparse import (
     ZERO_OR_MORE,
     ArgumentError,
 )
-from collections.abc import Callable, Iterable, Sequence
-from gettext import (
-    gettext,
+from collections.abc import (
+    Callable,
+    Iterable,
+    Sequence,
 )
+from gettext import gettext
 from typing import (
     IO,
     TYPE_CHECKING,
     Any,
+    ClassVar,
     NoReturn,
     Optional,
     Protocol,
@@ -244,6 +247,8 @@ from typing import (
     cast,
     runtime_checkable,
 )
+
+from rich_argparse import RawTextRichHelpFormatter
 
 from . import (
     ansi,
@@ -991,8 +996,24 @@ setattr(argparse._SubParsersAction, 'remove_parser', _SubParsersAction_remove_pa
 ############################################################################################################
 
 
-class Cmd2HelpFormatter(argparse.RawTextHelpFormatter):
+class Cmd2HelpFormatter(RawTextRichHelpFormatter):
     """Custom help formatter to configure ordering of help text."""
+
+    # rich-argparse formats all group names with str.title().
+    # Override their formatter to do nothing.
+    group_name_formatter: ClassVar[Callable[[str], str]] = str
+
+    # Disable automatic highlighting in the help text.
+    highlights: ClassVar[list[str]] = []
+
+    # Disable markup rendering in usage, help, description, and epilog text.
+    # cmd2's built-in commands do not escape opening brackets in their help text
+    # and therefore rely on these settings being False. If you desire to use
+    # markup in your help text, inherit from Cmd2HelpFormatter and override
+    # these settings in that child class.
+    usage_markup: ClassVar[bool] = False
+    help_markup: ClassVar[bool] = False
+    text_markup: ClassVar[bool] = False
 
     def _format_usage(
         self,
@@ -1215,42 +1236,30 @@ class Cmd2ArgumentParser(argparse.ArgumentParser):
                                   behavior on this parser. If this is None or not present, then cmd2 will use
                                   argparse_completer.DEFAULT_AP_COMPLETER when tab completing this parser's arguments
         """
+        kwargs: dict[str, bool] = {}
         if sys.version_info >= (3, 14):
             # Python >= 3.14 so pass new arguments to parent argparse.ArgumentParser class
-            super().__init__(
-                prog=prog,
-                usage=usage,
-                description=description,
-                epilog=epilog,
-                parents=parents if parents else [],
-                formatter_class=formatter_class,  # type: ignore[arg-type]
-                prefix_chars=prefix_chars,
-                fromfile_prefix_chars=fromfile_prefix_chars,
-                argument_default=argument_default,
-                conflict_handler=conflict_handler,
-                add_help=add_help,
-                allow_abbrev=allow_abbrev,
-                exit_on_error=exit_on_error,  # added in Python 3.9
-                suggest_on_error=suggest_on_error,  # added in Python 3.14
-                color=color,  # added in Python 3.14
-            )
-        else:
-            # Python < 3.14, so don't pass new arguments to parent argparse.ArgumentParser class
-            super().__init__(
-                prog=prog,
-                usage=usage,
-                description=description,
-                epilog=epilog,
-                parents=parents if parents else [],
-                formatter_class=formatter_class,  # type: ignore[arg-type]
-                prefix_chars=prefix_chars,
-                fromfile_prefix_chars=fromfile_prefix_chars,
-                argument_default=argument_default,
-                conflict_handler=conflict_handler,
-                add_help=add_help,
-                allow_abbrev=allow_abbrev,
-                exit_on_error=exit_on_error,  # added in Python 3.9
-            )
+            kwargs = {
+                "suggest_on_error": suggest_on_error,
+                "color": color,
+            }
+
+        super().__init__(
+            prog=prog,
+            usage=usage,
+            description=description,
+            epilog=epilog,
+            parents=parents if parents else [],
+            formatter_class=formatter_class,  # type: ignore[arg-type]
+            prefix_chars=prefix_chars,
+            fromfile_prefix_chars=fromfile_prefix_chars,
+            argument_default=argument_default,
+            conflict_handler=conflict_handler,
+            add_help=add_help,
+            allow_abbrev=allow_abbrev,
+            exit_on_error=exit_on_error,  # added in Python 3.9
+            **kwargs,  # added in Python 3.14
+        )
 
         self.set_ap_completer_type(ap_completer_type)  # type: ignore[attr-defined]
 

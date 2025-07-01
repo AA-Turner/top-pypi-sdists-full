@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-b2bi
-Version: 1.38.0
-Summary: Type annotations for boto3 B2BI 1.38.0 service generated with mypy-boto3-builder 8.10.1
+Version: 1.39.0
+Summary: Type annotations for boto3 B2BI 1.39.0 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 B2BI 1.38.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 B2BI 1.39.0](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -65,7 +65,7 @@ compatible with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.10.1](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -93,6 +93,7 @@ See how it helps you find and fix potential bugs:
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
     - [Paginators annotations](#paginators-annotations)
+    - [Waiters annotations](#waiters-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -118,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.39.0' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `B2BI` service.
 4. Use provided commands to install generated packages.
@@ -366,6 +367,27 @@ list_capabilities_paginator: ListCapabilitiesPaginator = client.get_paginator("l
 list_partnerships_paginator: ListPartnershipsPaginator = client.get_paginator("list_partnerships")
 list_profiles_paginator: ListProfilesPaginator = client.get_paginator("list_profiles")
 list_transformers_paginator: ListTransformersPaginator = client.get_paginator("list_transformers")
+```
+
+<a id="waiters-annotations"></a>
+
+### Waiters annotations
+
+`mypy_boto3_b2bi.waiter` module contains type annotations for all waiters.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_b2bi import B2BIClient
+from mypy_boto3_b2bi.waiter import TransformerJobSucceededWaiter
+
+client: B2BIClient = Session().client("b2bi")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+transformer_job_succeeded_waiter: TransformerJobSucceededWaiter = client.get_waiter(
+    "transformer_job_succeeded"
+)
 ```
 
 <a id="literals"></a>

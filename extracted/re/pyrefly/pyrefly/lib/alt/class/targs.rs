@@ -14,8 +14,8 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
-use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::answers_solver::AnswersSolver;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::types::callable::Param;
@@ -40,7 +40,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn promote_nontypeddict_silently_to_classtype(&self, cls: &Class) -> ClassType {
         ClassType::new(
             cls.dupe(),
-            self.create_default_targs(self.class_tparams(cls), None),
+            self.create_default_targs(self.get_class_tparams(cls), None),
         )
     }
 
@@ -62,7 +62,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
-            self.check_and_create_targs(cls.name(), self.class_tparams(cls), targs, range, errors)
+            self.check_and_create_targs(
+                cls.name(),
+                self.get_class_tparams(cls),
+                targs,
+                range,
+                errors,
+            )
         };
         self.type_of_instance(cls, targs)
     }
@@ -81,7 +87,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
         );
-        forall.subst(targs)
+        forall.apply_targs(targs)
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents to an instance annotated
@@ -98,24 +104,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
     pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
-        let targs = self.create_default_targs(self.class_tparams(cls), Some(range));
+        let targs = self.create_default_targs(self.get_class_tparams(cls), Some(range));
         self.type_of_instance(cls, targs)
     }
 
     pub fn promote_forall(&self, forall: Forall<Forallable>, range: TextRange) -> Type {
         let targs = self.create_default_targs(forall.tparams.dupe(), Some(range));
-        forall.subst(targs)
+        forall.apply_targs(targs)
     }
 
     /// Version of `promote` that does not potentially raise errors.
     /// Should only be used for unusual scenarios.
     pub fn promote_silently(&self, cls: &Class) -> Type {
-        let targs = self.create_default_targs(self.class_tparams(cls), None);
+        let targs = self.create_default_targs(self.get_class_tparams(cls), None);
         self.type_of_instance(cls, targs)
     }
 
     fn targs_of_tparams(&self, class: &Class) -> TArgs {
-        let tparams = class.arc_tparams();
+        let tparams = self.get_class_tparams(class);
         TArgs::new(
             tparams.dupe(),
             tparams.quantifieds().map(|q| q.clone().to_type()).collect(),
@@ -141,11 +147,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassType::new(class.dupe(), self.targs_of_tparams(class))
     }
 
+    /// Gets this Class as a TypedDict with its tparams as the arguments.
+    pub fn as_typed_dict_unchecked(&self, class: &Class) -> TypedDict {
+        let targs = self.targs_of_tparams(class);
+        TypedDict::new(class.clone(), targs)
+    }
+
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.
     pub fn instantiate_fresh(&self, cls: &Class) -> Type {
         self.solver()
             .fresh_quantified(
-                &self.class_tparams(cls),
+                &self.get_class_tparams(cls),
                 self.instantiate(cls),
                 self.uniques,
             )

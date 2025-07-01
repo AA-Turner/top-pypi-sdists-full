@@ -53,6 +53,14 @@ class BaseModelTests:
         raise NotImplementedError
 
     @pytest.fixture(scope="class")
+    def equivariance_tol(self, model_dtype):
+        """May be overriden by subclasses.
+
+        Returns tolerance based on ``model_dtype``.
+        """
+        return {"float32": 1e-3, "float64": 1e-8}[model_dtype]
+
+    @pytest.fixture(scope="class")
     def nequip_compile_tol(self, model_dtype):
         """Implemented by subclasses.
 
@@ -65,11 +73,12 @@ class BaseModelTests:
         """Implemented by subclasses.
 
         Returns a callable that handles model modification and constraints for nequip-compile tests.
-        The callable signature is: (mode, device) -> modifiers_list
+        The callable signature is: (mode, device, model_dtype) -> modifiers_list
 
         Args:
             mode: compilation mode ("torchscript" or "aotinductor")
             device: target device ("cpu" or "cuda")
+            model_dtype: "float32" or "float64"
 
         Returns:
             modifiers_list: list of modifier names to pass to nequip-compile --modifiers
@@ -265,7 +274,9 @@ class BaseModelTests:
         # handle acceleration modifiers
         compile_modifiers = []
         if nequip_compile_acceleration_modifiers is not None:
-            compile_modifiers = nequip_compile_acceleration_modifiers(mode, device)
+            compile_modifiers = nequip_compile_acceleration_modifiers(
+                mode, device, model_dtype
+            )
 
         # === test nequip-compile ===
         # !! NOTE: we use the `best.ckpt` because val, test metrics were computed with `best.ckpt` in the `test` run stages !!
@@ -355,13 +366,21 @@ class BaseModelTests:
                 ), np.max(np.abs((ckpt_F - compile_F)))
 
     def compare_output_and_gradients(
-        self, modelA, modelB, model_test_data, tol, compare_outputs=True
+        self, modelA, modelB, model_test_data, tol, compare_outputs=None
     ):
+        # default fields
+        if compare_outputs is None:
+            compare_outputs = [
+                AtomicDataDict.PER_ATOM_ENERGY_KEY,
+                AtomicDataDict.TOTAL_ENERGY_KEY,
+                AtomicDataDict.FORCE_KEY,
+                AtomicDataDict.VIRIAL_KEY,
+            ]
+
         A_out = modelA(model_test_data.copy())
         B_out = modelB(model_test_data.copy())
-
-        if compare_outputs:
-            for key in ["atomic_energy", "total_energy", "forces", "virial"]:
+        for key in compare_outputs:
+            if key in A_out and key in B_out:
                 assert torch.allclose(A_out[key], B_out[key], atol=tol)
 
         # test backwards pass if there are trainable weights
@@ -425,7 +444,6 @@ class BaseModelTests:
             modelB=compile_model,
             model_test_data=model_test_data,
             tol=tol,
-            compare_outputs=False,  # Internal checks guarantee that outputs are the same
         )
 
     def test_wrapped_unwrapped(self, model, device, Cu_bulk):
@@ -546,16 +564,14 @@ class BaseModelTests:
                     f"Found unregistered `out_field` = {out_field}"
                 )
 
-    def test_equivariance(self, model, model_test_data, device):
+    def test_equivariance(self, model, model_test_data, device, equivariance_tol):
         instance, _, _ = model
         instance = instance.to(device=device)
 
         assert_AtomicData_equivariant(
             func=instance,
             data_in=model_test_data,
-            e3_tolerance={torch.float32: 1e-3, torch.float64: 1e-8}[
-                instance.model_dtype
-            ],
+            e3_tolerance=equivariance_tol,
         )
 
     def test_embedding_cutoff(self, model, device):

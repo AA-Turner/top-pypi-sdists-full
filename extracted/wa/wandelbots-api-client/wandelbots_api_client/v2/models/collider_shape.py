@@ -17,42 +17,42 @@ import json
 import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
-from wandelbots_api_client.v2.models.box2 import Box2
-from wandelbots_api_client.v2.models.capsule2 import Capsule2
-from wandelbots_api_client.v2.models.convex_hull2 import ConvexHull2
-from wandelbots_api_client.v2.models.cylinder2 import Cylinder2
-from wandelbots_api_client.v2.models.plane2 import Plane2
-from wandelbots_api_client.v2.models.rectangle2 import Rectangle2
-from wandelbots_api_client.v2.models.rectangular_capsule2 import RectangularCapsule2
-from wandelbots_api_client.v2.models.sphere2 import Sphere2
+from wandelbots_api_client.v2.models.box import Box
+from wandelbots_api_client.v2.models.capsule import Capsule
+from wandelbots_api_client.v2.models.convex_hull import ConvexHull
+from wandelbots_api_client.v2.models.cylinder import Cylinder
+from wandelbots_api_client.v2.models.plane import Plane
+from wandelbots_api_client.v2.models.rectangle import Rectangle
+from wandelbots_api_client.v2.models.rectangular_capsule import RectangularCapsule
+from wandelbots_api_client.v2.models.sphere import Sphere
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-COLLIDERSHAPE_ONE_OF_SCHEMAS = ["Box2", "Capsule2", "ConvexHull2", "Cylinder2", "Plane2", "Rectangle2", "RectangularCapsule2", "Sphere2"]
+COLLIDERSHAPE_ONE_OF_SCHEMAS = ["Box", "Capsule", "ConvexHull", "Cylinder", "Plane", "Rectangle", "RectangularCapsule", "Sphere"]
 
 class ColliderShape(BaseModel):
     """
     ColliderShape
     """
-    # data type: Sphere2
-    oneof_schema_1_validator: Optional[Sphere2] = None
-    # data type: Box2
-    oneof_schema_2_validator: Optional[Box2] = None
-    # data type: Rectangle2
-    oneof_schema_3_validator: Optional[Rectangle2] = None
-    # data type: Plane2
-    oneof_schema_4_validator: Optional[Plane2] = None
-    # data type: Cylinder2
-    oneof_schema_5_validator: Optional[Cylinder2] = None
-    # data type: Capsule2
-    oneof_schema_6_validator: Optional[Capsule2] = None
-    # data type: RectangularCapsule2
-    oneof_schema_7_validator: Optional[RectangularCapsule2] = None
-    # data type: ConvexHull2
-    oneof_schema_8_validator: Optional[ConvexHull2] = None
-    actual_instance: Optional[Union[Box2, Capsule2, ConvexHull2, Cylinder2, Plane2, Rectangle2, RectangularCapsule2, Sphere2]] = None
-    one_of_schemas: Set[str] = { "Box2", "Capsule2", "ConvexHull2", "Cylinder2", "Plane2", "Rectangle2", "RectangularCapsule2", "Sphere2" }
+    # data type: Sphere
+    oneof_schema_1_validator: Optional[Sphere] = None
+    # data type: Box
+    oneof_schema_2_validator: Optional[Box] = None
+    # data type: Rectangle
+    oneof_schema_3_validator: Optional[Rectangle] = None
+    # data type: Plane
+    oneof_schema_4_validator: Optional[Plane] = None
+    # data type: Cylinder
+    oneof_schema_5_validator: Optional[Cylinder] = None
+    # data type: Capsule
+    oneof_schema_6_validator: Optional[Capsule] = None
+    # data type: RectangularCapsule
+    oneof_schema_7_validator: Optional[RectangularCapsule] = None
+    # data type: ConvexHull
+    oneof_schema_8_validator: Optional[ConvexHull] = None
+    actual_instance: Optional[Union[Box, Capsule, ConvexHull, Cylinder, Plane, Rectangle, RectangularCapsule, Sphere]] = None
+    one_of_schemas: Set[str] = { "Box", "Capsule", "ConvexHull", "Cylinder", "Plane", "Rectangle", "RectangularCapsule", "Sphere" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -78,52 +78,52 @@ class ColliderShape(BaseModel):
         instance = ColliderShape.model_construct()
         error_messages = []
         match = 0
-        # validate data type: Sphere2
-        if not isinstance(v, Sphere2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Sphere2`")
+        # validate data type: Sphere
+        if not isinstance(v, Sphere):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `Sphere`")
         else:
             match += 1
-        # validate data type: Box2
-        if not isinstance(v, Box2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Box2`")
+        # validate data type: Box
+        if not isinstance(v, Box):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `Box`")
         else:
             match += 1
-        # validate data type: Rectangle2
-        if not isinstance(v, Rectangle2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Rectangle2`")
+        # validate data type: Rectangle
+        if not isinstance(v, Rectangle):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `Rectangle`")
         else:
             match += 1
-        # validate data type: Plane2
-        if not isinstance(v, Plane2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Plane2`")
+        # validate data type: Plane
+        if not isinstance(v, Plane):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `Plane`")
         else:
             match += 1
-        # validate data type: Cylinder2
-        if not isinstance(v, Cylinder2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Cylinder2`")
+        # validate data type: Cylinder
+        if not isinstance(v, Cylinder):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `Cylinder`")
         else:
             match += 1
-        # validate data type: Capsule2
-        if not isinstance(v, Capsule2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Capsule2`")
+        # validate data type: Capsule
+        if not isinstance(v, Capsule):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `Capsule`")
         else:
             match += 1
-        # validate data type: RectangularCapsule2
-        if not isinstance(v, RectangularCapsule2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `RectangularCapsule2`")
+        # validate data type: RectangularCapsule
+        if not isinstance(v, RectangularCapsule):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `RectangularCapsule`")
         else:
             match += 1
-        # validate data type: ConvexHull2
-        if not isinstance(v, ConvexHull2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `ConvexHull2`")
+        # validate data type: ConvexHull
+        if not isinstance(v, ConvexHull):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `ConvexHull`")
         else:
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in ColliderShape with oneOf schemas: Box2, Capsule2, ConvexHull2, Cylinder2, Plane2, Rectangle2, RectangularCapsule2, Sphere2. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in ColliderShape with oneOf schemas: Box, Capsule, ConvexHull, Cylinder, Plane, Rectangle, RectangularCapsule, Sphere. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in ColliderShape with oneOf schemas: Box2, Capsule2, ConvexHull2, Cylinder2, Plane2, Rectangle2, RectangularCapsule2, Sphere2. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in ColliderShape with oneOf schemas: Box, Capsule, ConvexHull, Cylinder, Plane, Rectangle, RectangularCapsule, Sphere. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -143,141 +143,141 @@ class ColliderShape(BaseModel):
         if not _data_type:
             raise ValueError("Failed to lookup data type from the field `shape_type` in the input.")
 
-        # check if data type is `Box2`
+        # check if data type is `Box`
         if _data_type == "box":
-            instance.actual_instance = Box2.from_json(json_str)
+            instance.actual_instance = Box.from_json(json_str)
             return instance
 
-        # check if data type is `Capsule2`
+        # check if data type is `Capsule`
         if _data_type == "capsule":
-            instance.actual_instance = Capsule2.from_json(json_str)
+            instance.actual_instance = Capsule.from_json(json_str)
             return instance
 
-        # check if data type is `ConvexHull2`
+        # check if data type is `ConvexHull`
         if _data_type == "convex_hull":
-            instance.actual_instance = ConvexHull2.from_json(json_str)
+            instance.actual_instance = ConvexHull.from_json(json_str)
             return instance
 
-        # check if data type is `Cylinder2`
+        # check if data type is `Cylinder`
         if _data_type == "cylinder":
-            instance.actual_instance = Cylinder2.from_json(json_str)
+            instance.actual_instance = Cylinder.from_json(json_str)
             return instance
 
-        # check if data type is `Plane2`
+        # check if data type is `Plane`
         if _data_type == "plane":
-            instance.actual_instance = Plane2.from_json(json_str)
+            instance.actual_instance = Plane.from_json(json_str)
             return instance
 
-        # check if data type is `Rectangle2`
+        # check if data type is `Rectangle`
         if _data_type == "rectangle":
-            instance.actual_instance = Rectangle2.from_json(json_str)
+            instance.actual_instance = Rectangle.from_json(json_str)
             return instance
 
-        # check if data type is `RectangularCapsule2`
+        # check if data type is `RectangularCapsule`
         if _data_type == "rectangular_capsule":
-            instance.actual_instance = RectangularCapsule2.from_json(json_str)
+            instance.actual_instance = RectangularCapsule.from_json(json_str)
             return instance
 
-        # check if data type is `Sphere2`
+        # check if data type is `Sphere`
         if _data_type == "sphere":
-            instance.actual_instance = Sphere2.from_json(json_str)
+            instance.actual_instance = Sphere.from_json(json_str)
             return instance
 
-        # check if data type is `Box2`
-        if _data_type == "Box-2":
-            instance.actual_instance = Box2.from_json(json_str)
+        # check if data type is `Box`
+        if _data_type == "Box":
+            instance.actual_instance = Box.from_json(json_str)
             return instance
 
-        # check if data type is `Capsule2`
-        if _data_type == "Capsule-2":
-            instance.actual_instance = Capsule2.from_json(json_str)
+        # check if data type is `Capsule`
+        if _data_type == "Capsule":
+            instance.actual_instance = Capsule.from_json(json_str)
             return instance
 
-        # check if data type is `ConvexHull2`
-        if _data_type == "ConvexHull-2":
-            instance.actual_instance = ConvexHull2.from_json(json_str)
+        # check if data type is `ConvexHull`
+        if _data_type == "ConvexHull":
+            instance.actual_instance = ConvexHull.from_json(json_str)
             return instance
 
-        # check if data type is `Cylinder2`
-        if _data_type == "Cylinder-2":
-            instance.actual_instance = Cylinder2.from_json(json_str)
+        # check if data type is `Cylinder`
+        if _data_type == "Cylinder":
+            instance.actual_instance = Cylinder.from_json(json_str)
             return instance
 
-        # check if data type is `Plane2`
-        if _data_type == "Plane-2":
-            instance.actual_instance = Plane2.from_json(json_str)
+        # check if data type is `Plane`
+        if _data_type == "Plane":
+            instance.actual_instance = Plane.from_json(json_str)
             return instance
 
-        # check if data type is `Rectangle2`
-        if _data_type == "Rectangle-2":
-            instance.actual_instance = Rectangle2.from_json(json_str)
+        # check if data type is `Rectangle`
+        if _data_type == "Rectangle":
+            instance.actual_instance = Rectangle.from_json(json_str)
             return instance
 
-        # check if data type is `RectangularCapsule2`
-        if _data_type == "RectangularCapsule-2":
-            instance.actual_instance = RectangularCapsule2.from_json(json_str)
+        # check if data type is `RectangularCapsule`
+        if _data_type == "RectangularCapsule":
+            instance.actual_instance = RectangularCapsule.from_json(json_str)
             return instance
 
-        # check if data type is `Sphere2`
-        if _data_type == "Sphere-2":
-            instance.actual_instance = Sphere2.from_json(json_str)
+        # check if data type is `Sphere`
+        if _data_type == "Sphere":
+            instance.actual_instance = Sphere.from_json(json_str)
             return instance
 
-        # deserialize data into Sphere2
+        # deserialize data into Sphere
         try:
-            instance.actual_instance = Sphere2.from_json(json_str)
+            instance.actual_instance = Sphere.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Box2
+        # deserialize data into Box
         try:
-            instance.actual_instance = Box2.from_json(json_str)
+            instance.actual_instance = Box.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Rectangle2
+        # deserialize data into Rectangle
         try:
-            instance.actual_instance = Rectangle2.from_json(json_str)
+            instance.actual_instance = Rectangle.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Plane2
+        # deserialize data into Plane
         try:
-            instance.actual_instance = Plane2.from_json(json_str)
+            instance.actual_instance = Plane.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Cylinder2
+        # deserialize data into Cylinder
         try:
-            instance.actual_instance = Cylinder2.from_json(json_str)
+            instance.actual_instance = Cylinder.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Capsule2
+        # deserialize data into Capsule
         try:
-            instance.actual_instance = Capsule2.from_json(json_str)
+            instance.actual_instance = Capsule.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into RectangularCapsule2
+        # deserialize data into RectangularCapsule
         try:
-            instance.actual_instance = RectangularCapsule2.from_json(json_str)
+            instance.actual_instance = RectangularCapsule.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into ConvexHull2
+        # deserialize data into ConvexHull
         try:
-            instance.actual_instance = ConvexHull2.from_json(json_str)
+            instance.actual_instance = ConvexHull.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into ColliderShape with oneOf schemas: Box2, Capsule2, ConvexHull2, Cylinder2, Plane2, Rectangle2, RectangularCapsule2, Sphere2. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into ColliderShape with oneOf schemas: Box, Capsule, ConvexHull, Cylinder, Plane, Rectangle, RectangularCapsule, Sphere. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ColliderShape with oneOf schemas: Box2, Capsule2, ConvexHull2, Cylinder2, Plane2, Rectangle2, RectangularCapsule2, Sphere2. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ColliderShape with oneOf schemas: Box, Capsule, ConvexHull, Cylinder, Plane, Rectangle, RectangularCapsule, Sphere. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -291,7 +291,7 @@ class ColliderShape(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], Box2, Capsule2, ConvexHull2, Cylinder2, Plane2, Rectangle2, RectangularCapsule2, Sphere2]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], Box, Capsule, ConvexHull, Cylinder, Plane, Rectangle, RectangularCapsule, Sphere]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

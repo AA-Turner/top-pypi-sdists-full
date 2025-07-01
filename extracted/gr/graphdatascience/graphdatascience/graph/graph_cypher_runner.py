@@ -45,7 +45,9 @@ class GraphCypherRunner(CallerBase):
 
         GraphCypherRunner._verify_query_ends_with_return_clause(self._namespace, query)
 
-        result: Optional[dict[str, Any]] = self._query_runner.run_cypher(query, params, database, False).squeeze()
+        result: Optional[dict[str, Any]] = self._query_runner.run_retryable_cypher(
+            query, params, database, custom_error=False
+        ).squeeze()
 
         if not result:
             raise ValueError("Projected graph cannot be empty.")
@@ -101,7 +103,7 @@ class GraphCypherRunner(CallerBase):
                             at_end = True
                             break
 
-            if query_token == "RETURN":
+            if query_token.upper() == "RETURN":
                 # State 1: We found the start of a `RETURN` clause.
                 # Check if it is the `RETURN gds.graph.project` call.
                 # We split tokens on `__separators` and flatten the nested iters.

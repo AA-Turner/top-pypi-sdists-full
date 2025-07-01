@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qm-octave"
-version = "2.1.5"
+version = "2.1.6"
 description = "SDK to control an Octave with QUA"
 readme="README.md"
 license = "BSD-3-Clause"
@@ -20,20 +20,18 @@ exclude = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8, <3.13"
+python = ">=3.9, <3.13"
 betterproto = "2.0.0b7"
 grpcio = "^1.59.2"
 protobuf = [
-    {version = "^3.17.3", python = ">=3.8,<3.11"},
-    {version = ">=4.24, <6", python = ">=3.11"}
+    {version = ">=4.24, <7"}
 ]
 grpclib = { version = "^0.4.3rc3", python = "^3.10", allow-prereleases = true}
 
 [tool.poetry.group.dev.dependencies]
 betterproto = {version = "2.0.0b7", extras = ["compiler"]}
 grpcio-tools = [
-    {version = "1.39.0", python = ">=3.8,<3.11"},
-    {version = "^1.57", python = ">=3.11"}
+    {version = "^1.57"}
 ]
 
 # Jinja2 and isort was added for being able to create a version

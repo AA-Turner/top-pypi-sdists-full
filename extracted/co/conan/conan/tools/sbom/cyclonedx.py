@@ -41,11 +41,11 @@ def cyclonedx_1_4(conanfile, name=None, add_build=False, add_tests=False, **kwar
     if has_special_root_node:
         deps = {"ref": special_id,
                 "dependsOn": [f"pkg:conan/{d.dst.name}@{d.dst.ref.version}?rref={d.dst.ref.revision}"
-                              for d in graph.root.dependencies]}
+                              for d in graph.root.edges]}
         dependencies.append(deps)
     for c in nodes:
         deps = {"ref": f"pkg:conan/{c.name}@{c.ref.version}?rref={c.ref.revision}"}
-        dep = [d for d in c.dependencies if (d.dst.context == "host" or add_build) and (not d.dst.test or add_tests)]
+        dep = [d for d in c.edges if (d.dst.context == "host" or add_build) and (not d.dst.test or add_tests)]
 
         depends_on = [f"pkg:conan/{d.dst.name}@{d.dst.ref.version}?rref={d.dst.ref.revision}" for d in dep]
         if depends_on:
@@ -55,7 +55,7 @@ def cyclonedx_1_4(conanfile, name=None, add_build=False, add_tests=False, **kwar
     sbom_cyclonedx_1_4 = {
         **({"components": [{
             "author": node.conanfile.author or "Unknown",
-            "bom-ref": special_id if has_special_root_node else f"pkg:conan/{node.name}@{node.ref.version}?rref={node.ref.revision}",
+            "bom-ref": f"pkg:conan/{node.name}@{node.ref.version}?rref={node.ref.revision}",
             "description": node.conanfile.description,
             **({"externalReferences": [{
                 "type": "website",
@@ -132,11 +132,11 @@ def cyclonedx_1_6(conanfile, name=None, add_build=False, add_tests=False, **kwar
     if has_special_root_node:
         deps = {"ref": special_id,
                 "dependsOn": [f"pkg:conan/{d.dst.name}@{d.dst.ref.version}?rref={d.dst.ref.revision}"
-                              for d in graph.root.dependencies]}
+                              for d in graph.root.edges]}
         dependencies.append(deps)
     for c in nodes:
         deps = {"ref": f"pkg:conan/{c.name}@{c.ref.version}?rref={c.ref.revision}"}
-        dep = [d for d in c.dependencies if (d.dst.context == "host" or add_build) and (not d.dst.test or add_tests)]
+        dep = [d for d in c.edges if (d.dst.context == "host" or add_build) and (not d.dst.test or add_tests)]
 
         depends_on = [f"pkg:conan/{d.dst.name}@{d.dst.ref.version}?rref={d.dst.ref.revision}" for d in dep]
         if depends_on:
@@ -146,7 +146,7 @@ def cyclonedx_1_6(conanfile, name=None, add_build=False, add_tests=False, **kwar
     sbom_cyclonedx_1_6 = {
         **({"components": [{
             **({"authors": [{"name": node.conanfile.author}]} if node.conanfile.author else {}),
-            "bom-ref": special_id if has_special_root_node else f"pkg:conan/{node.name}@{node.ref.version}?rref={node.ref.revision}",
+            "bom-ref": f"pkg:conan/{node.name}@{node.ref.version}?rref={node.ref.revision}",
             "description": node.conanfile.description,
             **({"externalReferences": [{
                 "type": "website",

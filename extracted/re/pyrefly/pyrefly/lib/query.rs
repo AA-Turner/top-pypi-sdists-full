@@ -10,6 +10,9 @@
 use std::io::Cursor;
 
 use dupe::Dupe;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::sys_info::SysInfo;
+use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
@@ -19,13 +22,10 @@ use ruff_text_size::Ranged;
 use crate::alt::answers::Answers;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_info::SourceRange;
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
-use crate::sys_info::SysInfo;
 use crate::types::display::TypeDisplayContext;
 
 pub struct Query {
@@ -71,7 +71,7 @@ impl Query {
         &self,
         name: ModuleName,
         path: ModulePath,
-    ) -> Option<Vec<(SourceRange, String)>> {
+    ) -> Option<Vec<(DisplayRange, String)>> {
         let handle = self.make_handle(name, path);
 
         let transaction = self.state.transaction();
@@ -84,14 +84,14 @@ impl Query {
             x: &Expr,
             module_info: &ModuleInfo,
             answers: &Answers,
-            res: &mut Vec<(SourceRange, String)>,
+            res: &mut Vec<(DisplayRange, String)>,
         ) {
             let range = x.range();
             if let Some(ty) = answers.get_type_trace(range) {
                 let mut ctx = TypeDisplayContext::new(&[&ty]);
                 ctx.always_display_module_name();
                 res.push((
-                    module_info.source_range(range),
+                    module_info.display_range(range),
                     ctx.display(&ty).to_string(),
                 ));
             }

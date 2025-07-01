@@ -27,6 +27,7 @@ import binascii
 import os
 import stat
 import sys
+import time
 import warnings
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import suppress
@@ -88,6 +89,87 @@ PACKDIR = "pack"
 # TODO: should packs also be non-writable on Windows? if so, that
 # would requite some rather significant adjustments to the test suite
 PACK_MODE = 0o444 if sys.platform != "win32" else 0o644
+
+# Grace period for cleaning up temporary pack files (in seconds)
+# Matches git's default of 2 weeks
+DEFAULT_TEMPFILE_GRACE_PERIOD = 14 * 24 * 60 * 60  # 2 weeks
+
+
+def find_shallow(store, heads, depth):
+    """Find shallow commits according to a given depth.
+
+    Args:
+      store: An ObjectStore for looking up objects.
+      heads: Iterable of head SHAs to start walking from.
+      depth: The depth of ancestors to include. A depth of one includes
+        only the heads themselves.
+    Returns: A tuple of (shallow, not_shallow), sets of SHAs that should be
+        considered shallow and unshallow according to the arguments. Note that
+        these sets may overlap if a commit is reachable along multiple paths.
+    """
+    parents = {}
+
+    def get_parents(sha):
+        result = parents.get(sha, None)
+        if not result:
+            result = store[sha].parents
+            parents[sha] = result
+        return result
+
+    todo = []  # stack of (sha, depth)
+    for head_sha in heads:
+        obj = store[head_sha]
+        # Peel tags if necessary
+        while isinstance(obj, Tag):
+            _, sha = obj.object
+            obj = store[sha]
+        if isinstance(obj, Commit):
+            todo.append((obj.id, 1))
+
+    not_shallow = set()
+    shallow = set()
+    while todo:
+        sha, cur_depth = todo.pop()
+        if cur_depth < depth:
+            not_shallow.add(sha)
+            new_depth = cur_depth + 1
+            todo.extend((p, new_depth) for p in get_parents(sha))
+        else:
+            shallow.add(sha)
+
+    return shallow, not_shallow
+
+
+def get_depth(
+    store,
+    head,
+    get_parents=lambda commit: commit.parents,
+    max_depth=None,
+):
+    """Return the current available depth for the given head.
+    For commits with multiple parents, the largest possible depth will be
+    returned.
+
+    Args:
+        head: commit to start from
+        get_parents: optional function for getting the parents of a commit
+        max_depth: maximum depth to search
+    """
+    if head not in store:
+        return 0
+    current_depth = 1
+    queue = [(head, current_depth)]
+    while queue and (max_depth is None or current_depth < max_depth):
+        e, depth = queue.pop(0)
+        current_depth = max(current_depth, depth)
+        cmt = store[e]
+        if isinstance(cmt, Tag):
+            _cls, sha = cmt.object
+            cmt = store[sha]
+        queue.extend(
+            (parent, depth + 1) for parent in get_parents(cmt) if parent in store
+        )
+    return current_depth
 
 
 class PackContainer(Protocol):
@@ -334,24 +416,22 @@ class BaseObjectStore:
             get_parents: optional function for getting the parents of a commit
             max_depth: maximum depth to search
         """
-        if head not in self:
-            return 0
-        current_depth = 1
-        queue = [(head, current_depth)]
-        while queue and (max_depth is None or current_depth < max_depth):
-            e, depth = queue.pop(0)
-            current_depth = max(current_depth, depth)
-            cmt = self[e]
-            if isinstance(cmt, Tag):
-                _cls, sha = cmt.object
-                cmt = self[sha]
-            queue.extend(
-                (parent, depth + 1) for parent in get_parents(cmt) if parent in self
-            )
-        return current_depth
+        return get_depth(self, head, get_parents=get_parents, max_depth=max_depth)
 
     def close(self) -> None:
         """Close any files opened by this object store."""
+        # Default implementation is a NO-OP
+
+    def prune(self, grace_period: Optional[int] = None) -> None:
+        """Prune/clean up this object store.
+
+        This includes removing orphaned temporary files and other
+        housekeeping tasks. Default implementation is a NO-OP.
+
+        Args:
+          grace_period: Grace period in seconds for removing temporary files.
+                       If None, uses the default grace period.
+        """
         # Default implementation is a NO-OP
 
     def iter_prefix(self, prefix: bytes) -> Iterator[ObjectID]:
@@ -394,14 +474,17 @@ class BaseObjectStore:
           sha: SHA1 of the object
 
         Returns:
-          Modification time as seconds since epoch, or None if not available
+          Modification time as seconds since epoch
+
+        Raises:
+          KeyError: if the object is not found
         """
-        # Default implementation returns None
-        # Subclasses can override to provide actual mtime
-        return None
+        # Default implementation raises KeyError
+        # Subclasses should override to provide actual mtime
+        raise KeyError(sha)
 
 
-class PackBasedObjectStore(BaseObjectStore):
+class PackBasedObjectStore(BaseObjectStore, PackedObjectContainer):
     def __init__(self, pack_compression_level=-1, pack_index_version=None) -> None:
         self._pack_cache: dict[str, Pack] = {}
         self.pack_compression_level = pack_compression_level
@@ -519,6 +602,20 @@ class PackBasedObjectStore(BaseObjectStore):
     def packs(self):
         """List with pack objects."""
         return list(self._iter_cached_packs()) + list(self._update_pack_cache())
+
+    def count_pack_files(self) -> int:
+        """Count the number of pack files.
+
+        Returns:
+            Number of pack files (excluding those with .keep files)
+        """
+        count = 0
+        for pack in self.packs:
+            # Check if there's a .keep file for this pack
+            keep_path = pack._basename + ".keep"
+            if not os.path.exists(keep_path):
+                count += 1
+        return count
 
     def _iter_alternate_objects(self):
         """Iterate over the SHAs of all the objects in alternate stores."""
@@ -663,9 +760,8 @@ class PackBasedObjectStore(BaseObjectStore):
 
     def iter_unpacked_subset(
         self,
-        shas,
-        *,
-        include_comp=False,
+        shas: set[bytes],
+        include_comp: bool = False,
         allow_missing: bool = False,
         convert_ofs_delta: bool = True,
     ) -> Iterator[UnpackedObject]:
@@ -786,6 +882,9 @@ class PackBasedObjectStore(BaseObjectStore):
 
 class DiskObjectStore(PackBasedObjectStore):
     """Git-style object store that exists on disk."""
+
+    path: Union[str, os.PathLike]
+    pack_dir: Union[str, os.PathLike]
 
     def __init__(
         self,
@@ -935,6 +1034,32 @@ class DiskObjectStore(PackBasedObjectStore):
                     continue
                 yield sha
 
+    def count_loose_objects(self) -> int:
+        """Count the number of loose objects in the object store.
+
+        Returns:
+            Number of loose objects
+        """
+        count = 0
+        if not os.path.exists(self.path):
+            return 0
+
+        for i in range(256):
+            subdir = os.path.join(self.path, f"{i:02x}")
+            try:
+                count += len(
+                    [
+                        name
+                        for name in os.listdir(subdir)
+                        if len(name) == 38  # 40 - 2 for the prefix
+                    ]
+                )
+            except FileNotFoundError:
+                # Directory may have been removed or is inaccessible
+                continue
+
+        return count
+
     def _get_loose_object(self, sha):
         path = self._get_shafile_path(sha)
         try:
@@ -946,22 +1071,39 @@ class DiskObjectStore(PackBasedObjectStore):
         os.remove(self._get_shafile_path(sha))
 
     def get_object_mtime(self, sha):
-        """Get the modification time of a loose object.
+        """Get the modification time of an object.
 
         Args:
           sha: SHA1 of the object
 
         Returns:
-          Modification time as seconds since epoch, or None if not a loose object
-        """
-        if not self.contains_loose(sha):
-            return None
+          Modification time as seconds since epoch
 
-        path = self._get_shafile_path(sha)
-        try:
-            return os.path.getmtime(path)
-        except (OSError, FileNotFoundError):
-            return None
+        Raises:
+          KeyError: if the object is not found
+        """
+        # First check if it's a loose object
+        if self.contains_loose(sha):
+            path = self._get_shafile_path(sha)
+            try:
+                return os.path.getmtime(path)
+            except FileNotFoundError:
+                pass
+
+        # Check if it's in a pack file
+        for pack in self.packs:
+            try:
+                if sha in pack:
+                    # Use the pack file's mtime for packed objects
+                    pack_path = pack._data_path
+                    try:
+                        return os.path.getmtime(pack_path)
+                    except (FileNotFoundError, AttributeError):
+                        pass
+            except PackFileDisappeared:
+                pass
+
+        raise KeyError(sha)
 
     def _remove_pack(self, pack) -> None:
         try:
@@ -1243,6 +1385,56 @@ class DiskObjectStore(PackBasedObjectStore):
 
             # Clear cached commit graph so it gets reloaded
             self._commit_graph = None
+
+    def prune(self, grace_period: Optional[int] = None) -> None:
+        """Prune/clean up this object store.
+
+        This removes temporary files that were left behind by interrupted
+        pack operations. These are files that start with ``tmp_pack_`` in the
+        repository directory or files with .pack extension but no corresponding
+        .idx file in the pack directory.
+
+        Args:
+          grace_period: Grace period in seconds for removing temporary files.
+                       If None, uses DEFAULT_TEMPFILE_GRACE_PERIOD.
+        """
+        import glob
+
+        if grace_period is None:
+            grace_period = DEFAULT_TEMPFILE_GRACE_PERIOD
+
+        # Clean up tmp_pack_* files in the repository directory
+        for tmp_file in glob.glob(os.path.join(self.path, "tmp_pack_*")):
+            # Check if file is old enough (more than grace period)
+            mtime = os.path.getmtime(tmp_file)
+            if time.time() - mtime > grace_period:
+                os.remove(tmp_file)
+
+        # Clean up orphaned .pack files without corresponding .idx files
+        try:
+            pack_dir_contents = os.listdir(self.pack_dir)
+        except FileNotFoundError:
+            return
+
+        pack_files = {}
+        idx_files = set()
+
+        for name in pack_dir_contents:
+            if name.endswith(".pack"):
+                base_name = name[:-5]  # Remove .pack extension
+                pack_files[base_name] = name
+            elif name.endswith(".idx"):
+                base_name = name[:-4]  # Remove .idx extension
+                idx_files.add(base_name)
+
+        # Remove .pack files without corresponding .idx files
+        for base_name, pack_name in pack_files.items():
+            if base_name not in idx_files:
+                pack_path = os.path.join(self.pack_dir, pack_name)
+                # Check if file is old enough (more than grace period)
+                mtime = os.path.getmtime(pack_path)
+                if time.time() - mtime > grace_period:
+                    os.remove(pack_path)
 
 
 class MemoryObjectStore(BaseObjectStore):
@@ -1629,6 +1821,7 @@ class ObjectStoreGraphWalker:
         local_heads: Iterable[ObjectID],
         get_parents,
         shallow: Optional[set[ObjectID]] = None,
+        update_shallow=None,
     ) -> None:
         """Create a new instance.
 
@@ -1642,6 +1835,7 @@ class ObjectStoreGraphWalker:
         if shallow is None:
             shallow = set()
         self.shallow = shallow
+        self.update_shallow = update_shallow
 
     def nak(self) -> None:
         """Nothing in common was found."""

@@ -24,6 +24,10 @@ def batch_logs_cli(
     workspace,
     task,
 ):
+    get_logs(cluster, workspace, task, print_logs=True)
+
+
+def get_logs(cluster: str | int, workspace: str | None = None, task: int | None = None, print_logs: bool = False):
     jobs, cluster_id = get_job_status(cluster=cluster, workspace=workspace)
     instance_labels_dict = {}
     show_all_instances = task is not None
@@ -53,10 +57,12 @@ def batch_logs_cli(
         job_id = jobs[0]["id"]
         log_filter = f"__BATCH {job_id}."
 
-    better_logs(
+    return better_logs(
         cluster_id=cluster_id,
         instance_labels_dict=instance_labels_dict,
         show_label=not show_all_instances,
         show_all_instances=show_all_instances,
         filter=log_filter,
+        capture_text=not print_logs,
+        color=print_logs,
     )

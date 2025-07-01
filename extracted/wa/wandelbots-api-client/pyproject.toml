@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wandelbots_api_client"
-version = "25.5.1"
+version = "25.6.0"
 description = "Wandelbots Python Client: Interact with robots in an easy and intuitive way. "
 authors = ["Copyright (c) 2024 Wandelbots GmbH <contact@wandelbots.com>"]
 license = "Apache-2.0"

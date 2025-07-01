@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.11.16
+Version: 0.11.17
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>
@@ -27,6 +27,9 @@ Requires-Dist: humanize
 Requires-Dist: simplejson >= 3.16.0
 Requires-Dist: flax ; extra == "docs"
 Requires-Dist: google-cloud-logging ; extra == "docs"
+Requires-Dist: grain ; extra == "docs"
+Requires-Dist: tensorflow_datasets ; extra == "docs"
+Requires-Dist: opencv-python ; extra == "docs"
 Requires-Dist: google-cloud-logging ; extra == "testing"
 Requires-Dist: mock ; extra == "testing"
 Requires-Dist: flax ; extra == "testing"

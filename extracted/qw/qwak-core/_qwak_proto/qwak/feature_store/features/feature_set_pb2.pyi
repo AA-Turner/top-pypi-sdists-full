@@ -312,6 +312,7 @@ class FeatureSetMetadata(google.protobuf.message.Message):
     LAST_MODIFIED_AT_FIELD_NUMBER: builtins.int
     LAST_MODIFIED_BY_FIELD_NUMBER: builtins.int
     FEATURESET_VERSION_METADATA_FIELD_NUMBER: builtins.int
+    ENVIRONMENT_ID_FIELD_NUMBER: builtins.int
     @property
     def created_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """When the feature set was created"""
@@ -325,6 +326,8 @@ class FeatureSetMetadata(google.protobuf.message.Message):
     @property
     def featureset_version_metadata(self) -> global___FeaturesetVersionMetadata:
         """Featureset version metadata"""
+    environment_id: builtins.str
+    """Environment id"""
     def __init__(
         self,
         *,
@@ -333,9 +336,10 @@ class FeatureSetMetadata(google.protobuf.message.Message):
         last_modified_at: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         last_modified_by: builtins.str = ...,
         featureset_version_metadata: global___FeaturesetVersionMetadata | None = ...,
+        environment_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "featureset_version_metadata", b"featureset_version_metadata", "last_modified_at", b"last_modified_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "created_by", b"created_by", "featureset_version_metadata", b"featureset_version_metadata", "last_modified_at", b"last_modified_at", "last_modified_by", b"last_modified_by"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "created_by", b"created_by", "environment_id", b"environment_id", "featureset_version_metadata", b"featureset_version_metadata", "last_modified_at", b"last_modified_at", "last_modified_by", b"last_modified_by"]) -> None: ...
 
 global___FeatureSetMetadata = FeatureSetMetadata
 

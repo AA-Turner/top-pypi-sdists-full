@@ -1568,7 +1568,7 @@ def _parse_targets(targets):
         elif target == "me":
             # get public/internet routable address from which local user will be hitting scheduler
             if not my_public_ip:
-                with urllib3.PoolManager() as pool:
+                with urllib3.PoolManager(ca_certs=certifi.where()) as pool:
                     my_public_ip = pool.request("GET", "https://api.ipify.org").data.decode("utf-8")
 
             cidr = f"{my_public_ip}/32"

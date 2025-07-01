@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.16.0.0
+Version: 1.16.0.1
 Summary: Type annotations for SciPy
 Project-URL: Homepage, https://scipy.org/
 Project-URL: Repository, https://github.com/scipy/scipy-stubs/
@@ -25,7 +25,7 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.11
 Requires-Dist: optype<1,>=0.10.0
 Provides-Extra: scipy
-Requires-Dist: scipy<1.17,>=1.16.0rc2; extra == 'scipy'
+Requires-Dist: scipy<1.17,>=1.16.0; extra == 'scipy'
 Description-Content-Type: text/markdown
 
 # scipy-stubs
@@ -73,7 +73,7 @@ That's it! Your IDE and type checker will now provide precise type information f
 ### Precise and Complete
 
 - **Array shape awareness**: Many functions include shape-type information for better array handling
-- **Generic types**: Supports generic types for sparse arrays, distributions, and more
+- **Generic types**: Comprehensive generic classes for sparse arrays, distributions, linear operators, and more
 - **Complete coverage**: Type hints are provided for the entire SciPy API
 
 <!-- NOTE: SciPy permalinks to the following `#installation` anchor; don't modify it! -->
@@ -119,32 +119,32 @@ conda install conda-forge::scipy-typed
 ### Q: Do I need to change my existing code?
 
 **A:** No! `scipy-stubs` works with your existing code without any modifications.
-    Just install it and your type checker and IDE will automatically use the type information.
+Just install it and your type checker and IDE will automatically use the type information.
 
 ### Q: Will this slow down my code?
 
 **A:** Not at all. Type stubs are only used during development and type checking.
-    They have zero runtime overhead since they're not imported when your code runs.
+They have zero runtime overhead since they're not imported when your code runs.
 
 ### Q: What if I don't use type hints in my code?
 
 **A:** You'll still benefit! Your IDE will provide better autocompletion and error detection
-    even without explicit type annotations in your code.
+even without explicit type annotations in your code.
 
 ### Q: Can I use this with Jupyter notebooks?
 
 **A:** Yes! Most modern Jupyter environments (JupyterLab, VS Code notebooks) support
-    type checking and will benefit from `scipy-stubs`.
+type checking and will benefit from `scipy-stubs`.
 
 ### Q: What's the difference between this and the built-in scipy typing?
 
 **A:** SciPy itself has limited type annotations. `scipy-stubs` provides comprehensive,
-    precise type information for the entire SciPy API, including shape-typing and advanced type features.
+precise type information for the entire SciPy API, including shape-typing and advanced type features.
 
 ### Q: How do I know if it's working?
 
 **A:** You should see improved autocompletion in your IDE and more precise type information.
-    You can also run `pyright` or another type checker on your code to see type checking in action.
+You can also run `pyright` or another type checker on your code to see type checking in action.
 
 ### Q: How much of SciPy is covered?
 
@@ -153,8 +153,8 @@ conda install conda-forge::scipy-typed
 ### Q: What static type-checkers are supported?
 
 **A:** `scipy-stubs` is compatible with [`pyright`](https://pyright.readthedocs.io/en/latest/index.html) (a.k.a. pylance),
-    [`basedpyright`](https://github.com/DetachHead/basedpyright), and [`mypy`](https://github.com/python/mypy).
-    We only support the latest versions of these type-checkers, so make sure to keep them up to date.
+[`basedpyright`](https://github.com/DetachHead/basedpyright), and [`mypy`](https://github.com/python/mypy).
+We only support the latest versions of these type-checkers, so make sure to keep them up to date.
 
 ## Versioning and requirements
 
@@ -170,6 +170,109 @@ This is essential for `scipy-stubs` to work properly, as it relies heavily on it
 scalar-likes, shape-typing in general, and much more. At the moment, `scipy-stubs` requires the latest version `optype`.
 
 The exact version requirements are specified in the [`pyproject.toml`](pyproject.toml).
+
+## Generics
+
+`scipy-stubs` provides many generic classes that enable precise type checking for SciPy's complex APIs.
+
+All generic type parameters are optional and can be omitted if not needed.
+
+Note that not all classes are subscriptable at runtime, as that requires the `__class_getitem__` method to be implemented in `scipy`.
+This can be worked around with `from __future__ import annotations` or by manually stringifying the generic annotations.
+We are working on improving this in future versions of SciPy.
+See the `scipy` columns below for which classes are subscriptable at runtime.
+
+### `scipy.integrate`
+
+| generic type             | `scipy-stubs` | `scipy` |                                                                                               |
+| ------------------------ | ------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `BDF[T: f64 \| c128]`    | `>=1.14.0.1`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.BDF.html)         |
+| `DOP853[T: f64 \| c128]` | `>=1.14.0.1`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.DOP853.html)      |
+| `RK23[T: f64 \| c128]`   | `>=1.14.0.1`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.RK23.html)        |
+| `RK45[T: f64 \| c128]`   | `>=1.14.0.1`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.RK45.html)        |
+| `ode[*ArgTs]`            | `>=1.14.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.ode.html)         |
+| `complex_ode[*ArgTs]`    | `>=1.14.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.complex_ode.html) |
+
+### `scipy.interpolate`
+
+| generic type                                       | `scipy-stubs` | `scipy`  |                                                                                                                |
+| -------------------------------------------------- | ------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `AAA[T: inexact]`                                  | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.AAA.html)                        |
+| `BarycentricInterpolator[T: f64 \| c128]`          | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BarycentricInterpolator.html)    |
+| `BPoly[T: f64 \| c128]`                            | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BPoly.html)                      |
+| `BSpline[T: f64 \| c128]`                          | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.BSpline.html)                    |
+| `CubicHermiteSpline[T: f64 \| c128]`               | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicHermiteSpline.html)         |
+| `CubicSpline[T: f64 \| c128]`                      | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html)                |
+| `FloaterHormannInterpolator[T: f64 \| c128]`       | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.FloaterHormannInterpolator.html) |
+| `KroghInterpolator[T: f64 \| c128, S: (int, ...)]` | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.KroghInterpolator.html)          |
+| `LinearNDInterpolator[T: f64 \| c128]`             | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LinearNDInterpolator.html)       |
+| `NdBSpline[T: f64 \| c128]`                        | `>=1.15.2.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NdBSpline.html)                  |
+| `NdPPoly[T: f64 \| c128]`                          | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NdPPoly.html)                    |
+| `NearestNDInterpolator[T: f64 \| c128]`            | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.NearestNDInterpolator.html)      |
+| `PPoly[T: f64 \| c128]`                            | `>=1.14.1.4`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PPoly.html)                      |
+| `RBFInterpolator[T: f64 \| c128, S: (int, ...)]`   | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RBFInterpolator.html)            |
+| `RegularGridInterpolator[T: f64 \| c128]`          | `>=1.14.1.6`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RegularGridInterpolator.html)    |
+
+### `scipy.optimize`
+
+| generic type                            | `scipy-stubs` | `scipy`  |                                                                                                  |
+| --------------------------------------- | ------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `BroydenFirst[T: inexact]`              | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.BroydenFirst.html)    |
+| `InverseJacobian[T: inexact]`           | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.InverseJacobian.html) |
+| `KrylovJacobian[T: inexact]`            | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.KrylovJacobian.html)  |
+| `Bounds[S: (int, int, ...), T: scalar]` | `>=1.16.0.1`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.Bounds.html)          |
+
+### `scipy.signal`
+
+| generic type                                         | `scipy-stubs` | `scipy`  |                                                                                                 |
+| ---------------------------------------------------- | ------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `ShortTimeFFT[T: inexact]`                           | `>=1.16.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.ShortTimeFFT.html)     |
+| `StateSpace[Z: inexact, P: floating, D: scalar]`     | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.StateSpace.html)       |
+| `TransferFunction[P: floating, D: scalar]`           | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.TransferFunction.html) |
+| `ZerosPolesGain[Z: inexact, P: floating, D: scalar]` | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.ZerosPolesGain.html)   |
+| `lti[Z: inexact, P: floating]`                       | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.lti.html)              |
+| `dlti[Z: inexact, P: floating, D: scalar]`           | `>=1.15.2.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.dlti.html)             |
+
+### `scipy.sparse`
+
+| generic type                                    | `scipy-stubs` | `scipy`  |                                                                                           |
+| ----------------------------------------------- | ------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `bsr_array[T: scalar]`                          | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.bsr_array.html)  |
+| `bsr_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.bsr_matrix.html) |
+| `coo_array[T: scalar, S: (int, ...)]`           | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.coo_array.html)  |
+| `coo_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.coo_matrix.html) |
+| `csc_array[T: scalar]`                          | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_array.html)  |
+| `csc_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html) |
+| `csr_array[T: scalar, S: (int,) \| (int, int)]` | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_array.html)  |
+| `csr_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html) |
+| `dia_array[T: scalar]`                          | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.dia_array.html)  |
+| `dia_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.dia_matrix.html) |
+| `dok_array[T: scalar, S: (int,) \| (int, int)]` | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.dok_array.html)  |
+| `dok_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.dok_matrix.html) |
+| `lil_array[T: scalar]`                          | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.lil_array.html)  |
+| `lil_matrix[T: scalar]`                         | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.lil_matrix.html) |
+| `sparray[T: scalar, S: (int, ...)]`             | `>=1.15.2.0`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.sparray.html)    |
+| `spmatrix[T: scalar]`                           | `>=1.14.1.6`  | `>=1.16` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html)   |
+
+#### `scipy.sparse.linalg`
+
+| generic type                | `scipy-stubs` | `scipy` |                                                                                                      |
+| --------------------------- | ------------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| `LaplacianNd[T: real]`      | `>=1.14.1.6`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.LaplacianNd.html)    |
+| `LinearOperator[T: scalar]` | `>=1.14.1.6`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.LinearOperator.html) |
+| `SuperLU[T: inexact]`       | `>=1.16.0.1`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.SuperLU.html)        |
+
+### `scipy.stats`
+
+| generic type                                   | `scipy-stubs` | `scipy` |                                                                                          |
+| ---------------------------------------------- | ------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `Covariance[T: real]`                          | `>=1.14.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Covariance.html) |
+| `Uniform[S: (int, ...), T: floating]`          | `>=1.15.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Uniform.html)    |
+| `Normal[S: (int, ...), T: floating]`           | `>=1.15.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Normal.html)     |
+| `Binomial[S: (int, ...), T: floating]`         | `>=1.16.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Binomial.html)   |
+| `Mixture[T: floating]`                         | `>=1.15.0.0`  | :x:     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Mixture.html)    |
+| `rv_frozen[D: rv_generic, T: scalar or array]` | `>=1.14.0.0`  | :x:     |                                                                                          |
+| `multi_rv_frozen[D: rv_generic]`               | `>=1.14.0.0`  | :x:     |                                                                                          |
 
 ## Contributing
 

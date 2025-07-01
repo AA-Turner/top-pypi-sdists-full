@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bluetooth-adapters
-Version: 0.21.4
+Version: 2.0.0
 Summary: Tools to enumerate and find Bluetooth Adapters
 License: Apache-2.0
 Author: J. Nick Koston
@@ -22,7 +22,7 @@ Provides-Extra: docs
 Requires-Dist: Sphinx (>=5,<8) ; extra == "docs"
 Requires-Dist: aiooui (>=0.1.1)
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
-Requires-Dist: bleak (>=0.21.1)
+Requires-Dist: bleak (>=1)
 Requires-Dist: dbus-fast (>=1.21.0) ; platform_system == "Linux"
 Requires-Dist: myst-parser (>=0.18,<3.1) ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme (>=1,<4) ; extra == "docs"

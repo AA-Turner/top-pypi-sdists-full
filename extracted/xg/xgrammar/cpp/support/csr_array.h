@@ -12,11 +12,12 @@
 #include <vector>
 
 #include "logging.h"
+#include "reflection.h"
 #include "utils.h"
 
 namespace xgrammar {
 
-// TODO(yixin): consider renaming to CompactVector
+// TODO(yixin): consider renaming to Flat2DArray
 
 /*!
  * \brief This class implements a Compressed Sparse Row (CSR) array data structure. It stores
@@ -39,22 +40,13 @@ namespace xgrammar {
 template <typename DataType = int32_t>
 class CSRArray {
  public:
-  /*! \brief Default constructor. */
-  CSRArray() = default;
-
-  /****************** Accessors ******************/
-
-  /*! \brief Get the number of rows in the CSRArray. */
-  int32_t Size() const { return static_cast<int32_t>(indptr_.size()) - 1; }
-
-  friend std::size_t MemorySize(const CSRArray<DataType>& arr) {
-    return MemorySize(arr.data_) + MemorySize(arr.indptr_);
-  }
-
   /*!
-   * \brief Struct representing a row in the CSRArray.
+   * \brief The struct representing a row in the CSRArray.
    */
   struct Row {
+    /*! \brief The value type is DataType. */
+    using value_type = DataType;
+
     /*! \brief Pointer to the data of the row. */
     const DataType* data;
     /*! \brief Length of the row data. */
@@ -90,6 +82,21 @@ class CSRArray {
       return os;
     }
   };
+
+  /*! \brief The value type is Row. */
+  using value_type = Row;
+
+  /*! \brief Default constructor. */
+  CSRArray() = default;
+
+  /****************** Accessors ******************/
+
+  /*! \brief Get the number of rows in the CSRArray. */
+  int32_t size() const { return static_cast<int32_t>(indptr_.size()) - 1; }
+
+  friend std::size_t MemorySize(const CSRArray<DataType>& arr) {
+    return MemorySize(arr.data_) + MemorySize(arr.indptr_);
+  }
 
   /*!
    * \brief Access a row in the CSRArray.
@@ -142,24 +149,9 @@ class CSRArray {
 
   /****************** Serialization ******************/
 
-  /*!
-   * \brief Serialize the CSRArray to a JSON string.
-   * \return A JSON value representation of the CSRArray.
-   */
-  picojson::value Serialize() const;
-
-  /*!
-   * \brief Deserialize a JSON string to create a CSRArray.
-   * \param v The JSON value to deserialize.
-   * \return A new CSRArray object created from the deserialized data.
-   * \throws xgrammar::InternalError if the JSON parsing fails or if the required fields are
-   * missing.
-   */
-  static CSRArray Deserialize(const picojson::value& v);
-
   friend std::ostream& operator<<(std::ostream& os, const CSRArray& csr_array) {
     os << "CSRArray([";
-    for (auto i = 0; i < csr_array.Size(); ++i) {
+    for (auto i = 0; i < csr_array.size(); ++i) {
       if (i > 0) {
         os << ", ";
       }
@@ -174,11 +166,12 @@ class CSRArray {
   std::vector<DataType> data_;
   /*! \brief Vector storing the starting index of each row in data_. */
   std::vector<int32_t> indptr_{0};
+  friend struct member_trait<CSRArray<DataType>>;
 };
 
 template <typename DataType>
 inline typename CSRArray<DataType>::Row CSRArray<DataType>::operator[](int32_t i) const {
-  XGRAMMAR_DCHECK(i >= 0 && i < Size()) << "CSRArray index " << i << " is out of bound";
+  XGRAMMAR_DCHECK(i >= 0 && i < size()) << "CSRArray index " << i << " is out of bound";
   int32_t start = indptr_[i];
   int32_t end = indptr_[i + 1];
   return {data_.data() + start, end - start};
@@ -222,54 +215,9 @@ inline int32_t CSRArray<DataType>::InsertNonContiguous(
 }
 
 template <typename DataType>
-inline picojson::value CSRArray<DataType>::Serialize() const {
-  // Serialize data_
-  picojson::array data_json;
-  for (const auto& item : data_) {
-    data_json.push_back(picojson::value(static_cast<int64_t>(item)));
-  }
-
-  // Serialize indptr_
-  picojson::array indptr_json;
-  for (const auto& item : indptr_) {
-    indptr_json.push_back(picojson::value(static_cast<int64_t>(item)));
-  }
-
-  // Serialize the object
-  picojson::object obj;
-  obj["data"] = picojson::value(data_json);
-  obj["indptr"] = picojson::value(indptr_json);
-
-  return picojson::value(obj);
-}
-
-template <typename DataType>
-inline CSRArray<DataType> CSRArray<DataType>::Deserialize(const picojson::value& v) {
-  XGRAMMAR_CHECK(v.is<picojson::object>())
-      << "Failed to deserialize CSRArray: expected a JSON object";
-
-  picojson::object obj = v.get<picojson::object>();
-  XGRAMMAR_CHECK(obj.find("data") != obj.end() && obj["data"].is<picojson::array>())
-      << "Failed to parse data in CSRArray";
-  XGRAMMAR_CHECK(obj.find("indptr") != obj.end() && obj["indptr"].is<picojson::array>())
-      << "Failed to parse indptr in CSRArray";
-
-  CSRArray csr_array;
-
-  // Deserialize data_
-  csr_array.data_.clear();
-  for (const auto& item : obj["data"].get<picojson::array>()) {
-    csr_array.data_.push_back(static_cast<DataType>(item.get<int64_t>()));
-  }
-
-  // Deserialize indptr_
-  csr_array.indptr_.clear();
-  for (const auto& item : obj["indptr"].get<picojson::array>()) {
-    csr_array.indptr_.push_back(static_cast<int32_t>(item.get<int64_t>()));
-  }
-
-  return csr_array;
-}
+XGRAMMAR_MEMBER_TABLE_TEMPLATE(
+    CSRArray<DataType>, "data_", &CSRArray<DataType>::data_, "indptr_", &CSRArray<DataType>::indptr_
+);
 
 }  // namespace xgrammar
 

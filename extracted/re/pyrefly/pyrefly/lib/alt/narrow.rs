@@ -20,18 +20,18 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
-use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::attr::Narrowable;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::binding::narrow::AtomicNarrowOp;
-use crate::binding::narrow::FacetChain;
-use crate::binding::narrow::FacetKind;
 use crate::binding::narrow::NarrowOp;
 use crate::error::collector::ErrorCollector;
 use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
+use crate::types::facet::FacetChain;
+use crate::types::facet::FacetKind;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
@@ -60,8 +60,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_enum_members(cls.class_object())
                 .into_iter()
                 .filter_map(|f| {
-                    if let Lit::Enum(box (_, member_name, _)) = &f
-                        && *member_name == *name
+                    if let Lit::Enum(lit_enum) = &f
+                        && &lit_enum.member == name
                     {
                         None
                     } else {
@@ -318,7 +318,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let mut result = t.clone();
                     for right in &literal_types {
                         match (t, right) {
-                            (_, _) if *t == *right => {
+                            (_, _) if t == right => {
                                 result = Type::never();
                             }
                             (Type::ClassType(cls), Type::Literal(Lit::Bool(b)))
@@ -326,11 +326,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             {
                                 result = Type::Literal(Lit::Bool(!b));
                             }
-                            (
-                                Type::ClassType(left_cls),
-                                Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                            ) if *left_cls == *right_cls => {
-                                result = self.subtract_enum_member(left_cls, name);
+                            (Type::ClassType(left_cls), Type::Literal(Lit::Enum(right)))
+                                if left_cls == &right.class =>
+                            {
+                                result = self.subtract_enum_member(left_cls, &right.member);
                             }
                             _ => {}
                         }
@@ -358,10 +357,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             Type::Literal(Lit::Bool(!b))
                         }
-                        (
-                            Type::ClassType(left_cls),
-                            Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                        ) if *left_cls == *right_cls => self.subtract_enum_member(left_cls, name),
+                        (Type::ClassType(left_cls), Type::Literal(Lit::Enum(right)))
+                            if left_cls == &right.class =>
+                        {
+                            self.subtract_enum_member(left_cls, &right.member)
+                        }
                         _ => t.clone(),
                     }
                 })
@@ -446,10 +446,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         {
                             Type::Literal(Lit::Bool(!b))
                         }
-                        (
-                            Type::ClassType(left_cls),
-                            Type::Literal(Lit::Enum(box (right_cls, name, _))),
-                        ) if *left_cls == *right_cls => self.subtract_enum_member(left_cls, name),
+                        (Type::ClassType(left_cls), Type::Literal(Lit::Enum(right)))
+                            if left_cls == &right.class =>
+                        {
+                            self.subtract_enum_member(left_cls, &right.member)
+                        }
                         _ => t.clone(),
                     })
                 } else {

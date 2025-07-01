@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphdatascience
-Version: 1.15.1
+Version: 1.16
 Summary: A Python client for the Neo4j Graph Data Science (GDS) library
 Home-page: https://neo4j.com/product/graph-data-science/
 Author: Neo4j
@@ -32,7 +32,7 @@ Requires-Dist: multimethod<3.0,>=1.0
 Requires-Dist: neo4j<6.0,>=4.4.12
 Requires-Dist: numpy<2.3
 Requires-Dist: pandas<3.0,>=1.0
-Requires-Dist: pyarrow<20.0,>=16.0
+Requires-Dist: pyarrow<21.0,>=17.0
 Requires-Dist: textdistance<5.0,>=4.0
 Requires-Dist: tqdm<5.0,>=4.0
 Requires-Dist: typing-extensions<5.0,>=4.0

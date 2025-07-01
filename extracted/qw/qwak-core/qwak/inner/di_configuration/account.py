@@ -202,3 +202,18 @@ class UserAccountConfiguration:
                 f"Environment {self._environment} has not be configured."
                 f"Please ensure it is configured using the `qwak configure` command."
             )
+
+    def retrieve_platform_url(self) -> str:
+        """
+        Retrieve the platform URL based on the configured authentication client.
+
+        Returns:
+            str: The platform URL.
+        """
+        auth_client_instance = self._auth_client()
+        base_url = auth_client_instance.get_base_url()
+
+        if issubclass(self._auth_client, FrogMLAuthClient):
+            return f"{base_url}/ui/ml"
+
+        return base_url

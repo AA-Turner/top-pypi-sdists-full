@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-braintree"
-version = "4.36.0.20250531"
+version = "4.37.0.20250701"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for braintree"
@@ -20,7 +20,7 @@ It can be used by type-checking tools like
 [Pyre](https://pyre-check.org/),
 PyCharm, etc. to check code that uses `braintree`. This version of
 `types-braintree` aims to provide accurate annotations for
-`braintree==4.36.*`.
+`braintree==4.37.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -30,11 +30,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
+mypy 1.16.0,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`8d1ac2e5bab831381a7cda7269f19ca53f6de4b1`](https://github.com/python/typeshed/commit/8d1ac2e5bab831381a7cda7269f19ca53f6de4b1).
+[`3f727b0cd6620b7fca45318dd34542b1e1c7dbfb`](https://github.com/python/typeshed/commit/3f727b0cd6620b7fca45318dd34542b1e1c7dbfb).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::ast::Ast;
+use pyrefly_python::module_name::ModuleName;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
@@ -39,9 +41,7 @@ use crate::binding::scope::LoopExit;
 use crate::error::kind::ErrorKind;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
-use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
-use crate::ruff::ast::Ast;
 use crate::state::loader::FindError;
 use crate::types::alias::resolve_typeshed_alias;
 use crate::types::special_form::SpecialForm;
@@ -272,7 +272,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     let delete_idx = self.insert_binding(
                         KeyExpect(target.range()),
-                        BindingExpect::Delete(Box::new(target.clone())),
+                        BindingExpect::Delete(target.clone()),
                     );
                     self.insert_binding_user(
                         user,
@@ -290,7 +290,7 @@ impl<'a> BindingsBuilder<'a> {
                 //
                 // For example, we treat `typing.List` as if it were an import of `builtins.list`.
                 self.bind_legacy_type_var_or_typing_alias(name, |_| {
-                    Binding::Import(module, forward)
+                    Binding::Import(module, forward, None)
                 })
             }
             Stmt::Assign(mut x) => {
@@ -606,10 +606,7 @@ impl<'a> BindingsBuilder<'a> {
                 let user = self.declare_user(Key::Anon(range));
                 self.insert_binding_user(user, Binding::Expr(None, *x.test.clone()));
                 // Typecheck the test condition during solving.
-                self.insert_binding(
-                    KeyExpect(range),
-                    BindingExpect::Bool(Box::new(*x.test), range),
-                );
+                self.insert_binding(KeyExpect(range), BindingExpect::Bool(*x.test, range));
                 self.stmts(x.body);
                 self.teardown_loop(x.range, &narrow_ops, x.orelse);
             }
@@ -643,7 +640,7 @@ impl<'a> BindingsBuilder<'a> {
                         // Typecheck the test condition during solving.
                         self.insert_binding(
                             KeyExpect(test_expr.range()),
-                            BindingExpect::Bool(Box::new(test_expr.clone()), range),
+                            BindingExpect::Bool(test_expr.clone(), range),
                         );
                     } else {
                         implicit_else = false;
@@ -774,7 +771,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(&mut msg_expr, msg_user.usage());
                     let idx = self.insert_binding(
                         KeyExpect(msg_expr.range()),
-                        BindingExpect::TypeCheckExpr(Box::new(*msg_expr)),
+                        BindingExpect::TypeCheckExpr(*msg_expr),
                     );
                     self.insert_binding_user(msg_user, Binding::UsageLink(LinkedKey::Expect(idx)));
                 };
@@ -828,7 +825,7 @@ impl<'a> BindingsBuilder<'a> {
                                     for name in module_exports.wildcard(self.lookup).iter_hashed() {
                                         let key = Key::Import(name.into_key().clone(), x.range);
                                         let val = if exported.contains_key_hashed(name) {
-                                            Binding::Import(m, name.into_key().clone())
+                                            Binding::Import(m, name.into_key().clone(), None)
                                         } else {
                                             self.error(
                                                 x.range,
@@ -846,6 +843,11 @@ impl<'a> BindingsBuilder<'a> {
                                         );
                                     }
                                 } else {
+                                    let original_name_range = if x.asname.is_some() {
+                                        Some(x.name.range)
+                                    } else {
+                                        None
+                                    };
                                     let asname = x.asname.unwrap_or_else(|| x.name.clone());
                                     // A `from x import y` statement is ambiguous; if `x` is a package with
                                     // an `__init__.py` file, then it might import the name `y` from the
@@ -858,7 +860,7 @@ impl<'a> BindingsBuilder<'a> {
                                     let val = if (self.module_info.name() != m)
                                         && exported.contains_key(&x.name.id)
                                     {
-                                        Binding::Import(m, x.name.id.clone())
+                                        Binding::Import(m, x.name.id.clone(), original_name_range)
                                     } else {
                                         let x_as_module_name = m.append(&x.name.id);
                                         if self.lookup.get(x_as_module_name).is_ok() {

@@ -14,6 +14,9 @@ use dupe::Dupe;
 use itertools::Either;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::dunder;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_util::assert_bytes;
 use pyrefly_util::assert_words;
 use pyrefly_util::display::DisplayWith;
@@ -39,11 +42,12 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::alt::class::base_class::BaseClass;
 use crate::alt::class::class_field::ClassField;
-use crate::alt::class::class_metadata::BaseClass;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
@@ -51,11 +55,8 @@ use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::NarrowOp;
-use crate::common::symbol_kind::SymbolKind;
-use crate::dunder;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::types::annotation::Annotation;
 use crate::types::class::Class;
@@ -67,6 +68,7 @@ use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
@@ -74,20 +76,24 @@ assert_words!(Key, 5);
 assert_words!(KeyExpect, 1);
 assert_words!(KeyExport, 3);
 assert_words!(KeyClass, 1);
+assert_bytes!(KeyTParams, 4);
 assert_words!(KeyClassField, 4);
 assert_bytes!(KeyClassSynthesizedFields, 4);
 assert_bytes!(KeyAnnotation, 12);
 assert_bytes!(KeyClassMetadata, 4);
+assert_bytes!(KeyClassMro, 4);
 assert_words!(KeyLegacyTypeParam, 1);
 assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
 assert_words!(KeyFunction, 1);
 
 assert_words!(Binding, 9);
-assert_words!(BindingExpect, 8);
+assert_words!(BindingExpect, 9);
 assert_words!(BindingAnnotation, 13);
-assert_words!(BindingClass, 22);
+assert_words!(BindingClass, 18);
+assert_words!(BindingTParams, 9);
 assert_words!(BindingClassMetadata, 8);
+assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 26);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
@@ -95,11 +101,12 @@ assert_words!(BindingYield, 3);
 assert_words!(BindingYieldFrom, 3);
 assert_words!(BindingFunction, 21);
 
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnyIdx {
     Key(Idx<Key>),
     KeyExpect(Idx<KeyExpect>),
     KeyClass(Idx<KeyClass>),
+    KeyTParams(Idx<KeyTParams>),
     KeyClassField(Idx<KeyClassField>),
     KeyVariance(Idx<KeyVariance>),
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
@@ -107,6 +114,7 @@ pub enum AnyIdx {
     KeyFunction(Idx<KeyFunction>),
     KeyAnnotation(Idx<KeyAnnotation>),
     KeyClassMetadata(Idx<KeyClassMetadata>),
+    KeyClassMro(Idx<KeyClassMro>),
     KeyLegacyTypeParam(Idx<KeyLegacyTypeParam>),
     KeyYield(Idx<KeyYield>),
     KeyYieldFrom(Idx<KeyYieldFrom>),
@@ -118,6 +126,7 @@ impl AnyIdx {
             Self::Key(..) => "Key",
             Self::KeyExpect(..) => "KeyExpect",
             Self::KeyClass(..) => "KeyClass",
+            Self::KeyTParams(..) => "KeyTParams",
             Self::KeyClassField(..) => "KeyClassField",
             Self::KeyVariance(..) => "KeyVariance",
             Self::KeyClassSynthesizedFields(..) => "KeyClassSynthesizedFields",
@@ -125,6 +134,7 @@ impl AnyIdx {
             Self::KeyFunction(..) => "KeyFunction",
             Self::KeyAnnotation(..) => "KeyAnnotation",
             Self::KeyClassMetadata(..) => "KeyClassMetadata",
+            Self::KeyClassMro(..) => "KeyClassMro",
             Self::KeyLegacyTypeParam(..) => "KeyLegacyTypeParam",
             Self::KeyYield(..) => "KeyYield",
             Self::KeyYieldFrom(..) => "KeyYieldFrom",
@@ -164,6 +174,15 @@ impl Keyed for KeyClass {
         AnyIdx::KeyClass(idx)
     }
 }
+impl Keyed for KeyTParams {
+    const EXPORTED: bool = true;
+    type Value = BindingTParams;
+    type Answer = TParams;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyTParams(idx)
+    }
+}
+impl Exported for KeyTParams {}
 impl Keyed for KeyClassField {
     const EXPORTED: bool = true;
     type Value = BindingClassField;
@@ -224,6 +243,15 @@ impl Keyed for KeyClassMetadata {
     }
 }
 impl Exported for KeyClassMetadata {}
+impl Keyed for KeyClassMro {
+    const EXPORTED: bool = true;
+    type Value = BindingClassMro;
+    type Answer = ClassMro;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyClassMro(idx)
+    }
+}
+impl Exported for KeyClassMro {}
 impl Keyed for KeyLegacyTypeParam {
     type Value = BindingLegacyTypeParam;
     type Answer = LegacyTypeParameterLookup;
@@ -404,7 +432,7 @@ impl DisplayWith<Bindings> for ExprOrBinding {
 #[derive(Clone, Debug)]
 pub enum BindingExpect {
     /// An expression where we need to check for type errors, but don't need the result type.
-    TypeCheckExpr(Box<Expr>),
+    TypeCheckExpr(Expr),
     /// The expected number of values in an unpacked iterable expression.
     UnpackedLength(Idx<Key>, TextRange, SizeExpectation),
     /// An exception and its cause from a raise statement.
@@ -417,9 +445,9 @@ pub enum BindingExpect {
         name: Name,
     },
     /// `del` statement
-    Delete(Box<Expr>),
+    Delete(Expr),
     /// Expression used in a boolean context (`bool()`, `if`, or `while`)
-    Bool(Box<Expr>, TextRange),
+    Bool(Expr, TextRange),
 }
 
 impl DisplayWith<Bindings> for BindingExpect {
@@ -556,6 +584,22 @@ impl DisplayWith<ModuleInfo> for KeyClass {
     }
 }
 
+/// A reference to a class.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyTParams(pub ClassDefIndex);
+
+impl Ranged for KeyTParams {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyTParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyTParams({})", self.0)
+    }
+}
+
 /// A reference to a field in a class.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyClassField(pub ClassDefIndex, pub Name);
@@ -657,6 +701,23 @@ impl DisplayWith<ModuleInfo> for KeyClassMetadata {
     }
 }
 
+/// Keys that refer to a class's `Mro` (which tracks its ancestors, in method
+/// resolution order).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyClassMro(pub ClassDefIndex);
+
+impl Ranged for KeyClassMro {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyClassMro {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyClassMro(class{})", self.0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyLegacyTypeParam(pub ShortIdentifier);
 
@@ -755,7 +816,7 @@ impl IsAsync {
 }
 
 /// Is the body of this function stubbed out (contains nothing but `...`)?
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TypeEq, VisitMut)]
 pub enum FunctionStubOrImpl {
     /// The function body is `...`.
     Stub,
@@ -785,8 +846,10 @@ pub struct ClassBinding {
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
     pub fields: SmallMap<Name, ClassFieldProperties>,
-    pub bases: Box<[Expr]>,
-    pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
+    /// Were we able to determine, using only syntactic analysis at bindings time,
+    /// that there can be no legacy tparams? If no, we need a `BindingTParams`, if yes
+    /// we can directly compute the `TParams` from the class def.
+    pub tparams_require_binding: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -798,20 +861,56 @@ pub struct ReturnExplicit {
 }
 
 #[derive(Clone, Debug)]
+pub enum ReturnTypeKind {
+    /// We have an explicit return annotation, and we should validate it against the implicit returns
+    ShouldValidateAnnotation {
+        range: TextRange,
+        annotation: Idx<KeyAnnotation>,
+        /// Used to skip the validation for stub functions (returning `...`). This is
+        /// unsafe, but is convenient and matches Pyright's behavior.
+        stub_or_impl: FunctionStubOrImpl,
+        /// We keep this just so we can scan for `@abstractmethod` and use the info to decide
+        /// whether to skip the validation.
+        decorators: Box<[Idx<Key>]>,
+        implicit_return: Idx<Key>,
+        is_generator: bool,
+        has_explicit_return: bool,
+    },
+    /// We have an explicit return annotation, and we should blindly trust it without any validation
+    ShouldTrustAnnotation {
+        annotation: Idx<KeyAnnotation>,
+        is_generator: bool,
+    },
+    /// We don't have an explicit return annotation, and we should just act as if the return is annotated as `Any`
+    ShouldReturnAny { is_generator: bool },
+    /// We don't have an explicit return annotation, and we should do our best to infer the return type
+    ShouldInferType {
+        /// The returns from the function.
+        returns: Box<[Idx<Key>]>,
+        implicit_return: Idx<Key>,
+        /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
+        /// We don't need to store `is_generator` flag in this case, as we can deduce that info by checking
+        /// whether these two fields are empty or not.
+        yields: Box<[Idx<KeyYield>]>,
+        yield_froms: Box<[Idx<KeyYieldFrom>]>,
+    },
+}
+
+impl ReturnTypeKind {
+    pub fn has_return_annotation(&self) -> bool {
+        match self {
+            Self::ShouldValidateAnnotation { .. } => true,
+            Self::ShouldTrustAnnotation { .. } => true,
+            Self::ShouldReturnAny { .. } => false,
+            Self::ShouldInferType { .. } => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ReturnType {
-    /// The annotation for the return type.
-    pub annot: Option<(TextRange, Idx<KeyAnnotation>)>,
-    /// The returns from the function.
-    pub returns: Box<[Idx<Key>]>,
-    pub implicit_return: Idx<Key>,
-    /// The yeilds and yield froms. If either of these are nonempty, this is a generator function.
-    pub yields: Box<[Idx<KeyYield>]>,
-    pub yield_froms: Box<[Idx<KeyYieldFrom>]>,
+    pub kind: ReturnTypeKind,
     pub is_async: bool,
-    /// Used to ignore the implicit return type for stub functions (returning `...`). This is
-    /// unsafe, but is convenient and matches Pyright's behavior.
-    pub stub_or_impl: FunctionStubOrImpl,
-    pub decorators: Box<[Idx<Key>]>,
 }
 
 #[derive(Clone, Dupe, Copy, Debug)]
@@ -942,7 +1041,9 @@ pub enum Binding {
         Option<Idx<KeyClassMetadata>>,
     ),
     /// An import statement, typically with Self::Import.
-    Import(ModuleName, Name),
+    /// The option range tracks the original name's location for renamed import.
+    /// e.g. in `from foo import bar as baz`, we should track the range of `bar`.
+    Import(ModuleName, Name, Option<TextRange>),
     /// A class definition, points to a BindingClass and any decorators.
     ClassDef(Idx<KeyClass>, Box<[Idx<Key>]>),
     /// A forward reference to another binding.
@@ -994,9 +1095,9 @@ pub enum Binding {
     SuperInstance(SuperStyle, TextRange),
     /// The result of assigning to an attribute. This operation cannot change the *type* of the
     /// name to which we are assigning, but it *can* change the live attribute narrows.
-    AssignToAttribute(Box<(ExprAttribute, ExprOrBinding)>),
+    AssignToAttribute(ExprAttribute, Box<ExprOrBinding>),
     /// The result of assigning to a subscript, used for narrowing.
-    AssignToSubscript(Box<(ExprSubscript, ExprOrBinding)>),
+    AssignToSubscript(ExprSubscript, Box<ExprOrBinding>),
     /// A placeholder binding, used to force the solving of some other `K::Value` (for
     /// example, forcing a `BindingExpect` to be solved) in the context of first-usage-based
     /// type inference.
@@ -1086,7 +1187,7 @@ impl DisplayWith<Bindings> for Binding {
                 )
             }
             Self::Function(x, _pred, _class) => write!(f, "Function({})", ctx.display(*x)),
-            Self::Import(m, n) => write!(f, "Import({m}, {n})"),
+            Self::Import(m, n, original_name) => write!(f, "Import({m}, {n}, {:?})", original_name),
             Self::ClassDef(x, _) => write!(f, "ClassDef({})", ctx.display(*x)),
             Self::Forward(k) => write!(f, "Forward({})", ctx.display(*k)),
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
@@ -1199,7 +1300,7 @@ impl DisplayWith<Bindings> for Binding {
                 write!(f, "SuperInstance::Implicit({}, {v})", ctx.display(*k))
             }
             Self::SuperInstance(SuperStyle::Any, _range) => write!(f, "SuperInstance::Any"),
-            Self::AssignToAttribute(box (attr, x)) => {
+            Self::AssignToAttribute(attr, x) => {
                 write!(
                     f,
                     "AssignToAttribute({}, {}, {})",
@@ -1208,7 +1309,7 @@ impl DisplayWith<Bindings> for Binding {
                     x.display_with(ctx)
                 )
             }
-            Self::AssignToSubscript(box (subscript, x)) => {
+            Self::AssignToSubscript(subscript, x) => {
                 write!(
                     f,
                     "AssignToSubscript({}, {}, {})",
@@ -1257,7 +1358,7 @@ impl Binding {
             | Binding::CheckLegacyTypeParam(_, _) => Some(SymbolKind::TypeParameter),
             Binding::Global(_) => Some(SymbolKind::Variable),
             Binding::Function(_, _, _) => Some(SymbolKind::Function),
-            Binding::Import(_, _) => {
+            Binding::Import(_, _, _) => {
                 // TODO: maybe we can resolve it to see its symbol kind
                 Some(SymbolKind::Variable)
             }
@@ -1298,9 +1399,9 @@ impl Binding {
             | Binding::Decorator(_)
             | Binding::ExceptionHandler(_, _)
             | Binding::SuperInstance(_, _)
-            | Binding::AssignToAttribute(_)
+            | Binding::AssignToAttribute(_, _)
             | Binding::UsageLink(_)
-            | Binding::AssignToSubscript(_)
+            | Binding::AssignToSubscript(_, _)
             | Binding::Pin(..)
             | Binding::PinUpstream(..) => None,
         }
@@ -1459,6 +1560,21 @@ impl DisplayWith<Bindings> for BindingClass {
     }
 }
 
+/// Binding for a class.
+#[derive(Clone, Debug)]
+pub struct BindingTParams {
+    pub name: Identifier,
+    pub scoped_type_params: Option<Box<TypeParams>>,
+    pub bases: Box<[Expr]>,
+    pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
+}
+
+impl DisplayWith<Bindings> for BindingTParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _: &Bindings) -> fmt::Result {
+        write!(f, "BindingTParams({})", self.name)
+    }
+}
+
 /// Binding for a class field, which is any attribute (including methods) of a class defined in
 /// either the class body or in method (like `__init__`) that we recognize as
 /// defining instance attributes.
@@ -1524,20 +1640,24 @@ impl DisplayWith<Bindings> for BindingVariance {
     }
 }
 
-/// Binding for the class's metadata (type level information derived from the class header - this
-/// includes the MRO, the class keywords, and the metaclass).
-///
-/// The `Key` points to the definition of the class.
-/// The `[Expr]` contains the base classes from the class header.
-/// The `[(Name, Expr)]` contains the class keywords from the class header.
-/// The `[Idx<Key>]` points to the class's decorators.
+/// Binding for the class's metadata (anything obtained directly from base classes,
+/// except for the MRO which is kept separate to avoid cycles.
 #[derive(Clone, Debug)]
 pub struct BindingClassMetadata {
     pub class_idx: Idx<KeyClass>,
+    /// The base class list, as expressions.
     pub bases: Box<[Expr]>,
+    /// The class keywords (these are keyword args that appear in the base class list, the
+    /// Python runtime will dispatch most of them to the metaclass, but the metaclass
+    /// itself can also potentially be one of these).
     pub keywords: Box<[(Name, Expr)]>,
-    pub decorators: Box<[Idx<Key>]>,
+    /// The class decorators, which may determine
+    pub decorators: Box<[(Idx<Key>, TextRange)]>,
+    /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
+    /// May contain a base class to directly inject into the base class list. This is needed
+    /// for some synthesized classes, which have no actual class body and therefore usually have no
+    /// base class expressions, but may have a known base class for the synthesized class.
     pub special_base: Option<Box<BaseClass>>,
 }
 
@@ -1548,6 +1668,19 @@ impl DisplayWith<Bindings> for BindingClassMetadata {
             "BindingClassMetadata({}, ..)",
             ctx.display(self.class_idx)
         )
+    }
+}
+
+/// Binding for the class's MRO
+/// This rerquires base classes; these should match what `BindingClassMetadata` has.
+#[derive(Clone, Debug)]
+pub struct BindingClassMro {
+    pub class_idx: Idx<KeyClass>,
+}
+
+impl DisplayWith<Bindings> for BindingClassMro {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        write!(f, "BindingClassMro({}, ..)", ctx.display(self.class_idx))
     }
 }
 

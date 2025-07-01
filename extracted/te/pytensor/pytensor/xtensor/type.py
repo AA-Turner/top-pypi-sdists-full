@@ -71,6 +71,8 @@ class XTensorType(Type, HasDataType, HasShape):
         self.name = name
         self.numpy_dtype = np.dtype(self.dtype)
         self.filter_checks_isfinite = False
+        # broadcastable is here just for code that would work fine with XTensorType but checks for it
+        self.broadcastable = (False,) * self.ndim
 
     def clone(
         self,
@@ -92,6 +94,10 @@ class XTensorType(Type, HasDataType, HasShape):
         return TensorType.filter(
             self, value, strict=strict, allow_downcast=allow_downcast
         )
+
+    @staticmethod
+    def may_share_memory(a, b):
+        return TensorType.may_share_memory(a, b)
 
     def filter_variable(self, other, allow_convert=True):
         if not isinstance(other, Variable):
@@ -160,7 +166,7 @@ class XTensorType(Type, HasDataType, HasShape):
         return None
 
     def __repr__(self):
-        return f"XTensorType({self.dtype}, {self.dims}, {self.shape})"
+        return f"XTensorType({self.dtype}, shape={self.shape}, dims={self.dims})"
 
     def __hash__(self):
         return hash((type(self), self.dtype, self.shape, self.dims))
@@ -691,14 +697,14 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
     # https://docs.xarray.dev/en/latest/api.html#id8
     def transpose(
         self,
-        *dims: str | EllipsisType,
+        *dim: str | EllipsisType,
         missing_dims: Literal["raise", "warn", "ignore"] = "raise",
     ):
         """Transpose dimensions of the tensor.
 
         Parameters
         ----------
-        *dims : str | Ellipsis
+        *dim : str | Ellipsis
             Dimensions to transpose. If empty, performs a full transpose.
             Can use ellipsis (...) to represent remaining dimensions.
         missing_dims : {"raise", "warn", "ignore"}, default="raise"
@@ -718,7 +724,7 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
             If missing_dims="raise" and any dimensions don't exist.
             If multiple ellipsis are provided.
         """
-        return px.shape.transpose(self, *dims, missing_dims=missing_dims)
+        return px.shape.transpose(self, *dim, missing_dims=missing_dims)
 
     def stack(self, dim, **dims):
         return px.shape.stack(self, dim, **dims)

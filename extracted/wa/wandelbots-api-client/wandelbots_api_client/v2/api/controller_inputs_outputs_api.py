@@ -26,11 +26,11 @@ from urllib.parse import quote
 from pydantic import Field, StrictBool, StrictStr
 from typing import List, Optional
 from typing_extensions import Annotated
+from wandelbots_api_client.v2.models.io_description import IODescription
 from wandelbots_api_client.v2.models.io_direction import IODirection
+from wandelbots_api_client.v2.models.io_value import IOValue
 from wandelbots_api_client.v2.models.io_value_type import IOValueType
-from wandelbots_api_client.v2.models.list_io_descriptions_response import ListIODescriptionsResponse
-from wandelbots_api_client.v2.models.list_io_values_response import ListIOValuesResponse
-from wandelbots_api_client.v2.models.set_output_values_request_inner import SetOutputValuesRequestInner
+from wandelbots_api_client.v2.models.stream_io_values_response import StreamIOValuesResponse
 from wandelbots_api_client.v2.models.wait_for_io_event_request import WaitForIOEventRequest
 
 from wandelbots_api_client.v2.api_client import ApiClient, RequestSerialized
@@ -70,7 +70,7 @@ class ControllerInputsOutputsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ListIODescriptionsResponse:
+    ) -> List[IODescription]:
         """List Descriptions
 
         Lists the input/output descriptions of the robot controller.  The input/output descriptions contain information such as the name of the input/output, the input/output type and the input/output unit. The set of available inputs/outputs is defined by the robot controller. Each input/output has a unique identifier. If no identifiers are specified in the request, the full list of available inputs/outputs is retrieved by this endpoint. Except when a filter (direction, value_type, group) is applied. Then only the inputs/outputs matching the filter are returned. 
@@ -123,7 +123,7 @@ class ControllerInputsOutputsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListIODescriptionsResponse",
+            '200': "List[IODescription]",
             '400': "Error",
             '404': "Error",
         }
@@ -159,7 +159,7 @@ class ControllerInputsOutputsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[ListIODescriptionsResponse]:
+    ) -> ApiResponse[List[IODescription]]:
         """List Descriptions
 
         Lists the input/output descriptions of the robot controller.  The input/output descriptions contain information such as the name of the input/output, the input/output type and the input/output unit. The set of available inputs/outputs is defined by the robot controller. Each input/output has a unique identifier. If no identifiers are specified in the request, the full list of available inputs/outputs is retrieved by this endpoint. Except when a filter (direction, value_type, group) is applied. Then only the inputs/outputs matching the filter are returned. 
@@ -212,7 +212,7 @@ class ControllerInputsOutputsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListIODescriptionsResponse",
+            '200': "List[IODescription]",
             '400': "Error",
             '404': "Error",
         }
@@ -301,7 +301,7 @@ class ControllerInputsOutputsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListIODescriptionsResponse",
+            '200': "List[IODescription]",
             '400': "Error",
             '404': "Error",
         }
@@ -415,7 +415,7 @@ class ControllerInputsOutputsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ListIOValuesResponse:
+    ) -> List[IOValue]:
         """Get Input/Output Values
 
         Retrieves the current values of inputs/outputs.  The identifiers of the inputs/outputs must be provided in the request. Request all available input/output identifiers via [listIODescriptions](listIODescriptions). 
@@ -459,7 +459,7 @@ class ControllerInputsOutputsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListIOValuesResponse",
+            '200': "List[IOValue]",
             '400': "Error",
             '404': "Error",
         }
@@ -492,7 +492,7 @@ class ControllerInputsOutputsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[ListIOValuesResponse]:
+    ) -> ApiResponse[List[IOValue]]:
         """Get Input/Output Values
 
         Retrieves the current values of inputs/outputs.  The identifiers of the inputs/outputs must be provided in the request. Request all available input/output identifiers via [listIODescriptions](listIODescriptions). 
@@ -536,7 +536,7 @@ class ControllerInputsOutputsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListIOValuesResponse",
+            '200': "List[IOValue]",
             '400': "Error",
             '404': "Error",
         }
@@ -613,7 +613,7 @@ class ControllerInputsOutputsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ListIOValuesResponse",
+            '200': "List[IOValue]",
             '400': "Error",
             '404': "Error",
         }
@@ -699,7 +699,7 @@ class ControllerInputsOutputsApi:
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        set_output_values_request_inner: List[SetOutputValuesRequestInner],
+        io_value: List[IOValue],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -721,8 +721,8 @@ class ControllerInputsOutputsApi:
         :type cell: str
         :param controller: Unique identifier to address a controller in the cell. (required)
         :type controller: str
-        :param set_output_values_request_inner: (required)
-        :type set_output_values_request_inner: List[SetOutputValuesRequestInner]
+        :param io_value: (required)
+        :type io_value: List[IOValue]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -748,7 +748,7 @@ class ControllerInputsOutputsApi:
         _param = self._set_output_values_serialize(
             cell=cell,
             controller=controller,
-            set_output_values_request_inner=set_output_values_request_inner,
+            io_value=io_value,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -777,7 +777,7 @@ class ControllerInputsOutputsApi:
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        set_output_values_request_inner: List[SetOutputValuesRequestInner],
+        io_value: List[IOValue],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -799,8 +799,8 @@ class ControllerInputsOutputsApi:
         :type cell: str
         :param controller: Unique identifier to address a controller in the cell. (required)
         :type controller: str
-        :param set_output_values_request_inner: (required)
-        :type set_output_values_request_inner: List[SetOutputValuesRequestInner]
+        :param io_value: (required)
+        :type io_value: List[IOValue]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -826,7 +826,7 @@ class ControllerInputsOutputsApi:
         _param = self._set_output_values_serialize(
             cell=cell,
             controller=controller,
-            set_output_values_request_inner=set_output_values_request_inner,
+            io_value=io_value,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -855,7 +855,7 @@ class ControllerInputsOutputsApi:
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        set_output_values_request_inner: List[SetOutputValuesRequestInner],
+        io_value: List[IOValue],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -877,8 +877,8 @@ class ControllerInputsOutputsApi:
         :type cell: str
         :param controller: Unique identifier to address a controller in the cell. (required)
         :type controller: str
-        :param set_output_values_request_inner: (required)
-        :type set_output_values_request_inner: List[SetOutputValuesRequestInner]
+        :param io_value: (required)
+        :type io_value: List[IOValue]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -904,7 +904,7 @@ class ControllerInputsOutputsApi:
         _param = self._set_output_values_serialize(
             cell=cell,
             controller=controller,
-            set_output_values_request_inner=set_output_values_request_inner,
+            io_value=io_value,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -928,7 +928,7 @@ class ControllerInputsOutputsApi:
         self,
         cell,
         controller,
-        set_output_values_request_inner,
+        io_value,
         _request_auth,
         _content_type,
         _headers,
@@ -938,7 +938,7 @@ class ControllerInputsOutputsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            'SetOutputValuesRequestInner': '',
+            'IOValue': '',
         }
 
         _path_params: Dict[str, str] = {}
@@ -957,8 +957,8 @@ class ControllerInputsOutputsApi:
         # process the header parameters
         # process the form parameters
         # process the body parameter
-        if set_output_values_request_inner is not None:
-            _body_params = set_output_values_request_inner
+        if io_value is not None:
+            _body_params = io_value
 
 
         # set the HTTP header `Accept`
@@ -1006,10 +1006,10 @@ class ControllerInputsOutputsApi:
 
 
     @validate_call
-    async def stream_io_values(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], ios: Optional[List[StrictStr]] = None) -> AsyncGenerator[ListIOValuesResponse, None]:  # noqa: E501
+    async def stream_io_values(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], ios: Optional[List[StrictStr]] = None) -> AsyncGenerator[StreamIOValuesResponse, None]:  # noqa: E501
         """Stream Input/Output Values  # noqa: E501
 
-        Continuously receive updates of input/output values via websocket. Updates are sent in the update rate of the controller.  > **NOTE** > > Do not request too many values simultaneously as the request is then likely to fail. The amount of values that can be streamed simultaneously depends on the specific robot controller.  > **NOTE** > > The inputs and outputs are sent in the update rate of the controller to prevent losing any values. Consider that this might lead to a high amount of data transmitted.   # noqa: E501
+        <!-- theme: danger -->  > Websocket endpoint  Continuously receive updates of input/output values via websocket. Updates are sent in the update rate of the controller.  > **NOTE** > > Do not request too many values simultaneously as the request is then likely to fail. The amount of values that can be streamed simultaneously depends on the specific robot controller.  > **NOTE** > > The inputs and outputs are sent in the update rate of the controller to prevent losing any values. Consider that this might lead to a high amount of data transmitted.   # noqa: E501
         :param request: A StreamIoValuesRequest
         :info All responses from the server will be yielded
         :type StreamIoValuesRequest
@@ -1069,7 +1069,7 @@ class ControllerInputsOutputsApi:
                     response_data = json.loads(response)
                     if "result" not in response_data:
                         raise Exception(response_data)
-                    yield ListIOValuesResponse.from_dict(response_data["result"])
+                    yield StreamIOValuesResponse.from_dict(response_data["result"])
             except websockets.exceptions.ConnectionClosed:
                 return
 
@@ -1095,7 +1095,7 @@ class ControllerInputsOutputsApi:
     ) -> bool:
         """Wait For
 
-        Wait until an input/output reaches a certain value. This call returns as soon as the condition is met or the request fails.  The comparison_type value is used to define how the current value of the input/output is compared with given value. Only set the value that corresponds to the value_type of the input/output, see (listIODescriptions)[listIODescriptions] for more information. Examples: If you want to wait until an analog input (\"AI_1\") is less than 10, you would set io to \"AI_1\" comparison_type to COMPARISON_LESS and only integer_value to 10. If you want to wait until an analog input (\"AI_2\") is greater than 5.0, you would set io to \"AI_2\" comparison_type to COMPARISON_GREATER and only float_value to 5.0. If you want to wait until a digital input (\"DI_3\") is true, you would set io to \"DI_3\" comparison_type to COMPARISON_EQUAL and only boolean_value to true. 
+        Wait until an input/output reaches a certain value. This call returns as soon as the condition is met or the request fails.  The comparison_type value is used to define how the current value of the input/output is compared with given value. Only set the value that corresponds to the value_type of the input/output, see (listIODescriptions)[listIODescriptions] for more information. Examples: If you want to wait until an analog input (\"AI_1\") is less than 10, you would set io to \"AI_1\" comparison_type to COMPARISON_LESS and only value to 10. If you want to wait until an analog input (\"AI_2\") is greater than 5.0, you would set io to \"AI_2\" comparison_type to COMPARISON_GREATER and only value to 5.0. If you want to wait until a digital input (\"DI_3\") is true, you would set io to \"DI_3\" comparison_type to COMPARISON_EQUAL and only value to true. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -1172,7 +1172,7 @@ class ControllerInputsOutputsApi:
     ) -> ApiResponse[bool]:
         """Wait For
 
-        Wait until an input/output reaches a certain value. This call returns as soon as the condition is met or the request fails.  The comparison_type value is used to define how the current value of the input/output is compared with given value. Only set the value that corresponds to the value_type of the input/output, see (listIODescriptions)[listIODescriptions] for more information. Examples: If you want to wait until an analog input (\"AI_1\") is less than 10, you would set io to \"AI_1\" comparison_type to COMPARISON_LESS and only integer_value to 10. If you want to wait until an analog input (\"AI_2\") is greater than 5.0, you would set io to \"AI_2\" comparison_type to COMPARISON_GREATER and only float_value to 5.0. If you want to wait until a digital input (\"DI_3\") is true, you would set io to \"DI_3\" comparison_type to COMPARISON_EQUAL and only boolean_value to true. 
+        Wait until an input/output reaches a certain value. This call returns as soon as the condition is met or the request fails.  The comparison_type value is used to define how the current value of the input/output is compared with given value. Only set the value that corresponds to the value_type of the input/output, see (listIODescriptions)[listIODescriptions] for more information. Examples: If you want to wait until an analog input (\"AI_1\") is less than 10, you would set io to \"AI_1\" comparison_type to COMPARISON_LESS and only value to 10. If you want to wait until an analog input (\"AI_2\") is greater than 5.0, you would set io to \"AI_2\" comparison_type to COMPARISON_GREATER and only value to 5.0. If you want to wait until a digital input (\"DI_3\") is true, you would set io to \"DI_3\" comparison_type to COMPARISON_EQUAL and only value to true. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -1249,7 +1249,7 @@ class ControllerInputsOutputsApi:
     ) -> RESTResponseType:
         """Wait For
 
-        Wait until an input/output reaches a certain value. This call returns as soon as the condition is met or the request fails.  The comparison_type value is used to define how the current value of the input/output is compared with given value. Only set the value that corresponds to the value_type of the input/output, see (listIODescriptions)[listIODescriptions] for more information. Examples: If you want to wait until an analog input (\"AI_1\") is less than 10, you would set io to \"AI_1\" comparison_type to COMPARISON_LESS and only integer_value to 10. If you want to wait until an analog input (\"AI_2\") is greater than 5.0, you would set io to \"AI_2\" comparison_type to COMPARISON_GREATER and only float_value to 5.0. If you want to wait until a digital input (\"DI_3\") is true, you would set io to \"DI_3\" comparison_type to COMPARISON_EQUAL and only boolean_value to true. 
+        Wait until an input/output reaches a certain value. This call returns as soon as the condition is met or the request fails.  The comparison_type value is used to define how the current value of the input/output is compared with given value. Only set the value that corresponds to the value_type of the input/output, see (listIODescriptions)[listIODescriptions] for more information. Examples: If you want to wait until an analog input (\"AI_1\") is less than 10, you would set io to \"AI_1\" comparison_type to COMPARISON_LESS and only value to 10. If you want to wait until an analog input (\"AI_2\") is greater than 5.0, you would set io to \"AI_2\" comparison_type to COMPARISON_GREATER and only value to 5.0. If you want to wait until a digital input (\"DI_3\") is true, you would set io to \"DI_3\" comparison_type to COMPARISON_EQUAL and only value to true. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str

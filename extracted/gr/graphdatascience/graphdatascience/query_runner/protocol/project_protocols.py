@@ -68,7 +68,9 @@ class ProjectProtocolV1(ProjectProtocol):
         logging: bool = False,
     ) -> DataFrame:
         versioned_endpoint = ProtocolVersion.V1.versioned_procedure_name(endpoint)
-        return query_runner.call_procedure(versioned_endpoint, params, yields, database, logging, False)
+        return query_runner.call_procedure(
+            versioned_endpoint, params, yields, database=database, logging=logging, retryable=False, custom_error=False
+        )
 
 
 class ProjectProtocolV2(ProjectProtocol):
@@ -97,7 +99,9 @@ class ProjectProtocolV2(ProjectProtocol):
         logging: bool = False,
     ) -> DataFrame:
         versioned_endpoint = ProtocolVersion.V2.versioned_procedure_name(endpoint)
-        return query_runner.call_procedure(versioned_endpoint, params, yields, database, logging, False)
+        return query_runner.call_procedure(
+            versioned_endpoint, params, yields, database=database, logging=logging, retryable=False, custom_error=False
+        )
 
 
 class ProjectProtocolV3(ProjectProtocol):
@@ -134,11 +138,17 @@ class ProjectProtocolV3(ProjectProtocol):
 
         # We need to pin the driver to a specific cluster member
         response = query_runner.call_procedure(
-            ProtocolVersion.V3.versioned_procedure_name(endpoint), params, yields, database, logging, False
+            ProtocolVersion.V3.versioned_procedure_name(endpoint),
+            params,
+            yields,
+            database,
+            logging=logging,
+            custom_error=False,
+            retryable=True,
         ).squeeze()
         member_host = response["host"]
         member_port = response["port"] if ("port" in response.index) else 7687
-        projection_query_runner = query_runner.clone(member_host, member_port)
+        projection_query_runner = query_runner.cloneWithoutRouting(member_host, member_port)
 
         @retry(
             reraise=True,
@@ -149,7 +159,13 @@ class ProjectProtocolV3(ProjectProtocol):
         def project_fn() -> DataFrame:
             termination_flag.assert_running()
             return projection_query_runner.call_procedure(
-                ProtocolVersion.V3.versioned_procedure_name(endpoint), params, yields, database, logging, False
+                ProtocolVersion.V3.versioned_procedure_name(endpoint),
+                params,
+                yields,
+                database=database,
+                logging=logging,
+                retryable=True,
+                custom_error=False,
             )
 
         projection_result = project_fn()

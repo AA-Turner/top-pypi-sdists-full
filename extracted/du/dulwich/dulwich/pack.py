@@ -282,7 +282,7 @@ class UnpackedObject:
         return "{}({})".format(self.__class__.__name__, ", ".join(data))
 
 
-_ZLIB_BUFSIZE = 4096
+_ZLIB_BUFSIZE = 65536  # 64KB buffer for better I/O performance
 
 
 def read_zlib_chunks(
@@ -2004,7 +2004,7 @@ def find_reusable_deltas(
         if progress is not None and i % 1000 == 0:
             progress(f"checking for reusable deltas: {i}/{len(object_ids)}\r".encode())
         if unpacked.pack_type_num == REF_DELTA:
-            hexsha = sha_to_hex(unpacked.delta_base)
+            hexsha = sha_to_hex(unpacked.delta_base)  # type: ignore
             if hexsha in object_ids or hexsha in other_haves:
                 yield unpacked
                 reused += 1
@@ -2516,7 +2516,10 @@ def apply_delta(src_buf, delta):
 
     src_size, index = get_delta_header_size(delta, index)
     dest_size, index = get_delta_header_size(delta, index)
-    assert src_size == len(src_buf), f"{src_size} vs {len(src_buf)}"
+    if src_size != len(src_buf):
+        raise ApplyDeltaError(
+            f"Unexpected source buffer size: {src_size} vs {len(src_buf)}"
+        )
     while index < delta_length:
         cmd = ord(delta[index : index + 1])
         index += 1

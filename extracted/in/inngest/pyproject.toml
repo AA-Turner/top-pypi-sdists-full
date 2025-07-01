@@ -1,6 +1,6 @@
 [project]
 name = "inngest"
-version = "0.5.0"
+version = "0.5.1"
 authors = [{ name = "Inngest Inc.", email = "hello@inngest.com" }]
 description = "Python SDK for Inngest"
 readme = "README.md"
@@ -30,6 +30,10 @@ connect = ["protobuf>=5.29.4", "psutil>=6.0.0", "websockets>=15.0.0"]
 [project.urls]
 "Homepage" = "https://github.com/inngest/inngest-py"
 "Bug Tracker" = "https://github.com/inngest/inngest-py/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.setuptools.package-data]
 # Makes py.typed appear when users install the inngest package.

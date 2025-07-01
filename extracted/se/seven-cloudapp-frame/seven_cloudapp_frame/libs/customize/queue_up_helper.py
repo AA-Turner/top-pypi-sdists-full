@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-30 09:22:51
-@LastEditTime: 2025-05-26 10:23:53
+@LastEditTime: 2025-06-30 19:12:20
 @LastEditors: HuangJianYi
 @Description: 排队系统帮助类
 """
@@ -10,6 +10,8 @@ from seven_framework import *
 from seven_cloudapp_frame.models.seven_model import *
 from seven_cloudapp_frame.libs.customize.seven_helper import *
 from seven_cloudapp_frame.libs.common import *
+from seven_cloudapp_frame.models.enum import *
+from seven_cloudapp_frame.models.db_models.queueup.queueup_log_model import *
 
 
 class QueueUpHelper:
@@ -242,6 +244,7 @@ class QueueUpHelper:
                 hash_value["queue_timestamp"] = start_timestamp  # 入队时间搓
                 hash_value["queue_date"] = TimeHelper.timestamp_to_format_time(start_timestamp)  # 入队时间
                 hash_value["info_json"] = info_dict
+                info_dict['queue_no'] = queue_no
 
                 queue_index = SevenHelper.to_int(redis_init.zrank(zset_name, data)) + 1
                 if queue_index == 1:
@@ -258,6 +261,9 @@ class QueueUpHelper:
                 result_data["queue_index"] = queue_index  #当前位置
                 result_data["before_num"] = queue_index - 1  #排在前面的人数
                 invoke_result_data.data = result_data
+
+                if share_config.get_value("queue_is_log", False):
+                    self.add_log(app_id=app_id, queue_name=queue_name, user_id=user_id, operate_type=QueueupOperateType.join.value, remain_time=0, info_json=info_dict)
 
                 SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                 return invoke_result_data
@@ -290,12 +296,13 @@ class QueueUpHelper:
         redis_init.expire(hash_name, 7 * 24 * 3600)
 
     @classmethod
-    def pop(self, app_id, queue_name, user_id):
+    def pop(self, app_id, queue_name, user_id, is_user_operate=True):
         """
         :description: 退出排队
         :param app_id：应用标识
         :param queue_name：队列名称
         :param user_id 用户标识
+        :param is_user_operate 是否用户操作(1-是 0-否)
         :return: 
         :last_editors: HuangJianYi
         """
@@ -315,12 +322,22 @@ class QueueUpHelper:
             redis_init = SevenHelper.redis_init()
             if redis_init.zscore(zset_name, data):
                 if SevenHelper.to_int(redis_init.zrank(zset_name, data)) + 1 == 1:
-                    self._set_last_pop_date(app_id,redis_init, zset_name)
+                    self._set_last_pop_date(app_id, redis_init, zset_name)
+
+                hash_value = redis_init.hget(self._get_user_hash_name(app_id), f"userid_{data}_queuename_{queue_name}")
+                hash_value = SevenHelper.json_loads(hash_value) if hash_value else {}
+                start_timestamp = hash_value["start_timestamp"] if hash_value.__contains__("start_timestamp") else 0
+                end_timestamp = hash_value["end_timestamp"] if hash_value.__contains__("end_timestamp") else 0
+
                 pipeline = redis_init.pipeline()
                 pipeline.zrem(zset_name, data)
                 pipeline.zincrby(self._get_user_zset_name(app_id), -1, data)
                 pipeline.hdel(self._get_user_hash_name(app_id), f"userid_{data}_queuename_{queue_name}")
                 pipeline.execute()
+                if share_config.get_value("queue_is_log", False):
+                    operate_type = QueueupOperateType.manual_exit.value if is_user_operate else QueueupOperateType.auto_exit.value
+                    remain_time = end_timestamp - start_timestamp
+                    self.add_log(app_id=app_id, queue_name=queue_name, user_id=user_id, operate_type=operate_type, remain_time=remain_time, info_json=hash_value['info_json'])
                 return invoke_result_data
             else:
                 invoke_result_data.success = False
@@ -335,7 +352,29 @@ class QueueUpHelper:
             return invoke_result_data
 
     @classmethod
-    def pop_by_queue_name(self, app_id, queue_name):
+    def pop_by_user_id(self, app_id, user_id, progress_status=1, is_user_operate=True):
+        """
+        :description: 指定用户退出参与的队列
+        :param app_id：应用标识
+        :param user_id：用户标识
+        :param progress_status：0-全部 1-已排队 2-办理中
+        :param is_user_operate 是否用户操作(1-是 0-否)
+        :return: 
+        :last_editors: HuangJianYi
+        """
+        if SevenHelper.is_continue_request(f"pop_by_user_id:{app_id}_{user_id}", 200) == False:
+            redis_init = SevenHelper.redis_init()
+            data = str(user_id)
+            hash_name = self._get_user_hash_name(app_id)
+            match_result = redis_init.hscan_iter(hash_name, match=f'userid_{data}_*')
+            for item in match_result:
+                hash_value = SevenHelper.json_loads(item[1])
+                if progress_status > 0 and hash_value["progress_status"] != progress_status:
+                    continue
+                self.pop(app_id, hash_value["queue_name"], data, is_user_operate)
+
+    @classmethod
+    def expire_user_pop(self, app_id, queue_name):
         """
         :description: 将过期用户从队列中退出
         :param app_id：应用标识
@@ -343,7 +382,7 @@ class QueueUpHelper:
         :return: 
         :last_editors: HuangJianYi
         """
-        if SevenHelper.is_continue_request(f"pop_by_queue_name:{app_id}_{queue_name}", 300) == False:
+        if SevenHelper.is_continue_request(f"expire_user_pop:{app_id}_{queue_name}", 300) == False:
             try:
                 redis_init = SevenHelper.redis_init()
                 #删除用户排队次数小于等于0的数据
@@ -406,29 +445,10 @@ class QueueUpHelper:
                             pipeline.zrem(zset_name, data)
                             pipeline.zincrby(self._get_user_zset_name(app_id), -1, data)
                             pipeline.execute()
+                            if share_config.get_value("queue_is_log", False):
+                                self.add_log(app_id=app_id, queue_name=queue_name, user_id=data, operate_type=QueueupOperateType.auto_exit.value, remain_time=0, info_json=hash_value['info_json'])
             except Exception as ex:
                 self.logger_error.error("【删除未操作的排队信息】" + traceback.format_exc())
-
-    @classmethod
-    def pop_by_user_id(self, app_id, user_id, progress_status=1):
-        """
-        :description: 指定用户退出参与的队列
-        :param app_id：应用标识
-        :param user_id：用户标识
-        :param progress_status：0-全部 1-已排队 2-办理中
-        :return: 
-        :last_editors: HuangJianYi
-        """
-        if SevenHelper.is_continue_request(f"pop_by_user_id:{app_id}_{user_id}", 200) == False:
-            redis_init = SevenHelper.redis_init()
-            data = str(user_id)
-            hash_name = self._get_user_hash_name(app_id)
-            match_result = redis_init.hscan_iter(hash_name, match=f'userid_{data}_*')
-            for item in match_result:
-                hash_value = SevenHelper.json_loads(item[1])
-                if progress_status > 0 and hash_value["progress_status"] != progress_status:
-                    continue
-                self.pop(app_id, hash_value["queue_name"], data)
 
     @classmethod
     def query(self, app_id, queue_name, user_id, is_pop=True):
@@ -448,7 +468,7 @@ class QueueUpHelper:
             data = str(user_id)
             #踢掉过期用户
             if is_pop == True:
-                self.pop_by_queue_name(app_id, queue_name)
+                self.expire_user_pop(app_id, queue_name)
 
             #判断是否存在排队信息
             score = redis_init.zscore(zset_name, data)
@@ -514,7 +534,7 @@ class QueueUpHelper:
         # 用户列表
         user_list = []
         # 踢掉过期用户
-        QueueUpHelper.pop_by_queue_name(app_id, queue_name)
+        QueueUpHelper.expire_user_pop(app_id, queue_name)
         # 总排队人数
         total_num = QueueUpHelper._get_queue_num(app_id, queue_name)
         hash_value_list = redis_init.hmget(QueueUpHelper._get_user_hash_name(app_id), key_list)
@@ -645,7 +665,7 @@ class QueueUpHelper:
             return invoke_result_data
 
     @classmethod
-    def update_time(self, app_id, queue_name, user_id, operate_time=0,is_reset=False):
+    def update_time(self, app_id, queue_name, user_id, operate_time=0, is_reset=False):
         """
         :description: 更新可操作时间，用于操作倒计时，时间到则踢出队列
         :param app_id：应用标识
@@ -769,6 +789,8 @@ class QueueUpHelper:
                 hash_value["end_date"] = TimeHelper.timestamp_to_format_time(end_timestamp)
                 hash_value["progress_status"] = 2
                 redis_init.hset(hash_name, hash_key, SevenHelper.json_dumps(hash_value))
+                if share_config.get_value("queue_is_log", False):
+                    self.add_log(app_id=app_id, queue_name=queue_name, user_id=user_id, operate_type=QueueupOperateType.line_up.value, remain_time=queue_operate_time, info_json=hash_value['info_json'])
                 if pop_other_queue == True:
                     #踢掉在其他队列中的排队
                     match_result = redis_init.hscan_iter(hash_name, match=f'userid_{data}_*')
@@ -793,3 +815,47 @@ class QueueUpHelper:
             invoke_result_data.error_code = "error"
             invoke_result_data.error_message = "您当前不在队列中，请先排队"
             return invoke_result_data
+
+    @classmethod
+    def add_log(self, app_id, queue_name, user_id, operate_type, remain_time, info_json={}):
+        """
+        :description: 添加日志
+        :param app_id：应用标识
+        :param queue_name：队列名称
+        :param user_id：用户标识
+        :param operate_type：操作类型(1-加入队列 2-排到队列 3-参与抽赏 4-自动退出 5-手动退出)
+        :param remain_time：剩余排队时间（单位秒）
+        :param info_json：扩展信息
+        :return: 
+        :last_editors: HuangJianYi
+        """
+        ip_name = info_json.get('ip_name', '')
+        ip_id = info_json.get('ip_id', 0)
+        module_name = info_json.get('module_name', '')
+        module_id = info_json.get('module_id', 0)
+        open_id = info_json.get('open_id', '')
+        user_nick = info_json.get('user_nick', '')
+        act_id = info_json.get('act_id', 0)
+        queue_no = info_json.get('queue_no', '')
+
+        try:
+            queueup_log_model = QueueupLogModel()
+            queueup_log = QueueupLog()
+            queueup_log.app_id = app_id
+            queueup_log.act_id = act_id
+            queueup_log.user_id = user_id
+            queueup_log.open_id = open_id
+            queueup_log.user_nick = user_nick
+            queueup_log.queue_name = queue_name
+            queueup_log.queue_no = queue_no
+            queueup_log.operate_type = operate_type
+            queueup_log.ip_name = ip_name
+            queueup_log.ip_id = ip_id
+            queueup_log.module_name = module_name
+            queueup_log.module_id = module_id
+            queueup_log.remain_time = remain_time
+            queueup_log.create_date = SevenHelper.get_now_datetime()
+            queueup_log.create_day = SevenHelper.get_now_day_int()
+            queueup_log_model.add_entity(queueup_log)
+        except Exception as ex:
+            self.logger_error.error("【添加日志】" + traceback.format_exc())

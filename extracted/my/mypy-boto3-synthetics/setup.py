@@ -13,13 +13,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="mypy-boto3-synthetics",
-    version="1.38.28",
+    version="1.39.0",
     packages=["mypy_boto3_synthetics"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 Synthetics 1.38.28 service generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 Synthetics 1.39.0 service generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

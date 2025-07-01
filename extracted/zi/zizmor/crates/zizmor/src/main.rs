@@ -9,9 +9,8 @@ use std::{
 use annotate_snippets::{Level, Renderer};
 use anstream::{eprintln, println, stream::IsTerminal};
 use anyhow::{Context, Result, anyhow};
-use audit::{Audit, AuditLoadError};
 use camino::{Utf8Path, Utf8PathBuf};
-use clap::{CommandFactory, Parser, ValueEnum};
+use clap::{Args, CommandFactory, Parser, ValueEnum};
 use clap_complete::Generator;
 use clap_verbosity_flag::InfoLevel;
 use config::Config;
@@ -32,6 +31,8 @@ mod audit;
 mod config;
 mod finding;
 mod github_api;
+#[cfg(feature = "lsp")]
+mod lsp;
 mod models;
 mod output;
 mod registry;
@@ -47,6 +48,10 @@ const THANKS: &[(&str, &str)] = &[("Grafana Labs", "https://grafana.com")];
 #[derive(Parser)]
 #[command(about, version)]
 struct App {
+    #[cfg(feature = "lsp")]
+    #[command(flatten)]
+    lsp: LspArgs,
+
     /// Emit 'pedantic' findings.
     ///
     /// This is an alias for --persona=pedantic.
@@ -141,7 +146,7 @@ struct App {
     #[arg(long, hide = true, env = "ZIZMOR_NACHES")]
     naches: bool,
 
-    /// Fix findings automatically, when available.
+    /// Fix findings automatically, when available (EXPERIMENTAL).
     #[arg(
         long,
         value_enum,
@@ -167,6 +172,24 @@ struct App {
     /// to audit the repository at a particular git reference state.
     #[arg(required = true)]
     inputs: Vec<String>,
+}
+
+#[cfg(feature = "lsp")]
+#[derive(Args)]
+#[group(multiple = true, conflicts_with = "inputs")]
+struct LspArgs {
+    /// Run in language server mode (EXPERIMENTAL).
+    ///
+    /// This flag cannot be used with any other flags.
+    #[arg(long)]
+    lsp: bool,
+
+    // This flag exists solely because VS Code's LSP client implementation
+    // insists on appending `--stdio` to the LSP server's arguments when
+    // using the 'stdio' transport. It has no actual meaning or use.
+    // See: <https://github.com/microsoft/vscode-languageserver-node/issues/1222
+    #[arg(long, hide = true)]
+    stdio: bool,
 }
 
 /// Shell with auto-generated completion script available.
@@ -318,7 +341,7 @@ pub(crate) enum FixMode {
     All,
 }
 
-fn tips(err: impl AsRef<str>, tips: &[impl AsRef<str>]) -> String {
+pub(crate) fn tips(err: impl AsRef<str>, tips: &[impl AsRef<str>]) -> String {
     let mut message = Level::Error.title(err.as_ref());
     for tip in tips {
         message = message.footer(Level::Note.title(tip.as_ref()));
@@ -518,6 +541,12 @@ fn run() -> Result<ExitCode> {
 
     let mut app = App::parse();
 
+    #[cfg(feature = "lsp")]
+    if app.lsp.lsp {
+        lsp::run()?;
+        return Ok(ExitCode::SUCCESS);
+    }
+
     if app.thanks {
         println!("zizmor's development is sustained by our generous sponsors:");
         for (name, url) in THANKS {
@@ -620,53 +649,10 @@ fn run() -> Result<ExitCode> {
         &audit_state,
     )?;
 
-    let mut audit_registry = AuditRegistry::new();
-    macro_rules! register_audit {
-        ($rule:path) => {{
-            // HACK: https://github.com/rust-lang/rust/issues/48067
-            use crate::audit::AuditCore as _;
-            use $rule as base;
-            match base::new(&audit_state) {
-                Ok(audit) => audit_registry.register_audit(base::ident(), Box::new(audit)),
-                Err(AuditLoadError::Skip(e)) => {
-                    tracing::info!("skipping {audit}: {e}", audit = base::ident())
-                }
-                Err(AuditLoadError::Fail(e)) => {
-                    return Err(anyhow!(tips(
-                        format!("failed to load audit: {audit}", audit = base::ident()),
-                        &[format!("{e:#}"), format!("see: {url}", url = base::url())]
-                    )));
-                }
-            }
-        }};
-    }
+    let audit_registry = AuditRegistry::default_audits(&audit_state)?;
 
-    register_audit!(audit::artipacked::Artipacked);
-    register_audit!(audit::unsound_contains::UnsoundContains);
-    register_audit!(audit::excessive_permissions::ExcessivePermissions);
-    register_audit!(audit::dangerous_triggers::DangerousTriggers);
-    register_audit!(audit::impostor_commit::ImpostorCommit);
-    register_audit!(audit::ref_confusion::RefConfusion);
-    register_audit!(audit::use_trusted_publishing::UseTrustedPublishing);
-    register_audit!(audit::template_injection::TemplateInjection);
-    register_audit!(audit::hardcoded_container_credentials::HardcodedContainerCredentials);
-    register_audit!(audit::self_hosted_runner::SelfHostedRunner);
-    register_audit!(audit::known_vulnerable_actions::KnownVulnerableActions);
-    register_audit!(audit::unpinned_uses::UnpinnedUses);
-    register_audit!(audit::insecure_commands::InsecureCommands);
-    register_audit!(audit::github_env::GitHubEnv);
-    register_audit!(audit::cache_poisoning::CachePoisoning);
-    register_audit!(audit::secrets_inherit::SecretsInherit);
-    register_audit!(audit::bot_conditions::BotConditions);
-    register_audit!(audit::overprovisioned_secrets::OverprovisionedSecrets);
-    register_audit!(audit::unredacted_secrets::UnredactedSecrets);
-    register_audit!(audit::forbidden_uses::ForbiddenUses);
-    register_audit!(audit::obfuscation::Obfuscation);
-    register_audit!(audit::stale_action_refs::StaleActionRefs);
-    register_audit!(audit::unpinned_images::UnpinnedImages);
-    register_audit!(audit::anonymous_definition::AnonymousDefinition);
-
-    let mut results = FindingRegistry::new(&app, &config);
+    let mut results =
+        FindingRegistry::new(app.min_severity, app.min_confidence, app.persona, &config);
     {
         // Note: block here so that we drop the span here at the right time.
         let span = info_span!("audit");

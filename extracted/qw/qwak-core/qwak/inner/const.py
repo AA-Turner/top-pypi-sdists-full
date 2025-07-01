@@ -40,3 +40,5 @@ class QwakConstants:
     )
 
     JFROG_TENANT_HEADER_KEY = "X-JFrog-Tenant-Id"
+
+    QWAK_APP_URL: str = "https://app.qwak.ai"

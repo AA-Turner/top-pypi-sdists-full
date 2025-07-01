@@ -24,12 +24,12 @@ from typing_extensions import Annotated
 from urllib.parse import quote
 
 from pydantic import Field, StrictInt, StrictStr
-from typing import Optional
+from typing import List, Optional
 from typing_extensions import Annotated
-from wandelbots_api_client.v2.models.controller_capabilities import ControllerCapabilities
-from wandelbots_api_client.v2.models.controllers_list import ControllersList
+from wandelbots_api_client.v2.models.controller_description import ControllerDescription
+from wandelbots_api_client.v2.models.coordinate_system import CoordinateSystem
 from wandelbots_api_client.v2.models.get_mode_response import GetModeResponse
-from wandelbots_api_client.v2.models.mode_change_response import ModeChangeResponse
+from wandelbots_api_client.v2.models.orientation_type import OrientationType
 from wandelbots_api_client.v2.models.robot_controller import RobotController
 from wandelbots_api_client.v2.models.robot_controller_state import RobotControllerState
 from wandelbots_api_client.v2.models.settable_robot_system_mode import SettableRobotSystemMode
@@ -944,6 +944,596 @@ class ControllerApi:
 
 
     @validate_call
+    async def get_controller_description(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ControllerDescription:
+        """Description
+
+        Get description of a configured robot controller including a list of connected motion group identifiers. Use [getMotionGroupDescription](getMotionGroupDescription) to get more information about the motion group. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_controller_description_serialize(
+            cell=cell,
+            controller=controller,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ControllerDescription",
+            '400': "Error",
+            '404': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    async def get_controller_description_with_http_info(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ControllerDescription]:
+        """Description
+
+        Get description of a configured robot controller including a list of connected motion group identifiers. Use [getMotionGroupDescription](getMotionGroupDescription) to get more information about the motion group. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_controller_description_serialize(
+            cell=cell,
+            controller=controller,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ControllerDescription",
+            '400': "Error",
+            '404': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    async def get_controller_description_without_preload_content(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Description
+
+        Get description of a configured robot controller including a list of connected motion group identifiers. Use [getMotionGroupDescription](getMotionGroupDescription) to get more information about the motion group. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_controller_description_serialize(
+            cell=cell,
+            controller=controller,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ControllerDescription",
+            '400': "Error",
+            '404': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_controller_description_serialize(
+        self,
+        cell,
+        controller,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[str, Union[str, bytes]] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if cell is not None:
+            _path_params['cell'] = cell
+        if controller is not None:
+            _path_params['controller'] = controller
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            [
+                'application/json'
+            ]
+        )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BasicAuth', 
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/cells/{cell}/controllers/{controller}/description',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+    @validate_call
+    async def get_coordinate_system(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        coordinate_system: Annotated[StrictStr, Field(description="Unique identifier addressing a coordinate system.")],
+        orientation_type: Optional[OrientationType] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> CoordinateSystem:
+        """Coordinate System
+
+        Request a coordinate system specification for a given identifier. Use parameter orientation_type to get the orientation part of the transformation offset of the coordinate system returned in the requested orientation notation. If parameter orientation_type is not set, the orientation part of the transformation offset of the coordinate system is returned in rotation vector notation.  The coordinate systems from the robot controller are loaded when the motion group associated with the coordinate system is activated. With deactivation of the motion group, the associated coordinate systems are removed from NOVA. The unique identifier of the coordinate systems from the robot controllers are suffixed with \"On\" + the unique identifier of the robot controller. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param coordinate_system: Unique identifier addressing a coordinate system. (required)
+        :type coordinate_system: str
+        :param orientation_type:
+        :type orientation_type: OrientationType
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_coordinate_system_serialize(
+            cell=cell,
+            controller=controller,
+            coordinate_system=coordinate_system,
+            orientation_type=orientation_type,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CoordinateSystem",
+            '400': "Error",
+            '404': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    async def get_coordinate_system_with_http_info(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        coordinate_system: Annotated[StrictStr, Field(description="Unique identifier addressing a coordinate system.")],
+        orientation_type: Optional[OrientationType] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[CoordinateSystem]:
+        """Coordinate System
+
+        Request a coordinate system specification for a given identifier. Use parameter orientation_type to get the orientation part of the transformation offset of the coordinate system returned in the requested orientation notation. If parameter orientation_type is not set, the orientation part of the transformation offset of the coordinate system is returned in rotation vector notation.  The coordinate systems from the robot controller are loaded when the motion group associated with the coordinate system is activated. With deactivation of the motion group, the associated coordinate systems are removed from NOVA. The unique identifier of the coordinate systems from the robot controllers are suffixed with \"On\" + the unique identifier of the robot controller. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param coordinate_system: Unique identifier addressing a coordinate system. (required)
+        :type coordinate_system: str
+        :param orientation_type:
+        :type orientation_type: OrientationType
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_coordinate_system_serialize(
+            cell=cell,
+            controller=controller,
+            coordinate_system=coordinate_system,
+            orientation_type=orientation_type,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CoordinateSystem",
+            '400': "Error",
+            '404': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    async def get_coordinate_system_without_preload_content(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        coordinate_system: Annotated[StrictStr, Field(description="Unique identifier addressing a coordinate system.")],
+        orientation_type: Optional[OrientationType] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Coordinate System
+
+        Request a coordinate system specification for a given identifier. Use parameter orientation_type to get the orientation part of the transformation offset of the coordinate system returned in the requested orientation notation. If parameter orientation_type is not set, the orientation part of the transformation offset of the coordinate system is returned in rotation vector notation.  The coordinate systems from the robot controller are loaded when the motion group associated with the coordinate system is activated. With deactivation of the motion group, the associated coordinate systems are removed from NOVA. The unique identifier of the coordinate systems from the robot controllers are suffixed with \"On\" + the unique identifier of the robot controller. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param coordinate_system: Unique identifier addressing a coordinate system. (required)
+        :type coordinate_system: str
+        :param orientation_type:
+        :type orientation_type: OrientationType
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_coordinate_system_serialize(
+            cell=cell,
+            controller=controller,
+            coordinate_system=coordinate_system,
+            orientation_type=orientation_type,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CoordinateSystem",
+            '400': "Error",
+            '404': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_coordinate_system_serialize(
+        self,
+        cell,
+        controller,
+        coordinate_system,
+        orientation_type,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[str, Union[str, bytes]] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if cell is not None:
+            _path_params['cell'] = cell
+        if controller is not None:
+            _path_params['controller'] = controller
+        if coordinate_system is not None:
+            _path_params['coordinate-system'] = coordinate_system
+        # process the query parameters
+        if orientation_type is not None:
+            
+            _query_params.append(('orientation_type', orientation_type.value))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            [
+                'application/json'
+            ]
+        )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BasicAuth', 
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/cells/{cell}/controllers/{controller}/coordinate-systems/{coordinate-system}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+    @validate_call
     async def get_current_robot_controller_state(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
@@ -961,7 +1551,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RobotControllerState:
-        """State of Device
+        """State
 
         Get the current state of a robot controller.
 
@@ -1034,7 +1624,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[RobotControllerState]:
-        """State of Device
+        """State
 
         Get the current state of a robot controller.
 
@@ -1107,7 +1697,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """State of Device
+        """State
 
         Get the current state of a robot controller.
 
@@ -1519,7 +2109,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RobotController:
-        """Robot Controller Configuration
+        """Robot Controller
 
         Get the configuration for a robot controller. 
 
@@ -1591,7 +2181,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[RobotController]:
-        """Robot Controller Configuration
+        """Robot Controller
 
         Get the configuration for a robot controller. 
 
@@ -1663,7 +2253,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Robot Controller Configuration
+        """Robot Controller
 
         Get the configuration for a robot controller. 
 
@@ -1763,285 +2353,6 @@ class ControllerApi:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/cells/{cell}/controllers/{controller}',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-    @validate_call
-    async def get_supported_modes(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ControllerCapabilities:
-        """Supported Motion Modes
-
-        Lists supported operating modes. Usually cobots support free drive and control, industrial robots only support control. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param controller: Unique identifier to address a controller in the cell. (required)
-        :type controller: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_supported_modes_serialize(
-            cell=cell,
-            controller=controller,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ControllerCapabilities",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    async def get_supported_modes_with_http_info(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[ControllerCapabilities]:
-        """Supported Motion Modes
-
-        Lists supported operating modes. Usually cobots support free drive and control, industrial robots only support control. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param controller: Unique identifier to address a controller in the cell. (required)
-        :type controller: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_supported_modes_serialize(
-            cell=cell,
-            controller=controller,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ControllerCapabilities",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    async def get_supported_modes_without_preload_content(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Supported Motion Modes
-
-        Lists supported operating modes. Usually cobots support free drive and control, industrial robots only support control. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param controller: Unique identifier to address a controller in the cell. (required)
-        :type controller: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_supported_modes_serialize(
-            cell=cell,
-            controller=controller,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ControllerCapabilities",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _get_supported_modes_serialize(
-        self,
-        cell,
-        controller,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if cell is not None:
-            _path_params['cell'] = cell
-        if controller is not None:
-            _path_params['controller'] = controller
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        _header_params['Accept'] = self.api_client.select_header_accept(
-            [
-                'application/json'
-            ]
-        )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'BasicAuth', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/cells/{cell}/controllers/{controller}/controller-capabilities',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -2336,9 +2647,11 @@ class ControllerApi:
 
 
     @validate_call
-    async def list_controllers(
+    async def list_coordinate_systems(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        orientation_type: Optional[OrientationType] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2351,13 +2664,17 @@ class ControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ControllersList:
-        """List
+    ) -> List[CoordinateSystem]:
+        """List Coordinate Systems
 
-        List all configured robot controllers. 
+        Lists all specifications of coordinate systems from robot controllers. Use parameter orientation_type to get the orientation part of the transformation offset of the coordinate system returned in the requested orientation notation. If parameter orientation_type is not set, the orientation part of the transformation offset of the coordinate system is returned in rotation vector notation.  The coordinate systems from the robot controller are loaded when the motion group associated with the coordinate system is activated. With deactivation of the motion group, the associated coordinate systems are removed from NOVA. The unique identifier of the coordinate systems from the robot controllers are suffixed with \"On\" + the unique identifier of the robot controller. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param orientation_type:
+        :type orientation_type: OrientationType
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2380,8 +2697,10 @@ class ControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_controllers_serialize(
+        _param = self._list_coordinate_systems_serialize(
             cell=cell,
+            controller=controller,
+            orientation_type=orientation_type,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2389,7 +2708,7 @@ class ControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ControllersList",
+            '200': "List[CoordinateSystem]",
             '400': "Error",
         }
         response_data = await self.api_client.call_api(
@@ -2404,7 +2723,224 @@ class ControllerApi:
 
 
     @validate_call
-    async def list_controllers_with_http_info(
+    async def list_coordinate_systems_with_http_info(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        orientation_type: Optional[OrientationType] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CoordinateSystem]]:
+        """List Coordinate Systems
+
+        Lists all specifications of coordinate systems from robot controllers. Use parameter orientation_type to get the orientation part of the transformation offset of the coordinate system returned in the requested orientation notation. If parameter orientation_type is not set, the orientation part of the transformation offset of the coordinate system is returned in rotation vector notation.  The coordinate systems from the robot controller are loaded when the motion group associated with the coordinate system is activated. With deactivation of the motion group, the associated coordinate systems are removed from NOVA. The unique identifier of the coordinate systems from the robot controllers are suffixed with \"On\" + the unique identifier of the robot controller. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param orientation_type:
+        :type orientation_type: OrientationType
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_coordinate_systems_serialize(
+            cell=cell,
+            controller=controller,
+            orientation_type=orientation_type,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CoordinateSystem]",
+            '400': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    async def list_coordinate_systems_without_preload_content(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        orientation_type: Optional[OrientationType] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List Coordinate Systems
+
+        Lists all specifications of coordinate systems from robot controllers. Use parameter orientation_type to get the orientation part of the transformation offset of the coordinate system returned in the requested orientation notation. If parameter orientation_type is not set, the orientation part of the transformation offset of the coordinate system is returned in rotation vector notation.  The coordinate systems from the robot controller are loaded when the motion group associated with the coordinate system is activated. With deactivation of the motion group, the associated coordinate systems are removed from NOVA. The unique identifier of the coordinate systems from the robot controllers are suffixed with \"On\" + the unique identifier of the robot controller. 
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
+        :param orientation_type:
+        :type orientation_type: OrientationType
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_coordinate_systems_serialize(
+            cell=cell,
+            controller=controller,
+            orientation_type=orientation_type,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CoordinateSystem]",
+            '400': "Error",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_coordinate_systems_serialize(
+        self,
+        cell,
+        controller,
+        orientation_type,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[str, Union[str, bytes]] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if cell is not None:
+            _path_params['cell'] = cell
+        if controller is not None:
+            _path_params['controller'] = controller
+        # process the query parameters
+        if orientation_type is not None:
+            
+            _query_params.append(('orientation_type', orientation_type.value))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            [
+                'application/json'
+            ]
+        )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BasicAuth', 
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/cells/{cell}/controllers/{controller}/coordinate-systems',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+    @validate_call
+    async def list_robot_controllers(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         _request_timeout: Union[
@@ -2419,10 +2955,10 @@ class ControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[ControllersList]:
-        """List
+    ) -> List[str]:
+        """List Robot Controllers
 
-        List all configured robot controllers. 
+        List the names of all deployed robot controllers.
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2448,7 +2984,7 @@ class ControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_controllers_serialize(
+        _param = self._list_robot_controllers_serialize(
             cell=cell,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2457,8 +2993,74 @@ class ControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ControllersList",
-            '400': "Error",
+            '200': "List[str]",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    async def list_robot_controllers_with_http_info(
+        self,
+        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[str]]:
+        """List Robot Controllers
+
+        List the names of all deployed robot controllers.
+
+        :param cell: Unique identifier addressing a cell in all API calls.  (required)
+        :type cell: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_robot_controllers_serialize(
+            cell=cell,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2472,7 +3074,7 @@ class ControllerApi:
 
 
     @validate_call
-    async def list_controllers_without_preload_content(
+    async def list_robot_controllers_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         _request_timeout: Union[
@@ -2488,9 +3090,9 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """List
+        """List Robot Controllers
 
-        List all configured robot controllers. 
+        List the names of all deployed robot controllers.
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2516,7 +3118,7 @@ class ControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_controllers_serialize(
+        _param = self._list_robot_controllers_serialize(
             cell=cell,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2525,8 +3127,7 @@ class ControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ControllersList",
-            '400': "Error",
+            '200': "List[str]",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2535,7 +3136,7 @@ class ControllerApi:
         return response_data.response
 
 
-    def _list_controllers_serialize(
+    def _list_robot_controllers_serialize(
         self,
         cell,
         _request_auth,
@@ -2894,9 +3495,9 @@ class ControllerApi:
 
     @validate_call
     async def stream_free_drive(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], response_rate: Optional[StrictInt] = None) -> AsyncGenerator[RobotControllerState, None]:  # noqa: E501
-        """Stream Free Drive Mode  # noqa: E501
+        """Stream Free Drive  # noqa: E501
 
-        Sets the robot controller into freedrive mode and stays in freedrive until the websocket connection is closed by the client. In freedrive mode, it is possible to move the attached motion groups by hand. This is a blocking call. As long as the websocket connection is open, no other endpoint can control or move the robot.  <!-- theme: danger -->  > **DANGER**  > Danger caused by robot. Improper assessment by the integrator of the application-specific hazards can result in people being > crushed, drawn in or caught due to the robot's complex movement sequences. Before opening the websocket, ensure that  > - The robot is in a safe state,  > - The right payload is set (e.g by using the (getActivePayload)[getActivePayload] endpoint),  > - No humans or object are within the robot's reach or within the cell.  As long as the websocket connection is open you will get the current state of the robot system in the response in the specified response_rate. If the activation failed, the returned status will return possible reasons for the failure.  Free drive mode is only available for robot controllers that support it, in particular Collobarative Robots (\"Cobots\"). Use the (getSupportedModes)[getSupportedModes] endpoint to check if the robot controller supports free drive mode.   # noqa: E501
+        <!-- theme: danger -->  > Websocket endpoint  Sets the robot controller into freedrive mode and stays in freedrive until the websocket connection is closed by the client. In freedrive mode, it is possible to move the attached motion groups by hand. This is a blocking call. As long as the websocket connection is open, no other endpoint can control or move the robot.  <!-- theme: danger -->  > **DANGER**  > Danger caused by robot. Improper assessment by the integrator of the application-specific hazards can result in people being > crushed, drawn in or caught due to the robot's complex movement sequences. Before opening the websocket, ensure that  > - The robot is in a safe state,  > - The right payload is set (e.g by using the (getActivePayload)[getActivePayload] endpoint),  > - No humans or object are within the robot's reach or within the cell.  As long as the websocket connection is open you will get the current state of the robot system in the response in the specified response_rate. If the activation failed, the returned status will return possible reasons for the failure.  Free drive mode is only available for robot controllers that support it, in particular Collobarative Robots (\"Cobots\"). Use the (listController)[listController] endpoint to check if the robot controller supports free drive mode.   # noqa: E501
         :param request: A StreamFreeDriveRequest
         :info All responses from the server will be yielded
         :type StreamFreeDriveRequest
@@ -2962,73 +3563,10 @@ class ControllerApi:
 
 
     @validate_call
-    async def stream_mode_change(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")]) -> AsyncGenerator[ModeChangeResponse, None]:  # noqa: E501
-        """Stream Mode Change  # noqa: E501
-
-        Receive updates of the current robot system mode of a robot controller via websocket upon robot system mode change. See [setDefaultMode](setDefaultMode) for more information about the different modes.   # noqa: E501
-        :param request: A StreamModeChangeRequest
-        :info All responses from the server will be yielded
-        :type StreamModeChangeRequest
-        """
-        def format_path_parameters(path):
-            # Find all substrings that are enclosed in brackets
-            bracket_contents = re.findall(r'\{(.*?)\}', path)
-
-            # For each found substring, replace underscores with spaces
-            for content in bracket_contents:
-                content = "{" + content + "}"
-                modified_content = humps.dekebabize(content)
-                path = path.replace(content, modified_content)
-
-            return path
-
-        def append_parameter_connector(url_schema):
-            if not "?" in url_schema:
-                url_schema += "?"
-            else:
-                url_schema += "&"
-            return url_schema
-
-        path = format_path_parameters("/cells/{cell}/controllers/{controller}/mode-stream")
-        path = path.format(cell=cell,controller=controller,)
-
-        headers = websockets.Headers()
-        tmp_host = self.api_client.configuration.host
-        if self.api_client.configuration.host.startswith("https://"):
-            # Basic Auth
-            if self.api_client.configuration.username:
-                tmp_host = self.api_client.configuration.host.replace("https://", "")
-                tmp_host = f"wss://{self.api_client.configuration.username}:{self.api_client.configuration.password}@{tmp_host}"
-
-            # OAuth2
-            elif self.api_client.configuration.access_token:
-                tmp_host = self.api_client.configuration.host.replace("https://", "")
-                tmp_host = f"wss://{tmp_host}"
-                headers = websockets.Headers([
-                    ("Authorization", f"Bearer {self.api_client.configuration.access_token}")
-                ])
-        else:
-            tmp_host = tmp_host.replace("http://", "ws://")
-
-        url_schema = tmp_host + path
-        full_url = furl(url_schema)
-
-        async with websockets.connect(full_url.url, open_timeout=10, additional_headers=headers) as websocket:
-            try:
-                async for response in websocket:
-                    response_data = json.loads(response)
-                    if "result" not in response_data:
-                        raise Exception(response_data)
-                    yield ModeChangeResponse.from_dict(response_data["result"])
-            except websockets.exceptions.ConnectionClosed:
-                return
-
-
-    @validate_call
     async def stream_robot_controller_state(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], response_rate: Optional[StrictInt] = None) -> AsyncGenerator[RobotControllerState, None]:  # noqa: E501
-        """Stream State of Device  # noqa: E501
+        """Stream State  # noqa: E501
 
-        Receive updates of the state of a robot controller.  # noqa: E501
+        <!-- theme: danger -->  > Websocket endpoint  Receive updates of the state of a robot controller.   # noqa: E501
         :param request: A StreamRobotControllerStateRequest
         :info All responses from the server will be yielded
         :type StreamRobotControllerStateRequest
@@ -3113,7 +3651,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> None:
-        """Update Robot Controller Configuration
+        """Update Robot Controller
 
         Update the configuration of a robot controller.  Reconfigure certain options of a robot controller, or deploy a specific container image of a robot controller.  <!-- theme: warning --> > **WARNING** > > Using it in conjunction with the settings app may lead to unpredictable behavior. 
 
@@ -3194,7 +3732,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[None]:
-        """Update Robot Controller Configuration
+        """Update Robot Controller
 
         Update the configuration of a robot controller.  Reconfigure certain options of a robot controller, or deploy a specific container image of a robot controller.  <!-- theme: warning --> > **WARNING** > > Using it in conjunction with the settings app may lead to unpredictable behavior. 
 
@@ -3275,7 +3813,7 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Update Robot Controller Configuration
+        """Update Robot Controller
 
         Update the configuration of a robot controller.  Reconfigure certain options of a robot controller, or deploy a specific container image of a robot controller.  <!-- theme: warning --> > **WARNING** > > Using it in conjunction with the settings app may lead to unpredictable behavior. 
 

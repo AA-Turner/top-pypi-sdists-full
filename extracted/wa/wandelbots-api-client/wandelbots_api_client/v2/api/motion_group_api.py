@@ -23,10 +23,11 @@ from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple, U
 from typing_extensions import Annotated
 from urllib.parse import quote
 
-from pydantic import Field, StrictStr
+from pydantic import Field, StrictInt, StrictStr
+from typing import Optional
 from typing_extensions import Annotated
-from wandelbots_api_client.v2.models.motion_group import MotionGroup
-from wandelbots_api_client.v2.models.motion_groups_list import MotionGroupsList
+from wandelbots_api_client.v2.models.motion_group_description import MotionGroupDescription
+from wandelbots_api_client.v2.models.motion_group_state import MotionGroupState
 
 from wandelbots_api_client.v2.api_client import ApiClient, RequestSerialized
 from wandelbots_api_client.v2.api_response import ApiResponse
@@ -45,10 +46,12 @@ class MotionGroupApi:
         self.api_client = api_client
 
     @validate_call
-    async def activate_all_motion_groups(
+    async def get_current_motion_group_state(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: StrictStr,
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")],
+        response_coordinate_system: Annotated[Optional[StrictStr], Field(description="Unique identifier addressing a coordinate system to which the responses should be converted. If not set, world coordinate system is used. ")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -61,15 +64,19 @@ class MotionGroupApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> MotionGroupsList:
-        """Activate All
+    ) -> MotionGroupState:
+        """State
 
-        Activate the motion group and keeps the motion group in an active status. To activate all motion groups of a robot controller, use this endpoint. It will return all activated motion groups of that controller.  When activating motion groups, it is not possible to interact with the controller in any other way.  To deactivate a motion group, use [deactivateMotionGroup](deactivateMotionGroup). 
+        Returns the current state of the selected motion group including the current joint position, velocity, pose, and more. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
-        :param controller: (required)
+        :param controller: Unique identifier to address a controller in the cell. (required)
         :type controller: str
+        :param motion_group: The motion-group identifier. (required)
+        :type motion_group: str
+        :param response_coordinate_system: Unique identifier addressing a coordinate system to which the responses should be converted. If not set, world coordinate system is used. 
+        :type response_coordinate_system: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -92,9 +99,11 @@ class MotionGroupApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._activate_all_motion_groups_serialize(
+        _param = self._get_current_motion_group_state_serialize(
             cell=cell,
             controller=controller,
+            motion_group=motion_group,
+            response_coordinate_system=response_coordinate_system,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -102,8 +111,9 @@ class MotionGroupApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroupsList",
+            '200': "MotionGroupState",
             '400': "Error",
+            '404': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -117,10 +127,12 @@ class MotionGroupApi:
 
 
     @validate_call
-    async def activate_all_motion_groups_with_http_info(
+    async def get_current_motion_group_state_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: StrictStr,
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")],
+        response_coordinate_system: Annotated[Optional[StrictStr], Field(description="Unique identifier addressing a coordinate system to which the responses should be converted. If not set, world coordinate system is used. ")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -133,15 +145,19 @@ class MotionGroupApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[MotionGroupsList]:
-        """Activate All
+    ) -> ApiResponse[MotionGroupState]:
+        """State
 
-        Activate the motion group and keeps the motion group in an active status. To activate all motion groups of a robot controller, use this endpoint. It will return all activated motion groups of that controller.  When activating motion groups, it is not possible to interact with the controller in any other way.  To deactivate a motion group, use [deactivateMotionGroup](deactivateMotionGroup). 
+        Returns the current state of the selected motion group including the current joint position, velocity, pose, and more. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
-        :param controller: (required)
+        :param controller: Unique identifier to address a controller in the cell. (required)
         :type controller: str
+        :param motion_group: The motion-group identifier. (required)
+        :type motion_group: str
+        :param response_coordinate_system: Unique identifier addressing a coordinate system to which the responses should be converted. If not set, world coordinate system is used. 
+        :type response_coordinate_system: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -164,9 +180,11 @@ class MotionGroupApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._activate_all_motion_groups_serialize(
+        _param = self._get_current_motion_group_state_serialize(
             cell=cell,
             controller=controller,
+            motion_group=motion_group,
+            response_coordinate_system=response_coordinate_system,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -174,8 +192,9 @@ class MotionGroupApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroupsList",
+            '200': "MotionGroupState",
             '400': "Error",
+            '404': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -189,10 +208,12 @@ class MotionGroupApi:
 
 
     @validate_call
-    async def activate_all_motion_groups_without_preload_content(
+    async def get_current_motion_group_state_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: StrictStr,
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
+        motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")],
+        response_coordinate_system: Annotated[Optional[StrictStr], Field(description="Unique identifier addressing a coordinate system to which the responses should be converted. If not set, world coordinate system is used. ")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -206,14 +227,18 @@ class MotionGroupApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Activate All
+        """State
 
-        Activate the motion group and keeps the motion group in an active status. To activate all motion groups of a robot controller, use this endpoint. It will return all activated motion groups of that controller.  When activating motion groups, it is not possible to interact with the controller in any other way.  To deactivate a motion group, use [deactivateMotionGroup](deactivateMotionGroup). 
+        Returns the current state of the selected motion group including the current joint position, velocity, pose, and more. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
-        :param controller: (required)
+        :param controller: Unique identifier to address a controller in the cell. (required)
         :type controller: str
+        :param motion_group: The motion-group identifier. (required)
+        :type motion_group: str
+        :param response_coordinate_system: Unique identifier addressing a coordinate system to which the responses should be converted. If not set, world coordinate system is used. 
+        :type response_coordinate_system: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -236,9 +261,11 @@ class MotionGroupApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._activate_all_motion_groups_serialize(
+        _param = self._get_current_motion_group_state_serialize(
             cell=cell,
             controller=controller,
+            motion_group=motion_group,
+            response_coordinate_system=response_coordinate_system,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -246,8 +273,9 @@ class MotionGroupApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroupsList",
+            '200': "MotionGroupState",
             '400': "Error",
+            '404': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -256,10 +284,12 @@ class MotionGroupApi:
         return response_data.response
 
 
-    def _activate_all_motion_groups_serialize(
+    def _get_current_motion_group_state_serialize(
         self,
         cell,
         controller,
+        motion_group,
+        response_coordinate_system,
         _request_auth,
         _content_type,
         _headers,
@@ -281,291 +311,14 @@ class MotionGroupApi:
         # process the path parameters
         if cell is not None:
             _path_params['cell'] = cell
-        # process the query parameters
         if controller is not None:
-            
-            _query_params.append(('controller', controller))
-            
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        _header_params['Accept'] = self.api_client.select_header_accept(
-            [
-                'application/json'
-            ]
-        )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'BasicAuth', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/cells/{cell}/motion-groups/all',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-    @validate_call
-    async def activate_motion_group(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        motion_group: StrictStr,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> MotionGroup:
-        """Activate
-
-        Activate the motion group and keeps the motion group in an active status. To manually activate a motion group, use this endpoint.  When activating a motion group, interacting with the controller in other ways is not possible.  To deactivate a motion group, use [deactivateMotionGroup](deactivateMotionGroup). 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param motion_group: (required)
-        :type motion_group: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._activate_motion_group_serialize(
-            cell=cell,
-            motion_group=motion_group,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroup",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    async def activate_motion_group_with_http_info(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        motion_group: StrictStr,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[MotionGroup]:
-        """Activate
-
-        Activate the motion group and keeps the motion group in an active status. To manually activate a motion group, use this endpoint.  When activating a motion group, interacting with the controller in other ways is not possible.  To deactivate a motion group, use [deactivateMotionGroup](deactivateMotionGroup). 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param motion_group: (required)
-        :type motion_group: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._activate_motion_group_serialize(
-            cell=cell,
-            motion_group=motion_group,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroup",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    async def activate_motion_group_without_preload_content(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        motion_group: StrictStr,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Activate
-
-        Activate the motion group and keeps the motion group in an active status. To manually activate a motion group, use this endpoint.  When activating a motion group, interacting with the controller in other ways is not possible.  To deactivate a motion group, use [deactivateMotionGroup](deactivateMotionGroup). 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param motion_group: (required)
-        :type motion_group: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._activate_motion_group_serialize(
-            cell=cell,
-            motion_group=motion_group,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroup",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _activate_motion_group_serialize(
-        self,
-        cell,
-        motion_group,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if cell is not None:
-            _path_params['cell'] = cell
-        # process the query parameters
+            _path_params['controller'] = controller
         if motion_group is not None:
+            _path_params['motion-group'] = motion_group
+        # process the query parameters
+        if response_coordinate_system is not None:
             
-            _query_params.append(('motion_group', motion_group))
+            _query_params.append(('response_coordinate_system', response_coordinate_system))
             
         # process the header parameters
         # process the form parameters
@@ -587,8 +340,8 @@ class MotionGroupApi:
         ]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/cells/{cell}/motion-groups',
+            method='GET',
+            resource_path='/cells/{cell}/controllers/{controller}/motion-groups/{motion-group}/state',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -604,9 +357,10 @@ class MotionGroupApi:
 
 
     @validate_call
-    async def deactivate_motion_group(
+    async def get_motion_group_description(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
         motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")],
         _request_timeout: Union[
             None,
@@ -620,13 +374,15 @@ class MotionGroupApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> None:
-        """Deactivate
+    ) -> MotionGroupDescription:
+        """Description
 
-        Deactivate a motion group. Activate the motion group and keeps the motion group in an active status.  The robot controller streams information about all active motion groups. Deactivate motion groups that you no longer use.  When deactivating motion groups, it is not possible to interact with the controller in any other way. 
+        Get the set of parameters that describe the motion group and its configuration including safety zones, limits, etc. This data might change upon connection to the robot. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
         :param motion_group: The motion-group identifier. (required)
         :type motion_group: str
         :param _request_timeout: timeout setting for this request. If one
@@ -651,8 +407,9 @@ class MotionGroupApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._deactivate_motion_group_serialize(
+        _param = self._get_motion_group_description_serialize(
             cell=cell,
+            controller=controller,
             motion_group=motion_group,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -661,7 +418,7 @@ class MotionGroupApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': None,
+            '200': "MotionGroupDescription",
             '400': "Error",
             '404': "Error",
         }
@@ -677,9 +434,10 @@ class MotionGroupApi:
 
 
     @validate_call
-    async def deactivate_motion_group_with_http_info(
+    async def get_motion_group_description_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
         motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")],
         _request_timeout: Union[
             None,
@@ -693,13 +451,15 @@ class MotionGroupApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[None]:
-        """Deactivate
+    ) -> ApiResponse[MotionGroupDescription]:
+        """Description
 
-        Deactivate a motion group. Activate the motion group and keeps the motion group in an active status.  The robot controller streams information about all active motion groups. Deactivate motion groups that you no longer use.  When deactivating motion groups, it is not possible to interact with the controller in any other way. 
+        Get the set of parameters that describe the motion group and its configuration including safety zones, limits, etc. This data might change upon connection to the robot. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
         :param motion_group: The motion-group identifier. (required)
         :type motion_group: str
         :param _request_timeout: timeout setting for this request. If one
@@ -724,8 +484,9 @@ class MotionGroupApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._deactivate_motion_group_serialize(
+        _param = self._get_motion_group_description_serialize(
             cell=cell,
+            controller=controller,
             motion_group=motion_group,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -734,7 +495,7 @@ class MotionGroupApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': None,
+            '200': "MotionGroupDescription",
             '400': "Error",
             '404': "Error",
         }
@@ -750,9 +511,10 @@ class MotionGroupApi:
 
 
     @validate_call
-    async def deactivate_motion_group_without_preload_content(
+    async def get_motion_group_description_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
+        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
         motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")],
         _request_timeout: Union[
             None,
@@ -767,12 +529,14 @@ class MotionGroupApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Deactivate
+        """Description
 
-        Deactivate a motion group. Activate the motion group and keeps the motion group in an active status.  The robot controller streams information about all active motion groups. Deactivate motion groups that you no longer use.  When deactivating motion groups, it is not possible to interact with the controller in any other way. 
+        Get the set of parameters that describe the motion group and its configuration including safety zones, limits, etc. This data might change upon connection to the robot. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
+        :param controller: Unique identifier to address a controller in the cell. (required)
+        :type controller: str
         :param motion_group: The motion-group identifier. (required)
         :type motion_group: str
         :param _request_timeout: timeout setting for this request. If one
@@ -797,8 +561,9 @@ class MotionGroupApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._deactivate_motion_group_serialize(
+        _param = self._get_motion_group_description_serialize(
             cell=cell,
+            controller=controller,
             motion_group=motion_group,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -807,7 +572,7 @@ class MotionGroupApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': None,
+            '200': "MotionGroupDescription",
             '400': "Error",
             '404': "Error",
         }
@@ -818,9 +583,10 @@ class MotionGroupApi:
         return response_data.response
 
 
-    def _deactivate_motion_group_serialize(
+    def _get_motion_group_description_serialize(
         self,
         cell,
+        controller,
         motion_group,
         _request_auth,
         _content_type,
@@ -843,6 +609,8 @@ class MotionGroupApi:
         # process the path parameters
         if cell is not None:
             _path_params['cell'] = cell
+        if controller is not None:
+            _path_params['controller'] = controller
         if motion_group is not None:
             _path_params['motion-group'] = motion_group
         # process the query parameters
@@ -866,269 +634,8 @@ class MotionGroupApi:
         ]
 
         return self.api_client.param_serialize(
-            method='DELETE',
-            resource_path='/cells/{cell}/motion-groups/{motion-group}',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-    @validate_call
-    async def list_motion_groups(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> MotionGroupsList:
-        """List Active
-
-        List all active motion groups. A motion group is active if it is currently used by a controller. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._list_motion_groups_serialize(
-            cell=cell,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroupsList",
-            '400': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    async def list_motion_groups_with_http_info(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[MotionGroupsList]:
-        """List Active
-
-        List all active motion groups. A motion group is active if it is currently used by a controller. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._list_motion_groups_serialize(
-            cell=cell,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroupsList",
-            '400': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    async def list_motion_groups_without_preload_content(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """List Active
-
-        List all active motion groups. A motion group is active if it is currently used by a controller. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._list_motion_groups_serialize(
-            cell=cell,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "MotionGroupsList",
-            '400': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _list_motion_groups_serialize(
-        self,
-        cell,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if cell is not None:
-            _path_params['cell'] = cell
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        _header_params['Accept'] = self.api_client.select_header_accept(
-            [
-                'application/json'
-            ]
-        )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'BasicAuth', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
             method='GET',
-            resource_path='/cells/{cell}/motion-groups',
+            resource_path='/cells/{cell}/controllers/{controller}/motion-groups/{motion-group}/description',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1141,4 +648,79 @@ class MotionGroupApi:
             _request_auth=_request_auth
         )
 
+
+
+    @validate_call
+    async def stream_motion_group_state(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], motion_group: Annotated[StrictStr, Field(description="The motion-group identifier.")], response_rate: Annotated[Optional[StrictInt], Field(description="Update rate for the response message in milliseconds (ms). Default is 200 ms. We recommend to use the step rate of the controller or a multiple of the step rate as NOVA updates the state in the controller's step rate as well. Minimal response rate is the step rate of controller.")] = None, response_coordinate_system: Annotated[Optional[StrictStr], Field(description="Unique identifier addressing a coordinate system to which the cartesian data of the responses should be converted. Default is the world coordinate system. ")] = None) -> AsyncGenerator[MotionGroupState, None]:  # noqa: E501
+        """Stream State  # noqa: E501
+
+        <!-- theme: danger -->  > Websocket endpoint  Receive updates of the motion group state. The stream will be closed from the server if the controller is disconnected.   # noqa: E501
+        :param request: A StreamMotionGroupStateRequest
+        :info All responses from the server will be yielded
+        :type StreamMotionGroupStateRequest
+        """
+        def format_path_parameters(path):
+            # Find all substrings that are enclosed in brackets
+            bracket_contents = re.findall(r'\{(.*?)\}', path)
+
+            # For each found substring, replace underscores with spaces
+            for content in bracket_contents:
+                content = "{" + content + "}"
+                modified_content = humps.dekebabize(content)
+                path = path.replace(content, modified_content)
+
+            return path
+
+        def append_parameter_connector(url_schema):
+            if not "?" in url_schema:
+                url_schema += "?"
+            else:
+                url_schema += "&"
+            return url_schema
+
+        path = format_path_parameters("/cells/{cell}/controllers/{controller}/motion-groups/{motion-group}/state-stream")
+        path = path.format(cell=cell,controller=controller,motion_group=motion_group,)
+
+        headers = websockets.Headers()
+        tmp_host = self.api_client.configuration.host
+        if self.api_client.configuration.host.startswith("https://"):
+            # Basic Auth
+            if self.api_client.configuration.username:
+                tmp_host = self.api_client.configuration.host.replace("https://", "")
+                tmp_host = f"wss://{self.api_client.configuration.username}:{self.api_client.configuration.password}@{tmp_host}"
+
+            # OAuth2
+            elif self.api_client.configuration.access_token:
+                tmp_host = self.api_client.configuration.host.replace("https://", "")
+                tmp_host = f"wss://{tmp_host}"
+                headers = websockets.Headers([
+                    ("Authorization", f"Bearer {self.api_client.configuration.access_token}")
+                ])
+        else:
+            tmp_host = tmp_host.replace("http://", "ws://")
+
+        url_schema = tmp_host + path
+        if locals().get("response_rate") is not None:
+            url_schema = append_parameter_connector(url_schema)
+            if isinstance(response_rate, list):
+              url_schema += "&".join(["response_rate=" + s for s in response_rate])
+            else:
+              url_schema += "response_rate="+str(response_rate)
+        if locals().get("response_coordinate_system") is not None:
+            url_schema = append_parameter_connector(url_schema)
+            if isinstance(response_coordinate_system, list):
+              url_schema += "&".join(["response_coordinate_system=" + s for s in response_coordinate_system])
+            else:
+              url_schema += "response_coordinate_system="+str(response_coordinate_system)
+        full_url = furl(url_schema)
+
+        async with websockets.connect(full_url.url, open_timeout=10, additional_headers=headers) as websocket:
+            try:
+                async for response in websocket:
+                    response_data = json.loads(response)
+                    if "result" not in response_data:
+                        raise Exception(response_data)
+                    yield MotionGroupState.from_dict(response_data["result"])
+            except websockets.exceptions.ConnectionClosed:
+                return
 

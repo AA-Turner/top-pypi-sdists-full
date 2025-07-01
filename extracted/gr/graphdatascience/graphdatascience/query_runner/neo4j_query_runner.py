@@ -9,6 +9,8 @@ from typing import Any, NamedTuple, Optional, Union
 import neo4j
 from pandas import DataFrame
 
+from graphdatascience.query_runner.query_mode import QueryMode
+
 from ..call_parameters import CallParameters
 from ..error.endpoint_suggester import generate_suggestive_error_message
 from ..error.gds_not_installed import GdsNotFound
@@ -30,14 +32,18 @@ class Neo4jQueryRunner(QueryRunner):
     @staticmethod
     def create_for_db(
         endpoint: Union[str, neo4j.Driver],
-        auth: Optional[tuple[str, str]] = None,
+        auth: Union[tuple[str, str], neo4j.Auth, None] = None,
         aura_ds: bool = False,
         database: Optional[str] = None,
         bookmarks: Optional[Any] = None,
         show_progress: bool = True,
+        config: Optional[dict[str, Any]] = None,
     ) -> Neo4jQueryRunner:
         if isinstance(endpoint, str):
-            config: dict[str, Any] = {"user_agent": f"neo4j-graphdatascience-v{__version__}"}
+            if config is None:
+                config = {}
+
+            config["user_agent"] = f"neo4j-graphdatascience-v{__version__}"
 
             if aura_ds:
                 Neo4jQueryRunner._configure_aura(config)
@@ -73,7 +79,7 @@ class Neo4jQueryRunner(QueryRunner):
     @staticmethod
     def create_for_session(
         endpoint: str,
-        auth: Optional[tuple[str, str]] = None,
+        auth: Union[tuple[str, str], neo4j.Auth, None] = None,
         show_progress: bool = True,
     ) -> Neo4jQueryRunner:
         driver_config: dict[str, Any] = {"user_agent": f"neo4j-graphdatascience-v{__version__}"}
@@ -100,9 +106,13 @@ class Neo4jQueryRunner(QueryRunner):
 
     @staticmethod
     def _configure_aura(config: dict[str, Any]) -> None:
-        config["max_connection_lifetime"] = 60 * 8  # 8 minutes
-        config["keep_alive"] = True
-        config["max_connection_pool_size"] = 50
+        # defaults as documented in https://support.neo4j.com/s/article/1500001173021-How-to-handle-Session-Expired-Errors-while-connecting-to-Neo4j-Aura
+        config.setdefault("max_connection_lifetime", 60 * 50)  # 50 minutes
+        config.setdefault("keep_alive", True)
+        config.setdefault("max_connection_pool_size", 50)
+
+        if Neo4jQueryRunner._NEO4J_DRIVER_VERSION >= SemanticVersion(5, 16, 0):
+            config.setdefault("liveness_check_timeout", 60 * 5)  # 5 minutes
 
     @staticmethod
     def parse_protocol(endpoint: str) -> str:
@@ -115,7 +125,7 @@ class Neo4jQueryRunner(QueryRunner):
         self,
         driver: neo4j.Driver,
         protocol: str,
-        auth: Optional[tuple[str, str]] = None,
+        auth: Union[tuple[str, str], neo4j.Auth, None] = None,
         config: dict[str, Any] = {},
         database: Optional[str] = neo4j.DEFAULT_DATABASE,
         auto_close: bool = False,
@@ -142,8 +152,10 @@ class Neo4jQueryRunner(QueryRunner):
     def __run_cypher_simplified_for_query_progress_logger(self, query: str, database: Optional[str]) -> DataFrame:
         # progress logging should not retry a lot as it perodically fetches the latest progress anyway
         connectivity_retry_config = Neo4jQueryRunner.ConnectivityRetriesConfig(max_retries=2)
+        # not using retryable cypher as failing is okay
         return self.run_cypher(query=query, database=database, connectivity_retry_config=connectivity_retry_config)
 
+    # only use for user defined queries
     def run_cypher(
         self,
         query: str,
@@ -187,12 +199,50 @@ class Neo4jQueryRunner(QueryRunner):
 
             return df
 
-    def call_function(self, endpoint: str, params: Optional[CallParameters] = None) -> Any:
+    # better retry mechanism than run_cypher. The neo4j driver handles retryable errors internally
+    def run_retryable_cypher(
+        self,
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+        database: Optional[str] = None,
+        custom_error: bool = True,
+        mode: Optional[QueryMode] = None,
+        connectivity_retry_config: Optional[ConnectivityRetriesConfig] = None,
+    ) -> DataFrame:
+        if not database:
+            database = self._database
+
+        if self._NEO4J_DRIVER_VERSION < SemanticVersion(5, 5, 0):
+            return self.run_cypher(query, params, database, custom_error, connectivity_retry_config)
+
+        if not mode:
+            routing = neo4j.RoutingControl.READ
+        else:
+            routing = mode.neo4j_routing()
+
+        try:
+            return self._driver.execute_query(
+                query_=query,
+                parameters_=params,
+                database_=database,
+                result_transformer_=neo4j.Result.to_df,
+                bookmark_manager_=self.bookmarks(),
+                routing_=routing,
+            )
+        except Exception as e:
+            if custom_error:
+                Neo4jQueryRunner.handle_driver_exception(self._driver, e)
+                raise e
+            else:
+                raise e
+
+    def call_function(self, endpoint: str, params: Optional[CallParameters] = None, custom_error: bool = True) -> Any:
         if params is None:
             params = CallParameters()
         query = f"RETURN {endpoint}({params.placeholder_str()})"
 
-        return self.run_cypher(query, params).squeeze()
+        # we can use retryable cypher as we expect all gds functions to be idempotent
+        return self.run_retryable_cypher(query, params, custom_error=custom_error, mode=QueryMode.READ).squeeze()
 
     def call_procedure(
         self,
@@ -200,7 +250,9 @@ class Neo4jQueryRunner(QueryRunner):
         params: Optional[CallParameters] = None,
         yields: Optional[list[str]] = None,
         database: Optional[str] = None,
+        mode: QueryMode = QueryMode.READ,
         logging: bool = False,
+        retryable: bool = False,
         custom_error: bool = True,
     ) -> DataFrame:
         if params is None:
@@ -210,7 +262,10 @@ class Neo4jQueryRunner(QueryRunner):
         query = f"CALL {endpoint}({params.placeholder_str()}){yields_clause}"
 
         def run_cypher_query() -> DataFrame:
-            return self.run_cypher(query, params, database, custom_error)
+            if retryable:
+                return self.run_retryable_cypher(query, params, database, custom_error, mode=mode)
+            else:
+                return self.run_cypher(query, params, database, custom_error)
 
         job_id = None if not params else params.get_job_id()
         if self._resolve_show_progress(logging) and job_id:
@@ -226,7 +281,7 @@ class Neo4jQueryRunner(QueryRunner):
             return self._server_version
 
         try:
-            server_version_string = self.run_cypher("RETURN gds.version()", custom_error=False).squeeze()
+            server_version_string = self.call_function("gds.version", custom_error=False)
             server_version = ServerVersion.from_string(server_version_string)
             self._server_version = server_version
             return server_version
@@ -300,24 +355,25 @@ class Neo4jQueryRunner(QueryRunner):
     def set_show_progress(self, show_progress: bool) -> None:
         self._show_progress = show_progress
 
-    def clone(self, host: str, port: int) -> QueryRunner:
-        endpoint = "{}://{}:{}".format(self._protocol, host, port)
+    def cloneWithoutRouting(self, host: str, port: int) -> QueryRunner:
+        protocol = self._protocol.replace("neo4j", "bolt")
+        endpoint = "{}://{}:{}".format(protocol, host, port)
         driver = neo4j.GraphDatabase.driver(endpoint, auth=self._auth, **self.driver_config())
 
         return Neo4jQueryRunner(
-            driver,
-            self._protocol,
-            self._auth,
-            self._config,
-            self._database,
-            self._auto_close,
-            self._bookmarks,
-            self._show_progress,
-            self._instance_description,
+            driver=driver,
+            protocol=protocol,
+            auth=self._auth,
+            config=self._config,
+            database=self._database,
+            auto_close=self._auto_close,
+            bookmarks=self._bookmarks,
+            show_progress=self._show_progress,
+            instance_description=self._instance_description,
         )
 
     @staticmethod
-    def handle_driver_exception(session: neo4j.Session, e: Exception) -> None:
+    def handle_driver_exception(cypher_executor: Union[neo4j.Session, neo4j.Driver], e: Exception) -> None:
         reg_gds_hit = re.search(
             r"There is no procedure with the name `(gds(?:\.\w+)+)` registered for this database instance",
             str(e),
@@ -327,8 +383,16 @@ class Neo4jQueryRunner(QueryRunner):
 
         requested_endpoint = reg_gds_hit.group(1)
 
-        list_result = session.run("CALL gds.list() YIELD name")
-        all_endpoints = list_result.to_df()["name"].tolist()
+        if isinstance(cypher_executor, neo4j.Session):
+            list_result = cypher_executor.run("CALL gds.list() YIELD name")
+            all_endpoints = list_result.to_df()["name"].tolist()
+        elif isinstance(cypher_executor, neo4j.Driver):
+            result = cypher_executor.execute_query("CALL gds.list() YIELD name", result_transformer_=neo4j.Result.to_df)
+            all_endpoints = result["name"].tolist()
+        else:
+            raise TypeError(
+                f"Expected cypher_executor to be a neo4j.Session or neo4j.Driver, got {type(cypher_executor)}"
+            )
 
         raise SyntaxError(generate_suggestive_error_message(requested_endpoint, all_endpoints)) from e
 

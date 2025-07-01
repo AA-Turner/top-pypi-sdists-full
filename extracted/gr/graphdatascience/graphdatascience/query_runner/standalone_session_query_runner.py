@@ -7,6 +7,7 @@ from pandas import DataFrame
 from graphdatascience import QueryRunner, ServerVersion
 from graphdatascience.call_parameters import CallParameters
 from graphdatascience.query_runner.graph_constructor import GraphConstructor
+from graphdatascience.query_runner.query_mode import QueryMode
 
 
 class StandaloneSessionQueryRunner(QueryRunner):
@@ -19,13 +20,17 @@ class StandaloneSessionQueryRunner(QueryRunner):
         params: Optional[CallParameters] = None,
         yields: Optional[list[str]] = None,
         database: Optional[str] = None,
+        mode: QueryMode = QueryMode.READ,
         logging: bool = False,
+        retryable: bool = False,
         custom_error: bool = True,
     ) -> DataFrame:
         if endpoint.endswith(".write"):
             raise NotImplementedError("write procedures are not supported on standalone sessions")
 
-        return self._query_runner.call_procedure(endpoint, params, yields, database, logging, custom_error)
+        return self._query_runner.call_procedure(
+            endpoint, params, yields, database, logging=logging, retryable=retryable, custom_error=custom_error
+        )
 
     def call_function(self, endpoint: str, params: Optional[CallParameters] = None) -> Any:
         return self._query_runner.call_function(endpoint, params)
@@ -59,6 +64,15 @@ class StandaloneSessionQueryRunner(QueryRunner):
     ) -> DataFrame:
         raise NotImplementedError
 
+    def run_retryable_cypher(
+        self,
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+        database: Optional[str] = None,
+        custom_error: bool = True,
+    ) -> DataFrame:
+        raise NotImplementedError
+
     def driver_config(self) -> dict[str, Any]:
         raise NotImplementedError
 
@@ -77,5 +91,5 @@ class StandaloneSessionQueryRunner(QueryRunner):
     def set_server_version(self, _: ServerVersion) -> None:
         super().set_server_version(_)
 
-    def clone(self, host: str, port: int) -> QueryRunner:
+    def cloneWithoutRouting(self, host: str, port: int) -> QueryRunner:
         return self

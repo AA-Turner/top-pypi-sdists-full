@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fastnanoid
-Version: 0.4.1
+Version: 0.4.3
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cyclonedx-python-lib
-Version: 10.2.0
+Version: 10.3.0
 Summary: Python library for CycloneDX
 License: Apache-2.0
 Keywords: CycloneDX,library,OWASP,SCA,Software Bill of Materials,Bill of Materials,BOM,SBOM,VEX,VDR,OBOM,MBOM,SaaSBOM,SPDX,PackageURL,PURL
@@ -30,7 +30,7 @@ Provides-Extra: validation
 Provides-Extra: xml-validation
 Requires-Dist: jsonschema[format] (>=4.18,<5.0) ; extra == "validation" or extra == "json-validation"
 Requires-Dist: license-expression (>=30,<31)
-Requires-Dist: lxml (>=4,<6) ; extra == "validation" or extra == "xml-validation"
+Requires-Dist: lxml (>=4,<7) ; extra == "validation" or extra == "xml-validation"
 Requires-Dist: packageurl-python (>=0.11,<2)
 Requires-Dist: py-serializable (>=2.0.0,<3.0.0)
 Requires-Dist: sortedcontainers (>=2.4.0,<3.0.0)

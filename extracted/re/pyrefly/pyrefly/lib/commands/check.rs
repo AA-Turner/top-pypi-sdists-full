@@ -23,6 +23,10 @@ use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
 use path_absolutize::Absolutize;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::sys_info::PythonPlatform;
+use pyrefly_python::sys_info::PythonVersion;
+use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::args::clap_env;
 use pyrefly_util::display;
@@ -31,10 +35,10 @@ use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
+use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::memory::MemoryUsageTrace;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::watcher::Watcher;
-use ruff_source_file::OneIndexed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
@@ -55,7 +59,6 @@ use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
 use crate::module::bundled::stdlib_search_path;
 use crate::module::ignore::SuppressionKind;
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::module::wildcard::ModuleWildcard;
@@ -65,9 +68,6 @@ use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::subscriber::ProgressBarSubscriber;
-use crate::sys_info::PythonPlatform;
-use crate::sys_info::PythonVersion;
-use crate::sys_info::SysInfo;
 
 #[derive(Debug, Clone, ValueEnum, Default)]
 enum OutputFormat {
@@ -78,6 +78,8 @@ enum OutputFormat {
     FullText,
     /// JSON output
     Json,
+    /// Only show error count, omitting individual errors
+    OmitErrors,
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -175,9 +177,13 @@ struct ConfigOverrideArgs {
     /// after first checking `search_path` and `typeshed`.
     #[arg(long, env = clap_env("SITE_PACKAGE_PATH"))]
     site_package_path: Option<Vec<PathBuf>>,
+    /// Use a specific Conda environment to query Python environment information,
+    /// even if it isn't activated.
+    #[arg(long, env = clap_env("CONDA_ENVIRONMENT"), group = "env_source")]
+    conda_environment: Option<String>,
     /// The Python executable that will be queried for `python_version`
     /// `python_platform`, or `site_package_path` if any of the values are missing.
-    #[arg(long, env = clap_env("PYTHON_INTERPRETER"), value_name = "EXE_PATH")]
+    #[arg(long, env = clap_env("PYTHON_INTERPRETER"), value_name = "EXE_PATH", group = "env_source")]
     python_interpreter: Option<PathBuf>,
     /// Whether to search imports in `site-package-path` that do not have a `py.typed` file unconditionally.
     #[arg(long, env = clap_env("USE_UNTYPED_IMPORTS"))]
@@ -248,6 +254,7 @@ impl OutputFormat {
             Self::MinText => Self::write_error_text_to_file(path, errors, false),
             Self::FullText => Self::write_error_text_to_file(path, errors, true),
             Self::Json => Self::write_error_json_to_file(path, errors),
+            Self::OmitErrors => Ok(()),
         }
     }
 
@@ -256,6 +263,7 @@ impl OutputFormat {
             Self::MinText => Self::write_error_text_to_console(errors, false),
             Self::FullText => Self::write_error_text_to_console(errors, true),
             Self::Json => Self::write_error_json_to_console(errors),
+            Self::OmitErrors => Ok(()),
         }
     }
 }
@@ -442,7 +450,7 @@ impl Args {
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
         allow_forget: bool,
-    ) -> anyhow::Result<CommandExitStatus> {
+    ) -> anyhow::Result<(CommandExitStatus, usize)> {
         let mut timings = Timings::new();
         let list_files_start = Instant::now();
         let expanded_file_list = checkpoint(files_to_check.files(), &config_finder)?;
@@ -453,7 +461,7 @@ impl Args {
             Timings::show(timings.list_files),
         );
         if expanded_file_list.is_empty() {
-            return Ok(CommandExitStatus::Success);
+            return Ok((CommandExitStatus::Success, 0));
         }
 
         let holder = Forgetter::new(State::new(config_finder), allow_forget);
@@ -562,8 +570,13 @@ impl Args {
             config.python_environment.site_package_path = Some(x.clone());
             config.python_environment.site_package_path_source = SitePackagePathSource::CommandLine;
         }
+        if let Some(conda_environment) = &self.config_override.conda_environment {
+            config.conda_environment = Some(conda_environment.clone());
+            config.python_interpreter = None;
+        }
         if let Some(x) = &self.config_override.python_interpreter {
             config.python_interpreter = Some(x.clone());
+            config.conda_environment = None;
         }
         if let Some(x) = &self.config_override.use_untyped_imports {
             config.use_untyped_imports = *x;
@@ -616,7 +629,7 @@ impl Args {
         mut timings: Timings,
         transaction: &mut Transaction,
         handles: &[(Handle, Require)],
-    ) -> anyhow::Result<CommandExitStatus> {
+    ) -> anyhow::Result<(CommandExitStatus, usize)> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
 
         let type_check_start = Instant::now();
@@ -723,14 +736,14 @@ impl Args {
             suppress::suppress_errors(&errors_to_suppress);
         }
         if self.behavior.remove_unused_ignores {
-            let mut all_ignores: SmallMap<&PathBuf, SmallSet<OneIndexed>> = SmallMap::new();
+            let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
             for (module_path, ignore) in loads.collect_ignores() {
                 if let ModulePathDetails::FileSystem(path) = module_path.details() {
                     all_ignores.insert(path, ignore.get_ignores(SuppressionKind::Pyrefly));
                 }
             }
 
-            let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<OneIndexed>> = SmallMap::new();
+            let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
             for e in &errors.suppressed {
                 if e.is_ignored()
                     && let ModulePathDetails::FileSystem(path) = e.path().details()
@@ -738,7 +751,7 @@ impl Args {
                     suppressed_errors
                         .entry(path)
                         .or_default()
-                        .insert(e.source_range().start.line);
+                        .insert(e.display_range().start.line);
                 }
             }
 
@@ -747,11 +760,11 @@ impl Args {
         }
         if self.behavior.expectations {
             loads.check_against_expectations()?;
-            Ok(CommandExitStatus::Success)
+            Ok((CommandExitStatus::Success, shown_errors_count))
         } else if shown_errors_count > 0 {
-            Ok(CommandExitStatus::UserError)
+            Ok((CommandExitStatus::UserError, shown_errors_count))
         } else {
-            Ok(CommandExitStatus::Success)
+            Ok((CommandExitStatus::Success, shown_errors_count))
         }
     }
 }

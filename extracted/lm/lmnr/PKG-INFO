@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lmnr
-Version: 0.6.15
+Version: 0.6.16
 Summary: Python SDK for Laminar
 License: Apache-2.0
 Author: lmnr.ai
@@ -58,8 +58,8 @@ Requires-Dist: opentelemetry-instrumentation-cohere (>=0.40.12) ; extra == "all"
 Requires-Dist: opentelemetry-instrumentation-cohere (>=0.40.12) ; extra == "cohere"
 Requires-Dist: opentelemetry-instrumentation-crewai (>=0.40.12) ; extra == "all"
 Requires-Dist: opentelemetry-instrumentation-crewai (>=0.40.12) ; extra == "crewai"
-Requires-Dist: opentelemetry-instrumentation-google-generativeai (>=0.40.12) ; extra == "all"
-Requires-Dist: opentelemetry-instrumentation-google-generativeai (>=0.40.12) ; extra == "google-generativeai"
+Requires-Dist: opentelemetry-instrumentation-google-generativeai (<0.40.10) ; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-google-generativeai (<0.40.10) ; extra == "google-generativeai"
 Requires-Dist: opentelemetry-instrumentation-groq (>=0.40.12) ; extra == "all"
 Requires-Dist: opentelemetry-instrumentation-groq (>=0.40.12) ; extra == "groq"
 Requires-Dist: opentelemetry-instrumentation-haystack (>=0.40.12) ; extra == "all"

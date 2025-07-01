@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xinference
-Version: 1.7.1
+Version: 1.7.1.post1
 Summary: Model Serving Made Easy
 Home-page: https://github.com/xorbitsai/inference
 Author: Qin Xuye

@@ -2,6 +2,7 @@ from collections.abc import Sized
 from typing import Dict, Iterator, Iterable, List, Optional, Sequence, Tuple
 from lark import Tree
 from gersemi.ast_helpers import (
+    get_value,
     is_comment,
     is_multi_value_argument,
     is_one_of_keywords,
@@ -16,7 +17,12 @@ from gersemi.ast_helpers import (
 )
 from gersemi.base_command_invocation_dumper import BaseCommandInvocationDumper
 from gersemi.keywords import KeywordMatcher
-from gersemi.keyword_kind import KeywordKind, kind_to_formatter
+from gersemi.keyword_kind import (
+    KeywordFormatter,
+    KeywordPreprocessor,
+    kind_to_formatter,
+    kind_to_preprocessor,
+)
 from gersemi.types import Nodes
 from gersemi.utils import pop_all
 
@@ -98,7 +104,8 @@ class ArgumentAwareCommandInvocationDumper(BaseCommandInvocationDumper):
     options: Iterable[KeywordMatcher] = []
     one_value_keywords: Iterable[KeywordMatcher] = []
     multi_value_keywords: Iterable[KeywordMatcher] = []
-    keyword_kinds: Dict[str, KeywordKind] = {}
+    keyword_formatters: Dict[str, KeywordFormatter] = {}
+    keyword_preprocessors: Dict[str, KeywordPreprocessor] = {}
 
     def _default_format_values(self, values) -> str:
         return "\n".join(map(self.visit, values))
@@ -112,7 +119,7 @@ class ArgumentAwareCommandInvocationDumper(BaseCommandInvocationDumper):
             return result
 
         keyword, *values = tree.children
-        keyword_as_value = keyword.children[0] if len(keyword.children) > 0 else None
+        keyword_as_value = get_value(keyword, None)
 
         can_be_inlined = (not self.favour_expansion) or (
             self.favour_expansion
@@ -130,7 +137,7 @@ class ArgumentAwareCommandInvocationDumper(BaseCommandInvocationDumper):
             return begin
 
         formatter_kind = kind_to_formatter(
-            self.keyword_kinds.get(keyword_as_value, None)
+            self.keyword_formatters.get(keyword_as_value, None)
         )
         if formatter_kind is None:
             formatter_kind = self._keyword_formatters.get(
@@ -225,6 +232,13 @@ class ArgumentAwareCommandInvocationDumper(BaseCommandInvocationDumper):
         return self._format_non_option(tree)
 
     def multi_value_argument(self, tree):
+        keyword, *values = tree.children
+        preprocessor = kind_to_preprocessor(
+            self.keyword_preprocessors.get(get_value(keyword, None), None)
+        )
+        if preprocessor is not None:
+            tree.children = [keyword, *getattr(self, preprocessor)(values)]
+
         return self._format_non_option(tree)
 
     def arguments(self, tree):

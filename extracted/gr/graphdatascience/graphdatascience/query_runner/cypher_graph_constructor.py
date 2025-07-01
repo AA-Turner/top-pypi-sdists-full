@@ -104,15 +104,14 @@ class CypherGraphConstructor(GraphConstructor):
 
     def _should_warn_about_arrow_missing(self) -> bool:
         try:
-            license: str = self._query_runner.run_cypher(
+            license: str = self._query_runner.run_retryable_cypher(
                 "CALL gds.debug.sysInfo() YIELD key, value WHERE key = 'gdsEdition' RETURN value", custom_error=False
             ).squeeze()
             should_warn = license == "Licensed"
         except Exception as e:
             # It's not a user's concern whether Arrow is set up or not in AuraDS.
-            if (
-                "There is no procedure with the name `gds.debug.sysInfo` "
-                "registered for this database instance." in str(e)
+            if "There is no procedure with the name `gds.debug.sysInfo` registered for this database instance." in str(
+                e
             ):
                 should_warn = False
             else:
@@ -210,6 +209,7 @@ class CypherGraphConstructor(GraphConstructor):
                 "undirectedRelationshipTypes": self._undirected_relationship_types,
             }
 
+            # not using retryable here as gds.graph.project adds a graph to the gds graph catalog
             self._query_runner.run_cypher(
                 query,
                 {

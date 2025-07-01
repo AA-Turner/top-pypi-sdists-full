@@ -24,11 +24,17 @@ from .literals import (
     CapabilityDirectionType,
     ConversionSourceFormatType,
     FileFormatType,
+    LineTerminatorType,
     LoggingType,
     MappingTemplateLanguageType,
     MappingTypeType,
     TransformerJobStatusType,
     TransformerStatusType,
+    WrapFormatType,
+    X12FunctionalAcknowledgmentType,
+    X12GS05TimeFormatType,
+    X12SplitByType,
+    X12TechnicalAcknowledgmentType,
     X12TransactionSetType,
     X12VersionType,
 )
@@ -45,6 +51,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AdvancedOptionsTypeDef",
     "CapabilityConfigurationTypeDef",
     "CapabilityOptionsTypeDef",
     "CapabilitySummaryTypeDef",
@@ -78,9 +85,11 @@ __all__ = (
     "GetProfileRequestTypeDef",
     "GetProfileResponseTypeDef",
     "GetTransformerJobRequestTypeDef",
+    "GetTransformerJobRequestWaitTypeDef",
     "GetTransformerJobResponseTypeDef",
     "GetTransformerRequestTypeDef",
     "GetTransformerResponseTypeDef",
+    "InboundEdiOptionsTypeDef",
     "InputConversionTypeDef",
     "InputFileSourceTypeDef",
     "ListCapabilitiesRequestPaginateTypeDef",
@@ -131,12 +140,19 @@ __all__ = (
     "UpdateProfileResponseTypeDef",
     "UpdateTransformerRequestTypeDef",
     "UpdateTransformerResponseTypeDef",
+    "WaiterConfigTypeDef",
+    "WrapOptionsTypeDef",
+    "X12AcknowledgmentOptionsTypeDef",
+    "X12AdvancedOptionsTypeDef",
+    "X12ControlNumbersTypeDef",
     "X12DelimitersTypeDef",
     "X12DetailsTypeDef",
     "X12EnvelopeTypeDef",
     "X12FunctionalGroupHeadersTypeDef",
+    "X12InboundEdiOptionsTypeDef",
     "X12InterchangeControlHeadersTypeDef",
     "X12OutboundEdiHeadersTypeDef",
+    "X12SplitOptionsTypeDef",
 )
 
 CapabilitySummaryTypeDef = TypedDict(
@@ -206,6 +222,10 @@ class GetTransformerJobRequestTypeDef(TypedDict):
     transformerJobId: str
     transformerId: str
 
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
 class GetTransformerRequestTypeDef(TypedDict):
     transformerId: str
 
@@ -266,6 +286,23 @@ class UpdateProfileRequestTypeDef(TypedDict):
     email: NotRequired[str]
     phone: NotRequired[str]
     businessName: NotRequired[str]
+
+class WrapOptionsTypeDef(TypedDict):
+    wrapBy: WrapFormatType
+    lineTerminator: NotRequired[LineTerminatorType]
+    lineLength: NotRequired[int]
+
+class X12AcknowledgmentOptionsTypeDef(TypedDict):
+    functionalAcknowledgment: X12FunctionalAcknowledgmentType
+    technicalAcknowledgment: X12TechnicalAcknowledgmentType
+
+class X12SplitOptionsTypeDef(TypedDict):
+    splitBy: X12SplitByType
+
+class X12ControlNumbersTypeDef(TypedDict):
+    startingInterchangeControlNumber: NotRequired[int]
+    startingFunctionalGroupControlNumber: NotRequired[int]
+    startingTransactionSetControlNumber: NotRequired[int]
 
 class X12DelimitersTypeDef(TypedDict):
     componentSeparator: NotRequired[str]
@@ -391,6 +428,7 @@ class TestMappingResponseTypeDef(TypedDict):
 
 class TestParsingResponseTypeDef(TypedDict):
     parsedFileContent: str
+    parsedSplitFileContents: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateProfileResponseTypeDef(TypedDict):
@@ -405,6 +443,11 @@ class UpdateProfileResponseTypeDef(TypedDict):
     createdAt: datetime
     modifiedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTransformerJobRequestWaitTypeDef(TypedDict):
+    transformerJobId: str
+    transformerId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class ListCapabilitiesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -432,11 +475,19 @@ class SampleDocumentsTypeDef(TypedDict):
     bucketName: str
     keys: Sequence[SampleDocumentKeysTypeDef]
 
+class X12InboundEdiOptionsTypeDef(TypedDict):
+    acknowledgmentOptions: NotRequired[X12AcknowledgmentOptionsTypeDef]
+
+class X12AdvancedOptionsTypeDef(TypedDict):
+    splitOptions: NotRequired[X12SplitOptionsTypeDef]
+
 class X12OutboundEdiHeadersTypeDef(TypedDict):
     interchangeControlHeaders: NotRequired[X12InterchangeControlHeadersTypeDef]
     functionalGroupHeaders: NotRequired[X12FunctionalGroupHeadersTypeDef]
     delimiters: NotRequired[X12DelimitersTypeDef]
     validateEdi: NotRequired[bool]
+    controlNumbers: NotRequired[X12ControlNumbersTypeDef]
+    gs05TimeFormat: NotRequired[X12GS05TimeFormatType]
 
 EdiConfigurationTypeDef = TypedDict(
     "EdiConfigurationTypeDef",
@@ -448,15 +499,6 @@ EdiConfigurationTypeDef = TypedDict(
         "capabilityDirection": NotRequired[CapabilityDirectionType],
     },
 )
-
-class TestParsingRequestTypeDef(TypedDict):
-    inputFile: S3LocationTypeDef
-    fileFormat: FileFormatType
-    ediType: EdiTypeTypeDef
-
-class InputConversionTypeDef(TypedDict):
-    fromFormat: Literal["X12"]
-    formatOptions: NotRequired[FormatOptionsTypeDef]
 
 class OutputConversionTypeDef(TypedDict):
     toFormat: Literal["X12"]
@@ -474,106 +516,33 @@ class ConversionTargetTypeDef(TypedDict):
 
 SampleDocumentsUnionTypeDef = Union[SampleDocumentsTypeDef, SampleDocumentsOutputTypeDef]
 
+class InboundEdiOptionsTypeDef(TypedDict):
+    x12: NotRequired[X12InboundEdiOptionsTypeDef]
+
+class AdvancedOptionsTypeDef(TypedDict):
+    x12: NotRequired[X12AdvancedOptionsTypeDef]
+
 class X12EnvelopeTypeDef(TypedDict):
     common: NotRequired[X12OutboundEdiHeadersTypeDef]
+    wrapOptions: NotRequired[WrapOptionsTypeDef]
 
 class CapabilityConfigurationTypeDef(TypedDict):
     edi: NotRequired[EdiConfigurationTypeDef]
-
-class CreateTransformerResponseTypeDef(TypedDict):
-    transformerId: str
-    transformerArn: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    fileFormat: FileFormatType
-    mappingTemplate: str
-    ediType: EdiTypeTypeDef
-    sampleDocument: str
-    inputConversion: InputConversionTypeDef
-    mapping: MappingTypeDef
-    outputConversion: OutputConversionTypeDef
-    sampleDocuments: SampleDocumentsOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetTransformerResponseTypeDef(TypedDict):
-    transformerId: str
-    transformerArn: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    modifiedAt: datetime
-    fileFormat: FileFormatType
-    mappingTemplate: str
-    ediType: EdiTypeTypeDef
-    sampleDocument: str
-    inputConversion: InputConversionTypeDef
-    mapping: MappingTypeDef
-    outputConversion: OutputConversionTypeDef
-    sampleDocuments: SampleDocumentsOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class TransformerSummaryTypeDef(TypedDict):
-    transformerId: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    modifiedAt: NotRequired[datetime]
-    fileFormat: NotRequired[FileFormatType]
-    mappingTemplate: NotRequired[str]
-    ediType: NotRequired[EdiTypeTypeDef]
-    sampleDocument: NotRequired[str]
-    inputConversion: NotRequired[InputConversionTypeDef]
-    mapping: NotRequired[MappingTypeDef]
-    outputConversion: NotRequired[OutputConversionTypeDef]
-    sampleDocuments: NotRequired[SampleDocumentsOutputTypeDef]
-
-class UpdateTransformerResponseTypeDef(TypedDict):
-    transformerId: str
-    transformerArn: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    modifiedAt: datetime
-    fileFormat: FileFormatType
-    mappingTemplate: str
-    ediType: EdiTypeTypeDef
-    sampleDocument: str
-    inputConversion: InputConversionTypeDef
-    mapping: MappingTypeDef
-    outputConversion: OutputConversionTypeDef
-    sampleDocuments: SampleDocumentsOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class TestConversionRequestTypeDef(TypedDict):
     source: ConversionSourceTypeDef
     target: ConversionTargetTypeDef
 
-class CreateTransformerRequestTypeDef(TypedDict):
-    name: str
-    clientToken: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    fileFormat: NotRequired[FileFormatType]
-    mappingTemplate: NotRequired[str]
-    ediType: NotRequired[EdiTypeTypeDef]
-    sampleDocument: NotRequired[str]
-    inputConversion: NotRequired[InputConversionTypeDef]
-    mapping: NotRequired[MappingTypeDef]
-    outputConversion: NotRequired[OutputConversionTypeDef]
-    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
+class InputConversionTypeDef(TypedDict):
+    fromFormat: Literal["X12"]
+    formatOptions: NotRequired[FormatOptionsTypeDef]
+    advancedOptions: NotRequired[AdvancedOptionsTypeDef]
 
-class UpdateTransformerRequestTypeDef(TypedDict):
-    transformerId: str
-    name: NotRequired[str]
-    status: NotRequired[TransformerStatusType]
-    fileFormat: NotRequired[FileFormatType]
-    mappingTemplate: NotRequired[str]
-    ediType: NotRequired[EdiTypeTypeDef]
-    sampleDocument: NotRequired[str]
-    inputConversion: NotRequired[InputConversionTypeDef]
-    mapping: NotRequired[MappingTypeDef]
-    outputConversion: NotRequired[OutputConversionTypeDef]
-    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
+class TestParsingRequestTypeDef(TypedDict):
+    inputFile: S3LocationTypeDef
+    fileFormat: FileFormatType
+    ediType: EdiTypeTypeDef
+    advancedOptions: NotRequired[AdvancedOptionsTypeDef]
 
 class OutboundEdiOptionsTypeDef(TypedDict):
     x12: NotRequired[X12EnvelopeTypeDef]
@@ -638,13 +607,105 @@ UpdateCapabilityResponseTypeDef = TypedDict(
     },
 )
 
+class CreateTransformerRequestTypeDef(TypedDict):
+    name: str
+    clientToken: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    fileFormat: NotRequired[FileFormatType]
+    mappingTemplate: NotRequired[str]
+    ediType: NotRequired[EdiTypeTypeDef]
+    sampleDocument: NotRequired[str]
+    inputConversion: NotRequired[InputConversionTypeDef]
+    mapping: NotRequired[MappingTypeDef]
+    outputConversion: NotRequired[OutputConversionTypeDef]
+    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
+
+class CreateTransformerResponseTypeDef(TypedDict):
+    transformerId: str
+    transformerArn: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    fileFormat: FileFormatType
+    mappingTemplate: str
+    ediType: EdiTypeTypeDef
+    sampleDocument: str
+    inputConversion: InputConversionTypeDef
+    mapping: MappingTypeDef
+    outputConversion: OutputConversionTypeDef
+    sampleDocuments: SampleDocumentsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTransformerResponseTypeDef(TypedDict):
+    transformerId: str
+    transformerArn: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    modifiedAt: datetime
+    fileFormat: FileFormatType
+    mappingTemplate: str
+    ediType: EdiTypeTypeDef
+    sampleDocument: str
+    inputConversion: InputConversionTypeDef
+    mapping: MappingTypeDef
+    outputConversion: OutputConversionTypeDef
+    sampleDocuments: SampleDocumentsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TransformerSummaryTypeDef(TypedDict):
+    transformerId: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    modifiedAt: NotRequired[datetime]
+    fileFormat: NotRequired[FileFormatType]
+    mappingTemplate: NotRequired[str]
+    ediType: NotRequired[EdiTypeTypeDef]
+    sampleDocument: NotRequired[str]
+    inputConversion: NotRequired[InputConversionTypeDef]
+    mapping: NotRequired[MappingTypeDef]
+    outputConversion: NotRequired[OutputConversionTypeDef]
+    sampleDocuments: NotRequired[SampleDocumentsOutputTypeDef]
+
+class UpdateTransformerRequestTypeDef(TypedDict):
+    transformerId: str
+    name: NotRequired[str]
+    status: NotRequired[TransformerStatusType]
+    fileFormat: NotRequired[FileFormatType]
+    mappingTemplate: NotRequired[str]
+    ediType: NotRequired[EdiTypeTypeDef]
+    sampleDocument: NotRequired[str]
+    inputConversion: NotRequired[InputConversionTypeDef]
+    mapping: NotRequired[MappingTypeDef]
+    outputConversion: NotRequired[OutputConversionTypeDef]
+    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
+
+class UpdateTransformerResponseTypeDef(TypedDict):
+    transformerId: str
+    transformerArn: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    modifiedAt: datetime
+    fileFormat: FileFormatType
+    mappingTemplate: str
+    ediType: EdiTypeTypeDef
+    sampleDocument: str
+    inputConversion: InputConversionTypeDef
+    mapping: MappingTypeDef
+    outputConversion: OutputConversionTypeDef
+    sampleDocuments: SampleDocumentsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CapabilityOptionsTypeDef(TypedDict):
+    outboundEdi: NotRequired[OutboundEdiOptionsTypeDef]
+    inboundEdi: NotRequired[InboundEdiOptionsTypeDef]
+
 class ListTransformersResponseTypeDef(TypedDict):
     transformers: List[TransformerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class CapabilityOptionsTypeDef(TypedDict):
-    outboundEdi: NotRequired[OutboundEdiOptionsTypeDef]
 
 class CreatePartnershipRequestTypeDef(TypedDict):
     profileId: str

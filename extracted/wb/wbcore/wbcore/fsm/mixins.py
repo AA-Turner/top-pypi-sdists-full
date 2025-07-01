@@ -1,6 +1,6 @@
 import logging
 
-from django.contrib.messages import get_messages
+from django.contrib.messages import get_messages, warning
 from django_fsm import FSMField, Transition, TransitionNotAllowed
 from rest_framework import status
 from rest_framework.decorators import action
@@ -106,10 +106,14 @@ class FSMViewSetMixin(metaclass=FSMViewSetMixinMetaclass):
             obj.fsm_context = {"current_user": request.user, "request": request}
             if getattr(obj, fsm_field_name) != transition.target:
                 if (action_method := getattr(obj, action, None)) and callable(action_method):
-                    action_method(by=request.user)
+                    warnings = action_method(by=request.user)
                     obj.save()
                     if (post_action_method := getattr(obj, f"post_{action}", None)) and callable(post_action_method):
                         post_action_method(by=request.user)
+                    # we extend the framework to allow action to successfully return but notify any possible warning. We use the message framework to communicate these warnings to the user
+                    if warnings:
+                        html = "<ul>" + "".join(f"<li>{e}</li>" for e in warnings) + "</ul>"
+                        warning(request, html, extra_tags="auto_close=0")
 
             serializer = serializer_class(instance=obj, context=serializer_context)
             storage = get_messages(request._request)

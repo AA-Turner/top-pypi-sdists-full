@@ -2,13 +2,25 @@
 """
 :Author: HuangJianYi
 :Date: 2020-06-02 14:32:40
-@LastEditTime: 2024-03-04 17:06:14
+@LastEditTime: 2025-07-01 10:15:27
 @LastEditors: HuangJianYi
 :description: 枚举类
 """
 
 from enum import Enum
 from enum import unique
+
+
+@unique
+class QueueupOperateType(Enum):
+    """
+    :description: 排队系统操作类型
+    """
+    join = 1  #加入
+    line_up = 2  #排到
+    lottery = 3  #抽奖
+    auto_exit = 4  #自动退出
+    manual_exit = 5  #手动退出
 
 
 @unique

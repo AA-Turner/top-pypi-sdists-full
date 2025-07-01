@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: FalkorDB
-Version: 1.1.2
+Version: 1.2.0
 Summary: Python client for interacting with FalkorDB database
 Keywords: FalkorDB,GraphDB,Cypher
 Author: FalkorDB inc
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: python-dateutil (>=2.9.0,<3.0.0)
 Requires-Dist: redis (>=5.0.1,<6.0.0)
 Project-URL: Homepage, http://falkordb-py.readthedocs.io
 Project-URL: Repository, http://github.com/falkorDB/falkordb-py

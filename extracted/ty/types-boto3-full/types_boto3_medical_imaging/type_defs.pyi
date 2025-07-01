@@ -368,6 +368,7 @@ class ImageSetsMetadataSummaryTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     DICOMTags: NotRequired[DICOMTagsTypeDef]
+    isPrimary: NotRequired[bool]
 
 class GetDatastoreResponseTypeDef(TypedDict):
     datastoreProperties: DatastorePropertiesTypeDef
@@ -395,6 +396,7 @@ class GetImageSetResponseTypeDef(TypedDict):
     message: str
     imageSetArn: str
     overrides: OverridesTypeDef
+    isPrimary: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ImageSetPropertiesTypeDef(TypedDict):
@@ -407,6 +409,7 @@ class ImageSetPropertiesTypeDef(TypedDict):
     deletedAt: NotRequired[datetime]
     message: NotRequired[str]
     overrides: NotRequired[OverridesTypeDef]
+    isPrimary: NotRequired[bool]
 
 class ListDICOMImportJobsRequestPaginateTypeDef(TypedDict):
     datastoreId: str
@@ -431,6 +434,7 @@ class SearchByAttributeValueTypeDef(TypedDict):
     createdAt: NotRequired[TimestampTypeDef]
     updatedAt: NotRequired[TimestampTypeDef]
     DICOMStudyDateAndTime: NotRequired[DICOMStudyDateAndTimeTypeDef]
+    isPrimary: NotRequired[bool]
 
 class MetadataUpdatesTypeDef(TypedDict):
     DICOMUpdates: NotRequired[DICOMUpdatesTypeDef]
@@ -471,6 +475,7 @@ class CopyImageSetRequestTypeDef(TypedDict):
     sourceImageSetId: str
     copyImageSetInformation: CopyImageSetInformationTypeDef
     force: NotRequired[bool]
+    promoteToPrimary: NotRequired[bool]
 
 class SearchCriteriaTypeDef(TypedDict):
     filters: NotRequired[Sequence[SearchFilterTypeDef]]

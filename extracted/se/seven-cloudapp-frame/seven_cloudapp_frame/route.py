@@ -96,6 +96,7 @@ def seven_cloudapp_frame_route():
         (r"/server/update_store_asset", app_s.UpdateStoreAssetHandler),  #更新商家资产值
         (r"/server/store_asset_list", app_s.StoreAssetListHandler),  #商家资产列表
         (r"/server/store_asset_log_list", app_s.StoreAssetLogListHandler),  #商家资产流水列表
+        (r"/server/queue_log_list", app_s.QueueLogListHandler),  #排队系统日志列表
         (r"/server/cms_info_list", cms_s.CmsInfoListHandler),  #获取资讯列表
         (r"/server/save_cms_info", cms_s.SaveCmsInfoHandler),  #保存资讯信息
         (r"/server/act_type_list", act_s.ActTypeListHandler),  #活动类型列表

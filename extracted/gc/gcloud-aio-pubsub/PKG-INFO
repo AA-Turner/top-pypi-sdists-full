@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: gcloud-aio-pubsub
-Version: 6.1.0
+Version: 6.2.0
 Summary: Python Client for Google Cloud Pub/Sub
 License: MIT
 Author: Vi Engineering

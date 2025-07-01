@@ -9,11 +9,6 @@ from nequip.model.saved_models.package import (
     _suppress_package_importer_warnings,
 )
 from nequip.model.saved_models import ModelFromCheckpoint
-from nequip.model.saved_models.package import (
-    _EXTERNAL_MODULES,
-    _MOCK_MODULES,
-    _INTERNAL_MODULES,
-)
 from nequip.model.utils import (
     _COMPILE_MODE_OPTIONS,
     _EAGER_MODEL_KEY,
@@ -22,10 +17,15 @@ from nequip.nn.model_modifier_utils import is_persistent_model_modifier
 from nequip.model.modify_utils import get_all_modifiers, only_apply_persistent_modifiers
 from nequip.utils.logger import RankedLogger
 from nequip.utils.versions import get_current_code_versions, _TORCH_GE_2_6
-from nequip.utils.version_utils import get_version_safe
+from nequip.utils.versions.version_utils import get_version_safe
 from nequip.utils.global_state import set_global_state
 
 from ._workflow_utils import set_workflow_state
+from ._package_utils import (
+    _EXTERNAL_MODULES,
+    _MOCK_MODULES,
+    _INTERNAL_MODULES,
+)
 
 from omegaconf import OmegaConf
 import hydra

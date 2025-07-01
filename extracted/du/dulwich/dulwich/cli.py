@@ -33,19 +33,17 @@ import os
 import signal
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Optional
+from typing import ClassVar, Optional
 
 from dulwich import porcelain
 
 from .client import GitProtocolError, get_transport_and_path
 from .errors import ApplyDeltaError
 from .index import Index
+from .objects import valid_hexsha
 from .objectspec import parse_commit
 from .pack import Pack, sha_to_hex
 from .repo import Repo
-
-if TYPE_CHECKING:
-    pass
 
 
 def signal_int(signal, frame) -> None:
@@ -171,6 +169,26 @@ class cmd_add(Command):
         porcelain.add(".", paths=paths)
 
 
+class cmd_annotate(Command):
+    def run(self, argv) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("path", help="Path to file to annotate")
+        parser.add_argument("committish", nargs="?", help="Commit to start from")
+        args = parser.parse_args(argv)
+
+        results = porcelain.annotate(".", args.path, args.committish)
+        for (commit, entry), line in results:
+            # Show shortened commit hash and line content
+            commit_hash = commit.id[:8]
+            print(f"{commit_hash.decode()} {line.decode()}")
+
+
+class cmd_blame(Command):
+    def run(self, argv) -> None:
+        # blame is an alias for annotate
+        cmd_annotate().run(argv)
+
+
 class cmd_rm(Command):
     def run(self, argv) -> None:
         parser = argparse.ArgumentParser()
@@ -181,6 +199,22 @@ class cmd_rm(Command):
         args = parser.parse_args(argv)
 
         porcelain.remove(".", paths=args.path, cached=args.cached)
+
+
+class cmd_mv(Command):
+    def run(self, argv) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            help="Force move even if destination exists",
+        )
+        parser.add_argument("source", type=Path)
+        parser.add_argument("destination", type=Path)
+        args = parser.parse_args(argv)
+
+        porcelain.mv(".", args.source, args.destination, force=args.force)
 
 
 class cmd_fetch_pack(Command):
@@ -289,7 +323,7 @@ class cmd_dump_pack(Command):
         basename, _ = os.path.splitext(args.filename)
         x = Pack(basename)
         print(f"Object names checksum: {x.name()}")
-        print(f"Checksum: {sha_to_hex(x.get_stored_checksum())}")
+        print(f"Checksum: {sha_to_hex(x.get_stored_checksum())!r}")
         x.check()
         print(f"Length: {len(x)}")
         for name in x:
@@ -508,20 +542,38 @@ class cmd_reset(Command):
         args = parser.parse_args(args)
 
         if args.hard:
-            porcelain.reset(".", mode="hard", treeish=args.treeish)
+            mode = "hard"
         elif args.soft:
-            # Soft reset: only change HEAD
-            if args.treeish:
-                from .repo import Repo
-
-                with Repo(".") as repo:
-                    repo.refs[b"HEAD"] = args.treeish.encode()
+            mode = "soft"
         elif args.mixed:
-            # Mixed reset is not implemented yet
-            raise NotImplementedError("Mixed reset not yet implemented")
+            mode = "mixed"
         else:
-            # Default to mixed behavior (not implemented)
-            raise NotImplementedError("Mixed reset not yet implemented")
+            # Default to mixed behavior
+            mode = "mixed"
+
+        # Use the porcelain.reset function for all modes
+        porcelain.reset(".", mode=mode, treeish=args.treeish)
+
+
+class cmd_revert(Command):
+    def run(self, args) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--no-commit",
+            "-n",
+            action="store_true",
+            help="Apply changes but don't create a commit",
+        )
+        parser.add_argument("-m", "--message", help="Custom commit message")
+        parser.add_argument("commits", nargs="+", help="Commits to revert")
+        args = parser.parse_args(args)
+
+        result = porcelain.revert(
+            ".", commits=args.commits, no_commit=args.no_commit, message=args.message
+        )
+
+        if result and not args.no_commit:
+            print(f"[{result.decode('ascii')[:7]}] Revert completed")
 
 
 class cmd_daemon(Command):
@@ -632,11 +684,21 @@ class cmd_status(Command):
 class cmd_ls_remote(Command):
     def run(self, args) -> None:
         parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--symref", action="store_true", help="Show symbolic references"
+        )
         parser.add_argument("url", help="Remote URL to list references from")
         args = parser.parse_args(args)
-        refs = porcelain.ls_remote(args.url)
-        for ref in sorted(refs):
-            sys.stdout.write(f"{ref}\t{refs[ref]}\n")
+        result = porcelain.ls_remote(args.url)
+
+        if args.symref:
+            # Show symrefs first, like git does
+            for ref, target in sorted(result.symrefs.items()):
+                sys.stdout.write(f"ref: {target.decode()}\t{ref.decode()}\n")
+
+        # Show regular refs
+        for ref in sorted(result.refs):
+            sys.stdout.write(f"{result.refs[ref].decode()}\t{ref.decode()}\n")
 
 
 class cmd_ls_tree(Command):
@@ -706,6 +768,68 @@ class cmd_unpack_objects(Command):
 
         count = porcelain.unpack_objects(args.pack_file)
         print(f"Unpacked {count} objects")
+
+
+class cmd_prune(Command):
+    def run(self, args) -> Optional[int]:
+        import datetime
+        import time
+
+        from dulwich.object_store import DEFAULT_TEMPFILE_GRACE_PERIOD
+
+        parser = argparse.ArgumentParser(
+            description="Remove temporary pack files left behind by interrupted operations"
+        )
+        parser.add_argument(
+            "--expire",
+            nargs="?",
+            const="2.weeks.ago",
+            help="Only prune files older than the specified date (default: 2.weeks.ago)",
+        )
+        parser.add_argument(
+            "--dry-run",
+            "-n",
+            action="store_true",
+            help="Only report what would be removed",
+        )
+        parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Report all actions",
+        )
+        args = parser.parse_args(args)
+
+        # Parse expire grace period
+        grace_period = DEFAULT_TEMPFILE_GRACE_PERIOD
+        if args.expire:
+            try:
+                grace_period = parse_relative_time(args.expire)
+            except ValueError:
+                # Try to parse as absolute date
+                try:
+                    date = datetime.datetime.strptime(args.expire, "%Y-%m-%d")
+                    grace_period = int(time.time() - date.timestamp())
+                except ValueError:
+                    print(f"Error: Invalid expire date: {args.expire}", file=sys.stderr)
+                    return 1
+
+        # Progress callback
+        def progress(msg):
+            if args.verbose:
+                print(msg)
+
+        try:
+            porcelain.prune(
+                ".",
+                grace_period=grace_period,
+                dry_run=args.dry_run,
+                progress=progress if args.verbose else None,
+            )
+            return None
+        except porcelain.Error as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
 
 
 class cmd_pull(Command):
@@ -829,7 +953,7 @@ class cmd_check_mailmap(Command):
 
 
 class cmd_branch(Command):
-    def run(self, args) -> None:
+    def run(self, args) -> Optional[int]:
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "branch",
@@ -845,7 +969,7 @@ class cmd_branch(Command):
         args = parser.parse_args(args)
         if not args.branch:
             print("Usage: dulwich branch [-d] BRANCH_NAME")
-            sys.exit(1)
+            return 1
 
         if args.delete:
             porcelain.branch_delete(".", name=args.branch)
@@ -854,11 +978,12 @@ class cmd_branch(Command):
                 porcelain.branch_create(".", name=args.branch)
             except porcelain.Error as e:
                 sys.stderr.write(f"{e}")
-                sys.exit(1)
+                return 1
+        return 0
 
 
 class cmd_checkout(Command):
-    def run(self, args) -> None:
+    def run(self, args) -> Optional[int]:
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "target",
@@ -880,7 +1005,7 @@ class cmd_checkout(Command):
         args = parser.parse_args(args)
         if not args.target:
             print("Usage: dulwich checkout TARGET [--force] [-b NEW_BRANCH]")
-            sys.exit(1)
+            return 1
 
         try:
             porcelain.checkout(
@@ -888,7 +1013,8 @@ class cmd_checkout(Command):
             )
         except porcelain.CheckoutError as e:
             sys.stderr.write(f"{e}\n")
-            sys.exit(1)
+            return 1
+        return 0
 
 
 class cmd_stash_list(Command):
@@ -976,9 +1102,146 @@ class cmd_merge(Command):
                 print(
                     f"Merge successful. Created merge commit {merge_commit_id.decode()}"
                 )
-            return None
+            return 0
         except porcelain.Error as e:
             print(f"Error: {e}")
+            return 1
+
+
+class cmd_notes_add(Command):
+    def run(self, args) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("object", help="Object to annotate")
+        parser.add_argument("-m", "--message", help="Note message", required=True)
+        parser.add_argument(
+            "--ref", default="commits", help="Notes ref (default: commits)"
+        )
+        args = parser.parse_args(args)
+
+        porcelain.notes_add(".", args.object, args.message, ref=args.ref)
+
+
+class cmd_notes_show(Command):
+    def run(self, args) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("object", help="Object to show notes for")
+        parser.add_argument(
+            "--ref", default="commits", help="Notes ref (default: commits)"
+        )
+        args = parser.parse_args(args)
+
+        note = porcelain.notes_show(".", args.object, ref=args.ref)
+        if note:
+            sys.stdout.buffer.write(note)
+        else:
+            print(f"No notes found for object {args.object}")
+
+
+class cmd_notes_remove(Command):
+    def run(self, args) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("object", help="Object to remove notes from")
+        parser.add_argument(
+            "--ref", default="commits", help="Notes ref (default: commits)"
+        )
+        args = parser.parse_args(args)
+
+        result = porcelain.notes_remove(".", args.object, ref=args.ref)
+        if result:
+            print(f"Removed notes for object {args.object}")
+        else:
+            print(f"No notes found for object {args.object}")
+
+
+class cmd_notes_list(Command):
+    def run(self, args) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--ref", default="commits", help="Notes ref (default: commits)"
+        )
+        args = parser.parse_args(args)
+
+        notes = porcelain.notes_list(".", ref=args.ref)
+        for object_sha, note_content in notes:
+            print(f"{object_sha.hex()}")
+
+
+class cmd_notes(SuperCommand):
+    subcommands: ClassVar[dict[str, type[Command]]] = {
+        "add": cmd_notes_add,
+        "show": cmd_notes_show,
+        "remove": cmd_notes_remove,
+        "list": cmd_notes_list,
+    }
+
+    default_command = cmd_notes_list
+
+
+class cmd_cherry_pick(Command):
+    def run(self, args) -> Optional[int]:
+        parser = argparse.ArgumentParser(
+            description="Apply the changes introduced by some existing commits"
+        )
+        parser.add_argument("commit", nargs="?", help="Commit to cherry-pick")
+        parser.add_argument(
+            "-n",
+            "--no-commit",
+            action="store_true",
+            help="Apply changes without making a commit",
+        )
+        parser.add_argument(
+            "--continue",
+            dest="continue_",
+            action="store_true",
+            help="Continue after resolving conflicts",
+        )
+        parser.add_argument(
+            "--abort",
+            action="store_true",
+            help="Abort the current cherry-pick operation",
+        )
+        args = parser.parse_args(args)
+
+        # Check argument validity
+        if args.continue_ or args.abort:
+            if args.commit is not None:
+                parser.error("Cannot specify commit with --continue or --abort")
+                return 1
+        else:
+            if args.commit is None:
+                parser.error("Commit argument is required")
+                return 1
+
+        try:
+            commit_arg = args.commit
+
+            result = porcelain.cherry_pick(
+                ".",
+                commit_arg,
+                no_commit=args.no_commit,
+                continue_=args.continue_,
+                abort=args.abort,
+            )
+
+            if args.abort:
+                print("Cherry-pick aborted.")
+            elif args.continue_:
+                if result:
+                    print(f"Cherry-pick completed: {result.decode()}")
+                else:
+                    print("Cherry-pick completed.")
+            elif result is None:
+                if args.no_commit:
+                    print("Cherry-pick applied successfully (no commit created).")
+                else:
+                    # This shouldn't happen unless there were conflicts
+                    print("Cherry-pick resulted in conflicts.")
+            else:
+                print(f"Cherry-pick successful: {result.decode()}")
+
+            return None
+        except porcelain.Error as e:
+            print(f"Error: {e}", file=sys.stderr)
             return 1
 
 
@@ -1237,6 +1500,240 @@ class cmd_rebase(Command):
             return 1
 
 
+class cmd_filter_branch(Command):
+    def run(self, args) -> Optional[int]:
+        import subprocess
+
+        parser = argparse.ArgumentParser(description="Rewrite branches")
+
+        # Supported Git-compatible options
+        parser.add_argument(
+            "--subdirectory-filter",
+            type=str,
+            help="Only include history for subdirectory",
+        )
+        parser.add_argument("--env-filter", type=str, help="Environment filter command")
+        parser.add_argument("--tree-filter", type=str, help="Tree filter command")
+        parser.add_argument("--index-filter", type=str, help="Index filter command")
+        parser.add_argument("--parent-filter", type=str, help="Parent filter command")
+        parser.add_argument("--msg-filter", type=str, help="Message filter command")
+        parser.add_argument("--commit-filter", type=str, help="Commit filter command")
+        parser.add_argument(
+            "--tag-name-filter", type=str, help="Tag name filter command"
+        )
+        parser.add_argument(
+            "--prune-empty", action="store_true", help="Remove empty commits"
+        )
+        parser.add_argument(
+            "--original",
+            type=str,
+            default="refs/original",
+            help="Namespace for original refs",
+        )
+        parser.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            help="Force operation even if refs/original/* exists",
+        )
+
+        # Branch/ref to rewrite (defaults to HEAD)
+        parser.add_argument(
+            "branch", nargs="?", default="HEAD", help="Branch or ref to rewrite"
+        )
+
+        args = parser.parse_args(args)
+
+        # Track if any filter fails
+        filter_error = False
+
+        # Setup environment for filters
+        env = os.environ.copy()
+
+        # Helper function to run shell commands
+        def run_filter(cmd, input_data=None, cwd=None, extra_env=None):
+            nonlocal filter_error
+            filter_env = env.copy()
+            if extra_env:
+                filter_env.update(extra_env)
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                input=input_data,
+                cwd=cwd,
+                env=filter_env,
+                capture_output=True,
+            )
+            if result.returncode != 0:
+                filter_error = True
+                return None
+            return result.stdout
+
+        # Create filter functions based on arguments
+        filter_message = None
+        if args.msg_filter:
+
+            def filter_message(message):
+                result = run_filter(args.msg_filter, input_data=message)
+                return result if result is not None else message
+
+        tree_filter = None
+        if args.tree_filter:
+
+            def tree_filter(tree_sha, tmpdir):
+                from dulwich.objects import Blob, Tree
+
+                # Export tree to tmpdir
+                with Repo(".") as r:
+                    tree = r.object_store[tree_sha]
+                    for entry in tree.items():
+                        path = Path(tmpdir) / entry.path.decode()
+                        if entry.mode & 0o040000:  # Directory
+                            path.mkdir(exist_ok=True)
+                        else:
+                            obj = r.object_store[entry.sha]
+                            path.write_bytes(obj.data)
+
+                    # Run the filter command in the temp directory
+                    run_filter(args.tree_filter, cwd=tmpdir)
+
+                    # Rebuild tree from modified temp directory
+                    def build_tree_from_dir(dir_path):
+                        tree = Tree()
+                        for name in sorted(os.listdir(dir_path)):
+                            if name.startswith("."):
+                                continue
+                            path = os.path.join(dir_path, name)
+                            if os.path.isdir(path):
+                                subtree_sha = build_tree_from_dir(path)
+                                tree.add(name.encode(), 0o040000, subtree_sha)
+                            else:
+                                with open(path, "rb") as f:
+                                    data = f.read()
+                                blob = Blob.from_string(data)
+                                r.object_store.add_object(blob)
+                                # Use appropriate file mode
+                                mode = os.stat(path).st_mode
+                                if mode & 0o100:
+                                    file_mode = 0o100755
+                                else:
+                                    file_mode = 0o100644
+                                tree.add(name.encode(), file_mode, blob.id)
+                        r.object_store.add_object(tree)
+                        return tree.id
+
+                    return build_tree_from_dir(tmpdir)
+
+        index_filter = None
+        if args.index_filter:
+
+            def index_filter(tree_sha, index_path):
+                run_filter(args.index_filter, extra_env={"GIT_INDEX_FILE": index_path})
+                return None  # Read back from index
+
+        parent_filter = None
+        if args.parent_filter:
+
+            def parent_filter(parents):
+                parent_str = " ".join(p.hex() for p in parents)
+                result = run_filter(args.parent_filter, input_data=parent_str.encode())
+                if result is None:
+                    return parents
+
+                output = result.decode().strip()
+                if not output:
+                    return []
+                new_parents = []
+                for sha in output.split():
+                    if valid_hexsha(sha):
+                        new_parents.append(sha)
+                return new_parents
+
+        commit_filter = None
+        if args.commit_filter:
+
+            def commit_filter(commit_obj, tree_sha):
+                # The filter receives: tree parent1 parent2...
+                cmd_input = tree_sha.hex()
+                for parent in commit_obj.parents:
+                    cmd_input += " " + parent.hex()
+
+                result = run_filter(
+                    args.commit_filter,
+                    input_data=cmd_input.encode(),
+                    extra_env={"GIT_COMMIT": commit_obj.id.hex()},
+                )
+                if result is None:
+                    return None
+
+                output = result.decode().strip()
+                if not output:
+                    return None  # Skip commit
+
+                if valid_hexsha(output):
+                    return output
+                return None
+
+        tag_name_filter = None
+        if args.tag_name_filter:
+
+            def tag_name_filter(tag_name):
+                result = run_filter(args.tag_name_filter, input_data=tag_name)
+                return result.strip() if result is not None else tag_name
+
+        # Open repo once
+        with Repo(".") as r:
+            # Check for refs/original if not forcing
+            if not args.force:
+                original_prefix = args.original.encode() + b"/"
+                for ref in r.refs.allkeys():
+                    if ref.startswith(original_prefix):
+                        print("Cannot create a new backup.")
+                        print(f"A previous backup already exists in {args.original}/")
+                        print("Force overwriting the backup with -f")
+                        return 1
+
+            try:
+                # Call porcelain.filter_branch with the repo object
+                result = porcelain.filter_branch(
+                    r,
+                    args.branch,
+                    filter_message=filter_message,
+                    tree_filter=tree_filter if args.tree_filter else None,
+                    index_filter=index_filter if args.index_filter else None,
+                    parent_filter=parent_filter if args.parent_filter else None,
+                    commit_filter=commit_filter if args.commit_filter else None,
+                    subdirectory_filter=args.subdirectory_filter,
+                    prune_empty=args.prune_empty,
+                    tag_name_filter=tag_name_filter if args.tag_name_filter else None,
+                    force=args.force,
+                    keep_original=True,  # Always keep original with git
+                )
+
+                # Check if any filter failed
+                if filter_error:
+                    print("Error: Filter command failed", file=sys.stderr)
+                    return 1
+
+                # Git filter-branch shows progress
+                if result:
+                    print(f"Rewrite {args.branch} ({len(result)} commits)")
+                    # Git shows: Ref 'refs/heads/branch' was rewritten
+                    if args.branch != "HEAD":
+                        ref_name = (
+                            args.branch
+                            if args.branch.startswith("refs/")
+                            else f"refs/heads/{args.branch}"
+                        )
+                        print(f"Ref '{ref_name}' was rewritten")
+
+                return 0
+
+            except porcelain.Error as e:
+                print(f"Error: {e}", file=sys.stderr)
+                return 1
+
+
 class cmd_help(Command):
     def run(self, args) -> None:
         parser = argparse.ArgumentParser()
@@ -1265,11 +1762,14 @@ For a list of supported commands, see 'dulwich help -a'.
 
 commands = {
     "add": cmd_add,
+    "annotate": cmd_annotate,
     "archive": cmd_archive,
+    "blame": cmd_blame,
     "branch": cmd_branch,
     "check-ignore": cmd_check_ignore,
     "check-mailmap": cmd_check_mailmap,
     "checkout": cmd_checkout,
+    "cherry-pick": cmd_cherry_pick,
     "clone": cmd_clone,
     "commit": cmd_commit,
     "commit-tree": cmd_commit_tree,
@@ -1282,6 +1782,7 @@ commands = {
     "dump-index": cmd_dump_index,
     "fetch-pack": cmd_fetch_pack,
     "fetch": cmd_fetch,
+    "filter-branch": cmd_filter_branch,
     "for-each-ref": cmd_for_each_ref,
     "fsck": cmd_fsck,
     "gc": cmd_gc,
@@ -1293,8 +1794,10 @@ commands = {
     "ls-tree": cmd_ls_tree,
     "merge": cmd_merge,
     "merge-tree": cmd_merge_tree,
+    "notes": cmd_notes,
     "pack-objects": cmd_pack_objects,
     "pack-refs": cmd_pack_refs,
+    "prune": cmd_prune,
     "pull": cmd_pull,
     "push": cmd_push,
     "rebase": cmd_rebase,
@@ -1302,8 +1805,10 @@ commands = {
     "remote": cmd_remote,
     "repack": cmd_repack,
     "reset": cmd_reset,
+    "revert": cmd_revert,
     "rev-list": cmd_rev_list,
     "rm": cmd_rm,
+    "mv": cmd_mv,
     "show": cmd_show,
     "stash": cmd_stash,
     "status": cmd_status,
@@ -1318,7 +1823,7 @@ commands = {
 }
 
 
-def main(argv=None):
+def main(argv=None) -> Optional[int]:
     if argv is None:
         argv = sys.argv[1:]
 

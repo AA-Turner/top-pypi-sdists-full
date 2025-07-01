@@ -62,7 +62,7 @@ Pytree = Any
 PLACEHOLDER = ...
 PLACEHOLDER_TYPESTR = 'placeholder'
 
-Layout = layout.Layout
+Format = layout.Format
 Shape = arrays_types.Shape
 Scalar = Union[int, float, np.number]
 NamedSharding = jax.sharding.NamedSharding
@@ -812,7 +812,7 @@ class ArrayRestoreArgs(RestoreArgs):
   restore_type: Optional[Any] = jax.Array
   mesh: Optional[jax.sharding.Mesh] = None
   mesh_axes: Optional[jax.sharding.PartitionSpec] = None
-  sharding: Optional[Union[jax.sharding.Sharding, ShardingMetadata, Layout]] = (
+  sharding: Optional[Union[jax.sharding.Sharding, ShardingMetadata, Format]] = (
       None
   )
   global_shape: Optional[Tuple[int, ...]] = None
@@ -1323,10 +1323,10 @@ class ArrayHandler(types.TypeHandler):
         logging.vlog(
             1,
             'restored jax.Array.shape = %s, jax.array.dtype = %s,'
-            ' jax.array.layout = %s',
+            ' jax.array.format = %s',
             getattr(a, 'shape', None),
             getattr(a, 'dtype', None),
-            getattr(a, 'layout', None),
+            getattr(a, 'format', None),
         )
       _print_ts_debug_data(self._metadata_key, infos)
 
@@ -1401,6 +1401,9 @@ class SingleReplicaArrayHandler(ArrayHandler):
       primary_replica_id: Optional[int] = 0,
       broadcast_memory_limit_bytes: Optional[int] = None,
       broadcast_memory_scaling_factor: Optional[float] = 0.75,
+      use_replica_parallel: bool = True,
+      enable_write_sharding_file: bool = True,
+      array_metadata_store: array_metadata_store_lib.Store | None = None,
   ):
     """Constructor.
 
@@ -1414,9 +1417,18 @@ class SingleReplicaArrayHandler(ArrayHandler):
         for broadcasting data.
       broadcast_memory_scaling_factor: Specifies the fraction of available
         memory to use for broadcasting data.
+      use_replica_parallel: Whether to parallelize saving across replicas.
+      enable_write_sharding_file: whether to write sharding file, defaults to
+        True.
+      array_metadata_store: Store to manage per host ArrayMetadata. To disable
+        ArrayMetadata persistence, set it to None.
     """
 
-    super(SingleReplicaArrayHandler, self).__init__()
+    super(SingleReplicaArrayHandler, self).__init__(
+        use_replica_parallel=use_replica_parallel,
+        enable_write_sharding_file=enable_write_sharding_file,
+        array_metadata_store=array_metadata_store,
+    )
     self.replica_axis_index = replica_axis_index
     self.primary_replica_id = primary_replica_id
     self.broadcast_memory_limit_bytes = broadcast_memory_limit_bytes

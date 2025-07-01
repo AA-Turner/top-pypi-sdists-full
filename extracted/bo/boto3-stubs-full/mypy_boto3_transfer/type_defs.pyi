@@ -38,6 +38,7 @@ from .literals import (
     ExecutionStatusType,
     HomeDirectoryTypeType,
     IdentityProviderTypeType,
+    IpAddressTypeType,
     MapTypeType,
     MdnResponseType,
     MdnSigningAlgType,
@@ -1425,6 +1426,7 @@ class DescribedServerTypeDef(TypedDict):
     StructuredLogDestinations: NotRequired[List[str]]
     S3StorageOptions: NotRequired[S3StorageOptionsTypeDef]
     As2ServiceManagedEgressIpAddresses: NotRequired[List[str]]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 WorkflowDetailsUnionTypeDef = Union[WorkflowDetailsTypeDef, WorkflowDetailsOutputTypeDef]
 
@@ -1493,6 +1495,7 @@ class CreateServerRequestTypeDef(TypedDict):
     WorkflowDetails: NotRequired[WorkflowDetailsUnionTypeDef]
     StructuredLogDestinations: NotRequired[Sequence[str]]
     S3StorageOptions: NotRequired[S3StorageOptionsTypeDef]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 class UpdateServerRequestTypeDef(TypedDict):
     ServerId: str
@@ -1510,6 +1513,7 @@ class UpdateServerRequestTypeDef(TypedDict):
     WorkflowDetails: NotRequired[WorkflowDetailsUnionTypeDef]
     StructuredLogDestinations: NotRequired[Sequence[str]]
     S3StorageOptions: NotRequired[S3StorageOptionsTypeDef]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 class DescribeExecutionResponseTypeDef(TypedDict):
     WorkflowId: str

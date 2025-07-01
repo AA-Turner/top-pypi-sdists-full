@@ -7,12 +7,12 @@ import langgraph.version
 import langsmith
 import structlog
 from langchain_core.messages import (
+    # TODO: Remove explicit dependency
     BaseMessage,
     BaseMessageChunk,
     convert_to_messages,
     message_chunk_to_message,
 )
-from langchain_core.runnables.config import run_in_executor
 from langgraph.errors import (
     EmptyChannelError,
     EmptyInputError,
@@ -33,6 +33,7 @@ from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
+from langgraph_api.utils.config import run_in_executor
 from langgraph_runtime.checkpoint import Checkpointer
 from langgraph_runtime.ops import Runs
 
@@ -320,7 +321,6 @@ async def consume(stream: AnyStream, run_id: str, resumable: bool = False) -> No
                     resumable=resumable,
                 )
         except Exception as e:
-            g = e
             if isinstance(e, ExceptionGroup):
                 e = e.exceptions[0]
             await Runs.Stream.publish(
@@ -329,7 +329,7 @@ async def consume(stream: AnyStream, run_id: str, resumable: bool = False) -> No
                 await run_in_executor(None, json_dumpb, e),
                 resumable=resumable,
             )
-            raise e from g
+            raise e
 
 
 def get_feedback_urls(run_id: str, feedback_keys: list[str]) -> dict[str, str]:

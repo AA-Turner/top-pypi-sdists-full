@@ -617,7 +617,7 @@ class MongoSource(google.protobuf.message.Message):
     username_secret_name: builtins.str
     """Mongo username"""
     password_secret_name: builtins.str
-    """Mongo password kubernetes secret name"""
+    """Mongo password secret name"""
     database: builtins.str
     """Mongo data base name"""
     collection: builtins.str
@@ -649,6 +649,7 @@ class SnowflakeSource(google.protobuf.message.Message):
     HOST_FIELD_NUMBER: builtins.int
     USERNAME_SECRET_NAME_FIELD_NUMBER: builtins.int
     PASSWORD_SECRET_NAME_FIELD_NUMBER: builtins.int
+    PEM_PRIVATE_KEY_SECRET_NAME_FIELD_NUMBER: builtins.int
     DATABASE_FIELD_NUMBER: builtins.int
     SCHEMA_FIELD_NUMBER: builtins.int
     WAREHOUSE_FIELD_NUMBER: builtins.int
@@ -657,9 +658,11 @@ class SnowflakeSource(google.protobuf.message.Message):
     host: builtins.str
     """SF host address <account_identifier>.snowflakecomputing.com]"""
     username_secret_name: builtins.str
-    """SF username kubernetes secret name"""
+    """SF username secret name"""
     password_secret_name: builtins.str
-    """SF password kubernetes secret name"""
+    """SF password secret name"""
+    pem_private_key_secret_name: builtins.str
+    """SF pem formatted private key secret name"""
     database: builtins.str
     """SF database name"""
     schema: builtins.str
@@ -676,13 +679,16 @@ class SnowflakeSource(google.protobuf.message.Message):
         host: builtins.str = ...,
         username_secret_name: builtins.str = ...,
         password_secret_name: builtins.str = ...,
+        pem_private_key_secret_name: builtins.str = ...,
         database: builtins.str = ...,
         schema: builtins.str = ...,
         warehouse: builtins.str = ...,
         table: builtins.str = ...,
         query: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["database", b"database", "host", b"host", "password_secret_name", b"password_secret_name", "query", b"query", "schema", b"schema", "table", b"table", "username_secret_name", b"username_secret_name", "warehouse", b"warehouse"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["auth_secret", b"auth_secret", "password_secret_name", b"password_secret_name", "pem_private_key_secret_name", b"pem_private_key_secret_name"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["auth_secret", b"auth_secret", "database", b"database", "host", b"host", "password_secret_name", b"password_secret_name", "pem_private_key_secret_name", b"pem_private_key_secret_name", "query", b"query", "schema", b"schema", "table", b"table", "username_secret_name", b"username_secret_name", "warehouse", b"warehouse"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth_secret", b"auth_secret"]) -> typing_extensions.Literal["password_secret_name", "pem_private_key_secret_name"] | None: ...
 
 global___SnowflakeSource = SnowflakeSource
 

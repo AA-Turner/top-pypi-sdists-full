@@ -5,191 +5,45 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::ops::Deref;
 use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
-use ruff_python_ast::Identifier;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
-use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::class::base_class::BaseClass;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
+use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::binding::binding::Key;
-use crate::binding::binding::KeyLegacyTypeParam;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
-use crate::module::module_name::ModuleName;
-use crate::ruff::ast::Ast;
+use crate::types::callable::BoolKeywords;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
-use crate::types::special_form::SpecialForm;
 use crate::types::tuple::Tuple;
-use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
-use crate::types::types::TParam;
-use crate::types::types::TParams;
 use crate::types::types::Type;
 
-/// Private helper type used to share part of the logic needed for the
-/// binding-level work of finding legacy type parameters versus the type-level
-/// work of computing inherticance information and the MRO.
-#[derive(Debug, Clone)]
-pub enum BaseClass {
-    TypedDict,
-    Generic(Vec<Type>),
-    Protocol(Vec<Type>),
-    Expr(Expr),
-    NamedTuple(TextRange),
-}
-
-impl BaseClass {
-    pub fn can_apply(&self) -> bool {
-        matches!(self, BaseClass::Generic(_) | BaseClass::Protocol(_))
-    }
-
-    pub fn apply(&mut self, args: Vec<Type>) {
-        match self {
-            BaseClass::Generic(xs) | BaseClass::Protocol(xs) => {
-                xs.extend(args);
-            }
-            _ => panic!("cannot apply base class"),
-        }
-    }
-}
-
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn compute_tparams(
-        &self,
-        name: &Identifier,
-        scoped_tparams: Vec<TParam>,
-        bases: Vec<BaseClass>,
-        legacy: &[Idx<KeyLegacyTypeParam>],
-        errors: &ErrorCollector,
-    ) -> Vec<TParam> {
-        let legacy_tparams = legacy
-            .iter()
-            .filter_map(|key| self.get_idx(*key).deref().parameter().cloned())
-            .collect::<SmallSet<_>>();
-        let legacy_map = legacy_tparams
-            .iter()
-            .map(|p| (p.quantified.clone(), p))
-            .collect::<SmallMap<_, _>>();
-
-        let lookup_tparam = |t: &Type| {
-            let (q, kind) = match t {
-                Type::Unpack(t) => (t.as_quantified(), "TypeVarTuple"),
-                _ => (t.as_quantified(), "type variable"),
-            };
-            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error)) {
-                self.error(
-                    errors,
-                    name.range,
-                    ErrorKind::InvalidTypeVar,
-                    None,
-                    format!("Expected a {kind}, got `{}`", self.for_display(t.clone())),
-                );
-            }
-            q.and_then(|q| {
-                let p = legacy_map.get(&q);
-                if p.is_none() {
-                    self.error(
-                        errors,
-                        name.range,
-                        ErrorKind::InvalidTypeVar,
-                        None,
-                        "Redundant type parameter declaration".to_owned(),
-                    );
-                }
-                p.map(|x| (*x).clone())
-            })
-        };
-
-        // TODO(stroxler): There are a lot of checks, such as that `Generic` only appears once
-        // and no non-type-vars are used, that we can more easily detect in a dedictated class
-        // validation step that validates all the bases. We are deferring these for now.
-        let mut generic_tparams = SmallSet::new();
-        let mut protocol_tparams = SmallSet::new();
-        for base in bases.iter() {
-            match base {
-                BaseClass::Generic(ts) => {
-                    for t in ts {
-                        if let Some(p) = lookup_tparam(t) {
-                            generic_tparams.insert(p);
-                        }
-                    }
-                }
-                BaseClass::Protocol(ts) if !ts.is_empty() => {
-                    for t in ts {
-                        if let Some(p) = lookup_tparam(t) {
-                            protocol_tparams.insert(p);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        if !generic_tparams.is_empty() && !protocol_tparams.is_empty() {
-            self.error(
-                errors,
-                name.range,
-                ErrorKind::InvalidInheritance,
-                None,
-                format!(
-                    "Class `{}` specifies type parameters in both `Generic` and `Protocol` bases",
-                    name.id,
-                ),
-            );
-        }
-        // Initialized the tparams: combine scoped and explicit type parameters
-        let mut tparams = SmallSet::new();
-        tparams.extend(scoped_tparams);
-        tparams.extend(generic_tparams);
-        tparams.extend(protocol_tparams);
-        // Handle implicit tparams: if a Quantified was bound at this scope and is not yet
-        // in tparams, we add it. These will be added in left-to-right order.
-        let implicit_tparams_okay = tparams.is_empty();
-        for p in legacy_tparams.iter() {
-            if !tparams.contains(p) {
-                if !implicit_tparams_okay {
-                    self.error(errors,
-                        name.range,
-                        ErrorKind::InvalidTypeVar,
-                        None,
-                        format!(
-                            "Class `{}` uses type variables not specified in `Generic` or `Protocol` base",
-                            name.id,
-                        ),
-                    );
-                }
-                tparams.insert(p.clone());
-            }
-        }
-
-        tparams.into_iter().collect()
-    }
-
-    pub fn class_tparams(&self, class: &Class) -> Arc<TParams> {
-        class.arc_tparams().dupe()
-    }
-
     fn new_type_base(
         &self,
         base_type_and_range: Option<(Type, TextRange)>,
@@ -263,12 +117,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
+        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(_))) {
+            Some(ProtocolMetadata {
+                members: cls.fields().cloned().collect(),
+                is_runtime_checkable: false,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn class_metadata_of(
         &self,
         cls: &Class,
         bases: &[Expr],
         keywords: &[(Name, Expr)],
-        decorators: &[Idx<Key>],
+        decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         special_base: &Option<Box<BaseClass>>,
         errors: &ErrorCollector,
@@ -281,16 +146,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
         }
-        let mut protocol_metadata = if bases.iter().any(|x| matches!(x, BaseClass::Protocol(_))) {
-            Some(ProtocolMetadata {
-                members: cls.fields().cloned().collect(),
-                is_runtime_checkable: false,
-            })
-        } else {
-            None
-        };
+        let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
+
         let mut has_base_any = false;
         let mut has_generic_base_class = false;
+        // This is set when we should apply dataclass-like transformations to the class. The class
+        // should be transformed if:
+        // - it inherits from a base class decorated with `dataclass_transform(...)`, or
+        // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
+        // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
+        let mut dataclass_defaults_from_dataclass_transform = None;
         let bases_with_metadata = bases
             .iter()
             .filter_map(|x| {
@@ -307,7 +172,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_generic_base_class = true;
                         None
                     }
-                    _ => None,
+                    // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
+                    // above so we can skip it here.
+                    BaseClass::Generic(_) | BaseClass::Protocol(_) => None
                 };
                 if is_new_type {
                     self.new_type_base(base_type_and_range, cls.range(), errors)
@@ -343,7 +210,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             {
                                 if named_tuple_metadata.is_none() {
                                     named_tuple_metadata = Some(NamedTupleMetadata {
-                                        elements: self.get_named_tuple_elements(cls)
+                                        elements: self.get_named_tuple_elements(cls, errors)
                                     })
                                 }
                             } else if let Some(base_named_tuple) = base_class_metadata.named_tuple_metadata() {
@@ -370,6 +237,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 // If we inherit from a dataclass, inherit its metadata. Note that if this class is
                                 // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
                                 dataclass_metadata = Some(base_dataclass.inherit());
+                            }
+                            if let Some(m) = base_class_metadata.dataclass_transform_metadata() {
+                                dataclass_defaults_from_dataclass_transform = Some(m.clone());
                             }
                             Some((c, base_class_metadata))
                         }
@@ -398,7 +268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 class_metadata,
                             ))
                         }
-                        // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.  
+                        // todo zeina: Ideally, we can directly add this class to the list of base classes. Revisit this when fixing the "Any" representation.
                         Some((Type::Any(_), _)) => {
                             has_base_any = true;
                             None
@@ -464,13 +334,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &base_metaclasses,
             errors,
         );
+        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
+        // this does not turn the class into a dataclass! Instead, it becomes a special base class
+        // (or metaclass) that turns child classes into dataclasses.
+        let mut dataclass_transform_metadata = None;
+        if let Some(c) = &metaclass
+            && let Some(m) = self
+                .get_metadata_for_class(c.class_object())
+                .dataclass_transform_metadata()
+        {
+            dataclass_transform_metadata = Some(m.clone());
+        }
+        let empty_tparams = self.get_class_tparams(cls).is_empty();
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
             if self.is_subset_eq(
                 &Type::ClassType(metaclass.clone()),
                 &Type::ClassType(self.stdlib.enum_meta().clone()),
             ) {
-                if !cls.tparams().is_empty() {
+                if !empty_tparams {
                     self.error(
                         errors,
                         cls.range(),
@@ -520,15 +402,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         let mut is_final = false;
-        for decorator in decorators {
-            let decorator = self.get_idx(*decorator);
-            match decorator.ty().callee_kind() {
+        let mut total_ordering_metadata = None;
+        for (decorator_key, decorator_range) in decorators {
+            let decorator = self.get_idx(*decorator_key);
+            let decorator_ty = decorator.ty();
+            match decorator_ty.callee_kind() {
                 Some(CalleeKind::Function(FunctionKind::Dataclass(kws))) => {
                     let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
                     dataclass_metadata = Some(DataclassMetadata {
                         fields: dataclass_fields,
                         kws: *kws,
                     });
+                }
+                Some(CalleeKind::Function(_))
+                    if let Some(m) = decorator_ty.dataclass_transform_metadata() =>
+                {
+                    dataclass_defaults_from_dataclass_transform = Some(m);
                 }
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
                     is_final = true;
@@ -546,8 +435,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                 }
+                Some(CalleeKind::Function(FunctionKind::TotalOrdering)) => {
+                    total_ordering_metadata = Some(TotalOrderingMetadata {
+                        location: *decorator_range,
+                    });
+                }
+                Some(CalleeKind::DataclassTransformDecorator(kws)) => {
+                    dataclass_transform_metadata = Some(kws);
+                }
                 _ => {}
             }
+        }
+        if dataclass_metadata.is_none()
+            && let Some(_) = dataclass_defaults_from_dataclass_transform
+        {
+            // TODO(rechen): Take keyword values to `dataclass_transform(...)` into account.
+            let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
+            dataclass_metadata = Some(DataclassMetadata {
+                fields: dataclass_fields,
+                kws: BoolKeywords::new(),
+            });
         }
         if is_typed_dict
             && let Some(bad) = bases_with_metadata.iter().find(|x| !x.1.is_typed_dict())
@@ -576,8 +483,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - the class inherits from Any, or
         // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
         //   arguments because we found an error in them.
-        let has_unknown_tparams =
-            cls.tparams().is_empty() && (has_base_any || has_generic_base_class);
+        let has_unknown_tparams = empty_tparams && (has_base_any || has_generic_base_class);
         ClassMetadata::new(
             cls,
             bases_with_metadata,
@@ -592,6 +498,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_new_type,
             is_final,
             has_unknown_tparams,
+            total_ordering_metadata,
+            dataclass_transform_metadata,
             errors,
         )
     }
@@ -614,74 +522,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         all_fields
-    }
-
-    /// This helper deals with special cases where we want to intercept an `Expr`
-    /// manually and create a special variant of `BaseClass` instead of calling
-    /// `expr_untype` and creating a `BaseClass::Type`.
-    ///
-    /// TODO(stroxler): See if there's a way to express this more clearly in the types.
-    fn special_base_class(&self, base_expr: &Expr, errors: &ErrorCollector) -> Option<BaseClass> {
-        let name = match base_expr {
-            Expr::Name(x) => &x.id,
-            Expr::Attribute(x) => &x.attr.id,
-            _ => return None,
-        };
-        if !["Protocol", "Generic", "TypedDict", "NamedTuple"].contains(&name.as_str()) {
-            // Calling expr_infer when figuring out the base class leads to cycles, so we really want to try
-            // and avoid doing it unless there is a high likelihood of a special form.
-            // Downside is that you can't alias `Generic` etc, but I'm not sure you should want to.
-            return None;
-        }
-
-        match self.expr_infer(base_expr, errors) {
-            Type::Type(box Type::SpecialForm(special)) => match special {
-                SpecialForm::Protocol => Some(BaseClass::Protocol(Vec::new())),
-                SpecialForm::Generic => Some(BaseClass::Generic(Vec::new())),
-                SpecialForm::TypedDict => Some(BaseClass::TypedDict),
-                _ => None,
-            },
-            Type::ClassDef(cls) if cls.has_qname("typing", "NamedTuple") => {
-                Some(BaseClass::NamedTuple(base_expr.range()))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn base_class_of(&self, base_expr: &Expr, errors: &ErrorCollector) -> BaseClass {
-        if let Some(special_base_class) = self.special_base_class(base_expr, errors) {
-            // This branch handles cases like `Protocol`
-            special_base_class
-        } else if let Expr::Subscript(subscript) = base_expr
-            && let Some(mut special_base_class) = self.special_base_class(&subscript.value, errors)
-            && special_base_class.can_apply()
-        {
-            // This branch handles `Generic[...]` and `Protocol[...]`
-            let mut type_var_tuple_count = 0;
-            let args = Ast::unpack_slice(&subscript.slice).map(|x| {
-                let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                if let Type::Unpack(unpacked) = &ty
-                    && unpacked.is_kind_type_var_tuple()
-                {
-                    if type_var_tuple_count == 1 {
-                        self.error(
-                            errors,
-                            x.range(),
-                            ErrorKind::InvalidInheritance,
-                            None,
-                            "There cannot be more than one TypeVarTuple type parameter".to_owned(),
-                        );
-                    }
-                    type_var_tuple_count += 1;
-                }
-                ty
-            });
-            special_base_class.apply(args);
-            special_base_class
-        } else {
-            // This branch handles all other base classes.
-            BaseClass::Expr(base_expr.clone())
-        }
     }
 
     fn calculate_metaclass(
@@ -790,5 +630,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None
             }
         }
+    }
+
+    pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> ClassMro {
+        let metadata = self.get_metadata_for_class(cls);
+        let bases_with_mros = metadata
+            .bases_with_metadata()
+            .iter()
+            .map(|(base, _)| {
+                let mro = self.get_mro_for_class(base.class_object());
+                (base, mro)
+            })
+            .collect();
+        ClassMro::new(cls, bases_with_mros, errors)
     }
 }

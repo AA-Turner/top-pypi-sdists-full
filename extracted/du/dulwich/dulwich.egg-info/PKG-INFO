@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dulwich
-Version: 0.23.0
+Version: 0.23.1
 Summary: Python Git Library
 Author-email: Jelmer Vernooij <jelmer@jelmer.uk>
 License-Expression: Apache-2.0 OR GPL-2.0-or-later
@@ -24,6 +24,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Requires-Dist: urllib3>=1.25
+Requires-Dist: typing_extensions>=4.0; python_version < "3.10"
 Provides-Extra: fastimport
 Requires-Dist: fastimport; extra == "fastimport"
 Provides-Extra: https
@@ -33,8 +34,8 @@ Requires-Dist: gpg; extra == "pgp"
 Provides-Extra: paramiko
 Requires-Dist: paramiko; extra == "paramiko"
 Provides-Extra: dev
-Requires-Dist: ruff==0.11.13; extra == "dev"
-Requires-Dist: mypy==1.16.0; extra == "dev"
+Requires-Dist: ruff==0.12.1; extra == "dev"
+Requires-Dist: mypy==1.16.1; extra == "dev"
 Requires-Dist: dissolve>=0.1.1; extra == "dev"
 Provides-Extra: merge
 Requires-Dist: merge3; extra == "merge"

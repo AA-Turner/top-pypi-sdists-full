@@ -37,6 +37,7 @@ def generate_ninja_build_for_op(
     extra_cuda_cflags: Optional[List[str]],
     extra_ldflags: Optional[List[str]],
     extra_include_dirs: Optional[List[Path]],
+    needs_device_linking: bool = False,
 ) -> str:
     system_includes = [
         sysconfig.get_path("include"),
@@ -93,6 +94,20 @@ def generate_ninja_build_for_op(
         "-L$cuda_home/lib64",
         "-lcudart",
     ]
+
+    env_extra_ldflags = os.environ.get("FLASHINFER_EXTRA_LDFLAGS")
+    if env_extra_ldflags:
+        try:
+            import shlex
+
+            ldflags += shlex.split(env_extra_ldflags)
+        except ValueError as e:
+            print(
+                f"Warning: Could not parse FLASHINFER_EXTRA_LDFLAGS with shlex: {e}. Falling back to simple split.",
+                file=sys.stderr,
+            )
+            ldflags += env_extra_ldflags.split()
+
     if extra_ldflags is not None:
         ldflags += extra_ldflags
 
@@ -125,10 +140,25 @@ def generate_ninja_build_for_op(
         "  depfile = $out.d",
         "  deps = gcc",
         "",
-        "rule link",
-        "  command = $cxx $in $ldflags -o $out",
-        "",
     ]
+
+    # Add nvcc linking rule for device code
+    if needs_device_linking:
+        lines.extend(
+            [
+                "rule nvcc_link",
+                "  command = $nvcc -shared $in $ldflags -o $out",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "rule link",
+                "  command = $cxx $in $ldflags -o $out",
+                "",
+            ]
+        )
 
     objects = []
     for source in sources:
@@ -141,7 +171,8 @@ def generate_ninja_build_for_op(
         lines.append(f"build {obj}: {cmd} {source.resolve()}")
 
     lines.append("")
-    lines.append("build $name/$name.so: link " + " ".join(objects))
+    link_rule = "nvcc_link" if needs_device_linking else "link"
+    lines.append(f"build $name/$name.so: {link_rule} " + " ".join(objects))
     lines.append("default $name/$name.so")
     lines.append("")
 

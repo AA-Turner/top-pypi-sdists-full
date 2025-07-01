@@ -12,6 +12,8 @@ use std::fmt::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::dunder;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
@@ -21,8 +23,6 @@ use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use starlark_map::ordered_map::OrderedMap;
 
-use crate::dunder;
-use crate::module::module_name::ModuleName;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
@@ -199,12 +199,20 @@ pub struct FuncFlags {
     pub is_deprecated: bool,
     /// A function decorated with `@property`
     pub is_property_getter: bool,
+    /// A `foo.setter` function, where `foo` is some `@property`-decorated function.
+    /// When used to decorate a function, turns the decorated function into a property setter.
+    pub is_property_setter_decorator: bool,
     /// A function decorated with `@foo.setter`, where `foo` is some `@property`-decorated function.
     /// The stored type is `foo` (the getter).
     pub is_property_setter_with_getter: Option<Type>,
     pub has_enum_member_decoration: bool,
     pub is_override: bool,
     pub has_final_decoration: bool,
+    /// A function decorated with `typing.dataclass_transform(...)`, turning it into a
+    /// `dataclasses.dataclass`-like decorator. Stores the keyword values passed to the
+    /// `dataclass_transform` call. See
+    /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
+    pub dataclass_transform_metadata: Option<BoolKeywords>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -240,6 +248,10 @@ pub enum FunctionKind {
     IsSubclass,
     Dataclass(Box<BoolKeywords>),
     DataclassField,
+    /// `typing.dataclass_transform`. Note that this is `dataclass_transform` itself, *not* the
+    /// decorator created by a `dataclass_transform(...)` call. See
+    /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
+    DataclassTransform,
     ClassMethod,
     Overload,
     Override,
@@ -248,11 +260,11 @@ pub enum FunctionKind {
     RevealType,
     Final,
     RuntimeCheckable,
-    PropertySetter(Box<FuncId>),
     Def(Box<FuncId>),
     AbstractMethod,
     /// Instance of a protocol with a `__call__` method. The function has the `__call__` signature.
     CallbackProtocol(Box<ClassType>),
+    TotalOrdering,
 }
 
 /// A map from keywords to boolean values. Useful for storing sets of keyword arguments for various
@@ -528,8 +540,10 @@ impl FunctionKind {
             ("typing", None, "reveal_type") => Self::RevealType,
             ("typing", None, "final") => Self::Final,
             ("typing", None, "runtime_checkable") => Self::RuntimeCheckable,
+            ("typing", None, "dataclass_transform") => Self::DataclassTransform,
             ("typing_extensions", None, "runtime_checkable") => Self::RuntimeCheckable,
             ("abc", None, "abstractmethod") => Self::AbstractMethod,
+            ("functools", None, "total_ordering") => Self::TotalOrdering,
             _ => Self::Def(Box::new(FuncId {
                 module,
                 cls: cls.cloned(),
@@ -564,6 +578,11 @@ impl FunctionKind {
                 module: ModuleName::dataclasses(),
                 cls: None,
                 func: Name::new_static("field"),
+            },
+            Self::DataclassTransform => FuncId {
+                module: ModuleName::typing(),
+                cls: None,
+                func: Name::new_static("dataclass_transform"),
             },
             Self::Final => FuncId {
                 module: ModuleName::typing(),
@@ -610,7 +629,12 @@ impl FunctionKind {
                 cls: None,
                 func: Name::new_static("abstractmethod"),
             },
-            Self::PropertySetter(func_id) | Self::Def(func_id) => (**func_id).clone(),
+            Self::TotalOrdering => FuncId {
+                module: ModuleName::functools(),
+                cls: None,
+                func: Name::new_static("total_ordering"),
+            },
+            Self::Def(func_id) => (**func_id).clone(),
         }
     }
 }

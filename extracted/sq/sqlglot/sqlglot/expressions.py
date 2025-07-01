@@ -5569,6 +5569,22 @@ class ArrayFilter(Func):
     _sql_names = ["FILTER", "ARRAY_FILTER"]
 
 
+class ArrayFirst(Func):
+    pass
+
+
+class ArrayLast(Func):
+    pass
+
+
+class ArrayReverse(Func):
+    pass
+
+
+class ArraySlice(Func):
+    arg_types = {"this": True, "start": True, "end": False, "step": False}
+
+
 class ArrayToString(Func):
     arg_types = {"this": True, "expression": True, "null": False}
     _sql_names = ["ARRAY_TO_STRING", "ARRAY_JOIN"]
@@ -6723,6 +6739,17 @@ class Substring(Func):
     arg_types = {"this": True, "start": False, "length": False}
 
 
+class SubstringIndex(Func):
+    """
+    SUBSTRING_INDEX(str, delim, count)
+
+    *count* > 0  → left slice before the *count*-th delimiter
+    *count* < 0  → right slice after the |count|-th delimiter
+    """
+
+    arg_types = {"this": True, "delimiter": True, "count": True}
+
+
 class StandardHash(Func):
     arg_types = {"this": True, "expression": False}
 
@@ -6777,6 +6804,14 @@ class NumberToStr(Func):
 
 class FromBase(Func):
     arg_types = {"this": True, "expression": True}
+
+
+class Space(Func):
+    """
+    SPACE(n) → string consisting of n blank characters
+    """
+
+    pass
 
 
 class Struct(Func):

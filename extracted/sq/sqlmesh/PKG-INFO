@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.196.4
+Version: 0.197.0
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -230,10 +230,11 @@ Requires-Dist: jinja2
 Requires-Dist: packaging
 Requires-Dist: pandas
 Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv
 Requires-Dist: requests
 Requires-Dist: rich[jupyter]
 Requires-Dist: ruamel.yaml
-Requires-Dist: sqlglot[rs]~=26.30.0
+Requires-Dist: sqlglot[rs]~=26.31.0
 Requires-Dist: tenacity
 Requires-Dist: time-machine
 Requires-Dist: json-stream
@@ -266,7 +267,7 @@ Requires-Dist: dbt-athena-community; extra == "dev"
 Requires-Dist: dbt-clickhouse; extra == "dev"
 Requires-Dist: dbt-databricks; extra == "dev"
 Requires-Dist: dbt-redshift; extra == "dev"
-Requires-Dist: dbt-sqlserver>=1.7.0; extra == "dev"
+Requires-Dist: dbt-sqlserver>=1.7.0; python_version < "3.13" and extra == "dev"
 Requires-Dist: dbt-trino; extra == "dev"
 Requires-Dist: Faker; extra == "dev"
 Requires-Dist: google-auth; extra == "dev"
@@ -280,6 +281,7 @@ Requires-Dist: psycopg2-binary; extra == "dev"
 Requires-Dist: pydantic; extra == "dev"
 Requires-Dist: PyAthena[Pandas]; extra == "dev"
 Requires-Dist: PyGithub>=2.6.0; extra == "dev"
+Requires-Dist: pyodbc; extra == "dev"
 Requires-Dist: pyperf; extra == "dev"
 Requires-Dist: pyspark~=3.5.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -304,6 +306,7 @@ Provides-Extra: dbt
 Requires-Dist: dbt-core<2; extra == "dbt"
 Provides-Extra: dlt
 Requires-Dist: dlt; extra == "dlt"
+Provides-Extra: duckdb
 Provides-Extra: gcppostgres
 Requires-Dist: cloud-sql-python-connector[pg8000]>=1.8.0; extra == "gcppostgres"
 Provides-Extra: github
@@ -311,6 +314,7 @@ Requires-Dist: PyGithub~=2.5.0; extra == "github"
 Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
 Requires-Dist: openai; extra == "llm"
+Provides-Extra: motherduck
 Provides-Extra: mssql
 Requires-Dist: pymssql; extra == "mssql"
 Provides-Extra: mssql-odbc

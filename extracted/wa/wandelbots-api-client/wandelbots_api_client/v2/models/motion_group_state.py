@@ -17,14 +17,13 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from wandelbots_api_client.v2.models.force_vector import ForceVector
+from wandelbots_api_client.v2.models.execute import Execute
 from wandelbots_api_client.v2.models.joints import Joints
 from wandelbots_api_client.v2.models.motion_group_state_joint_limit_reached import MotionGroupStateJointLimitReached
-from wandelbots_api_client.v2.models.motion_vector import MotionVector
-from wandelbots_api_client.v2.models.pose_in_coordinate_system import PoseInCoordinateSystem
-from wandelbots_api_client.v2.models.tcp_pose import TcpPose
+from wandelbots_api_client.v2.models.pose import Pose
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,18 +31,22 @@ class MotionGroupState(BaseModel):
     """
     Presents the current state of the motion group.
     """ # noqa: E501
+    timestamp: datetime = Field(description="Timestamp for when data was received from the robot controller.")
+    sequence_number: StrictInt = Field(description="Sequence number of the controller state. It starts with 0 upon establishing the connection with a physical controller. The sequence number is reset when the connection to the physical controller is closed and re-established. ")
     motion_group: StrictStr = Field(description="Identifier of the motion group.")
     controller: StrictStr = Field(description="Convenience: Identifier of the robot controller the motion group is attached to.")
     joint_position: Joints = Field(description="Current joint position of each joint in [rad] ")
-    joint_velocity: Joints = Field(description="Current joint velocity of each joint in [rad/s] ")
-    joint_torque: Optional[Joints] = Field(default=None, description="Current joint torque of each joint in [Nm]. Is only available if the robot controller supports it (e.g. available for UR Controllers). ")
-    flange_pose: Optional[PoseInCoordinateSystem] = Field(default=None, description="Current position of the Flange (last point of the motion group before the endeffector starts) in [mm]. The position is relative to the response_coordinate_system that is specified in the request. For robot arms a flange pose is always returned, for positioners the flange might not be available, depending on the model. ")
-    tcp_pose: TcpPose = Field(description="Current position of the TCP currently selected on the robot control panel. Attention: This TCP is not necessarily the same as specified as `tcp` in the request. If you need the information for the specified TCP, use the tcp_pose in the outer response. Position is in [mm]. The position is relative to the response_coordinate_system that is specified in the request. ")
-    velocity: MotionVector = Field(description="Current velocity at TCP in [mm/s]. If `tcp` is not specified, the velocity at the flange is returned. The velocity is relative to the response_coordinate_system specified in the request. ")
-    force: Optional[ForceVector] = Field(default=None, description="Current Force at TCP in [N]. Is only available if the robot controller supports it, e.g. available for UR Controllers. The velocity is relative to the response_coordinate_system specified in the request. ")
     joint_limit_reached: MotionGroupStateJointLimitReached = Field(description="Indicates whether the joint is in a limit for all joints of the motion group. ")
-    joint_current: Optional[Joints] = Field(default=None, description="Current Current at TCP in [A]. Is only available if the robot controller supports it, e.g. available for UR Controllers. ")
-    __properties: ClassVar[List[str]] = ["motion_group", "controller", "joint_position", "joint_velocity", "joint_torque", "flange_pose", "tcp_pose", "velocity", "force", "joint_limit_reached", "joint_current"]
+    joint_torque: Optional[Joints] = Field(default=None, description="Current joint torque of each joint in [Nm]. Is only available if the robot controller supports it, e.g. available for UR controllers. ")
+    joint_current: Optional[Joints] = Field(default=None, description="Current at TCP in [A]. Is only available if the robot controller supports it, e.g. available for UR controllers. ")
+    flange_pose: Optional[Pose] = Field(default=None, description="Pose of the flange. Positions are in [mm]. Oriantations are in [rad]. The pose is relative to the response_coordinate_system specified in the request. For robot arms a flange pose is always returned, for positioners the flange might not be available, depending on the model. ")
+    tcp: Optional[StrictStr] = Field(default=None, description="Unique identifier addressing the active TCP. Might not be returned for positioners as some do not support TCPs, depending on the model. ")
+    tcp_pose: Optional[Pose] = Field(default=None, description="Pose of the TCP selected on the robot control panel. Positions are in [mm]. Oriantations are in [rad]. The pose is relative to the response_coordinate_system specified in the request. Might not be returned for positioners as some do not support TCPs, depending on the model. ")
+    coordinate_system: Optional[StrictStr] = Field(default=None, description="Unique identifier addressing the reference coordinate system of the cartesian data. Might not be returned for positioners as some do not support TCPs, depending on the model. Default: world coordinate system of corresponding controller. ")
+    payload: Optional[StrictStr] = Field(default=None, description="Unique identifier addressing the active payload. Only fetchable via GET endpoint, not available in WebSocket. ")
+    standstill: StrictBool = Field(description="Indicates whether the motion group is in standstill. Convenience: Signals that NOVA treats measured joint velocities as 0. ")
+    execute: Optional[Execute] = Field(default=None, description="Data that was commanded to the motion group. Includes additional data on NOVA's execution components for executing trajectories and jogging. This is a convenience field to indicate the last command sent to the motion group. It is not available in all cases, e.g. if the motion group is not moved by NOVA. ")
+    __properties: ClassVar[List[str]] = ["timestamp", "sequence_number", "motion_group", "controller", "joint_position", "joint_limit_reached", "joint_torque", "joint_current", "flange_pose", "tcp", "tcp_pose", "coordinate_system", "payload", "standstill", "execute"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -59,7 +62,7 @@ class MotionGroupState(BaseModel):
     def to_json(self) -> str:
         """
         Returns the JSON representation of the model using alias
-        
+
         Do not use pydantic v2 .model_dump_json(by_alias=True, exclude_unset=True) here!
         It is unable to resolve nested types generated by openapi-generator.
         """
@@ -91,30 +94,24 @@ class MotionGroupState(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of joint_position
         if self.joint_position:
             _dict['joint_position'] = self.joint_position.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of joint_velocity
-        if self.joint_velocity:
-            _dict['joint_velocity'] = self.joint_velocity.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of joint_limit_reached
+        if self.joint_limit_reached:
+            _dict['joint_limit_reached'] = self.joint_limit_reached.to_dict()
         # override the default output from pydantic by calling `to_dict()` of joint_torque
         if self.joint_torque:
             _dict['joint_torque'] = self.joint_torque.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of joint_current
+        if self.joint_current:
+            _dict['joint_current'] = self.joint_current.to_dict()
         # override the default output from pydantic by calling `to_dict()` of flange_pose
         if self.flange_pose:
             _dict['flange_pose'] = self.flange_pose.to_dict()
         # override the default output from pydantic by calling `to_dict()` of tcp_pose
         if self.tcp_pose:
             _dict['tcp_pose'] = self.tcp_pose.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of velocity
-        if self.velocity:
-            _dict['velocity'] = self.velocity.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of force
-        if self.force:
-            _dict['force'] = self.force.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of joint_limit_reached
-        if self.joint_limit_reached:
-            _dict['joint_limit_reached'] = self.joint_limit_reached.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of joint_current
-        if self.joint_current:
-            _dict['joint_current'] = self.joint_current.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of execute
+        if self.execute:
+            _dict['execute'] = self.execute.to_dict()
         return _dict
 
     @classmethod
@@ -127,17 +124,21 @@ class MotionGroupState(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "timestamp": obj.get("timestamp"),
+            "sequence_number": obj.get("sequence_number"),
             "motion_group": obj.get("motion_group"),
             "controller": obj.get("controller"),
             "joint_position": Joints.from_dict(obj["joint_position"]) if obj.get("joint_position") is not None else None,
-            "joint_velocity": Joints.from_dict(obj["joint_velocity"]) if obj.get("joint_velocity") is not None else None,
-            "joint_torque": Joints.from_dict(obj["joint_torque"]) if obj.get("joint_torque") is not None else None,
-            "flange_pose": PoseInCoordinateSystem.from_dict(obj["flange_pose"]) if obj.get("flange_pose") is not None else None,
-            "tcp_pose": TcpPose.from_dict(obj["tcp_pose"]) if obj.get("tcp_pose") is not None else None,
-            "velocity": MotionVector.from_dict(obj["velocity"]) if obj.get("velocity") is not None else None,
-            "force": ForceVector.from_dict(obj["force"]) if obj.get("force") is not None else None,
             "joint_limit_reached": MotionGroupStateJointLimitReached.from_dict(obj["joint_limit_reached"]) if obj.get("joint_limit_reached") is not None else None,
-            "joint_current": Joints.from_dict(obj["joint_current"]) if obj.get("joint_current") is not None else None
+            "joint_torque": Joints.from_dict(obj["joint_torque"]) if obj.get("joint_torque") is not None else None,
+            "joint_current": Joints.from_dict(obj["joint_current"]) if obj.get("joint_current") is not None else None,
+            "flange_pose": Pose.from_dict(obj["flange_pose"]) if obj.get("flange_pose") is not None else None,
+            "tcp": obj.get("tcp"),
+            "tcp_pose": Pose.from_dict(obj["tcp_pose"]) if obj.get("tcp_pose") is not None else None,
+            "coordinate_system": obj.get("coordinate_system"),
+            "payload": obj.get("payload"),
+            "standstill": obj.get("standstill"),
+            "execute": Execute.from_dict(obj["execute"]) if obj.get("execute") is not None else None
         })
         return _obj
 

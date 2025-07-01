@@ -1,15 +1,13 @@
-use std::collections::HashMap;
 use std::str;
 
-use hyper::body::Bytes;
+use hyper::{
+    body::Bytes,
+    header::{HeaderName, CONTENT_TYPE, LOCATION},
+    HeaderMap,
+};
 use pyo3::{prelude::*, types::PyBytes};
 
-use crate::{
-    json,
-    session::{Session, SessionStore},
-    status::Status,
-    IntoPyException,
-};
+use crate::{json, status::Status, IntoPyException};
 
 /// HTTP response object that is returned from request handlers.
 ///
@@ -38,8 +36,7 @@ pub struct Response {
     #[pyo3(get, set)]
     pub status: Status,
     pub body: Bytes,
-    #[pyo3(get, set)]
-    pub headers: HashMap<String, String>,
+    pub headers: HeaderMap,
 }
 
 #[pymethods]
@@ -81,10 +78,13 @@ impl Response {
             body.to_string().into()
         };
 
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, content_type.parse().into_py_exception()?);
+
         Ok(Self {
             status,
             body,
-            headers: [("Content-Type".to_string(), content_type.to_string())].into(),
+            headers,
         })
     }
 
@@ -98,6 +98,31 @@ impl Response {
     #[getter]
     fn body(&self) -> PyResult<String> {
         Ok(str::from_utf8(&self.body).into_py_exception()?.to_string())
+    }
+
+    /// Get the response headers as a list of key-value tuples.
+    ///
+    /// Returns:
+    ///
+    ///     list[tuple[str, str]]: The list of headers in the response.
+    ///
+    /// Raises:
+    ///
+    ///     Exception: If a header value cannot be converted to a valid UTF-8 string.
+    ///
+    /// Example:
+    /// ```python
+    /// response = Response("Hello")
+    /// headers = response.headers
+    /// for name, value in headers:
+    ///     print(f"{name}: {value}")
+    /// ```
+    #[getter]
+    fn headers(&self) -> Vec<(&str, &str)> {
+        self.headers
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.to_str().unwrap()))
+            .collect()
     }
 
     /// Add or update a header in the response.
@@ -114,9 +139,37 @@ impl Response {
     /// response = Response("Hello")
     /// response.insert_header("Cache-Control", "no-cache")
     /// ```
-    pub fn insert_header(&mut self, key: &str, value: String) -> Self {
-        self.headers.insert(key.to_string(), value);
-        self.clone()
+    pub fn insert_header(&mut self, key: &str, value: String) {
+        self.headers.insert(
+            HeaderName::from_bytes(key.as_bytes()).unwrap(),
+            value.parse().unwrap(),
+        );
+    }
+
+    /// Append a header to the response.
+    ///
+    /// This is useful for headers that can appear multiple times, such as `Set-Cookie`.
+    ///
+    /// Args:
+    ///
+    ///     key (str): The header name.
+    ///     value (str): The header value.
+    ///
+    /// Returns:
+    ///
+    ///     None
+    ///
+    /// Example:
+    /// ```python
+    /// response = Response("Hello")
+    /// response.insert_header("Set-Cookie", "sessionid=abc123")
+    /// response.append_header("Set-Cookie", "theme=dark")
+    /// ```
+    pub fn append_header(&mut self, key: &str, value: String) {
+        self.headers.append(
+            HeaderName::from_bytes(key.as_bytes()).unwrap(),
+            value.parse().unwrap(),
+        );
     }
 }
 
@@ -126,9 +179,12 @@ impl Response {
         self
     }
 
-    pub fn set_session_cookie(&mut self, session: &Session, store: &SessionStore) {
-        let cookie_header = store.get_cookie_header(session);
-        self.headers.insert("Set-Cookie".to_string(), cookie_header);
+    pub fn insert_or_append_cookie(&mut self, cookie_header: String) {
+        if self.headers.contains_key("Set-Cookie") {
+            self.append_header("Set-Cookie", cookie_header);
+        } else {
+            self.insert_header("Set-Cookie", cookie_header);
+        }
     }
 }
 
@@ -173,15 +229,15 @@ impl Redirect {
     /// ```
     #[new]
     fn new(location: String) -> (Self, Response) {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, "text/html".parse().unwrap());
+        headers.insert(LOCATION, location.parse().unwrap());
         (
             Self,
             Response {
                 status: Status::MOVED_PERMANENTLY,
                 body: Bytes::new(),
-                headers: HashMap::from([
-                    ("Content-Type".to_string(), "text/html".to_string()),
-                    ("Location".to_string(), location.to_string()),
-                ]),
+                headers,
             },
         )
     }

@@ -14,19 +14,18 @@ from uuid import UUID, uuid5
 
 import orjson
 import structlog
-from langchain_core.runnables.config import run_in_executor, var_child_runnable_config
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.constants import CONFIG_KEY_CHECKPOINTER, CONFIG_KEY_STORE
 from langgraph.graph import StateGraph
 from langgraph.pregel import Pregel
 from langgraph.store.base import BaseStore
-from langgraph.utils.config import ensure_config
 from starlette.exceptions import HTTPException
 
 from langgraph_api import asyncio as lg_asyncio
 from langgraph_api import config
 from langgraph_api.js.base import BaseRemotePregel, is_js_path
 from langgraph_api.schema import Config
+from langgraph_api.utils.config import run_in_executor, var_child_runnable_config
 
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
@@ -123,10 +122,12 @@ async def get_graph(
     store: BaseStore | None = None,
 ) -> AsyncIterator[Pregel]:
     """Return the runnable."""
+    from langgraph_api.utils import config as lg_config
+
     assert_graph_exists(graph_id)
     value = GRAPHS[graph_id]
     if graph_id in FACTORY_ACCEPTS_CONFIG:
-        config = ensure_config(config)
+        config = lg_config.ensure_config(config)
         if store is not None and not config["configurable"].get(CONFIG_KEY_STORE):
             config["configurable"][CONFIG_KEY_STORE] = store
         if checkpointer is not None and not config["configurable"].get(

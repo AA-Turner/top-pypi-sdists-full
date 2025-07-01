@@ -1807,6 +1807,8 @@ __all__ = (
     "TemplateVersionTypeDef",
     "TeradataParametersTypeDef",
     "TextAreaControlDisplayOptionsTypeDef",
+    "TextBoxInteractionOptionsTypeDef",
+    "TextBoxMenuOptionTypeDef",
     "TextConditionalFormatOutputTypeDef",
     "TextConditionalFormatTypeDef",
     "TextControlPlaceholderOptionsTypeDef",
@@ -2468,9 +2470,8 @@ class AssetBundleImportSourceDescriptionTypeDef(TypedDict):
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
-class AthenaParametersTypeDef(TypedDict):
-    WorkGroup: NotRequired[str]
-    RoleArn: NotRequired[str]
+class IdentityCenterConfigurationTypeDef(TypedDict):
+    EnableIdentityPropagation: NotRequired[bool]
 
 
 class AuroraParametersTypeDef(TypedDict):
@@ -2610,6 +2611,8 @@ class CancelIngestionRequestTypeDef(TypedDict):
 class CapabilitiesTypeDef(TypedDict):
     ExportToCsv: NotRequired[Literal["DENY"]]
     ExportToExcel: NotRequired[Literal["DENY"]]
+    ExportToPdf: NotRequired[Literal["DENY"]]
+    PrintReports: NotRequired[Literal["DENY"]]
     CreateAndUpdateThemes: NotRequired[Literal["DENY"]]
     AddOrRunAnomalyDetectionForAnalyses: NotRequired[Literal["DENY"]]
     ShareAnalyses: NotRequired[Literal["DENY"]]
@@ -2625,6 +2628,10 @@ class CapabilitiesTypeDef(TypedDict):
     ShareDataSources: NotRequired[Literal["DENY"]]
     ViewAccountSPICECapacity: NotRequired[Literal["DENY"]]
     CreateSPICEDataset: NotRequired[Literal["DENY"]]
+    ExportToPdfInScheduledReports: NotRequired[Literal["DENY"]]
+    ExportToCsvInScheduledReports: NotRequired[Literal["DENY"]]
+    ExportToExcelInScheduledReports: NotRequired[Literal["DENY"]]
+    IncludeContentInScheduledReportsEmail: NotRequired[Literal["DENY"]]
 
 
 class CastColumnTypeOperationTypeDef(TypedDict):
@@ -4080,10 +4087,6 @@ class IAMPolicyAssignmentSummaryTypeDef(TypedDict):
     AssignmentStatus: NotRequired[AssignmentStatusType]
 
 
-class IdentityCenterConfigurationTypeDef(TypedDict):
-    EnableIdentityPropagation: NotRequired[bool]
-
-
 class ImageSourceTypeDef(TypedDict):
     PublicUrl: NotRequired[str]
     S3Uri: NotRequired[str]
@@ -4778,11 +4781,6 @@ class SemanticTypeTypeDef(TypedDict):
     FalseyCellValueSynonyms: NotRequired[Sequence[str]]
 
 
-class SheetTextBoxTypeDef(TypedDict):
-    SheetTextBoxId: str
-    Content: NotRequired[str]
-
-
 class SheetElementConfigurationOverridesTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
@@ -4910,6 +4908,10 @@ class TemplateSourceTemplateTypeDef(TypedDict):
 
 class TextControlPlaceholderOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
+
+
+class TextBoxMenuOptionTypeDef(TypedDict):
+    AvailabilityStatus: NotRequired[DashboardBehaviorType]
 
 
 UIColorPaletteTypeDef = TypedDict(
@@ -5603,6 +5605,12 @@ class WhatIfRangeScenarioTypeDef(TypedDict):
 class AssetBundleImportSourceTypeDef(TypedDict):
     Body: NotRequired[BlobTypeDef]
     S3Uri: NotRequired[str]
+
+
+class AthenaParametersTypeDef(TypedDict):
+    WorkGroup: NotRequired[str]
+    RoleArn: NotRequired[str]
+    IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
 
 
 class AxisDisplayRangeOutputTypeDef(TypedDict):
@@ -8000,6 +8008,10 @@ class TableFieldImageConfigurationTypeDef(TypedDict):
     SizingOptions: NotRequired[TableCellImageSizingConfigurationTypeDef]
 
 
+class TextBoxInteractionOptionsTypeDef(TypedDict):
+    TextBoxMenuOption: NotRequired[TextBoxMenuOptionTypeDef]
+
+
 class TopicNumericEqualityFilterTypeDef(TypedDict):
     Constant: NotRequired[TopicSingularFilterConstantTypeDef]
     Aggregation: NotRequired[NamedFilterAggTypeType]
@@ -9032,6 +9044,12 @@ class StringDatasetParameterTypeDef(TypedDict):
     Name: str
     ValueType: DatasetParameterValueTypeType
     DefaultValues: NotRequired[StringDatasetParameterDefaultValuesUnionTypeDef]
+
+
+class SheetTextBoxTypeDef(TypedDict):
+    SheetTextBoxId: str
+    Content: NotRequired[str]
+    Interactions: NotRequired[TextBoxInteractionOptionsTypeDef]
 
 
 class AssetOptionsOutputTypeDef(TypedDict):

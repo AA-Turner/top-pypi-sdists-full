@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from typing import List
 
 _ALLOW_METHODS: List[str] = [
@@ -34,22 +34,11 @@ class GeneralMiddlewareConfigurations(BaseModel):
 class CORSMiddlewareConfigurations(BaseModel):
     expose_headers: List[str] = Field(_EXPOSE_HEADERS, description="Exposed headers")
 
-class MiddlewareStaticConfigurations(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    general: GeneralMiddlewareConfigurations = Field(..., description="Middleware's general configurations")
-    cors: CORSMiddlewareConfigurations = Field(..., description="CORS middleware's configurations")
-
 class BaseMiddlewareConfigurations(BaseModel):
     limit: int = Field(10, description="Request limit (per 'window' seconds)")
     window: int = Field(1, description="Request limit window (seconds)")
     cleanup_interval: int = Field(60, description="Interval for middleware cleanup (seconds)")
     ip_timeout: int = Field(300, description="Idle IP's timeout (seconds)")
-
-class MiddlewareRuntimeConfigurations(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    base: BaseMiddlewareConfigurations = Field(..., description="Base middleware's configurations")
 
 class MiddlewareConfigurations(BaseModel):
     general: GeneralMiddlewareConfigurations = Field(..., description="Middleware's general configurations")

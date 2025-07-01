@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-operator
-Version: 0.42.0
+Version: 0.42.1
 Summary: Fixtures for Operators
 Home-page: https://github.com/charmed-kubernetes/pytest-operator
 Author: Cory Johns

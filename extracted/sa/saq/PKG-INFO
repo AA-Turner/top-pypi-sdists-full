@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: saq
-Version: 0.24.12
+Version: 0.24.13
 Summary: Distributed Python job queue with asyncio and redis
 Home-page: https://github.com/tobymao/saq
 Author: Toby Mao

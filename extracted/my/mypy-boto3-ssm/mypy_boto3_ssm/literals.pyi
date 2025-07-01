@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AccessRequestStatusType",
+    "AccessTypeType",
     "AssociationComplianceSeverityType",
     "AssociationExecutionFilterKeyType",
     "AssociationExecutionTargetsFilterKeyType",
@@ -179,6 +180,7 @@ __all__ = (
 )
 
 AccessRequestStatusType = Literal["Approved", "Expired", "Pending", "Rejected", "Revoked"]
+AccessTypeType = Literal["JustInTime", "Standard"]
 AssociationComplianceSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM", "UNSPECIFIED"]
 AssociationExecutionFilterKeyType = Literal["CreatedTime", "ExecutionId", "Status"]
 AssociationExecutionTargetsFilterKeyType = Literal["ResourceId", "ResourceType", "Status"]
@@ -576,7 +578,7 @@ ResourceTypeForTaggingType = Literal[
 ResourceTypeType = Literal["EC2Instance", "ManagedInstance"]
 ReviewStatusType = Literal["APPROVED", "NOT_REVIEWED", "PENDING", "REJECTED"]
 SessionFilterKeyType = Literal[
-    "InvokedAfter", "InvokedBefore", "Owner", "SessionId", "Status", "Target"
+    "AccessType", "InvokedAfter", "InvokedBefore", "Owner", "SessionId", "Status", "Target"
 ]
 SessionStateType = Literal["Active", "History"]
 SessionStatusType = Literal[
@@ -602,6 +604,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -742,6 +745,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -799,6 +803,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -854,6 +859,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -894,7 +900,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -955,7 +960,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1000,6 +1004,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -1072,6 +1077,7 @@ WaiterName = Literal["command_executed"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

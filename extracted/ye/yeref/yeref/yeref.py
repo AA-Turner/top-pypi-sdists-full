@@ -2120,6 +2120,8 @@ html_upay = """<!DOCTYPE html>
 # region constants
 payload_empty_cell = "te6cckEBAQEAAgAAAEysuc0="
 usdt_jetton_master = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs"
+airdrop_zero_boc = "te6cckEBAQEAMgAAX6FwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIOC7g74="
+
 elly_a = 5900268983
 my_tid = 5491025132
 BOT_TID_TEST = 6066611486

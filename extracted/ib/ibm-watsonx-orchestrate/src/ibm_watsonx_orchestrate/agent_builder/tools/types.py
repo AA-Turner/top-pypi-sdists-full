@@ -93,6 +93,11 @@ class OpenApiSecurityScheme(BaseModel):
 
 HTTP_METHOD = Literal['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
+class CallbackBinding(BaseModel):
+    callback_url: str
+    method: HTTP_METHOD
+    input_schema: ToolRequestBody
+    output_schema: ToolResponseBody
 
 class OpenApiToolBinding(BaseModel):
     http_method: HTTP_METHOD
@@ -101,6 +106,7 @@ class OpenApiToolBinding(BaseModel):
     security: Optional[List[OpenApiSecurityScheme]] = None
     servers: Optional[List[str]] = None
     connection_id: str | None = None
+    callback: CallbackBinding = None
 
     @model_validator(mode='after')
     def validate_openapi_tool_binding(self):
@@ -142,6 +148,10 @@ class McpToolBinding(BaseModel):
     source: str
     connections: Dict[str, str] | None
 
+class FlowToolBinding(BaseModel):
+    flow_id: str
+    model: Optional[dict] = None
+
 class ToolBinding(BaseModel):
     openapi: OpenApiToolBinding = None
     python: PythonToolBinding = None
@@ -149,6 +159,7 @@ class ToolBinding(BaseModel):
     skill: SkillToolBinding = None
     client_side: ClientSideToolBinding = None
     mcp: McpToolBinding = None
+    flow: FlowToolBinding = None
 
     @model_validator(mode='after')
     def validate_binding_type(self) -> 'ToolBinding':
@@ -158,7 +169,8 @@ class ToolBinding(BaseModel):
             self.wxflows is not None,
             self.skill is not None,
             self.client_side is not None,
-            self.mcp is not None
+            self.mcp is not None,
+            self.flow is not None
         ]
         if sum(bindings) == 0:
             raise ValueError("One binding must be set")
@@ -175,6 +187,7 @@ class ToolSpec(BaseModel):
     output_schema: ToolResponseBody = None
     binding: ToolBinding = None
     toolkit_id: str | None = None
+    is_async: bool = False
 
     def is_custom_join_tool(self) -> bool:
         if self.binding.python is None:

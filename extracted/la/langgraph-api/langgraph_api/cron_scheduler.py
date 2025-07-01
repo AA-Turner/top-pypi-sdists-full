@@ -2,10 +2,10 @@ import asyncio
 from random import random
 
 import structlog
-from langchain_core.runnables.config import run_in_executor
 
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.utils import next_cron_date
+from langgraph_api.utils.config import run_in_executor
 from langgraph_api.worker import set_auth_ctx_for_run
 from langgraph_runtime.database import connect
 from langgraph_runtime.ops import Crons

@@ -25,13 +25,17 @@ Todo:
  * preserve formatting when updating configuration files
 """
 
+import logging
 import os
+import re
 import sys
 from collections.abc import Iterable, Iterator, KeysView, MutableMapping
 from contextlib import suppress
+from pathlib import Path
 from typing import (
     Any,
     BinaryIO,
+    Callable,
     Optional,
     Union,
     overload,
@@ -39,7 +43,97 @@ from typing import (
 
 from .file import GitFile
 
+logger = logging.getLogger(__name__)
+
+# Type for file opener callback
+FileOpener = Callable[[Union[str, os.PathLike]], BinaryIO]
+
+# Type for includeIf condition matcher
+# Takes the condition value (e.g., "main" for onbranch:main) and returns bool
+ConditionMatcher = Callable[[str], bool]
+
+# Security limits for include files
+MAX_INCLUDE_FILE_SIZE = 1024 * 1024  # 1MB max for included config files
+DEFAULT_MAX_INCLUDE_DEPTH = 10  # Maximum recursion depth for includes
+
 SENTINEL = object()
+
+
+def _match_gitdir_pattern(
+    path: bytes, pattern: bytes, ignorecase: bool = False
+) -> bool:
+    """Simple gitdir pattern matching for includeIf conditions.
+
+    This handles the basic gitdir patterns used in includeIf directives.
+    """
+    # Convert to strings for easier manipulation
+    path_str = path.decode("utf-8", errors="replace")
+    pattern_str = pattern.decode("utf-8", errors="replace")
+
+    # Normalize paths to use forward slashes for consistent matching
+    path_str = path_str.replace("\\", "/")
+    pattern_str = pattern_str.replace("\\", "/")
+
+    if ignorecase:
+        path_str = path_str.lower()
+        pattern_str = pattern_str.lower()
+
+    # Handle the common cases for gitdir patterns
+    if pattern_str.startswith("**/") and pattern_str.endswith("/**"):
+        # Pattern like **/dirname/** should match any path containing dirname
+        dirname = pattern_str[3:-3]  # Remove **/ and /**
+        # Check if path contains the directory name as a path component
+        return ("/" + dirname + "/") in path_str or path_str.endswith("/" + dirname)
+    elif pattern_str.startswith("**/"):
+        # Pattern like **/filename
+        suffix = pattern_str[3:]  # Remove **/
+        return suffix in path_str or path_str.endswith("/" + suffix)
+    elif pattern_str.endswith("/**"):
+        # Pattern like /path/to/dir/** should match /path/to/dir and any subdirectory
+        base_pattern = pattern_str[:-3]  # Remove /**
+        return path_str == base_pattern or path_str.startswith(base_pattern + "/")
+    elif "**" in pattern_str:
+        # Handle patterns with ** in the middle
+        parts = pattern_str.split("**")
+        if len(parts) == 2:
+            prefix, suffix = parts
+            # Path must start with prefix and end with suffix (if any)
+            if prefix and not path_str.startswith(prefix):
+                return False
+            if suffix and not path_str.endswith(suffix):
+                return False
+            return True
+
+    # Direct match or simple glob pattern
+    if "*" in pattern_str or "?" in pattern_str or "[" in pattern_str:
+        import fnmatch
+
+        return fnmatch.fnmatch(path_str, pattern_str)
+    else:
+        return path_str == pattern_str
+
+
+def match_glob_pattern(value: str, pattern: str) -> bool:
+    r"""Match a value against a glob pattern.
+
+    Supports simple glob patterns like ``*`` and ``**``.
+
+    Raises:
+        ValueError: If the pattern is invalid
+    """
+    # Convert glob pattern to regex
+    pattern_escaped = re.escape(pattern)
+    # Replace escaped \*\* with .* (match anything)
+    pattern_escaped = pattern_escaped.replace(r"\*\*", ".*")
+    # Replace escaped \* with [^/]* (match anything except /)
+    pattern_escaped = pattern_escaped.replace(r"\*", "[^/]*")
+    # Anchor the pattern
+    pattern_regex = f"^{pattern_escaped}$"
+
+    try:
+        return bool(re.match(pattern_regex, value))
+    except re.error as e:
+        raise ValueError(f"Invalid glob pattern {pattern!r}: {e}")
 
 
 def lower_key(key):
@@ -50,7 +144,7 @@ def lower_key(key):
         # For config sections, only lowercase the section name (first element)
         # but preserve the case of subsection names (remaining elements)
         if len(key) > 0:
-            return (key[0].lower(),) + key[1:]
+            return (key[0].lower(), *key[1:])
         return key
 
     return key
@@ -559,10 +653,19 @@ def _parse_section_header_line(line: bytes) -> tuple[Section, bytes]:
     line = line[last + 1 :]
     section: Section
     if len(pts) == 2:
-        if pts[1][:1] != b'"' or pts[1][-1:] != b'"':
-            raise ValueError(f"Invalid subsection {pts[1]!r}")
-        else:
+        # Handle subsections - Git allows more complex syntax for certain sections like includeIf
+        if pts[1][:1] == b'"' and pts[1][-1:] == b'"':
+            # Standard quoted subsection
             pts[1] = pts[1][1:-1]
+        elif pts[0] == b"includeIf":
+            # Special handling for includeIf sections which can have complex conditions
+            # Git allows these without strict quote validation
+            pts[1] = pts[1].strip()
+            if pts[1][:1] == b'"' and pts[1][-1:] == b'"':
+                pts[1] = pts[1][1:-1]
+        else:
+            # Other sections must have quoted subsections
+            raise ValueError(f"Invalid subsection {pts[1]!r}")
         if not _check_section_name(pts[0]):
             raise ValueError(f"invalid section name {pts[0]!r}")
         section = (pts[0], pts[1])
@@ -589,11 +692,39 @@ class ConfigFile(ConfigDict):
     ) -> None:
         super().__init__(values=values, encoding=encoding)
         self.path: Optional[str] = None
+        self._included_paths: set[str] = set()  # Track included files to prevent cycles
 
     @classmethod
-    def from_file(cls, f: BinaryIO) -> "ConfigFile":
-        """Read configuration from a file-like object."""
+    def from_file(
+        cls,
+        f: BinaryIO,
+        *,
+        config_dir: Optional[str] = None,
+        included_paths: Optional[set[str]] = None,
+        include_depth: int = 0,
+        max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
+        file_opener: Optional[FileOpener] = None,
+        condition_matchers: Optional[dict[str, ConditionMatcher]] = None,
+    ) -> "ConfigFile":
+        """Read configuration from a file-like object.
+
+        Args:
+            f: File-like object to read from
+            config_dir: Directory containing the config file (for relative includes)
+            included_paths: Set of already included paths (to prevent cycles)
+            include_depth: Current include depth (to prevent infinite recursion)
+            max_include_depth: Maximum allowed include depth
+            file_opener: Optional callback to open included files
+            condition_matchers: Optional dict of condition matchers for includeIf
+        """
+        if include_depth > max_include_depth:
+            # Prevent excessive recursion
+            raise ValueError(f"Maximum include depth ({max_include_depth}) exceeded")
+
         ret = cls()
+        if included_paths is not None:
+            ret._included_paths = included_paths.copy()
+
         section: Optional[Section] = None
         setting = None
         continuation = None
@@ -626,6 +757,19 @@ class ConfigFile(ConfigDict):
                     continuation = None
                     value = _parse_string(value)
                     ret._values[section][setting] = value
+
+                    # Process include/includeIf directives
+                    ret._handle_include_directive(
+                        section,
+                        setting,
+                        value,
+                        config_dir=config_dir,
+                        include_depth=include_depth,
+                        max_include_depth=max_include_depth,
+                        file_opener=file_opener,
+                        condition_matchers=condition_matchers,
+                    )
+
                     setting = None
             else:  # continuation line
                 assert continuation is not None
@@ -638,16 +782,270 @@ class ConfigFile(ConfigDict):
                     continuation += line
                     value = _parse_string(continuation)
                     ret._values[section][setting] = value
+
+                    # Process include/includeIf directives
+                    ret._handle_include_directive(
+                        section,
+                        setting,
+                        value,
+                        config_dir=config_dir,
+                        include_depth=include_depth,
+                        max_include_depth=max_include_depth,
+                        file_opener=file_opener,
+                        condition_matchers=condition_matchers,
+                    )
+
                     continuation = None
                     setting = None
         return ret
 
+    def _handle_include_directive(
+        self,
+        section: Optional[Section],
+        setting: bytes,
+        value: bytes,
+        *,
+        config_dir: Optional[str],
+        include_depth: int,
+        max_include_depth: int,
+        file_opener: Optional[FileOpener],
+        condition_matchers: Optional[dict[str, ConditionMatcher]],
+    ) -> None:
+        """Handle include/includeIf directives during config parsing."""
+        if (
+            section is not None
+            and setting == b"path"
+            and (
+                section[0].lower() == b"include"
+                or (len(section) > 1 and section[0].lower() == b"includeif")
+            )
+        ):
+            self._process_include(
+                section,
+                value,
+                config_dir=config_dir,
+                include_depth=include_depth,
+                max_include_depth=max_include_depth,
+                file_opener=file_opener,
+                condition_matchers=condition_matchers,
+            )
+
+    def _process_include(
+        self,
+        section: Section,
+        path_value: bytes,
+        *,
+        config_dir: Optional[str],
+        include_depth: int,
+        max_include_depth: int,
+        file_opener: Optional[FileOpener],
+        condition_matchers: Optional[dict[str, ConditionMatcher]],
+    ) -> None:
+        """Process an include or includeIf directive."""
+        path_str = path_value.decode(self.encoding, errors="replace")
+
+        # Handle includeIf conditions
+        if len(section) > 1 and section[0].lower() == b"includeif":
+            condition = section[1].decode(self.encoding, errors="replace")
+            if not self._evaluate_includeif_condition(
+                condition, config_dir, condition_matchers
+            ):
+                return
+
+        # Resolve the include path
+        include_path = self._resolve_include_path(path_str, config_dir)
+        if not include_path:
+            return
+
+        # Check for circular includes
+        try:
+            abs_path = str(Path(include_path).resolve())
+        except (OSError, ValueError) as e:
+            # Invalid path - log and skip
+            logger.debug("Invalid include path %r: %s", include_path, e)
+            return
+        if abs_path in self._included_paths:
+            return
+
+        # Load and merge the included file
+        try:
+            # Use provided file opener or default to GitFile
+            if file_opener is None:
+
+                def opener(path):
+                    return GitFile(path, "rb")
+            else:
+                opener = file_opener
+
+            f = opener(include_path)
+        except (OSError, ValueError) as e:
+            # Git silently ignores missing or unreadable include files
+            # Log for debugging purposes
+            logger.debug("Invalid include path %r: %s", include_path, e)
+        else:
+            with f as included_file:
+                # Track this path to prevent cycles
+                self._included_paths.add(abs_path)
+
+                # Parse the included file
+                included_config = ConfigFile.from_file(
+                    included_file,
+                    config_dir=os.path.dirname(include_path),
+                    included_paths=self._included_paths,
+                    include_depth=include_depth + 1,
+                    max_include_depth=max_include_depth,
+                    file_opener=file_opener,
+                    condition_matchers=condition_matchers,
+                )
+
+                # Merge the included configuration
+                self._merge_config(included_config)
+
+    def _merge_config(self, other: "ConfigFile") -> None:
+        """Merge another config file into this one."""
+        for section, values in other._values.items():
+            if section not in self._values:
+                self._values[section] = CaseInsensitiveOrderedMultiDict()
+            for key, value in values.items():
+                self._values[section][key] = value
+
+    def _resolve_include_path(
+        self, path: str, config_dir: Optional[str]
+    ) -> Optional[str]:
+        """Resolve an include path to an absolute path."""
+        # Expand ~ to home directory
+        path = os.path.expanduser(path)
+
+        # If path is relative and we have a config directory, make it relative to that
+        if not os.path.isabs(path) and config_dir:
+            path = os.path.join(config_dir, path)
+
+        return path
+
+    def _evaluate_includeif_condition(
+        self,
+        condition: str,
+        config_dir: Optional[str] = None,
+        condition_matchers: Optional[dict[str, ConditionMatcher]] = None,
+    ) -> bool:
+        """Evaluate an includeIf condition."""
+        # Try custom matchers first if provided
+        if condition_matchers:
+            for prefix, matcher in condition_matchers.items():
+                if condition.startswith(prefix):
+                    return matcher(condition[len(prefix) :])
+
+        # Fall back to built-in matchers
+        if condition.startswith("hasconfig:"):
+            return self._evaluate_hasconfig_condition(condition[10:])
+        else:
+            # Unknown condition type - log and ignore (Git behavior)
+            logger.debug("Unknown includeIf condition: %r", condition)
+            return False
+
+    def _evaluate_hasconfig_condition(self, condition: str) -> bool:
+        """Evaluate a hasconfig condition.
+
+        Format: hasconfig:config.key:pattern
+        Example: hasconfig:remote.*.url:ssh://org-*@github.com/**
+        """
+        # Split on the first colon to separate config key from pattern
+        parts = condition.split(":", 1)
+        if len(parts) != 2:
+            logger.debug("Invalid hasconfig condition format: %r", condition)
+            return False
+
+        config_key, pattern = parts
+
+        # Parse the config key to get section and name
+        key_parts = config_key.split(".", 2)
+        if len(key_parts) < 2:
+            logger.debug("Invalid hasconfig config key: %r", config_key)
+            return False
+
+        # Handle wildcards in section names (e.g., remote.*)
+        if len(key_parts) == 3 and key_parts[1] == "*":
+            # Match any subsection
+            section_prefix = key_parts[0].encode(self.encoding)
+            name = key_parts[2].encode(self.encoding)
+
+            # Check all sections that match the pattern
+            for section in self.sections():
+                if len(section) == 2 and section[0] == section_prefix:
+                    try:
+                        values = list(self.get_multivar(section, name))
+                        for value in values:
+                            if self._match_hasconfig_pattern(value, pattern):
+                                return True
+                    except KeyError:
+                        continue
+        else:
+            # Direct section lookup
+            if len(key_parts) == 2:
+                section = (key_parts[0].encode(self.encoding),)
+                name = key_parts[1].encode(self.encoding)
+            else:
+                section = (
+                    key_parts[0].encode(self.encoding),
+                    key_parts[1].encode(self.encoding),
+                )
+                name = key_parts[2].encode(self.encoding)
+
+            try:
+                values = list(self.get_multivar(section, name))
+                for value in values:
+                    if self._match_hasconfig_pattern(value, pattern):
+                        return True
+            except KeyError:
+                pass
+
+        return False
+
+    def _match_hasconfig_pattern(self, value: bytes, pattern: str) -> bool:
+        """Match a config value against a hasconfig pattern.
+
+        Supports simple glob patterns like ``*`` and ``**``.
+        """
+        value_str = value.decode(self.encoding, errors="replace")
+        return match_glob_pattern(value_str, pattern)
+
     @classmethod
-    def from_path(cls, path: Union[str, os.PathLike]) -> "ConfigFile":
-        """Read configuration from a file on disk."""
-        with GitFile(path, "rb") as f:
-            ret = cls.from_file(f)
-            ret.path = os.fspath(path)
+    def from_path(
+        cls,
+        path: Union[str, os.PathLike],
+        *,
+        max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
+        file_opener: Optional[FileOpener] = None,
+        condition_matchers: Optional[dict[str, ConditionMatcher]] = None,
+    ) -> "ConfigFile":
+        """Read configuration from a file on disk.
+
+        Args:
+            path: Path to the configuration file
+            max_include_depth: Maximum allowed include depth
+            file_opener: Optional callback to open included files
+            condition_matchers: Optional dict of condition matchers for includeIf
+        """
+        abs_path = os.fspath(path)
+        config_dir = os.path.dirname(abs_path)
+
+        # Use provided file opener or default to GitFile
+        if file_opener is None:
+
+            def opener(p):
+                return GitFile(p, "rb")
+        else:
+            opener = file_opener
+
+        with opener(abs_path) as f:
+            ret = cls.from_file(
+                f,
+                config_dir=config_dir,
+                max_include_depth=max_include_depth,
+                file_opener=file_opener,
+                condition_matchers=condition_matchers,
+            )
+            ret.path = abs_path
             return ret
 
     def write_to_path(self, path: Optional[Union[str, os.PathLike]] = None) -> None:

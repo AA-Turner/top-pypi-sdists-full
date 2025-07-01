@@ -47,6 +47,10 @@ EXTERNAL_LOGGERS = [
     "github",
     "inject",
     "urllib3",
+    "boto",
+    "s3transfer",
+    "boto3",
+    "botocore",
 ]
 LOGGER = structlog.get_logger(__name__)
 

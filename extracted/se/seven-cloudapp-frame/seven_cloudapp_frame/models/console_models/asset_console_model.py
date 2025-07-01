@@ -113,7 +113,7 @@ class AssetConsoleModel():
                 heart_beat_monitor("_push_warn_notice")
                 asset_warn_notice_model = AssetWarnNoticeModel()
                 redis_init = SevenHelper.redis_init(config_dict=config.get_value("warn_redis"))
-                warn_notice_list = asset_warn_notice_model.get_list("is_notice=0 and ascription_type=1",order_by="create_date asc",limit="200")
+                warn_notice_list = asset_warn_notice_model.get_list("is_notice=0 and ascription_type=1",order_by="id asc",limit="200")
                 if len(warn_notice_list) > 0:
                     for warn_notice in warn_notice_list:
                         try:
@@ -155,9 +155,9 @@ class AssetConsoleModel():
                 now_date = TimeHelper.get_now_format_time()
                 now_day_int = SevenHelper.get_now_day_int()
                 if mod_count == 1:
-                    asset_inventory_list = asset_inventory_model.get_list(f"create_day={now_day_int} and process_count=0", order_by="create_date asc", limit="200")
+                    asset_inventory_list = asset_inventory_model.get_list(f"create_day={now_day_int} and process_count=0", order_by="id asc", limit="200")
                 else:
-                    asset_inventory_list = asset_inventory_model.get_list(f"create_day={now_day_int} and process_count=0 and MOD(user_id,{mod_count})={mod_value}", order_by="create_date asc", limit="200")
+                    asset_inventory_list = asset_inventory_model.get_list(f"create_day={now_day_int} and process_count=0 and MOD(user_id,{mod_count})={mod_value}", order_by="id asc", limit="200")
                 if len(asset_inventory_list) > 0:
                     for asset_inventory in asset_inventory_list:
                         try:

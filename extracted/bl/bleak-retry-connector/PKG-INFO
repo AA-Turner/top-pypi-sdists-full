@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bleak-retry-connector
-Version: 3.10.0
+Version: 4.0.0
 Summary: A connector for Bleak Clients that handles transient connection failures
 License: MIT
 Author: J. Nick Koston
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
-Requires-Dist: bleak (>=0.21.0) ; python_version >= "3.10" and python_version < "3.14"
+Requires-Dist: bleak (>=1) ; python_version >= "3.10" and python_version < "3.14"
 Requires-Dist: bluetooth-adapters (>=0.15.2) ; python_version >= "3.10" and python_version < "3.14" and platform_system == "Linux"
 Requires-Dist: dbus-fast (>=1.14.0) ; platform_system == "Linux"
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/bleak-retry-connector/issues

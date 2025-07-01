@@ -6,8 +6,8 @@
  */
 
 use itertools::Itertools;
+use pyrefly_python::sys_info::PythonVersion;
 
-use crate::sys_info::PythonVersion;
 use crate::test::util::TestEnv;
 use crate::test::util::get_class;
 use crate::test::util::mk_state;
@@ -52,6 +52,12 @@ assert_type(MyEnum.X.value, int)
 assert_type(MyEnum.X._value_, int)
 
 MyEnum["FOO"]  # E: Enum `MyEnum` does not have a member named `FOO`
+
+def foo(member: str) -> None:
+    assert_type(MyEnum[member], MyEnum)
+
+def bar(member: int) -> None:
+    MyEnum[member] # E: Enum `MyEnum` can only be indexed by strings
 "#,
 );
 

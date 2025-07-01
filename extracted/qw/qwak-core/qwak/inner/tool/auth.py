@@ -28,6 +28,13 @@ class BaseAuthClient(ABC):
     def login(self) -> None:
         pass
 
+    @abstractmethod
+    def get_base_url(self) -> str:
+        """
+        Returns the base URL for the authentication service.
+        """
+        return ""
+
 
 class Auth0ClientBase(BaseAuthClient):
     _TOKENS_FIELD = "TOKENS"
@@ -45,6 +52,9 @@ class Auth0ClientBase(BaseAuthClient):
         self.token = None
         self.audience = audience
         self.api_key = api_key
+
+    def get_base_url(self) -> str:
+        return QwakConstants.QWAK_APP_URL
 
     # Returns Non if token is expired
     def get_token(self):
@@ -150,6 +160,10 @@ class FrogMLAuthClient(BaseAuthClient):
             self.login()
         return self._tenant_id
 
+    def get_base_url(self) -> str:
+        artifactory_url, _ = get_credentials(self.auth_config)
+        return self.__format_artifactory_url(artifactory_url)
+
     def login(self) -> None:
         artifactory_url, auth = get_credentials(self.auth_config)
         # For now, we only support Bearer token authentication
@@ -160,12 +174,7 @@ class FrogMLAuthClient(BaseAuthClient):
         self._token = auth.token
         self.__validate_token()
 
-        # Remove '/artifactory/' from the URL
-        if "/artifactory" in artifactory_url:
-            base_url = artifactory_url.replace("/artifactory", "")
-        else:
-            # Remove trailing slash if exists
-            base_url = artifactory_url.rstrip("/")
+        base_url = self.__format_artifactory_url(artifactory_url)
         try:
             response = requests.get(
                 f"{base_url}/ui/api/v1/system/auth/screen/footer",
@@ -207,3 +216,10 @@ class FrogMLAuthClient(BaseAuthClient):
                 "Authentication with JFrog failed: Only JWT Access Tokens are supported. "
                 "Please ensure you are using a valid JWT Access Token."
             )
+
+    @staticmethod
+    def __format_artifactory_url(artifactory_url: str) -> str:
+        # Remove '/artifactory' from the URL
+        base_url: str = artifactory_url.replace("/artifactory", "")
+        # Remove trailing slash if exists
+        return base_url.rstrip("/")

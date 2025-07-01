@@ -168,7 +168,7 @@ SortKeyTypeType = Literal[
     "SERVICE_NAMESPACE_ASCENDING",
     "SERVICE_NAMESPACE_DESCENDING",
 ]
-StatusTypeType = Literal["Active", "Inactive"]
+StatusTypeType = Literal["Active", "Expired", "Inactive"]
 SummaryKeyTypeType = Literal[
     "AccessKeysPerUserQuota",
     "AccountAccessKeysPresent",
@@ -205,6 +205,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -345,6 +346,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -402,6 +404,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -457,6 +460,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -497,7 +501,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -602,6 +605,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-03 10:43:58
-@LastEditTime: 2025-01-13 14:36:49
+@LastEditTime: 2025-07-01 10:52:12
 @LastEditors: HuangJianYi
 @Description: 应用模块
 """
@@ -37,7 +37,7 @@ class InstantiateAppHandler(ClientBaseHandler):
         main_user_open_id = self.get_param("main_user_open_id")
         is_log = int(self.get_param("is_log", 0))
         is_log = True if is_log == 1 else False
-        
+
         redis_init = RedisExHelper.init(config_dict=config.get_value("redis_safe"))
         cache_key = f"instantiate:{user_nick}"
         if SevenHelper.is_continue_request(cache_key, 60000) == True:
@@ -67,7 +67,7 @@ class InstantiateAppHandler(ClientBaseHandler):
                 for app_template_dict in app_template_dict_list:
                     if query(app_info_dict_list).count(lambda x: x["template_id"] == app_template_dict["template_id"]) > 0:
                         continue
-                    relation_invoke_result_data = top_base_model.instantiate("", user_nick, access_token, app_key, app_secret, is_log, main_user_open_id, app_name=app_template_dict["product_name"], description=app_template_dict["product_desc"], icon=app_template_dict["product_icon"], 
+                    relation_invoke_result_data = top_base_model.instantiate("", user_nick, access_token, app_key, app_secret, is_log, main_user_open_id, app_name=app_template_dict["product_name"], description=app_template_dict["product_desc"], icon=app_template_dict["product_icon"],
                                                                              template_id=app_template_dict["template_id"], template_version=app_template_dict["client_ver"], is_instance=2)
                     if relation_invoke_result_data.success == False:
                         self.logging_link_error(f"模板ID：{app_template_dict['template_id']}实例化失败，原因：{relation_invoke_result_data.error_message}")
@@ -83,7 +83,7 @@ class InstantiateAppHandler(ClientBaseHandler):
                     app_relation_model.add_list(relation_app_list)
                     app_relation_model.delete_dependency_key(DependencyKey.app_relation(invoke_result_data.data["app_id"]))
                 ref_params["relation_app_list"] = relation_app_list
-        
+
         # 判断是否首次实例化，是的话更新项目版本号
         if invoke_result_data.data.get("is_first_instance", False) == True:
             base_info = BaseInfoModel(context=self).get_entity()
@@ -170,7 +170,7 @@ class VersionUpgradeHandler(ClientBaseHandler):
                         white_lists = white_lists.split(',')
                     if store_user_nick in white_lists:
                         client_ver = version_info.version_number
-        
+
         invoke_result_data = InvokeResultData()
         top_base_model = TopBaseModel(context=self)
         app_key, app_secret = self.get_app_key_secret()
@@ -371,7 +371,6 @@ class GetHighPowerListHandler(ClientBaseHandler):
         self.response_json_success(config_data_list)
 
 
-
 class UpdateStoreAssetHandler(ClientBaseHandler):
     """
     :description: 变更商家资产
@@ -485,4 +484,44 @@ class StoreAssetLogListHandler(ClientBaseHandler):
         page_list, total = asset_base_model.get_store_asset_log_list(app_id, asset_type, db_connect_key, page_size, page_index, store_id, store_name, asset_object_id, start_date, end_date, source_type, source_object_id, field, is_cache=False, operate_type=operate_type)
         ref_params = {}
         page_info = PageInfo(page_index, page_size, total, self.business_process_executed(page_list, ref_params))
+        return self.response_json_success(page_info)
+
+
+class QueueLogListHandler(ClientBaseHandler):
+    """
+    :description: 排队系统日志列表
+    """
+    def get_async(self):
+        """
+        :description: 排队系统日志列表
+        :return 
+        :last_editors: HuangJianYi
+        """
+        app_id = self.get_app_id()
+        act_id = self.get_act_id()
+        user_id = self.get_user_id()
+        page_size = self.get_param_int("page_size", 20)
+        page_index = self.get_param_int("page_index", 0)
+
+        from seven_cloudapp_frame.models.db_models.queueup.queueup_log_model import QueueupLogModel
+
+        condition_where = ConditionWhere()
+        condition_where.add_condition("app_id=%s")
+        params = [app_id]
+        if act_id > 0:
+            condition_where.add_condition("act_id=%s")
+            params.append(act_id)
+        if user_id > 0:
+            condition_where.add_condition("user_id=%s")
+            params.append(user_id)
+
+        order_by = "id desc"
+        field = "*"
+        invoke_result_data = self.business_process_executing()
+        if invoke_result_data.success is False:
+            return self.response_json_success({"data": []})
+
+        queueup_log_model = QueueupLogModel(context=self)
+        page_list, total = queueup_log_model.get_page_list(field=field, page_index=page_index, page_size=page_size, where=condition_where.to_string(), order_by=order_by, params=params)
+        page_info = PageInfo(page_index, page_size, total, self.business_process_executed(page_list, ref_params={}))
         return self.response_json_success(page_info)

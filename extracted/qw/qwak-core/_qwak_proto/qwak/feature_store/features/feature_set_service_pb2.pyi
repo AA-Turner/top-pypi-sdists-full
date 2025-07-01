@@ -305,6 +305,31 @@ class ListFeatureSetsResponse(google.protobuf.message.Message):
 
 global___ListFeatureSetsResponse = ListFeatureSetsResponse
 
+class ListFeaturesetsByAccountRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___ListFeaturesetsByAccountRequest = ListFeaturesetsByAccountRequest
+
+class ListFeaturesetsByAccountResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FEATURESETS_FIELD_NUMBER: builtins.int
+    @property
+    def featuresets(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[qwak.feature_store.features.feature_set_pb2.FeatureSet]:
+        """List of registered featuresets"""
+    def __init__(
+        self,
+        *,
+        featuresets: collections.abc.Iterable[qwak.feature_store.features.feature_set_pb2.FeatureSet] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["featuresets", b"featuresets"]) -> None: ...
+
+global___ListFeaturesetsByAccountResponse = ListFeaturesetsByAccountResponse
+
 class RunBatchFeatureSetRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

@@ -532,6 +532,12 @@ class TestGetTransportAndPath(TestCase):
         from dulwich.config import ConfigDict
 
         config = ConfigDict()
+        c, path = get_transport_and_path(
+            "ssh://git@github.com/user/repo.git", config=config
+        )
+        self.assertIsInstance(c, SSHGitClient)
+        self.assertIsNone(c.ssh_command)
+
         config.set((b"core",), b"sshCommand", b"custom-ssh -o CustomOption=yes")
 
         c, path = get_transport_and_path(
@@ -993,8 +999,10 @@ class LocalGitClientTests(TestCase):
         self.addCleanup(tear_down_repo, local)
 
         client = LocalGitClient()
-        refs = client.get_refs(local.path)
-        self.assertDictEqual(local.refs.as_dict(), refs)
+        result = client.get_refs(local.path)
+        self.assertDictEqual(local.refs.as_dict(), result.refs)
+        # Check that symrefs are detected correctly
+        self.assertIn(b"HEAD", result.symrefs)
 
     def send_and_verify(self, branch, local, target) -> None:
         """Send branch from local to remote repository and verify it worked."""
@@ -1288,6 +1296,160 @@ class HttpGitClientTests(TestCase):
         with self.assertRaises(GitProtocolError, msg=error_msg):
             client.fetch_pack(b"/", check_heads, None, None)
 
+    def test_fetch_pack_dumb_http(self) -> None:
+        import zlib
+
+        from urllib3.response import HTTPResponse
+
+        # Mock responses for dumb HTTP
+        info_refs_content = (
+            b"0123456789abcdef0123456789abcdef01234567\trefs/heads/master\n"
+        )
+
+        # Create a blob object for testing
+        blob_content = b"Hello, dumb HTTP!"
+        blob_sha = b"0123456789abcdef0123456789abcdef01234567"
+        blob_hex = blob_sha.decode("ascii")
+        blob_obj_data = (
+            b"blob " + str(len(blob_content)).encode() + b"\x00" + blob_content
+        )
+        blob_compressed = zlib.compress(blob_obj_data)
+
+        responses = {
+            "/git-upload-pack": {
+                "status": 404,
+                "content": b"Not Found",
+                "content_type": "text/plain",
+            },
+            "/info/refs": {
+                "status": 200,
+                "content": info_refs_content,
+                "content_type": "text/plain",
+            },
+            f"/objects/{blob_hex[:2]}/{blob_hex[2:]}": {
+                "status": 200,
+                "content": blob_compressed,
+                "content_type": "application/octet-stream",
+            },
+        }
+
+        class PoolManagerMock:
+            def __init__(self) -> None:
+                self.headers: dict[str, str] = {}
+
+            def request(
+                self,
+                method,
+                url,
+                fields=None,
+                headers=None,
+                redirect=True,
+                preload_content=True,
+            ):
+                # Extract path from URL
+                from urllib.parse import urlparse
+
+                parsed = urlparse(url)
+                path = parsed.path.rstrip("/")
+
+                # Find matching response
+                for pattern, resp_data in responses.items():
+                    if path.endswith(pattern):
+                        return HTTPResponse(
+                            body=BytesIO(resp_data["content"]),
+                            headers={
+                                "Content-Type": resp_data.get(
+                                    "content_type", "text/plain"
+                                )
+                            },
+                            request_method=method,
+                            request_url=url,
+                            preload_content=preload_content,
+                            status=resp_data["status"],
+                        )
+
+                # Default 404
+                return HTTPResponse(
+                    body=BytesIO(b"Not Found"),
+                    headers={"Content-Type": "text/plain"},
+                    request_method=method,
+                    request_url=url,
+                    preload_content=preload_content,
+                    status=404,
+                )
+
+        def determine_wants(heads, **kwargs):
+            # heads contains the refs with SHA values, just return the SHA we want
+            return [heads[b"refs/heads/master"]]
+
+        received_data = []
+
+        def pack_data_handler(data):
+            # Collect pack data
+            received_data.append(data)
+
+        clone_url = "https://git.example.org/repo.git/"
+        client = HttpGitClient(clone_url, pool_manager=PoolManagerMock(), config=None)
+
+        # Mock graph walker that says we don't have anything
+        class MockGraphWalker:
+            def ack(self, sha):
+                return []
+
+        graph_walker = MockGraphWalker()
+
+        result = client.fetch_pack(
+            b"/", determine_wants, graph_walker, pack_data_handler
+        )
+
+        # Verify we got the refs
+        expected_sha = blob_hex.encode("ascii")
+        self.assertEqual({b"refs/heads/master": expected_sha}, result.refs)
+
+        # Verify we received pack data
+        self.assertTrue(len(received_data) > 0)
+        pack_data = b"".join(received_data)
+        self.assertTrue(len(pack_data) > 0)
+
+        # The pack should be valid pack format
+        self.assertTrue(pack_data.startswith(b"PACK"))
+        # Pack header: PACK + version (4 bytes) + num objects (4 bytes)
+        self.assertEqual(pack_data[4:8], b"\x00\x00\x00\x02")  # version 2
+        self.assertEqual(pack_data[8:12], b"\x00\x00\x00\x01")  # 1 object
+
+    def test_timeout_configuration(self) -> None:
+        """Test that timeout parameter is properly configured."""
+        url = "https://github.com/jelmer/dulwich"
+        timeout = 30
+
+        c = HttpGitClient(url, timeout=timeout)
+        self.assertEqual(c._timeout, timeout)
+
+    def test_timeout_from_config(self) -> None:
+        """Test that timeout can be configured via git config."""
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        config.set((b"http",), b"timeout", b"25")
+
+        c = HttpGitClient(url, config=config)
+        # The timeout should be set on the pool manager
+        # Since we can't easily access the timeout from the pool manager,
+        # we just verify the client was created successfully
+        self.assertIsNotNone(c.pool_manager)
+
+    def test_timeout_parameter_precedence(self) -> None:
+        """Test that explicit timeout parameter takes precedence over config."""
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        config.set((b"http",), b"timeout", b"25")
+
+        c = HttpGitClient(url, config=config, timeout=15)
+        self.assertEqual(c._timeout, 15)
+
 
 class TCPGitClientTests(TestCase):
     def test_get_url(self) -> None:
@@ -1546,6 +1708,32 @@ class DefaultUrllib3ManagerTest(TestCase):
     def test_config_no_verify_ssl(self) -> None:
         manager = default_urllib3_manager(config=None, cert_reqs="CERT_NONE")
         self.assertEqual(manager.connection_pool_kw["cert_reqs"], "CERT_NONE")
+
+    def test_timeout_parameter(self) -> None:
+        """Test that timeout parameter is passed to urllib3 manager."""
+        timeout = 30
+        manager = default_urllib3_manager(config=None, timeout=timeout)
+        self.assertEqual(manager.connection_pool_kw["timeout"], timeout)
+
+    def test_timeout_from_config(self) -> None:
+        """Test that timeout can be configured via git config."""
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        config.set((b"http",), b"timeout", b"25")
+
+        manager = default_urllib3_manager(config=config)
+        self.assertEqual(manager.connection_pool_kw["timeout"], 25)
+
+    def test_timeout_parameter_precedence(self) -> None:
+        """Test that explicit timeout parameter takes precedence over config."""
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        config.set((b"http",), b"timeout", b"25")
+
+        manager = default_urllib3_manager(config=config, timeout=15)
+        self.assertEqual(manager.connection_pool_kw["timeout"], 15)
 
 
 class SubprocessSSHVendorTests(TestCase):

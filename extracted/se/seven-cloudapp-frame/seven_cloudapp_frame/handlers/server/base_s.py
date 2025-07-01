@@ -126,3 +126,5 @@ class GetProductPriceHandler(ClientBaseHandler):
             return self.response_json_error("error", "产品价格信息格式有误")
 
         return self.response_json_success(product_price)
+
+

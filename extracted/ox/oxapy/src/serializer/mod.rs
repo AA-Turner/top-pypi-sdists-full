@@ -1,6 +1,6 @@
 use pyo3::{
     create_exception,
-    exceptions::{PyException, PyValueError},
+    exceptions::PyException,
     prelude::*,
     types::{PyDict, PyList, PyType},
     IntoPyObjectExt,
@@ -88,7 +88,7 @@ impl Serializer {
         let raw_data = slf
             .getattr("raw_data")?
             .extract::<Option<String>>()?
-            .ok_or_else(|| PyValueError::new_err("data is empty"))?;
+            .ok_or_else(|| ValidationException::new_err("data is empty"))?;
 
         let attr = json::loads(&raw_data)?;
 
@@ -100,8 +100,7 @@ impl Serializer {
     }
 
     fn validate<'a>(slf: Bound<'a, Self>, attr: Bound<'a, PyDict>) -> PyResult<Bound<'a, PyDict>> {
-        let data = json::dumps(&attr.clone().into())?;
-        let json_value: Value = serde_json::from_str(&data).into_py_exception()?;
+        let json::Wrap(json_value) = attr.clone().try_into()?;
 
         let schema_value = Self::json_schema_value(&slf.get_type())?;
 

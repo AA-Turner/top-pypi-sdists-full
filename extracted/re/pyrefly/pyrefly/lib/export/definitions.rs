@@ -8,6 +8,11 @@
 use std::cmp;
 use std::sync::Arc;
 
+use pyrefly_python::ast::Ast;
+use pyrefly_python::dunder;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
@@ -25,13 +30,8 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::common::symbol_kind::SymbolKind;
-use crate::dunder;
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModuleStyle;
 use crate::module::short_identifier::ShortIdentifier;
-use crate::ruff::ast::Ast;
-use crate::sys_info::SysInfo;
 
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from
@@ -106,11 +106,10 @@ impl DunderAllEntry {
         match x {
             Expr::List(x) => x.elts.iter().filter_map(DunderAllEntry::as_item).collect(),
             Expr::Tuple(x) => x.elts.iter().filter_map(DunderAllEntry::as_item).collect(),
-            Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(name),
-                attr,
-                ..
-            }) if attr.id == dunder::ALL => {
+            Expr::Attribute(ExprAttribute { value, attr, .. })
+                if let Expr::Name(name) = &**value
+                    && attr.id == dunder::ALL =>
+            {
                 vec![DunderAllEntry::Module(
                     name.range,
                     ModuleName::from_name(&name.id),
@@ -394,20 +393,17 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.expr_lvalue(&x.target);
                 }
             }
-            Stmt::Expr(StmtExpr {
-                value:
-                    box Expr::Call(
-                        ExprCall {
-                            func: box Expr::Attribute(ExprAttribute { value, attr, .. }),
-                            arguments,
-                            ..
-                        },
-                        ..,
-                    ),
-                ..
-            }) if DunderAllEntry::is_all(value)
-                && arguments.len() == 1
-                && arguments.keywords.is_empty() =>
+            Stmt::Expr(StmtExpr { value, .. })
+                if let Expr::Call(
+                    ExprCall {
+                        func, arguments, ..
+                    },
+                    ..,
+                ) = &**value
+                    && let Expr::Attribute(ExprAttribute { value, attr, .. }) = &**func
+                    && DunderAllEntry::is_all(value)
+                    && arguments.len() == 1
+                    && arguments.keywords.is_empty() =>
             {
                 match attr.as_str() {
                     "extend" => self

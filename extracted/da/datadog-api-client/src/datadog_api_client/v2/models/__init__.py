@@ -93,6 +93,14 @@ from datadog_api_client.v2.model.active_billing_dimensions_response import Activ
 from datadog_api_client.v2.model.active_billing_dimensions_type import ActiveBillingDimensionsType
 from datadog_api_client.v2.model.add_member_team_request import AddMemberTeamRequest
 from datadog_api_client.v2.model.advisory import Advisory
+from datadog_api_client.v2.model.alert_event_custom_attributes import AlertEventCustomAttributes
+from datadog_api_client.v2.model.alert_event_custom_attributes_custom import AlertEventCustomAttributesCustom
+from datadog_api_client.v2.model.alert_event_custom_attributes_links_items import AlertEventCustomAttributesLinksItems
+from datadog_api_client.v2.model.alert_event_custom_attributes_links_items_category import (
+    AlertEventCustomAttributesLinksItemsCategory,
+)
+from datadog_api_client.v2.model.alert_event_custom_attributes_priority import AlertEventCustomAttributesPriority
+from datadog_api_client.v2.model.alert_event_custom_attributes_status import AlertEventCustomAttributesStatus
 from datadog_api_client.v2.model.annotation import Annotation
 from datadog_api_client.v2.model.annotation_display import AnnotationDisplay
 from datadog_api_client.v2.model.annotation_display_bounds import AnnotationDisplayBounds
@@ -103,6 +111,8 @@ from datadog_api_client.v2.model.app_builder_event_name import AppBuilderEventNa
 from datadog_api_client.v2.model.app_builder_event_type import AppBuilderEventType
 from datadog_api_client.v2.model.app_definition_type import AppDefinitionType
 from datadog_api_client.v2.model.app_deployment_type import AppDeploymentType
+from datadog_api_client.v2.model.app_key_registration_data import AppKeyRegistrationData
+from datadog_api_client.v2.model.app_key_registration_data_type import AppKeyRegistrationDataType
 from datadog_api_client.v2.model.app_meta import AppMeta
 from datadog_api_client.v2.model.app_relationship import AppRelationship
 from datadog_api_client.v2.model.app_trigger_wrapper import AppTriggerWrapper
@@ -1162,8 +1172,10 @@ from datadog_api_client.v2.model.event_create_response_attributes_attributes_evt
     EventCreateResponseAttributesAttributesEvt,
 )
 from datadog_api_client.v2.model.event_create_response_payload import EventCreateResponsePayload
+from datadog_api_client.v2.model.event_create_response_payload_links import EventCreateResponsePayloadLinks
 from datadog_api_client.v2.model.event_payload import EventPayload
 from datadog_api_client.v2.model.event_payload_attributes import EventPayloadAttributes
+from datadog_api_client.v2.model.event_payload_integration_id import EventPayloadIntegrationId
 from datadog_api_client.v2.model.event_priority import EventPriority
 from datadog_api_client.v2.model.event_response import EventResponse
 from datadog_api_client.v2.model.event_response_attributes import EventResponseAttributes
@@ -1240,6 +1252,7 @@ from datadog_api_client.v2.model.gcpsts_service_accounts_response import GCPSTSS
 from datadog_api_client.v2.model.gcp_service_account_meta import GCPServiceAccountMeta
 from datadog_api_client.v2.model.gcp_service_account_type import GCPServiceAccountType
 from datadog_api_client.v2.model.get_action_connection_response import GetActionConnectionResponse
+from datadog_api_client.v2.model.get_app_key_registration_response import GetAppKeyRegistrationResponse
 from datadog_api_client.v2.model.get_app_response import GetAppResponse
 from datadog_api_client.v2.model.get_app_response_data import GetAppResponseData
 from datadog_api_client.v2.model.get_app_response_data_attributes import GetAppResponseDataAttributes
@@ -1515,6 +1528,8 @@ from datadog_api_client.v2.model.list_apis_response_data import ListAPIsResponse
 from datadog_api_client.v2.model.list_apis_response_data_attributes import ListAPIsResponseDataAttributes
 from datadog_api_client.v2.model.list_apis_response_meta import ListAPIsResponseMeta
 from datadog_api_client.v2.model.list_apis_response_meta_pagination import ListAPIsResponseMetaPagination
+from datadog_api_client.v2.model.list_app_key_registrations_response import ListAppKeyRegistrationsResponse
+from datadog_api_client.v2.model.list_app_key_registrations_response_meta import ListAppKeyRegistrationsResponseMeta
 from datadog_api_client.v2.model.list_application_keys_response import ListApplicationKeysResponse
 from datadog_api_client.v2.model.list_apps_response import ListAppsResponse
 from datadog_api_client.v2.model.list_apps_response_data_items import ListAppsResponseDataItems
@@ -1881,6 +1896,24 @@ from datadog_api_client.v2.model.monitor_notification_rule_update_request_data i
 from datadog_api_client.v2.model.monitor_trigger import MonitorTrigger
 from datadog_api_client.v2.model.monitor_trigger_wrapper import MonitorTriggerWrapper
 from datadog_api_client.v2.model.monitor_type import MonitorType
+from datadog_api_client.v2.model.monitor_user_template import MonitorUserTemplate
+from datadog_api_client.v2.model.monitor_user_template_create_data import MonitorUserTemplateCreateData
+from datadog_api_client.v2.model.monitor_user_template_create_request import MonitorUserTemplateCreateRequest
+from datadog_api_client.v2.model.monitor_user_template_create_response import MonitorUserTemplateCreateResponse
+from datadog_api_client.v2.model.monitor_user_template_list_response import MonitorUserTemplateListResponse
+from datadog_api_client.v2.model.monitor_user_template_request_attributes import MonitorUserTemplateRequestAttributes
+from datadog_api_client.v2.model.monitor_user_template_resource_type import MonitorUserTemplateResourceType
+from datadog_api_client.v2.model.monitor_user_template_response import MonitorUserTemplateResponse
+from datadog_api_client.v2.model.monitor_user_template_response_attributes import MonitorUserTemplateResponseAttributes
+from datadog_api_client.v2.model.monitor_user_template_response_data import MonitorUserTemplateResponseData
+from datadog_api_client.v2.model.monitor_user_template_response_data_with_versions import (
+    MonitorUserTemplateResponseDataWithVersions,
+)
+from datadog_api_client.v2.model.monitor_user_template_template_variables_items import (
+    MonitorUserTemplateTemplateVariablesItems,
+)
+from datadog_api_client.v2.model.monitor_user_template_update_data import MonitorUserTemplateUpdateData
+from datadog_api_client.v2.model.monitor_user_template_update_request import MonitorUserTemplateUpdateRequest
 from datadog_api_client.v2.model.monthly_cost_attribution_attributes import MonthlyCostAttributionAttributes
 from datadog_api_client.v2.model.monthly_cost_attribution_body import MonthlyCostAttributionBody
 from datadog_api_client.v2.model.monthly_cost_attribution_meta import MonthlyCostAttributionMeta
@@ -2525,6 +2558,7 @@ from datadog_api_client.v2.model.rum_sort_order import RUMSortOrder
 from datadog_api_client.v2.model.rum_warning import RUMWarning
 from datadog_api_client.v2.model.readiness_gate import ReadinessGate
 from datadog_api_client.v2.model.readiness_gate_threshold_type import ReadinessGateThresholdType
+from datadog_api_client.v2.model.register_app_key_response import RegisterAppKeyResponse
 from datadog_api_client.v2.model.relation_attributes import RelationAttributes
 from datadog_api_client.v2.model.relation_entity import RelationEntity
 from datadog_api_client.v2.model.relation_include_type import RelationIncludeType
@@ -3163,6 +3197,7 @@ from datadog_api_client.v2.model.shift_data_relationships_user_data import Shift
 from datadog_api_client.v2.model.shift_data_relationships_user_data_type import ShiftDataRelationshipsUserDataType
 from datadog_api_client.v2.model.shift_data_type import ShiftDataType
 from datadog_api_client.v2.model.shift_included import ShiftIncluded
+from datadog_api_client.v2.model.simple_monitor_user_template import SimpleMonitorUserTemplate
 from datadog_api_client.v2.model.single_aggregated_connection_response_array import (
     SingleAggregatedConnectionResponseArray,
 )
@@ -3602,6 +3637,12 @@ __all__ = [
     "ActiveBillingDimensionsType",
     "AddMemberTeamRequest",
     "Advisory",
+    "AlertEventCustomAttributes",
+    "AlertEventCustomAttributesCustom",
+    "AlertEventCustomAttributesLinksItems",
+    "AlertEventCustomAttributesLinksItemsCategory",
+    "AlertEventCustomAttributesPriority",
+    "AlertEventCustomAttributesStatus",
     "Annotation",
     "AnnotationDisplay",
     "AnnotationDisplayBounds",
@@ -3612,6 +3653,8 @@ __all__ = [
     "AppBuilderEventType",
     "AppDefinitionType",
     "AppDeploymentType",
+    "AppKeyRegistrationData",
+    "AppKeyRegistrationDataType",
     "AppMeta",
     "AppRelationship",
     "AppTriggerWrapper",
@@ -4367,8 +4410,10 @@ __all__ = [
     "EventCreateResponseAttributesAttributes",
     "EventCreateResponseAttributesAttributesEvt",
     "EventCreateResponsePayload",
+    "EventCreateResponsePayloadLinks",
     "EventPayload",
     "EventPayloadAttributes",
+    "EventPayloadIntegrationId",
     "EventPriority",
     "EventResponse",
     "EventResponseAttributes",
@@ -4445,6 +4490,7 @@ __all__ = [
     "GCPServiceAccountMeta",
     "GCPServiceAccountType",
     "GetActionConnectionResponse",
+    "GetAppKeyRegistrationResponse",
     "GetAppResponse",
     "GetAppResponseData",
     "GetAppResponseDataAttributes",
@@ -4684,6 +4730,8 @@ __all__ = [
     "ListAPIsResponseDataAttributes",
     "ListAPIsResponseMeta",
     "ListAPIsResponseMetaPagination",
+    "ListAppKeyRegistrationsResponse",
+    "ListAppKeyRegistrationsResponseMeta",
     "ListApplicationKeysResponse",
     "ListAppsResponse",
     "ListAppsResponseDataItems",
@@ -4962,6 +5010,20 @@ __all__ = [
     "MonitorTrigger",
     "MonitorTriggerWrapper",
     "MonitorType",
+    "MonitorUserTemplate",
+    "MonitorUserTemplateCreateData",
+    "MonitorUserTemplateCreateRequest",
+    "MonitorUserTemplateCreateResponse",
+    "MonitorUserTemplateListResponse",
+    "MonitorUserTemplateRequestAttributes",
+    "MonitorUserTemplateResourceType",
+    "MonitorUserTemplateResponse",
+    "MonitorUserTemplateResponseAttributes",
+    "MonitorUserTemplateResponseData",
+    "MonitorUserTemplateResponseDataWithVersions",
+    "MonitorUserTemplateTemplateVariablesItems",
+    "MonitorUserTemplateUpdateData",
+    "MonitorUserTemplateUpdateRequest",
     "MonthlyCostAttributionAttributes",
     "MonthlyCostAttributionBody",
     "MonthlyCostAttributionMeta",
@@ -5316,6 +5378,7 @@ __all__ = [
     "RUMWarning",
     "ReadinessGate",
     "ReadinessGateThresholdType",
+    "RegisterAppKeyResponse",
     "RelationAttributes",
     "RelationEntity",
     "RelationIncludeType",
@@ -5794,6 +5857,7 @@ __all__ = [
     "ShiftDataRelationshipsUserDataType",
     "ShiftDataType",
     "ShiftIncluded",
+    "SimpleMonitorUserTemplate",
     "SingleAggregatedConnectionResponseArray",
     "SingleAggregatedConnectionResponseData",
     "SingleAggregatedConnectionResponseDataAttributes",

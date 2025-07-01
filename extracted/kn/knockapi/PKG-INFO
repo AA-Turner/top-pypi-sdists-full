@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: knockapi
-Version: 1.8.1
+Version: 1.9.0
 Summary: The official Python library for the knock API
 Project-URL: Homepage, https://github.com/knocklabs/knock-python
 Project-URL: Repository, https://github.com/knocklabs/knock-python

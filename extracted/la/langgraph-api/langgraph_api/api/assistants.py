@@ -2,6 +2,8 @@ from typing import Any
 from uuid import uuid4
 
 import structlog
+
+# TODO: Remove dependency on langchain-core here.
 from langchain_core.runnables.utils import create_model
 from langgraph.pregel import Pregel
 from pydantic import TypeAdapter

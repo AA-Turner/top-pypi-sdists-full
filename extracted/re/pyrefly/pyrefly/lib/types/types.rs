@@ -26,6 +26,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -63,16 +64,14 @@ impl Display for Var {
 }
 
 impl Var {
+    pub const ZERO: Var = Var(Unique::ZERO);
+
     pub fn new(uniques: &UniqueFactory) -> Self {
         Self(uniques.fresh())
     }
 
     pub fn to_type(self) -> Type {
         Type::Var(self)
-    }
-
-    fn zero(&mut self) {
-        self.0 = Unique::zero();
     }
 }
 
@@ -180,6 +179,10 @@ impl TArgs {
         Self(Box::new((tparams, targs.into_boxed_slice())))
     }
 
+    pub fn tparams(&self) -> &TParams {
+        &self.0.0
+    }
+
     pub fn iter_paired(&self) -> impl ExactSizeIterator<Item = (&TParam, &Type)> {
         self.0.0.iter().zip(self.0.1.iter())
     }
@@ -208,7 +211,7 @@ impl TArgs {
     /// This is mainly useful to take ancestors coming from the MRO (which are always in terms
     /// of the current class's type parameters) and re-express them in terms of the current
     /// class specialized with type arguments.
-    pub fn substitute(&self, substitution: &Substitution) -> Self {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Self {
         let tys = self
             .0
             .1
@@ -217,6 +220,16 @@ impl TArgs {
             .collect();
         Self::new(self.0.0.dupe(), tys)
     }
+
+    pub fn substitution<'a>(&'a self) -> Substitution<'a> {
+        let tparams = self.tparams();
+        let tys = self.as_slice();
+        Substitution(tparams.quantifieds().zip(tys.iter()).collect())
+    }
+
+    pub fn substitute(&self, ty: Type) -> Type {
+        self.substitution().substitute(ty)
+    }
 }
 
 pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
@@ -224,14 +237,6 @@ pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 impl<'a> Substitution<'a> {
     pub fn substitute(&self, ty: Type) -> Type {
         ty.subst(&self.0)
-    }
-
-    /// Creates a Substitution from a class specialized with type arguments.
-    /// Assumes that the number of args equals the number of type parameters on the class.
-    pub fn new(cls: &'a Class, args: &'a TArgs) -> Self {
-        let tparams = cls.tparams();
-        let targs = args.as_slice();
-        Substitution(tparams.quantifieds().zip(targs.iter()).collect())
     }
 }
 
@@ -343,6 +348,7 @@ pub enum CalleeKind {
     Callable,
     Function(FunctionKind),
     Class(ClassKind),
+    DataclassTransformDecorator(BoolKeywords),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -496,13 +502,8 @@ pub struct Forall<T> {
 }
 
 impl Forall<Forallable> {
-    pub fn subst(self, targs: TArgs) -> Type {
-        let param_map = self
-            .tparams
-            .quantifieds()
-            .zip(targs.as_slice())
-            .collect::<SmallMap<_, _>>();
-        self.body.as_type().subst(&param_map)
+    pub fn apply_targs(self, targs: TArgs) -> Type {
+        targs.substitute(self.body.as_type())
     }
 }
 
@@ -602,6 +603,10 @@ pub enum Type {
     /// that TypedDict class definitions are still represented as `ClassDef(TD)`, just
     /// like regular classes.
     TypedDict(TypedDict),
+    /// Represents a "partial" version of a TypedDict.
+    /// For a TypedDict type `C`, `Partial[C]` represents an object with any subset of keys from `C`,
+    /// where each present key has the same value type as in `C`.
+    PartialTypedDict(TypedDict),
     Tuple(Tuple),
     Module(Module),
     Forall(Box<Forall<Forallable>>),
@@ -641,6 +646,10 @@ pub enum Type {
     /// typing.Self with the class definition it appears in. We store the latter as a ClassType
     /// because of how often we need the type of an instance of the class.
     SelfType(ClassType),
+    /// The result of a `typing.dataclass_transform` call. When used as a decorator, it marks
+    /// whatever it is applied to as having special dataclass-like semantics. See
+    /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
+    DataclassTransformDecorator(Box<(BoolKeywords, Type)>),
     None,
 }
 
@@ -658,6 +667,7 @@ impl Visit for Type {
             Type::ClassDef(x) => x.visit(f),
             Type::ClassType(x) => x.visit(f),
             Type::TypedDict(x) => x.visit(f),
+            Type::PartialTypedDict(x) => x.visit(f),
             Type::Tuple(x) => x.visit(f),
             Type::Module(x) => x.visit(f),
             Type::Forall(x) => x.visit(f),
@@ -681,6 +691,7 @@ impl Visit for Type {
             Type::TypeAlias(x) => x.visit(f),
             Type::SuperInstance(x) => x.visit(f),
             Type::SelfType(x) => x.visit(f),
+            Type::DataclassTransformDecorator(x) => x.visit(f),
             Type::None => {}
         }
     }
@@ -700,6 +711,7 @@ impl VisitMut for Type {
             Type::ClassDef(x) => x.visit_mut(f),
             Type::ClassType(x) => x.visit_mut(f),
             Type::TypedDict(x) => x.visit_mut(f),
+            Type::PartialTypedDict(x) => x.visit_mut(f),
             Type::Tuple(x) => x.visit_mut(f),
             Type::Module(x) => x.visit_mut(f),
             Type::Forall(x) => x.visit_mut(f),
@@ -723,6 +735,7 @@ impl VisitMut for Type {
             Type::TypeAlias(x) => x.visit_mut(f),
             Type::SuperInstance(x) => x.visit_mut(f),
             Type::SelfType(x) => x.visit_mut(f),
+            Type::DataclassTransformDecorator(x) => x.visit_mut(f),
             Type::None => {}
         }
     }
@@ -913,6 +926,9 @@ impl Type {
             Type::ClassDef(c) => Some(CalleeKind::Class(c.kind())),
             Type::Forall(forall) => forall.body.clone().as_type().callee_kind(),
             Type::Overload(overload) => Some(CalleeKind::Function(overload.metadata.kind.clone())),
+            Type::DataclassTransformDecorator(dec) => {
+                Some(CalleeKind::DataclassTransformDecorator((dec.0).clone()))
+            }
             _ => None,
         }
     }
@@ -1010,6 +1026,10 @@ impl Type {
         self.check_func_metadata(&|meta| meta.flags.is_property_getter)
     }
 
+    pub fn is_property_setter_decorator(&self) -> bool {
+        self.check_func_metadata(&|meta| meta.flags.is_property_setter_decorator)
+    }
+
     pub fn is_property_setter_with_getter(&self) -> Option<Type> {
         self.check_func_metadata(&|meta| meta.flags.is_property_setter_with_getter.clone())
     }
@@ -1024,6 +1044,10 @@ impl Type {
 
     pub fn has_final_decoration(&self) -> bool {
         self.check_func_metadata(&|meta| meta.flags.has_final_decoration)
+    }
+
+    pub fn dataclass_transform_metadata(&self) -> Option<BoolKeywords> {
+        self.check_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
     }
 
     pub fn transform_func_metadata(&mut self, mut f: impl FnMut(&mut FuncMetadata)) {
@@ -1170,7 +1194,7 @@ impl Type {
             match ty {
                 Type::Var(v) => {
                     // TODO: Should mostly be forcing these before printing
-                    v.zero();
+                    *v = Var::ZERO;
                 }
                 _ => {}
             }

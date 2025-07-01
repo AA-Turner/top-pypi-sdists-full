@@ -637,6 +637,64 @@ def test(foo: Foo) -> None:
 );
 
 testcase!(
+    test_object_setattr,
+    r#"
+from typing import assert_type
+
+class Foo:
+    def __getattr__(self, name: str) -> int: ...
+    def __setattr__(self, name: str, value: int) -> None: ...
+
+def test(foo: Foo) -> None:
+    foo.x = 1
+    foo.x = ""  # E: Argument `Literal['']` is not assignable to parameter `value` with type `int`
+    "#,
+);
+
+testcase!(
+    test_object_delattr,
+    r#"
+from typing import assert_type
+
+class Foo:
+    def __getattr__(self, name: str) -> int: ...
+    def __delattr__(self, name: str) -> None: ...
+
+def test(foo: Foo) -> None:
+    del foo.x
+    "#,
+);
+
+testcase!(
+    test_object_setattr_wrong_signature,
+    r#"
+from typing import assert_type
+
+class Foo:
+    def __getattr__(self, name: int) -> int: ...
+    def __setattr__(self, name: int, value: int) -> None: ...
+
+def test(foo: Foo) -> None:
+    foo.x = 1  # E: Argument `Literal['x']` is not assignable to parameter `name` with type `int`
+    "#,
+);
+
+testcase!(
+    test_argparse_namespace_setattr,
+    r#"
+from argparse import ArgumentParser, Namespace
+
+ap: ArgumentParser = ArgumentParser()
+ap.add_argument("-b", "--bool-flag", default=False, action='store_true')
+ap.add_argument("-i", "--integer", default=1, type=int)
+ap.add_argument("-s", "--string-arg", type=str, default="")
+args: Namespace = ap.parse_args()
+if not args.string_arg:
+    args.string_arg = "string-goes-here"
+    "#,
+);
+
+testcase!(
     test_module_getattr,
     TestEnv::one("foo", "def __getattr__(name: str) -> int: ..."),
     r#"
@@ -955,5 +1013,51 @@ assert_type(A().x, list[Any])
 A().x = [42]
 A().y = [42]
 assert_type(A().y, list[Any])
+    "#,
+);
+
+testcase!(
+    test_read_only_frozen_dataclass,
+    r#"
+import dataclasses
+
+@dataclasses.dataclass(frozen=True)
+class FrozenData:
+    x: int
+    y: str
+
+def f(d: FrozenData):
+    d.x = 42  # E: Cannot set field `x`
+    d.y = "new"  # E: Cannot set field `y`
+    "#,
+);
+
+testcase!(
+    test_read_only_namedtuple,
+    r#"
+from typing import NamedTuple
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+def f(p: Point):
+    p.x = 10  # E: Cannot set field `x`
+    p.y = 20  # E: Cannot set field `y`
+    "#,
+);
+
+testcase!(
+    test_read_only_annotation_typeddict,
+    r#"
+from typing_extensions import TypedDict, ReadOnly
+
+class Config(TypedDict):
+    name: ReadOnly[str]
+    value: int
+
+def f(c: Config):
+    c["value"] = 42  # OK
+    c["name"] = "new"  # E: Key `name` in TypedDict `Config` is read-only
     "#,
 );

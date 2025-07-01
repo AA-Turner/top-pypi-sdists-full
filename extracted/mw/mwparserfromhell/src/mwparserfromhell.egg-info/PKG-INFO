@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mwparserfromhell
-Version: 0.7.1
+Version: 0.7.2
 Summary: MWParserFromHell is a parser for MediaWiki wikicode
 Author-email: Ben Kurtovic <ben@benkurtovic.com>
 License-Expression: MIT

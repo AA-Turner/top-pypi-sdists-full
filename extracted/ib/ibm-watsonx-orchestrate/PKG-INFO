@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-watsonx-orchestrate
-Version: 1.5.1
+Version: 1.6.0
 Summary: IBM watsonx.orchestrate SDK
 Author-email: IBM <support@ibm.com>
 License: MIT License
@@ -11,6 +11,7 @@ Requires-Dist: click<8.2.0,>=8.0.0
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: ibm-cloud-sdk-core>=3.22.0
+Requires-Dist: ibm-watsonx-orchestrate-evaluation-framework==1.0.5
 Requires-Dist: jsonref==1.1.0
 Requires-Dist: jsonschema<5.0.0,>=4.23.0
 Requires-Dist: langchain-community<1.0.0,>=0.3.12

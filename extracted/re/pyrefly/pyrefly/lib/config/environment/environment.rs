@@ -15,6 +15,8 @@ use std::sync::LazyLock;
 use anyhow::Context;
 use anyhow::anyhow;
 use itertools::Itertools;
+use pyrefly_python::sys_info::PythonPlatform;
+use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::lock::Mutex;
 use serde::Deserialize;
 use serde::Serialize;
@@ -25,9 +27,7 @@ use tracing::warn;
 use which::which;
 
 use crate::config::environment::active_environment::ActiveEnvironment;
-use crate::config::environment::venv::Venv;
-use crate::sys_info::PythonPlatform;
-use crate::sys_info::PythonVersion;
+use crate::config::environment::venv;
 
 static INTERPRETER_ENV_REGISTRY: LazyLock<Mutex<SmallMap<PathBuf, Option<PythonEnvironment>>>> =
     LazyLock::new(|| Mutex::new(SmallMap::new()));
@@ -264,7 +264,7 @@ print(json.dumps({'python_platform': platform, 'python_version': version, 'site_
         }
 
         if let Some(start_path) = path {
-            let venv = Venv::find(start_path);
+            let venv = venv::find(start_path);
             if venv.is_some() {
                 return venv;
             }

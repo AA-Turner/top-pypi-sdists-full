@@ -60,3 +60,7 @@ class Context(metaclass=ABCMeta):
     # Upload Custom Wheels
     custom_runtime_wheel: Optional[Path] = field(default=None)
     custom_core_wheel: Optional[Path] = field(default=None)
+
+    platform_url: Optional[str] = field(
+        default_factory=UserAccountConfiguration().retrieve_platform_url
+    )

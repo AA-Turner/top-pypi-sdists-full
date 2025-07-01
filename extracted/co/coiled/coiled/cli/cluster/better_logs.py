@@ -1,7 +1,8 @@
+import io
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import click
 from rich.console import Console
@@ -260,9 +261,8 @@ def better_logs(
     show_all_timestamps: bool = False,
     start_sentinel: str = "",
     stop_sentinel: str = "",
+    capture_text: bool = False,
 ):
-    console = console or Console(force_terminal=color)
-
     from_timestamp = ts_ms_from_string(since)
     until_timestamp = ts_ms_from_string(until)
     last_events = set()
@@ -273,6 +273,15 @@ def better_logs(
         from_timestamp = current_ms - (30 * 1000)
 
     waiting_for_start_sentinel = bool(start_sentinel)
+
+    if capture_text:
+        captured_io = io.StringIO()
+        pfunc: Callable[[str], Any] = lambda s: print(s, file=captured_io)  # noqa: E731
+
+    else:
+        captured_io = None
+        console = console or Console(force_terminal=color)
+        pfunc: Callable[[str], Any] = console.print if color else print
 
     while True:
         events = coiled.better_cluster_logs(
@@ -300,7 +309,7 @@ def better_logs(
             )
 
             print_events(
-                console=console,
+                pfunc=pfunc,
                 events=events,
                 instances=instance_labels_dict,
                 show_label=show_label,
@@ -323,6 +332,9 @@ def better_logs(
             continue
         else:
             break
+
+    if captured_io:
+        return captured_io.getvalue()
 
 
 def filter_events(events, start_sentinel, stop_sentinel, waiting_for_start_sentinel) -> Tuple[list, bool, bool]:
@@ -367,7 +379,7 @@ def event_dedupe_key(event):
 
 
 def print_events(
-    console,
+    pfunc: Callable[[str], Any],
     events: List[dict],
     instances: dict,
     pretty=True,
@@ -375,7 +387,6 @@ def print_events(
     show_timestamp=True,
     show_all_timestamps=False,
 ):
-    pfunc = console.print if pretty else print
     for e in events:
         line = format_log_event(
             e,

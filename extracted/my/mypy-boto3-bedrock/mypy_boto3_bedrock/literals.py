@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AgreementStatusType",
     "ApplicationTypeType",
+    "AttributeTypeType",
     "AuthorizationStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
@@ -83,6 +84,7 @@ __all__ = (
     "QueryTransformationTypeType",
     "RegionAvailabilityType",
     "RegionName",
+    "RerankingMetadataSelectionModeType",
     "ResourceServiceName",
     "RetrieveAndGenerateTypeType",
     "S3InputFormatType",
@@ -93,11 +95,13 @@ __all__ = (
     "SortModelsByType",
     "SortOrderType",
     "StatusType",
+    "VectorSearchRerankingConfigurationTypeType",
 )
 
 
 AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
+AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
 CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
@@ -206,6 +210,7 @@ PromptRouterTypeType = Literal["custom", "default"]
 ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
 QueryTransformationTypeType = Literal["QUERY_DECOMPOSITION"]
 RegionAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
+RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 S3InputFormatType = Literal["JSONL"]
 SearchTypeType = Literal["HYBRID", "SEMANTIC"]
@@ -214,6 +219,7 @@ SortJobsByType = Literal["CreationTime"]
 SortModelsByType = Literal["CreationTime"]
 SortOrderType = Literal["Ascending", "Descending"]
 StatusType = Literal["INCOMPATIBLE_ENDPOINT", "REGISTERED"]
+VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 BedrockServiceName = Literal["bedrock"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -419,6 +425,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",

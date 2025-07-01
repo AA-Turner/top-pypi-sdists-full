@@ -15,11 +15,12 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::{
-    App,
-    audit::{Audit, AuditInput},
+    audit::{self, Audit, AuditInput, AuditLoadError},
     config::Config,
     finding::{Confidence, Finding, Persona, Severity},
     models::{action::Action, workflow::Workflow},
+    state::AuditState,
+    tips,
 };
 
 #[derive(Error, Debug)]
@@ -260,26 +261,91 @@ impl InputRegistry {
 }
 
 pub(crate) struct AuditRegistry {
-    pub(crate) audits: IndexMap<&'static str, Box<dyn Audit>>,
+    pub(crate) audits: IndexMap<&'static str, Box<dyn Audit + Send + Sync>>,
 }
 
 impl AuditRegistry {
-    pub(crate) fn new() -> Self {
+    fn empty() -> Self {
         Self {
             audits: Default::default(),
         }
+    }
+
+    /// Constructs a new [`AuditRegistry`] with all default audits registered.
+    pub(crate) fn default_audits(audit_state: &AuditState) -> anyhow::Result<Self> {
+        let mut registry = Self::empty();
+
+        macro_rules! register_audit {
+            ($rule:path) => {{
+                // HACK: https://github.com/rust-lang/rust/issues/48067
+                use $rule as base;
+
+                use crate::audit::AuditCore as _;
+                match base::new(&audit_state) {
+                    Ok(audit) => registry.register_audit(base::ident(), Box::new(audit)),
+                    Err(AuditLoadError::Skip(e)) => {
+                        tracing::info!("skipping {audit}: {e}", audit = base::ident())
+                    }
+                    Err(AuditLoadError::Fail(e)) => {
+                        return Err(anyhow::anyhow!(tips(
+                            format!("failed to load audit: {audit}", audit = base::ident()),
+                            &[format!("{e:#}"), format!("see: {url}", url = base::url())]
+                        )));
+                    }
+                }
+            }};
+        }
+
+        register_audit!(audit::artipacked::Artipacked);
+        register_audit!(audit::unsound_contains::UnsoundContains);
+        register_audit!(audit::excessive_permissions::ExcessivePermissions);
+        register_audit!(audit::dangerous_triggers::DangerousTriggers);
+        register_audit!(audit::impostor_commit::ImpostorCommit);
+        register_audit!(audit::ref_confusion::RefConfusion);
+        register_audit!(audit::use_trusted_publishing::UseTrustedPublishing);
+        register_audit!(audit::template_injection::TemplateInjection);
+        register_audit!(audit::hardcoded_container_credentials::HardcodedContainerCredentials);
+        register_audit!(audit::self_hosted_runner::SelfHostedRunner);
+        register_audit!(audit::known_vulnerable_actions::KnownVulnerableActions);
+        register_audit!(audit::unpinned_uses::UnpinnedUses);
+        register_audit!(audit::insecure_commands::InsecureCommands);
+        register_audit!(audit::github_env::GitHubEnv);
+        register_audit!(audit::cache_poisoning::CachePoisoning);
+        register_audit!(audit::secrets_inherit::SecretsInherit);
+        register_audit!(audit::bot_conditions::BotConditions);
+        register_audit!(audit::overprovisioned_secrets::OverprovisionedSecrets);
+        register_audit!(audit::unredacted_secrets::UnredactedSecrets);
+        register_audit!(audit::forbidden_uses::ForbiddenUses);
+        register_audit!(audit::obfuscation::Obfuscation);
+        register_audit!(audit::stale_action_refs::StaleActionRefs);
+        register_audit!(audit::unpinned_images::UnpinnedImages);
+        register_audit!(audit::anonymous_definition::AnonymousDefinition);
+
+        Ok(registry)
     }
 
     pub(crate) fn len(&self) -> usize {
         self.audits.len()
     }
 
-    pub(crate) fn register_audit(&mut self, ident: &'static str, audit: Box<dyn Audit>) {
+    pub(crate) fn register_audit(
+        &mut self,
+        ident: &'static str,
+        audit: Box<dyn Audit + Send + Sync>,
+    ) {
         self.audits.insert(ident, audit);
     }
 
-    pub(crate) fn iter_audits(&self) -> indexmap::map::Iter<&str, Box<dyn Audit>> {
+    pub(crate) fn iter_audits(&self) -> indexmap::map::Iter<&str, Box<dyn Audit + Send + Sync>> {
         self.audits.iter()
+    }
+}
+
+impl std::fmt::Debug for AuditRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuditRegistry")
+            .field("audits", &self.audits.len())
+            .finish()
     }
 }
 
@@ -296,12 +362,17 @@ pub(crate) struct FindingRegistry<'a> {
 }
 
 impl<'a> FindingRegistry<'a> {
-    pub(crate) fn new(app: &App, config: &'a Config) -> Self {
+    pub(crate) fn new(
+        minimum_severity: Option<Severity>,
+        minimum_confidence: Option<Confidence>,
+        persona: Persona,
+        config: &'a Config,
+    ) -> Self {
         Self {
             config,
-            minimum_severity: app.min_severity,
-            minimum_confidence: app.min_confidence,
-            persona: app.persona,
+            minimum_severity,
+            minimum_confidence,
+            persona,
             suppressed: Default::default(),
             ignored: Default::default(),
             findings: Default::default(),

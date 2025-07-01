@@ -87,7 +87,7 @@ class CustomTablesAndColumns:
             return {"status": "error", "message": str(e)}
 
         url = f"{self.atlas_api_base_url}/storage/{self.model_name}/custom-table"
-        data = {"tableName": table_name}
+        data = {"tableName": table_name.lower()}
         try:
             response = requests.post(
                 url,
@@ -130,7 +130,7 @@ class CustomTablesAndColumns:
             return {"status": "error", "message": str(e)}
 
         url = f"{self.atlas_api_base_url}/storage/{self.model_name}/custom-table"
-        params = {"tableName": table_name, "newTableName": new_table_name}
+        params = {"tableName": table_name, "newTableName": new_table_name.lower()}
         try:
             response = requests.put(
                 url,
@@ -300,7 +300,7 @@ class CustomTablesAndColumns:
         Args:
             table_name: str -- Name of the table to create the column in
             column_name: str -- Name of the column to create
-            data_type: str -- Data type of the column (e.g. text, integer, float, date, boolean)
+            data_type: str -- Data type of the column (e.g. text, integer, float, date, bool)
             key_column: bool -- Will be included as part of the unique record identification when importing (updating, inserting) data to the table
             pseudo: bool -- Data of any type can be freely imported and will behave as the defined data type in UI (Grids, Maps, Dashboards)
 
@@ -329,8 +329,8 @@ class CustomTablesAndColumns:
 
         url = f"{self.atlas_api_base_url}/storage/{self.model_name}/custom-column"
         data = {
-            "tableName": table_name,
-            "columnName": column_name,
+            "tableName": table_name.lower(),
+            "columnName": column_name.lower(),
             "dataType": data_type,
             # 'characterMaximumLength': 255,
             # 'isNullable': False,
@@ -401,7 +401,6 @@ class CustomTablesAndColumns:
         """
         self.log.info(f"Bulk creating custom columns: {columns}")
 
-        # create a deepcopy of columns to avoid mutating the original list
         local_columns = copy.deepcopy(columns)
 
         for column in local_columns:
@@ -422,14 +421,17 @@ class CustomTablesAndColumns:
                 column["dataType"] = column.get("data_type")
                 column.pop("data_type", None)
             
-            column["tableName"] = column.get("table_name")
+            column["tableName"] = column.get("table_name").lower()
             column.pop("table_name", None)
 
-            column["columnName"] = column.get("column_name")
+            column["columnName"] = column.get("column_name").lower()
             column.pop("column_name", None)
-            
+
             if column.get("pseudo"):
                 column["trueDataType"] = "text"
+                column.pop("pseudo", None)
+            else:
+                column["trueDataType"] = column["dataType"]
                 column.pop("pseudo", None)
 
             if column.get("key_column"):
@@ -547,9 +549,9 @@ class CustomTablesAndColumns:
             return {"status": "error", "message": str(e)}
 
         url = f"{self.atlas_api_base_url}/storage/{self.model_name}/custom-column"
-        data = {"tableName": table_name, "columnName": column_name}
+        data = {"tableName": table_name.lower(), "columnName": column_name}
         if new_column_name:
-            data["newColumnName"] = new_column_name
+            data["newColumnName"] = new_column_name.lower()
         if data_type:
             data["dataType"] = data_type
             data["trueDataType"] = data_type

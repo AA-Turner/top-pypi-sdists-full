@@ -17,7 +17,7 @@ import json
 import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
-from wandelbots_api_client.v2.models.collision2 import Collision2
+from wandelbots_api_client.v2.models.collision_error import CollisionError
 from wandelbots_api_client.v2.models.inconsitent_trajectory_size import InconsitentTrajectorySize
 from wandelbots_api_client.v2.models.invalid_dof import InvalidDof
 from wandelbots_api_client.v2.models.joint_limit_exceeded import JointLimitExceeded
@@ -28,7 +28,7 @@ from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-ADDTRAJECTORYERRORDATA_ONE_OF_SCHEMAS = ["Collision2", "InconsitentTrajectorySize", "InvalidDof", "JointLimitExceeded", "NanValue", "TcpRequired", "TorqueExceeded"]
+ADDTRAJECTORYERRORDATA_ONE_OF_SCHEMAS = ["CollisionError", "InconsitentTrajectorySize", "InvalidDof", "JointLimitExceeded", "NanValue", "TcpRequired", "TorqueExceeded"]
 
 class AddTrajectoryErrorData(BaseModel):
     """
@@ -40,16 +40,16 @@ class AddTrajectoryErrorData(BaseModel):
     oneof_schema_2_validator: Optional[InconsitentTrajectorySize] = None
     # data type: JointLimitExceeded
     oneof_schema_3_validator: Optional[JointLimitExceeded] = None
-    # data type: Collision2
-    oneof_schema_4_validator: Optional[Collision2] = None
+    # data type: CollisionError
+    oneof_schema_4_validator: Optional[CollisionError] = None
     # data type: TorqueExceeded
     oneof_schema_5_validator: Optional[TorqueExceeded] = None
     # data type: InvalidDof
     oneof_schema_6_validator: Optional[InvalidDof] = None
     # data type: NanValue
     oneof_schema_7_validator: Optional[NanValue] = None
-    actual_instance: Optional[Union[Collision2, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded]] = None
-    one_of_schemas: Set[str] = { "Collision2", "InconsitentTrajectorySize", "InvalidDof", "JointLimitExceeded", "NanValue", "TcpRequired", "TorqueExceeded" }
+    actual_instance: Optional[Union[CollisionError, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded]] = None
+    one_of_schemas: Set[str] = { "CollisionError", "InconsitentTrajectorySize", "InvalidDof", "JointLimitExceeded", "NanValue", "TcpRequired", "TorqueExceeded" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -87,9 +87,9 @@ class AddTrajectoryErrorData(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `JointLimitExceeded`")
         else:
             match += 1
-        # validate data type: Collision2
-        if not isinstance(v, Collision2):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Collision2`")
+        # validate data type: CollisionError
+        if not isinstance(v, CollisionError):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `CollisionError`")
         else:
             match += 1
         # validate data type: TorqueExceeded
@@ -109,10 +109,10 @@ class AddTrajectoryErrorData(BaseModel):
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in AddTrajectoryErrorData with oneOf schemas: Collision2, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in AddTrajectoryErrorData with oneOf schemas: CollisionError, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in AddTrajectoryErrorData with oneOf schemas: Collision2, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in AddTrajectoryErrorData with oneOf schemas: CollisionError, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -145,9 +145,9 @@ class AddTrajectoryErrorData(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Collision2
+        # deserialize data into CollisionError
         try:
-            instance.actual_instance = Collision2.from_json(json_str)
+            instance.actual_instance = CollisionError.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
@@ -172,10 +172,10 @@ class AddTrajectoryErrorData(BaseModel):
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into AddTrajectoryErrorData with oneOf schemas: Collision2, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into AddTrajectoryErrorData with oneOf schemas: CollisionError, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into AddTrajectoryErrorData with oneOf schemas: Collision2, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into AddTrajectoryErrorData with oneOf schemas: CollisionError, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -189,7 +189,7 @@ class AddTrajectoryErrorData(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], Collision2, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], CollisionError, InconsitentTrajectorySize, InvalidDof, JointLimitExceeded, NanValue, TcpRequired, TorqueExceeded]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

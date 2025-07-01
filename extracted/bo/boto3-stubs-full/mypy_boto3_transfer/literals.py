@@ -40,6 +40,7 @@ __all__ = (
     "ExecutionStatusType",
     "HomeDirectoryTypeType",
     "IdentityProviderTypeType",
+    "IpAddressTypeType",
     "ListAccessesPaginatorName",
     "ListAgreementsPaginatorName",
     "ListCertificatesPaginatorName",
@@ -110,6 +111,7 @@ HomeDirectoryTypeType = Literal["LOGICAL", "PATH"]
 IdentityProviderTypeType = Literal[
     "API_GATEWAY", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "SERVICE_MANAGED"
 ]
+IpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 ListAccessesPaginatorName = Literal["list_accesses"]
 ListAgreementsPaginatorName = Literal["list_agreements"]
 ListCertificatesPaginatorName = Literal["list_certificates"]

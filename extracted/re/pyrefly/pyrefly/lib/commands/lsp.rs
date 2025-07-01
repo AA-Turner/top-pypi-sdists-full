@@ -80,7 +80,9 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use lsp_types::NumberOrString;
 use lsp_types::OneOf;
+use lsp_types::Position;
 use lsp_types::PositionEncodingKind;
+use lsp_types::PrepareRenameResponse;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
 use lsp_types::ReferenceParams;
@@ -88,6 +90,8 @@ use lsp_types::Registration;
 use lsp_types::RegistrationParams;
 use lsp_types::RelatedFullDocumentDiagnosticReport;
 use lsp_types::RelativePattern;
+use lsp_types::RenameOptions;
+use lsp_types::RenameParams;
 use lsp_types::SemanticTokens;
 use lsp_types::SemanticTokensFullOptions;
 use lsp_types::SemanticTokensOptions;
@@ -101,6 +105,7 @@ use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
 use lsp_types::TextDocumentContentChangeEvent;
+use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
@@ -132,14 +137,17 @@ use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
+use lsp_types::request::PrepareRenameRequest;
 use lsp_types::request::References;
 use lsp_types::request::RegisterCapability;
+use lsp_types::request::Rename;
 use lsp_types::request::SemanticTokensFullRequest;
 use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
 use path_absolutize::Absolutize;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::arc_id::WeakArcId;
 use pyrefly_util::args::clap_env;
@@ -154,7 +162,7 @@ use pyrefly_util::thread_pool::ThreadPool;
 use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
-use ruff_text_size::TextRange;
+use ruff_text_size::Ranged;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -171,7 +179,6 @@ use crate::error::error::Error;
 use crate::error::kind::Severity;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::TextRangeWithModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
@@ -181,9 +188,6 @@ use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
-use crate::types::lsp::position_to_text_size;
-use crate::types::lsp::source_range_to_range;
-use crate::types::lsp::text_size_to_position;
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
@@ -355,6 +359,7 @@ struct Workspace {
     #[expect(dead_code)]
     root: PathBuf,
     python_info: Option<PythonInfo>,
+    search_path: Option<Vec<PathBuf>>,
     disable_language_services: bool,
     disable_type_errors: bool,
 }
@@ -364,6 +369,7 @@ impl Workspace {
         Self {
             root: workspace_root.to_path_buf(),
             python_info,
+            search_path: None,
             disable_language_services: false,
             disable_type_errors: false,
         }
@@ -379,6 +385,7 @@ impl Default for Workspace {
         Self {
             root: PathBuf::from("/"),
             python_info: None,
+            search_path: None,
             disable_language_services: Default::default(),
             disable_type_errors: false,
         }
@@ -485,22 +492,25 @@ impl Workspaces {
         standard_config_finder(Arc::new(move |dir, mut config| {
             if let Some(dir) = dir
                 && config.python_interpreter.is_none()
+                && config.conda_environment.is_none()
             {
                 workspaces.get_with(dir.to_owned(), |w| {
-                    let Some(PythonInfo { interpreter, env }) = w.python_info.clone() else {
-                        return;
-                    };
-                    let site_package_path = config.python_environment.site_package_path.take();
-                    config.python_interpreter = Some(interpreter);
-                    config.python_environment = env;
-                    if let Some(new) = site_package_path {
-                        let mut workspace = config
-                            .python_environment
-                            .site_package_path
-                            .take()
-                            .unwrap_or_default();
-                        workspace.extend(new);
-                        config.python_environment.site_package_path = Some(workspace);
+                    if let Some(search_path) = w.search_path.clone() {
+                        config.search_path_from_args = search_path;
+                    }
+                    if let Some(PythonInfo { interpreter, env }) = w.python_info.clone() {
+                        let site_package_path = config.python_environment.site_package_path.take();
+                        config.python_interpreter = Some(interpreter);
+                        config.python_environment = env;
+                        if let Some(new) = site_package_path {
+                            let mut workspace = config
+                                .python_environment
+                                .site_package_path
+                                .take()
+                                .unwrap_or_default();
+                            workspace.extend(new);
+                            config.python_environment.site_package_path = Some(workspace);
+                        }
                     }
                 })
             };
@@ -626,6 +636,15 @@ fn initialize_connection(
             IndexingMode::None => None,
             IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
                 Some(OneOf::Left(true))
+            }
+        },
+        rename_provider: match args.indexing_mode {
+            IndexingMode::None => None,
+            IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
+                Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: Default::default(),
+                }))
             }
         },
         signature_help_provider: Some(SignatureHelpOptions {
@@ -903,6 +922,16 @@ impl Server {
                     ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<References>(&x) {
                     self.references(x.id, ide_transaction_manager, params);
+                } else if let Some(params) = as_request::<PrepareRenameRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.prepare_rename(&transaction, params)),
+                    ));
+                    ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<Rename>(&x) {
+                    self.rename(x.id, ide_transaction_manager, params);
                 } else if let Some(params) = as_request::<SignatureHelpRequest>(&x) {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
@@ -1090,7 +1119,7 @@ impl Server {
                 return Some((
                     path.to_path_buf(),
                     Diagnostic {
-                        range: source_range_to_range(e.source_range()),
+                        range: e.lined_buffer().to_lsp_range(e.range()),
                         severity: Some(match e.error_kind().severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
@@ -1489,7 +1518,9 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let range = position_to_text_size(&info, params.text_document_position_params.position);
+        let range = info
+            .lined_buffer()
+            .from_lsp_position(params.text_document_position_params.position);
         let TextRangeWithModuleInfo {
             module_info: definition_module_info,
             range,
@@ -1504,7 +1535,7 @@ impl Server {
         };
         Some(GotoDefinitionResponse::Scalar(Location {
             uri,
-            range: source_range_to_range(&definition_module_info.source_range(range)),
+            range: definition_module_info.lined_buffer().to_lsp_range(range),
         }))
     }
 
@@ -1528,7 +1559,8 @@ impl Server {
             .map(|info| {
                 transaction.completion(
                     &handle,
-                    position_to_text_size(&info, params.text_document_position.position),
+                    info.lined_buffer()
+                        .from_lsp_position(params.text_document_position.position),
                 )
             })
             .unwrap_or_default();
@@ -1546,13 +1578,10 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let module_info = transaction.get_module_info(&handle)?;
-        let range = TextRange::new(
-            position_to_text_size(&module_info, params.range.start),
-            position_to_text_size(&module_info, params.range.end),
-        );
+        let range = module_info.lined_buffer().from_lsp_range(params.range);
         let code_actions = transaction
             .local_quickfix_code_actions(&handle, range)?
-            .into_map(|(title, range, insert_text)| {
+            .into_map(|(title, info, range, insert_text)| {
                 CodeActionOrCommand::CodeAction(CodeAction {
                     title,
                     kind: Some(CodeActionKind::QUICKFIX),
@@ -1560,7 +1589,7 @@ impl Server {
                         changes: Some(HashMap::from([(
                             uri.clone(),
                             vec![TextEdit {
-                                range: source_range_to_range(&range),
+                                range: info.lined_buffer().to_lsp_range(range),
                                 new_text: insert_text,
                             }],
                         )])),
@@ -1580,38 +1609,44 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let position = position_to_text_size(&info, params.text_document_position_params.position);
+        let position = info
+            .lined_buffer()
+            .from_lsp_position(params.text_document_position_params.position);
         Some(
             transaction
                 .find_local_references(&handle, position)
                 .into_map(|range| DocumentHighlight {
-                    range: source_range_to_range(&info.source_range(range)),
+                    range: info.lined_buffer().to_lsp_range(range),
                     kind: None,
                 }),
         )
     }
 
-    fn references<'a>(
+    /// Compute references of a symbol at a given position. This is a non-blocking function, the
+    /// it will send a response to the LSP client once the results are found and transformed by
+    /// `map_result`.
+    fn async_find_references_helper<'a, V: serde::Serialize>(
         &'a self,
         request_id: RequestId,
         ide_transaction_manager: &mut IDETransactionManager<'a>,
-        params: ReferenceParams,
+        uri: &Url,
+        position: Position,
+        map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + 'static,
     ) {
-        let uri = &params.text_document_position.text_document.uri;
         let Some(handle) = self.make_handle_if_enabled(uri) else {
-            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+            return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
         let transaction = ide_transaction_manager.non_commitable_transaction(&self.state);
         let Some(info) = transaction.get_module_info(&handle) else {
             ide_transaction_manager.save(transaction);
-            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+            return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
-        let position = position_to_text_size(&info, params.text_document_position.position);
+        let position = info.lined_buffer().from_lsp_position(position);
         let Some((definition_kind, definition, _docstring)) =
-            transaction.find_definition(&handle, position)
+            transaction.find_definition(&handle, position, false)
         else {
             ide_transaction_manager.save(transaction);
-            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+            return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
         ide_transaction_manager.save(transaction);
         let state = self.state.dupe();
@@ -1634,18 +1669,16 @@ impl Server {
                     let mut locations = Vec::new();
                     for (info, ranges) in global_references {
                         if let Some(uri) = module_info_to_uri(&info) {
-                            for range in ranges {
-                                locations.push(Location {
-                                    uri: uri.clone(),
-                                    range: source_range_to_range(&info.source_range(range)),
-                                });
-                            }
+                            locations.push((
+                                uri,
+                                ranges.into_map(|range| info.lined_buffer().to_lsp_range(range)),
+                            ));
                         };
                     }
                     connection.send(Message::Response(new_response(
                         request_id,
-                        Ok(Some(locations)),
-                    )))
+                        Ok(Some(map_result(locations))),
+                    )));
                 }
                 Err(Cancelled) => {
                     let message = format!("Find reference request {} is canceled", request_id);
@@ -1660,6 +1693,76 @@ impl Server {
         });
     }
 
+    fn references<'a>(
+        &'a self,
+        request_id: RequestId,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        params: ReferenceParams,
+    ) {
+        self.async_find_references_helper(
+            request_id,
+            ide_transaction_manager,
+            &params.text_document_position.text_document.uri,
+            params.text_document_position.position,
+            move |results| {
+                let mut locations = Vec::new();
+                for (uri, ranges) in results {
+                    for range in ranges {
+                        locations.push(Location {
+                            uri: uri.clone(),
+                            range,
+                        })
+                    }
+                }
+                locations
+            },
+        );
+    }
+
+    fn rename<'a>(
+        &'a self,
+        request_id: RequestId,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        params: RenameParams,
+    ) {
+        self.async_find_references_helper(
+            request_id,
+            ide_transaction_manager,
+            &params.text_document_position.text_document.uri,
+            params.text_document_position.position,
+            move |results| {
+                let mut changes = HashMap::new();
+                for (uri, ranges) in results {
+                    changes.insert(
+                        uri,
+                        ranges.into_map(|range| TextEdit {
+                            range,
+                            new_text: params.new_name.clone(),
+                        }),
+                    );
+                }
+                WorkspaceEdit {
+                    changes: Some(changes),
+                    ..Default::default()
+                }
+            },
+        );
+    }
+
+    fn prepare_rename(
+        &self,
+        transaction: &Transaction<'_>,
+        params: TextDocumentPositionParams,
+    ) -> Option<PrepareRenameResponse> {
+        let uri = &params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let info = transaction.get_module_info(&handle)?;
+        let position = info.lined_buffer().from_lsp_position(params.position);
+        transaction
+            .prepare_rename(&handle, position)
+            .map(|range| PrepareRenameResponse::Range(info.lined_buffer().to_lsp_range(range)))
+    }
+
     fn signature_help(
         &self,
         transaction: &Transaction<'_>,
@@ -1668,7 +1771,9 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let position = position_to_text_size(&info, params.text_document_position_params.position);
+        let position = info
+            .lined_buffer()
+            .from_lsp_position(params.text_document_position_params.position);
         transaction.get_signature_help_at(&handle, position)
     }
 
@@ -1676,12 +1781,14 @@ impl Server {
         let uri = &params.text_document_position_params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let info = transaction.get_module_info(&handle)?;
-        let range = position_to_text_size(&info, params.text_document_position_params.position);
+        let range = info
+            .lined_buffer()
+            .from_lsp_position(params.text_document_position_params.position);
         let t = transaction.get_type_at(&handle, range)?;
         let mut kind_formatted: String = "".to_owned();
         let mut docstring_formatted: String = "".to_owned();
         if let Some((definition_metadata, text_range_with_module_info, docstring)) =
-            transaction.find_definition(&handle, range)
+            transaction.find_definition(&handle, range, true)
         {
             if let Some(symbol_kind) = definition_metadata.symbol_kind() {
                 kind_formatted = format!(
@@ -1718,7 +1825,7 @@ impl Server {
         let info = transaction.get_module_info(&handle)?;
         let t = transaction.inlay_hints(&handle)?;
         Some(t.into_map(|x| {
-            let position = text_size_to_position(&info, x.0);
+            let position = info.lined_buffer().to_lsp_position(x.0);
             InlayHint {
                 position,
                 label: InlayHintLabel::String(x.1.clone()),
@@ -1758,10 +1865,7 @@ impl Server {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
         let module_info = transaction.get_module_info(&handle)?;
-        let range = TextRange::new(
-            position_to_text_size(&module_info, params.range.start),
-            position_to_text_size(&module_info, params.range.end),
-        );
+        let range = module_info.lined_buffer().from_lsp_range(params.range);
         Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
             data: transaction
@@ -1957,6 +2061,15 @@ impl Server {
                         if let Some(serde_json::Value::Object(pyrefly_settings)) =
                             map.get("pyrefly")
                         {
+                            if let Some(serde_json::Value::Array(search_paths)) =
+                                pyrefly_settings.get("extraPaths")
+                            {
+                                let paths: Vec<PathBuf> = search_paths
+                                    .iter()
+                                    .map(|path| serde_json::from_value(path.clone()).unwrap())
+                                    .collect();
+                                self.update_search_paths(&mut modified, &id.scope_uri, paths);
+                            }
                             if let Some(serde_json::Value::Bool(disable_language_services)) =
                                 pyrefly_settings.get("disableLanguageServices")
                             {
@@ -2041,6 +2154,30 @@ impl Server {
             None => {
                 *modified = true;
                 self.workspaces.default.write().python_info = python_info;
+            }
+        }
+        self.invalidate_config();
+    }
+
+    // Updates search paths for scope uri.
+    fn update_search_paths(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        search_paths: Vec<PathBuf>,
+    ) {
+        let mut workspaces = self.workspaces.workspaces.write();
+        match scope_uri {
+            Some(scope_uri) => {
+                let workspace_path = scope_uri.to_file_path().unwrap();
+                if let Some(workspace) = workspaces.get_mut(&workspace_path) {
+                    *modified = true;
+                    workspace.search_path = Some(search_paths);
+                }
+            }
+            None => {
+                *modified = true;
+                self.workspaces.default.write().search_path = Some(search_paths);
             }
         }
         self.invalidate_config();

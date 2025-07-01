@@ -679,7 +679,8 @@ class IAMClient(BaseClient):
         self, **kwargs: Unpack[DeleteLoginProfileRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes the password for the specified IAM user, For more information, see <a
+        Deletes the password for the specified IAM user or root user, For more
+        information, see <a
         href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_admin-change-user.html">Managing
         passwords for IAM users</a>.
 
@@ -1094,7 +1095,8 @@ class IAMClient(BaseClient):
     ) -> GetOrganizationsAccessReportResponseTypeDef:
         """
         Retrieves the service last accessed data report for Organizations that was
-        previously generated using the <code> <a>GenerateOrganizationsAccessReport</a>
+        previously generated using the <code> <a
+        href="https://docs.aws.amazon.com/IAM/latest/APIReference/API_GenerateOrganizationsAccessReport.html">GenerateOrganizationsAccessReport</a>
         </code> operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_organizations_access_report.html)
@@ -1966,7 +1968,9 @@ class IAMClient(BaseClient):
         self, **kwargs: Unpack[UpdateRoleDescriptionRequestTypeDef]
     ) -> UpdateRoleDescriptionResponseTypeDef:
         """
-        Use <a>UpdateRole</a> instead.
+        Use <a
+        href="https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateRole.html">UpdateRole</a>
+        instead.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/update_role_description.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#update_role_description)

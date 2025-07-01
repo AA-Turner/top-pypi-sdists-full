@@ -314,3 +314,40 @@ def iterate[T](*items: T | Iterable[T]) -> Iterator[T]:
             yield item
 "#,
 );
+
+// This pair of tests failed until we separated Mro out from ClassMetadata - parsing base
+// types depends on the metadata but not the Mro, which was leading to patterns where a base
+// class in the cycle is generic over a class in the cycle to incorrectly fail to resolve
+// Mro (nondeterministically, it depended on where we entered the cycle).
+
+testcase!(
+    potential_cycle_through_generic_bases_a,
+    r#"
+from typing import assert_type
+class Node[T]:
+    @property
+    def x(self) -> T: ...
+class A(Node['B']):
+    pass
+class B(A):
+    pass
+assert_type(B().x, B)
+assert_type(A().x, B)
+"#,
+);
+
+testcase!(
+    potential_cycle_through_generic_bases_b,
+    r#"
+from typing import assert_type
+class Node[T]:
+    @property
+    def x(self) -> T: ...
+class A(Node['B']):
+    pass
+class B(A):
+    pass
+assert_type(A().x, B)
+assert_type(B().x, B)
+"#,
+);

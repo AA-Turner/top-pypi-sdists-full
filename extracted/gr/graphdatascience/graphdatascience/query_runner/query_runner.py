@@ -3,6 +3,8 @@ from typing import Any, Optional
 
 from pandas import DataFrame
 
+from graphdatascience.query_runner.query_mode import QueryMode
+
 from ..call_parameters import CallParameters
 from ..server_version.server_version import ServerVersion
 from .graph_constructor import GraphConstructor
@@ -16,7 +18,9 @@ class QueryRunner(ABC):
         params: Optional[CallParameters] = None,
         yields: Optional[list[str]] = None,
         database: Optional[str] = None,
+        mode: QueryMode = QueryMode.READ,
         logging: bool = False,
+        retryable: bool = False,
         custom_error: bool = True,
     ) -> DataFrame:
         pass
@@ -27,6 +31,16 @@ class QueryRunner(ABC):
 
     @abstractmethod
     def run_cypher(
+        self,
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+        database: Optional[str] = None,
+        custom_error: bool = True,
+    ) -> DataFrame:
+        pass
+
+    @abstractmethod
+    def run_retryable_cypher(
         self,
         query: str,
         params: Optional[dict[str, Any]] = None,
@@ -81,7 +95,7 @@ class QueryRunner(ABC):
         pass
 
     @abstractmethod
-    def clone(self, host: str, port: int) -> "QueryRunner":
+    def cloneWithoutRouting(self, host: str, port: int) -> "QueryRunner":
         pass
 
     def set_server_version(self, _: ServerVersion) -> None:

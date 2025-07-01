@@ -5,9 +5,10 @@ from typing import Any, Optional
 from pandas import DataFrame
 from tenacity import retry, retry_if_result, wait_incrementing
 
-from graphdatascience import QueryRunner
 from graphdatascience.call_parameters import CallParameters
 from graphdatascience.query_runner.protocol.status import Status
+from graphdatascience.query_runner.query_mode import QueryMode
+from graphdatascience.query_runner.query_runner import QueryRunner
 from graphdatascience.query_runner.termination_flag import TerminationFlag
 from graphdatascience.retry_utils.retry_utils import before_log
 from graphdatascience.session.dbms.protocol_version import ProtocolVersion
@@ -73,9 +74,11 @@ class RemoteWriteBackV1(WriteProtocol):
             ProtocolVersion.V1.versioned_procedure_name("gds.arrow.write"),
             parameters,
             yields,
-            None,
-            False,
-            False,
+            retryable=False,
+            database=None,
+            logging=False,
+            mode=QueryMode.WRITE,
+            custom_error=False,
         )
 
 
@@ -111,9 +114,11 @@ class RemoteWriteBackV2(WriteProtocol):
             ProtocolVersion.V2.versioned_procedure_name("gds.arrow.write"),
             parameters,
             yields,
-            None,
-            False,
-            False,
+            retryable=False,
+            database=None,
+            logging=False,
+            mode=QueryMode.WRITE,
+            custom_error=False,
         )
 
 
@@ -157,9 +162,10 @@ class RemoteWriteBackV3(WriteProtocol):
                 ProtocolVersion.V3.versioned_procedure_name("gds.arrow.write"),
                 parameters,
                 yields,
-                None,
-                False,
-                False,
+                retryable=True,
+                logging=False,
+                mode=QueryMode.WRITE,
+                custom_error=False,
             )
 
         return write_fn()

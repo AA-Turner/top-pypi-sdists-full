@@ -18,13 +18,15 @@ import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
 from wandelbots_api_client.v2.models.initialize_jogging_response import InitializeJoggingResponse
-from wandelbots_api_client.v2.models.jogging_error_response import JoggingErrorResponse
-from wandelbots_api_client.v2.models.jogging_response import JoggingResponse
+from wandelbots_api_client.v2.models.joint_velocity_response import JointVelocityResponse
+from wandelbots_api_client.v2.models.movement_error_response import MovementErrorResponse
+from wandelbots_api_client.v2.models.pause_jogging_response import PauseJoggingResponse
+from wandelbots_api_client.v2.models.tcp_velocity_response import TcpVelocityResponse
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-EXECUTEJOGGINGRESPONSE_ONE_OF_SCHEMAS = ["InitializeJoggingResponse", "JoggingErrorResponse", "JoggingResponse"]
+EXECUTEJOGGINGRESPONSE_ONE_OF_SCHEMAS = ["InitializeJoggingResponse", "JointVelocityResponse", "MovementErrorResponse", "PauseJoggingResponse", "TcpVelocityResponse"]
 
 class ExecuteJoggingResponse(BaseModel):
     """
@@ -32,18 +34,25 @@ class ExecuteJoggingResponse(BaseModel):
     """
     # data type: InitializeJoggingResponse
     oneof_schema_1_validator: Optional[InitializeJoggingResponse] = None
-    # data type: JoggingResponse
-    oneof_schema_2_validator: Optional[JoggingResponse] = None
-    # data type: JoggingErrorResponse
-    oneof_schema_3_validator: Optional[JoggingErrorResponse] = None
-    actual_instance: Optional[Union[InitializeJoggingResponse, JoggingErrorResponse, JoggingResponse]] = None
-    one_of_schemas: Set[str] = { "InitializeJoggingResponse", "JoggingErrorResponse", "JoggingResponse" }
+    # data type: PauseJoggingResponse
+    oneof_schema_2_validator: Optional[PauseJoggingResponse] = None
+    # data type: TcpVelocityResponse
+    oneof_schema_3_validator: Optional[TcpVelocityResponse] = None
+    # data type: JointVelocityResponse
+    oneof_schema_4_validator: Optional[JointVelocityResponse] = None
+    # data type: MovementErrorResponse
+    oneof_schema_5_validator: Optional[MovementErrorResponse] = None
+    actual_instance: Optional[Union[InitializeJoggingResponse, JointVelocityResponse, MovementErrorResponse, PauseJoggingResponse, TcpVelocityResponse]] = None
+    one_of_schemas: Set[str] = { "InitializeJoggingResponse", "JointVelocityResponse", "MovementErrorResponse", "PauseJoggingResponse", "TcpVelocityResponse" }
 
     model_config = ConfigDict(
         validate_assignment=True,
         protected_namespaces=(),
     )
 
+
+    discriminator_value_class_map: Dict[str, str] = {
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         if args:
@@ -65,22 +74,32 @@ class ExecuteJoggingResponse(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `InitializeJoggingResponse`")
         else:
             match += 1
-        # validate data type: JoggingResponse
-        if not isinstance(v, JoggingResponse):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingResponse`")
+        # validate data type: PauseJoggingResponse
+        if not isinstance(v, PauseJoggingResponse):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `PauseJoggingResponse`")
         else:
             match += 1
-        # validate data type: JoggingErrorResponse
-        if not isinstance(v, JoggingErrorResponse):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingErrorResponse`")
+        # validate data type: TcpVelocityResponse
+        if not isinstance(v, TcpVelocityResponse):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TcpVelocityResponse`")
+        else:
+            match += 1
+        # validate data type: JointVelocityResponse
+        if not isinstance(v, JointVelocityResponse):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `JointVelocityResponse`")
+        else:
+            match += 1
+        # validate data type: MovementErrorResponse
+        if not isinstance(v, MovementErrorResponse):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `MovementErrorResponse`")
         else:
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JoggingErrorResponse, JoggingResponse. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JointVelocityResponse, MovementErrorResponse, PauseJoggingResponse, TcpVelocityResponse. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JoggingErrorResponse, JoggingResponse. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JointVelocityResponse, MovementErrorResponse, PauseJoggingResponse, TcpVelocityResponse. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -95,31 +114,73 @@ class ExecuteJoggingResponse(BaseModel):
         error_messages = []
         match = 0
 
+        # use oneOf discriminator to lookup the data type
+        _data_type = json.loads(json_str).get("kind")
+        if not _data_type:
+            raise ValueError("Failed to lookup data type from the field `kind` in the input.")
+
+        # check if data type is `InitializeJoggingResponse`
+        if _data_type == "InitializeJoggingResponse":
+            instance.actual_instance = InitializeJoggingResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `JointVelocityResponse`
+        if _data_type == "JointVelocityResponse":
+            instance.actual_instance = JointVelocityResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `MovementErrorResponse`
+        if _data_type == "MovementErrorResponse":
+            instance.actual_instance = MovementErrorResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `PauseJoggingResponse`
+        if _data_type == "PauseJoggingResponse":
+            instance.actual_instance = PauseJoggingResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `TcpVelocityResponse`
+        if _data_type == "TcpVelocityResponse":
+            instance.actual_instance = TcpVelocityResponse.from_json(json_str)
+            return instance
+
         # deserialize data into InitializeJoggingResponse
         try:
             instance.actual_instance = InitializeJoggingResponse.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into JoggingResponse
+        # deserialize data into PauseJoggingResponse
         try:
-            instance.actual_instance = JoggingResponse.from_json(json_str)
+            instance.actual_instance = PauseJoggingResponse.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into JoggingErrorResponse
+        # deserialize data into TcpVelocityResponse
         try:
-            instance.actual_instance = JoggingErrorResponse.from_json(json_str)
+            instance.actual_instance = TcpVelocityResponse.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into JointVelocityResponse
+        try:
+            instance.actual_instance = JointVelocityResponse.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into MovementErrorResponse
+        try:
+            instance.actual_instance = MovementErrorResponse.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JoggingErrorResponse, JoggingResponse. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JointVelocityResponse, MovementErrorResponse, PauseJoggingResponse, TcpVelocityResponse. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JoggingErrorResponse, JoggingResponse. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ExecuteJoggingResponse with oneOf schemas: InitializeJoggingResponse, JointVelocityResponse, MovementErrorResponse, PauseJoggingResponse, TcpVelocityResponse. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -133,7 +194,7 @@ class ExecuteJoggingResponse(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], InitializeJoggingResponse, JoggingErrorResponse, JoggingResponse]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], InitializeJoggingResponse, JointVelocityResponse, MovementErrorResponse, PauseJoggingResponse, TcpVelocityResponse]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

@@ -747,7 +747,9 @@ __all__ = (
     "ImportCatalogToGlueRequestTypeDef",
     "ImportLabelsTaskRunPropertiesTypeDef",
     "InboundIntegrationTypeDef",
+    "IntegrationConfigOutputTypeDef",
     "IntegrationConfigTypeDef",
+    "IntegrationConfigUnionTypeDef",
     "IntegrationErrorTypeDef",
     "IntegrationFilterTypeDef",
     "IntegrationPartitionTypeDef",
@@ -2142,9 +2144,6 @@ class CreateDevEndpointRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
     Arguments: NotRequired[Mapping[str, str]]
 
-class IntegrationConfigTypeDef(TypedDict):
-    RefreshInterval: NotRequired[str]
-
 class TagTypeDef(TypedDict):
     key: NotRequired[str]
     value: NotRequired[str]
@@ -2157,6 +2156,10 @@ class TargetProcessingPropertiesTypeDef(TypedDict):
     KmsArn: NotRequired[str]
     ConnectionName: NotRequired[str]
     EventBusArn: NotRequired[str]
+
+class IntegrationConfigOutputTypeDef(TypedDict):
+    RefreshInterval: NotRequired[str]
+    SourceProperties: NotRequired[Dict[str, str]]
 
 class IntegrationErrorTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
@@ -2976,6 +2979,10 @@ class ImportCatalogToGlueRequestTypeDef(TypedDict):
 class ImportLabelsTaskRunPropertiesTypeDef(TypedDict):
     InputS3Path: NotRequired[str]
     Replace: NotRequired[bool]
+
+class IntegrationConfigTypeDef(TypedDict):
+    RefreshInterval: NotRequired[str]
+    SourceProperties: NotRequired[Mapping[str, str]]
 
 class IntegrationPartitionTypeDef(TypedDict):
     FieldName: NotRequired[str]
@@ -4649,17 +4656,6 @@ class GetDataQualityRulesetResponseTypeDef(TypedDict):
     DataQualitySecurityConfiguration: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateIntegrationRequestTypeDef(TypedDict):
-    IntegrationName: str
-    SourceArn: str
-    TargetArn: str
-    Description: NotRequired[str]
-    DataFilter: NotRequired[str]
-    KmsKeyId: NotRequired[str]
-    AdditionalEncryptionContext: NotRequired[Mapping[str, str]]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    IntegrationConfig: NotRequired[IntegrationConfigTypeDef]
-
 class CreateIntegrationResourcePropertyRequestTypeDef(TypedDict):
     ResourceArn: str
     SourceProcessingProperties: NotRequired[SourceProcessingPropertiesTypeDef]
@@ -4701,7 +4697,7 @@ class CreateIntegrationResponseTypeDef(TypedDict):
     CreateTime: datetime
     Errors: List[IntegrationErrorTypeDef]
     DataFilter: str
-    IntegrationConfig: IntegrationConfigTypeDef
+    IntegrationConfig: IntegrationConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteIntegrationResponseTypeDef(TypedDict):
@@ -4725,7 +4721,7 @@ class InboundIntegrationTypeDef(TypedDict):
     IntegrationArn: str
     Status: IntegrationStatusType
     CreateTime: datetime
-    IntegrationConfig: NotRequired[IntegrationConfigTypeDef]
+    IntegrationConfig: NotRequired[IntegrationConfigOutputTypeDef]
     Errors: NotRequired[List[IntegrationErrorTypeDef]]
 
 class IntegrationTypeDef(TypedDict):
@@ -4739,7 +4735,7 @@ class IntegrationTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     AdditionalEncryptionContext: NotRequired[Dict[str, str]]
     Tags: NotRequired[List[TagTypeDef]]
-    IntegrationConfig: NotRequired[IntegrationConfigTypeDef]
+    IntegrationConfig: NotRequired[IntegrationConfigOutputTypeDef]
     Errors: NotRequired[List[IntegrationErrorTypeDef]]
     DataFilter: NotRequired[str]
 
@@ -5353,6 +5349,8 @@ IcebergSchemaTypeDef = TypedDict(
 class IcebergSortOrderTypeDef(TypedDict):
     OrderId: int
     Fields: Sequence[IcebergSortFieldTypeDef]
+
+IntegrationConfigUnionTypeDef = Union[IntegrationConfigTypeDef, IntegrationConfigOutputTypeDef]
 
 class TargetTableConfigOutputTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
@@ -6522,6 +6520,17 @@ class IcebergTableUpdateTypeDef(TypedDict):
     PartitionSpec: NotRequired[IcebergPartitionSpecTypeDef]
     SortOrder: NotRequired[IcebergSortOrderTypeDef]
     Properties: NotRequired[Mapping[str, str]]
+
+class CreateIntegrationRequestTypeDef(TypedDict):
+    IntegrationName: str
+    SourceArn: str
+    TargetArn: str
+    Description: NotRequired[str]
+    DataFilter: NotRequired[str]
+    KmsKeyId: NotRequired[str]
+    AdditionalEncryptionContext: NotRequired[Mapping[str, str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    IntegrationConfig: NotRequired[IntegrationConfigUnionTypeDef]
 
 class GetIntegrationTablePropertiesResponseTypeDef(TypedDict):
     ResourceArn: str

@@ -48,7 +48,7 @@ from polars.exceptions import (
     PolarsInefficientMapWarning,
 )
 from polars.schema import Schema
-from polars.testing import assert_frame_equal
+from polars.testing import assert_frame_equal, assert_series_equal
 
 from utilities.dataclasses import _YieldFieldsInstance, yield_fields
 from utilities.errors import ImpossibleCaseError
@@ -60,6 +60,7 @@ from utilities.functions import (
     is_iterable_of,
     make_isinstance,
 )
+from utilities.gzip import read_binary
 from utilities.iterables import (
     CheckIterablesEqualError,
     CheckMappingsEqualError,
@@ -75,6 +76,7 @@ from utilities.iterables import (
     is_iterable_not_str,
     one,
 )
+from utilities.json import write_formatted_json
 from utilities.math import (
     CheckIntegerError,
     check_integer,
@@ -84,7 +86,7 @@ from utilities.math import (
     number_of_decimals,
 )
 from utilities.reprlib import get_repr
-from utilities.types import MaybeStr, Number, WeekDay
+from utilities.types import MaybeStr, Number, PathLike, WeekDay
 from utilities.typing import (
     get_args,
     get_type_hints,
@@ -1729,6 +1731,136 @@ def join(
 ##
 
 
+def join_into_periods(
+    left: DataFrame,
+    right: DataFrame,
+    /,
+    *,
+    on: str | None = None,
+    left_on: str | None = None,
+    right_on: str | None = None,
+    suffix: str = "_right",
+) -> DataFrame:
+    """Join a pair of DataFrames on their periods; left in right."""
+    match on, left_on, right_on:
+        case None, None, None:
+            return _join_into_periods_core(
+                left, right, "datetime", "datetime", suffix=suffix
+            )
+        case str(), None, None:
+            return _join_into_periods_core(left, right, on, on, suffix=suffix)
+        case None, str(), str():
+            return _join_into_periods_core(
+                left, right, left_on, right_on, suffix=suffix
+            )
+        case _:
+            raise _JoinIntoPeriodsArgumentsError(
+                on=on, left_on=left_on, right_on=right_on
+            )
+
+
+def _join_into_periods_core(
+    left: DataFrame,
+    right: DataFrame,
+    left_on: str,
+    right_on: str,
+    /,
+    *,
+    suffix: str = "_right",
+) -> DataFrame:
+    """Join a pair of DataFrames on their periods; left in right."""
+    _join_into_periods_check(left, left_on, "left")
+    _join_into_periods_check(right, right_on, "right")
+    joined = left.join_asof(
+        right,
+        left_on=col(left_on).struct["start"],
+        right_on=col(right_on).struct["start"],
+        strategy="backward",
+        suffix=suffix,
+        coalesce=False,
+    )
+    new = f"{left_on}{suffix}" if left_on == right_on else right_on
+    new_col = col(new)
+    is_correct = (new_col.struct["start"] <= col(left_on).struct["start"]) & (
+        col(left_on).struct["end"] <= new_col.struct["end"]
+    )
+    return joined.with_columns(when(is_correct).then(new_col))
+
+
+def _join_into_periods_check(
+    df: DataFrame, column: str, left_or_right: Literal["left", "right"], /
+) -> None:
+    start = df[column].struct["start"]
+    end = df[column].struct["end"]
+    if not (start <= end).all():
+        raise _JoinIntoPeriodsPeriodError(left_or_right=left_or_right, column=column)
+    try:
+        assert_series_equal(start, start.sort())
+    except AssertionError:
+        raise _JoinIntoPeriodsSortedError(
+            left_or_right=left_or_right, column=column, start_or_end="start"
+        ) from None
+    try:
+        assert_series_equal(end, end.sort())
+    except AssertionError:
+        raise _JoinIntoPeriodsSortedError(
+            left_or_right=left_or_right, column=column, start_or_end="end"
+        ) from None
+    if (df.height >= 2) and (end[:-1] > start[1:]).any():
+        raise _JoinIntoPeriodsOverlappingError(
+            left_or_right=left_or_right, column=column
+        )
+
+
+@dataclass(kw_only=True, slots=True)
+class JoinIntoPeriodsError(Exception): ...
+
+
+@dataclass(kw_only=True, slots=True)
+class _JoinIntoPeriodsArgumentsError(JoinIntoPeriodsError):
+    on: str | None
+    left_on: str | None
+    right_on: str | None
+
+    @override
+    def __str__(self) -> str:
+        return f"Either 'on' must be given or 'left_on' and 'right_on' must be given; got {self.on!r}, {self.left_on!r} and {self.right_on!r}"
+
+
+@dataclass(kw_only=True, slots=True)
+class _JoinIntoPeriodsPeriodError(JoinIntoPeriodsError):
+    left_or_right: Literal["left", "right"]
+    column: str
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.left_or_right.title()} DataFrame column {self.column!r} must contain valid periods"
+
+
+@dataclass(kw_only=True, slots=True)
+class _JoinIntoPeriodsSortedError(JoinIntoPeriodsError):
+    left_or_right: Literal["left", "right"]
+    column: str
+    start_or_end: Literal["start", "end"]
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.left_or_right.title()} DataFrame column '{self.column}/{self.start_or_end}' must be sorted"
+
+
+@dataclass(kw_only=True, slots=True)
+class _JoinIntoPeriodsOverlappingError(JoinIntoPeriodsError):
+    left_or_right: Literal["left", "right"]
+    column: str
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.left_or_right.title()} DataFrame column {self.column!r} must not contain overlaps"
+
+
+##
+
+
 @overload
 def map_over_columns(func: Callable[[Series], Series], obj: Series, /) -> Series: ...
 @overload
@@ -1951,6 +2083,57 @@ def _replace_time_zone_one(
 ##
 
 
+def read_series(path: PathLike, /, *, decompress: bool = False) -> Series:
+    """Read a Series from disk."""
+    data = read_binary(path, decompress=decompress)
+    return deserialize_series(data)
+
+
+def write_series(
+    series: Series,
+    path: PathLike,
+    /,
+    *,
+    compress: bool = False,
+    overwrite: bool = False,
+) -> None:
+    """Write a Series to disk."""
+    data = serialize_series(series)
+    write_formatted_json(data, path, compress=compress, overwrite=overwrite)
+
+
+def read_dataframe(path: PathLike, /, *, decompress: bool = False) -> DataFrame:
+    """Read a DataFrame from disk."""
+    data = read_binary(path, decompress=decompress)
+    return deserialize_dataframe(data)
+
+
+def write_dataframe(
+    df: DataFrame, path: PathLike, /, *, compress: bool = False, overwrite: bool = False
+) -> None:
+    """Write a DataFrame to disk."""
+    data = serialize_dataframe(df)
+    write_formatted_json(data, path, compress=compress, overwrite=overwrite)
+
+
+def serialize_series(series: Series, /) -> bytes:
+    """Serialize a Series."""
+    from utilities.orjson import serialize
+
+    values = series.to_list()
+    decon = _deconstruct_dtype(series.dtype)
+    return serialize((series.name, values, decon))
+
+
+def deserialize_series(data: bytes, /) -> Series:
+    """Serialize a Series."""
+    from utilities.orjson import deserialize
+
+    name, values, decon = deserialize(data)
+    dtype = _reconstruct_dtype(decon)
+    return Series(name=name, values=values, dtype=dtype)
+
+
 def serialize_dataframe(df: DataFrame, /) -> bytes:
     """Serialize a DataFrame."""
     from utilities.orjson import serialize
@@ -1969,23 +2152,23 @@ def deserialize_dataframe(data: bytes, /) -> DataFrame:
     return DataFrame(data=rows, schema=schema, orient="row")
 
 
-type _Deconstructed = Sequence[tuple[str, _DeconstructedInner]]
-type _DeconstructedInner = (
+type _DeconSchema = Sequence[tuple[str, _DeconDType]]
+type _DeconDType = (
     str
     | tuple[Literal["Datetime"], str, str | None]
-    | tuple[Literal["List"], _DeconstructedInner]
-    | tuple[Literal["Struct"], _Deconstructed]
+    | tuple[Literal["List"], _DeconDType]
+    | tuple[Literal["Struct"], _DeconSchema]
 )
 
 
-def _deconstruct_schema(schema: Schema, /) -> _Deconstructed:
-    return [(k, _deconstruct_schema_inner(v)) for k, v in schema.items()]
+def _deconstruct_schema(schema: Schema, /) -> _DeconSchema:
+    return [(k, _deconstruct_dtype(v)) for k, v in schema.items()]
 
 
-def _deconstruct_schema_inner(dtype: PolarsDataType, /) -> _DeconstructedInner:
+def _deconstruct_dtype(dtype: PolarsDataType, /) -> _DeconDType:
     match dtype:
         case List() as list_:
-            return "List", _deconstruct_schema_inner(list_.inner)
+            return "List", _deconstruct_dtype(list_.inner)
         case Struct() as struct:
             inner = Schema({f.name: f.dtype for f in struct.fields})
             return "Struct", _deconstruct_schema(inner)
@@ -1995,18 +2178,18 @@ def _deconstruct_schema_inner(dtype: PolarsDataType, /) -> _DeconstructedInner:
             return repr(dtype)
 
 
-def _reconstruct_schema(schema: _Deconstructed, /) -> Schema:
-    return Schema({k: _reconstruct_schema_inner(v) for k, v in schema})
+def _reconstruct_schema(schema: _DeconSchema, /) -> Schema:
+    return Schema({k: _reconstruct_dtype(v) for k, v in schema})
 
 
-def _reconstruct_schema_inner(obj: _DeconstructedInner, /) -> PolarsDataType:
+def _reconstruct_dtype(obj: _DeconDType, /) -> PolarsDataType:
     match obj:
         case str() as name:
             return getattr(pl, name)
         case "Datetime", str() as time_unit, str() | None as time_zone:
             return Datetime(time_unit=cast("TimeUnit", time_unit), time_zone=time_zone)
         case "List", inner:
-            return List(_reconstruct_schema_inner(inner))
+            return List(_reconstruct_dtype(inner))
         case "Struct", inner:
             return Struct(_reconstruct_schema(inner))
         case _ as never:
@@ -2268,11 +2451,14 @@ __all__ = [
     "is_not_null_struct_series",
     "is_null_struct_series",
     "join",
+    "join_into_periods",
     "map_over_columns",
     "nan_sum_agg",
     "nan_sum_cols",
     "normal",
     "order_of_magnitude",
+    "read_dataframe",
+    "read_series",
     "replace_time_zone",
     "serialize_dataframe",
     "set_first_row_as_columns",
@@ -2282,5 +2468,7 @@ __all__ = [
     "try_reify_expr",
     "uniform",
     "unique_element",
+    "write_dataframe",
+    "write_series",
     "zoned_datetime",
 ]

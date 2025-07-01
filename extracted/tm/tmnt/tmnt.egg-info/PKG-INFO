@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tmnt
-Version: 0.7.61
+Version: 0.7.62
 Summary: Topic modeling neural toolkit
 Home-page: https://github.com/mitre/tmnt.git
 Author: The MITRE Corporation
@@ -30,7 +30,7 @@ Requires-Dist: sacremoses>=0.0.38
 Requires-Dist: sentence-splitter==1.4
 Requires-Dist: umap-learn[plot]>=0.5.5
 Requires-Dist: numba
-Requires-Dist: scipy==1.12.0
+Requires-Dist: scipy>=1.12.0
 Requires-Dist: tabulate>=0.8.7
 Requires-Dist: torch>=2.1.2
 Dynamic: author

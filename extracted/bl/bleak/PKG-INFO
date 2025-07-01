@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bleak
-Version: 1.0.0
+Version: 1.0.1
 Summary: Bluetooth Low Energy platform Agnostic Klient
 License: MIT
 Author: Henrik Blidh

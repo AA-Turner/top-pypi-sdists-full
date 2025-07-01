@@ -23,7 +23,6 @@ from hypothesis.strategies import (
     data,
     fixed_dictionaries,
     floats,
-    just,
     lists,
     none,
     sampled_from,
@@ -47,6 +46,7 @@ from polars import (
     Struct,
     UInt32,
     col,
+    concat,
     date_range,
     datetime_range,
     int_range,
@@ -57,7 +57,7 @@ from polars._typing import IntoExprColumn, SchemaDict
 from polars.exceptions import ComputeError
 from polars.schema import Schema
 from polars.testing import assert_frame_equal, assert_series_equal
-from pytest import raises
+from pytest import mark, param, raises
 from whenever import TimeZoneNotFoundError
 
 import utilities.polars
@@ -66,6 +66,8 @@ from utilities.hypothesis import (
     float64s,
     int64s,
     pairs,
+    py_datetimes,
+    temp_paths,
     text_ascii,
     zoned_datetimes,
 )
@@ -106,6 +108,7 @@ from utilities.polars import (
     _CheckPolarsDataFrameWidthError,
     _DataClassToDataFrameEmptyError,
     _DataClassToDataFrameNonUniqueError,
+    _deconstruct_dtype,
     _deconstruct_schema,
     _finite_ewm_weights,
     _FiniteEWMWeightsError,
@@ -117,6 +120,11 @@ from utilities.polars import (
     _InsertBetweenNonConsecutiveError,
     _IsNearEventAfterError,
     _IsNearEventBeforeError,
+    _JoinIntoPeriodsArgumentsError,
+    _JoinIntoPeriodsOverlappingError,
+    _JoinIntoPeriodsPeriodError,
+    _JoinIntoPeriodsSortedError,
+    _reconstruct_dtype,
     _reconstruct_schema,
     _ReifyExprsEmptyError,
     _ReifyExprsSeriesNonUniqueError,
@@ -139,6 +147,7 @@ from utilities.polars import (
     dataclass_to_dataframe,
     dataclass_to_schema,
     deserialize_dataframe,
+    deserialize_series,
     drop_null_struct_series,
     ensure_data_type,
     ensure_expr_or_series,
@@ -156,14 +165,18 @@ from utilities.polars import (
     is_not_null_struct_series,
     is_null_struct_series,
     join,
+    join_into_periods,
     map_over_columns,
     nan_sum_agg,
     nan_sum_cols,
     normal,
     order_of_magnitude,
+    read_dataframe,
+    read_series,
     reify_exprs,
     replace_time_zone,
     serialize_dataframe,
+    serialize_series,
     set_first_row_as_columns,
     struct_dtype,
     struct_from_dataclass,
@@ -172,6 +185,8 @@ from utilities.polars import (
     uniform,
     unique_element,
     week_num,
+    write_dataframe,
+    write_series,
     zoned_datetime,
 )
 from utilities.random import get_state
@@ -1836,6 +1851,140 @@ class TestJoin:
         assert_frame_equal(result, expected)
 
 
+class TestJoinIntoPeriods:
+    dtype: ClassVar[Struct] = struct_dtype(start=DatetimeUTC, end=DatetimeUTC)
+
+    @mark.parametrize("on", [param("datetime"), param(None)])
+    def test_main(self, *, on: str | None) -> None:
+        df1, df2, expected = self._prepare_main()
+        result = join_into_periods(df1, df2, on=on)
+        assert_frame_equal(result, expected)
+
+    def test_left_on_and_right_on(self) -> None:
+        df1, df2, expected = self._prepare_main(right="period", joined_second="period")
+        result = join_into_periods(df1, df2, left_on="datetime", right_on="period")
+        assert_frame_equal(result, expected)
+
+    def test_overlapping_bar(self) -> None:
+        times = [(dt.time(), dt.time(1, 30))]
+        df1 = self._lift_df(times)
+        periods = [(dt.time(1), dt.time(2)), (dt.time(2), dt.time(3))]
+        df2 = self._lift_df(periods)
+        result = join_into_periods(df1, df2, on="datetime")
+        df3 = self._lift_df([None], column="datetime_right")
+        expected = concat([df1, df3], how="horizontal")
+        assert_frame_equal(result, expected)
+
+    def _prepare_main(
+        self,
+        *,
+        left: str = "datetime",
+        right: str = "datetime",
+        joined_second: str = "datetime_right",
+    ) -> tuple[DataFrame, DataFrame, DataFrame]:
+        times = [
+            (dt.time(), dt.time(0, 30)),
+            (dt.time(0, 30), dt.time(1)),
+            (dt.time(1), dt.time(1, 30)),
+            (dt.time(1, 30), dt.time(2)),
+            (dt.time(2), dt.time(2, 30)),
+            (dt.time(2, 30), dt.time(3)),
+            (dt.time(3), dt.time(3, 30)),
+            (dt.time(3, 30), dt.time(4)),
+            (dt.time(4), dt.time(4, 30)),
+            (dt.time(4, 30), dt.time(5)),
+        ]
+        df1 = self._lift_df(times, column=left)
+        periods = [
+            (dt.time(1), dt.time(2)),
+            (dt.time(2), dt.time(3)),
+            (dt.time(3), dt.time(4)),
+        ]
+        df2 = self._lift_df(periods, column=right)
+        joined = [
+            None,
+            None,
+            (dt.time(1), dt.time(2)),
+            (dt.time(1), dt.time(2)),
+            (dt.time(2), dt.time(3)),
+            (dt.time(2), dt.time(3)),
+            (dt.time(3), dt.time(4)),
+            (dt.time(3), dt.time(4)),
+            None,
+            None,
+        ]
+        df3 = self._lift_df(joined, column=joined_second)
+        expected = concat([df1, df3], how="horizontal")
+        return df1, df2, expected
+
+    def test_error_arguments(self) -> None:
+        with raises(
+            _JoinIntoPeriodsArgumentsError,
+            match="Either 'on' must be given or 'left_on' and 'right_on' must be given; got None, 'datetime' and None",
+        ):
+            _ = join_into_periods(DataFrame(), DataFrame(), left_on="datetime")
+
+    def test_error_periods(self) -> None:
+        times = [(dt.time(1), dt.time())]
+        df = self._lift_df(times)
+        with raises(
+            _JoinIntoPeriodsPeriodError,
+            match="Left DataFrame column 'datetime' must contain valid periods",
+        ):
+            _ = join_into_periods(df, DataFrame())
+
+    def test_error_left_start_sorted(self) -> None:
+        times = [(dt.time(1), dt.time(2)), (dt.time(), dt.time(1))]
+        df = self._lift_df(times)
+        with raises(
+            _JoinIntoPeriodsSortedError,
+            match="Left DataFrame column 'datetime/start' must be sorted",
+        ):
+            _ = join_into_periods(df, df)
+
+    def test_error_end_sorted(self) -> None:
+        times = [(dt.time(), dt.time(3)), (dt.time(1), dt.time(2))]
+        df = self._lift_df(times)
+        with raises(
+            _JoinIntoPeriodsSortedError,
+            match="Left DataFrame column 'datetime/end' must be sorted",
+        ):
+            _ = join_into_periods(df, df)
+
+    def test_error_overlapping(self) -> None:
+        times = [(dt.time(), dt.time(2)), (dt.time(1), dt.time(3))]
+        df = self._lift_df(times)
+        with raises(
+            _JoinIntoPeriodsOverlappingError,
+            match="Left DataFrame column 'datetime' must not contain overlaps",
+        ):
+            _ = join_into_periods(df, DataFrame())
+
+    def _lift_df(
+        self,
+        times: Iterable[tuple[dt.time, dt.time] | None],
+        /,
+        *,
+        column: str = "datetime",
+    ) -> DataFrame:
+        return DataFrame(
+            data=[self._lift_row(t, column=column) for t in times],
+            schema={column: self.dtype},
+            orient="row",
+        )
+
+    def _lift_row(
+        self, times: tuple[dt.time, dt.time] | None, /, *, column: str = "datetime"
+    ) -> StrMapping | None:
+        if times is None:
+            return None
+        start, end = times
+        return {column: {"start": self._lift_time(start), "end": self._lift_time(end)}}
+
+    def _lift_time(self, time: dt.time, /) -> dt.datetime:
+        return dt.datetime.combine(get_today().py_date(), time, tzinfo=UTC)
+
+
 class TestMapOverColumns:
     def test_series(self) -> None:
         series = Series(values=[1, 2, 3], dtype=Int64)
@@ -2137,11 +2286,8 @@ class TestSerializeAndDeserializeDataFrame:
         (Boolean(), booleans()),
         (Date, hypothesis.strategies.dates()),
         (Date(), hypothesis.strategies.dates()),
-        (Datetime(), hypothesis.strategies.datetimes()),
-        (
-            Datetime(time_zone=UTC.key),
-            hypothesis.strategies.datetimes(timezones=just(UTC)),
-        ),
+        (Datetime(), py_datetimes(zoned=False)),
+        (Datetime(time_zone=UTC.key), py_datetimes(zoned=True)),
         (Int64, int64s()),
         (Int64(), int64s()),
         (Float64, float64s()),
@@ -2152,9 +2298,31 @@ class TestSerializeAndDeserializeDataFrame:
         (Struct({"inner": Int64}), fixed_dictionaries({"inner": int64s()})),
     ]
 
-    @given(data=data(), case=sampled_from(cases))
-    def test_main(
-        self, *, data: DataObject, case: tuple[PolarsDataType, SearchStrategy[Any]]
+    @given(data=data(), root=temp_paths(), name=text_ascii(), case=sampled_from(cases))
+    def test_series(
+        self,
+        *,
+        data: DataObject,
+        root: Path,
+        name: str,
+        case: tuple[PolarsDataType, SearchStrategy[Any]],
+    ) -> None:
+        dtype, strategy = case
+        values = data.draw(lists(strategy | none()))
+        sr = Series(name=name, values=values, dtype=dtype)
+        result1 = deserialize_series(serialize_series(sr))
+        assert_series_equal(sr, result1)
+        write_series(sr, file := root.joinpath("file.json"))
+        result2 = read_series(file)
+        assert_series_equal(sr, result2)
+
+    @given(data=data(), root=temp_paths(), case=sampled_from(cases))
+    def test_dataframe(
+        self,
+        *,
+        data: DataObject,
+        root: Path,
+        case: tuple[PolarsDataType, SearchStrategy[Any]],
     ) -> None:
         dtype, strategy = case
         columns = data.draw(lists(text_ascii(min_size=1)))
@@ -2163,8 +2331,16 @@ class TestSerializeAndDeserializeDataFrame:
         )
         schema = dict.fromkeys(columns, dtype)
         df = DataFrame(data=rows, schema=schema, orient="row")
-        result = deserialize_dataframe(serialize_dataframe(df))
-        assert_frame_equal(df, result)
+        result1 = deserialize_dataframe(serialize_dataframe(df))
+        assert_frame_equal(df, result1)
+        write_dataframe(df, file := root.joinpath("file.json"))
+        result2 = read_dataframe(file)
+        assert_frame_equal(df, result2)
+
+    @given(dtype=sampled_from([dtype for dtype, _ in cases]))
+    def test_dtype(self, *, dtype: PolarsDataType) -> None:
+        result = _reconstruct_dtype(_deconstruct_dtype(dtype))
+        assert result == dtype
 
     @given(dtype=sampled_from([dtype for dtype, _ in cases]))
     def test_schema(self, *, dtype: PolarsDataType) -> None:

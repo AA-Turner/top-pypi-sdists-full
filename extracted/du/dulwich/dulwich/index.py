@@ -21,20 +21,30 @@
 
 """Parser for the git index file format."""
 
+import errno
 import os
+import shutil
 import stat
 import struct
 import sys
-from collections.abc import Iterable, Iterator
+import types
+from collections.abc import Generator, Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
     BinaryIO,
     Callable,
     Optional,
     Union,
+    cast,
 )
+
+if TYPE_CHECKING:
+    from .file import _GitFile
+    from .line_ending import BlobNormalizer
+    from .repo import Repo
 
 from .file import GitFile
 from .object_store import iter_tree_contents
@@ -194,7 +204,9 @@ def _decompress_path(
     return path, new_offset
 
 
-def _decompress_path_from_stream(f, previous_path: bytes) -> tuple[bytes, int]:
+def _decompress_path_from_stream(
+    f: BinaryIO, previous_path: bytes
+) -> tuple[bytes, int]:
     """Decompress a path from index version 4 compressed format, reading from stream.
 
     Args:
@@ -459,12 +471,12 @@ def pathsplit(path: bytes) -> tuple[bytes, bytes]:
         return (dirname, basename)
 
 
-def pathjoin(*args):
+def pathjoin(*args: bytes) -> bytes:
     """Join a /-delimited path."""
     return b"/".join([p for p in args if p])
 
 
-def read_cache_time(f):
+def read_cache_time(f: BinaryIO) -> tuple[int, int]:
     """Read a cache time.
 
     Args:
@@ -475,7 +487,7 @@ def read_cache_time(f):
     return struct.unpack(">LL", f.read(8))
 
 
-def write_cache_time(f, t) -> None:
+def write_cache_time(f: BinaryIO, t: Union[int, float, tuple[int, int]]) -> None:
     """Write a cache time.
 
     Args:
@@ -493,7 +505,7 @@ def write_cache_time(f, t) -> None:
 
 
 def read_cache_entry(
-    f, version: int, previous_path: bytes = b""
+    f: BinaryIO, version: int, previous_path: bytes = b""
 ) -> SerializedIndexEntry:
     """Read an entry from a cache file.
 
@@ -551,7 +563,7 @@ def read_cache_entry(
 
 
 def write_cache_entry(
-    f, entry: SerializedIndexEntry, version: int, previous_path: bytes = b""
+    f: BinaryIO, entry: SerializedIndexEntry, version: int, previous_path: bytes = b""
 ) -> None:
     """Write an index entry to a file.
 
@@ -608,7 +620,7 @@ def write_cache_entry(
 class UnsupportedIndexFormat(Exception):
     """An unsupported index format was encountered."""
 
-    def __init__(self, version) -> None:
+    def __init__(self, version: int) -> None:
         self.index_format_version = version
 
 
@@ -652,11 +664,13 @@ def read_index(f: BinaryIO) -> Iterator[SerializedIndexEntry]:
 
 def read_index_dict_with_version(
     f: BinaryIO,
-) -> tuple[dict[bytes, Union[IndexEntry, ConflictedIndexEntry]], int]:
+) -> tuple[
+    dict[bytes, Union[IndexEntry, ConflictedIndexEntry]], int, list[IndexExtension]
+]:
     """Read an index file and return it as a dictionary along with the version.
 
     Returns:
-      tuple of (entries_dict, version)
+      tuple of (entries_dict, version, extensions)
     """
     version, num_entries = read_index_header(f)
 
@@ -679,10 +693,49 @@ def read_index_dict_with_version(
             elif stage == Stage.MERGE_CONFLICT_OTHER:
                 existing.other = IndexEntry.from_serialized(entry)
 
-    return ret, version
+    # Read extensions
+    extensions = []
+    while True:
+        # Check if we're at the end (20 bytes before EOF for SHA checksum)
+        current_pos = f.tell()
+        f.seek(0, 2)  # EOF
+        eof_pos = f.tell()
+        f.seek(current_pos)
+
+        if current_pos >= eof_pos - 20:
+            break
+
+        # Try to read extension signature
+        signature = f.read(4)
+        if len(signature) < 4:
+            break
+
+        # Check if it's a valid extension signature (4 uppercase letters)
+        if not all(65 <= b <= 90 for b in signature):
+            # Not an extension, seek back
+            f.seek(-4, 1)
+            break
+
+        # Read extension size
+        size_data = f.read(4)
+        if len(size_data) < 4:
+            break
+        size = struct.unpack(">I", size_data)[0]
+
+        # Read extension data
+        data = f.read(size)
+        if len(data) < size:
+            break
+
+        extension = IndexExtension.from_raw(signature, data)
+        extensions.append(extension)
+
+    return ret, version, extensions
 
 
-def read_index_dict(f) -> dict[bytes, Union[IndexEntry, ConflictedIndexEntry]]:
+def read_index_dict(
+    f: BinaryIO,
+) -> dict[bytes, Union[IndexEntry, ConflictedIndexEntry]]:
     """Read an index file and return it as a dictionary.
        Dict Key is tuple of path and stage number, as
             path alone is not unique
@@ -708,7 +761,10 @@ def read_index_dict(f) -> dict[bytes, Union[IndexEntry, ConflictedIndexEntry]]:
 
 
 def write_index(
-    f: BinaryIO, entries: list[SerializedIndexEntry], version: Optional[int] = None
+    f: BinaryIO,
+    entries: list[SerializedIndexEntry],
+    version: Optional[int] = None,
+    extensions: Optional[list[IndexExtension]] = None,
 ) -> None:
     """Write an index file.
 
@@ -716,6 +772,7 @@ def write_index(
       f: File-like object to write to
       version: Version number to write
       entries: Iterable over the entries to write
+      extensions: Optional list of extensions to write
     """
     if version is None:
         version = DEFAULT_VERSION
@@ -738,11 +795,17 @@ def write_index(
         write_cache_entry(f, entry, version=version, previous_path=previous_path)
         previous_path = entry.name
 
+    # Write extensions
+    if extensions:
+        for extension in extensions:
+            write_index_extension(f, extension)
+
 
 def write_index_dict(
     f: BinaryIO,
     entries: dict[bytes, Union[IndexEntry, ConflictedIndexEntry]],
     version: Optional[int] = None,
+    extensions: Optional[list[IndexExtension]] = None,
 ) -> None:
     """Write an index file based on the contents of a dictionary.
     being careful to sort by path and then by stage.
@@ -765,7 +828,8 @@ def write_index_dict(
                 )
         else:
             entries_list.append(value.serialize(key, Stage.NORMAL))
-    write_index(f, entries_list, version=version)
+
+    write_index(f, entries_list, version=version, extensions=extensions)
 
 
 def cleanup_mode(mode: int) -> int:
@@ -799,7 +863,7 @@ class Index:
     def __init__(
         self,
         filename: Union[bytes, str, os.PathLike],
-        read=True,
+        read: bool = True,
         skip_hash: bool = False,
         version: Optional[int] = None,
     ) -> None:
@@ -815,12 +879,13 @@ class Index:
         # TODO(jelmer): Store the version returned by read_index
         self._version = version
         self._skip_hash = skip_hash
+        self._extensions: list[IndexExtension] = []
         self.clear()
         if read:
             self.read()
 
     @property
-    def path(self):
+    def path(self) -> Union[bytes, str]:
         return self._filename
 
     def __repr__(self) -> str:
@@ -828,18 +893,30 @@ class Index:
 
     def write(self) -> None:
         """Write current contents of index to disk."""
+        from typing import BinaryIO, cast
+
         f = GitFile(self._filename, "wb")
         try:
             if self._skip_hash:
                 # When skipHash is enabled, write the index without computing SHA1
-                write_index_dict(f, self._byname, version=self._version)
+                write_index_dict(
+                    cast(BinaryIO, f),
+                    self._byname,
+                    version=self._version,
+                    extensions=self._extensions,
+                )
                 # Write 20 zero bytes instead of SHA1
                 f.write(b"\x00" * 20)
                 f.close()
             else:
-                f = SHA1Writer(f)
-                write_index_dict(f, self._byname, version=self._version)
-                f.close()
+                sha1_writer = SHA1Writer(cast(BinaryIO, f))
+                write_index_dict(
+                    cast(BinaryIO, sha1_writer),
+                    self._byname,
+                    version=self._version,
+                    extensions=self._extensions,
+                )
+                sha1_writer.close()
         except:
             f.close()
             raise
@@ -850,15 +927,15 @@ class Index:
             return
         f = GitFile(self._filename, "rb")
         try:
-            f = SHA1Reader(f)
-            entries, version = read_index_dict_with_version(f)
+            sha1_reader = SHA1Reader(f)
+            entries, version, extensions = read_index_dict_with_version(
+                cast(BinaryIO, sha1_reader)
+            )
             self._version = version
+            self._extensions = extensions
             self.update(entries)
-            # Read any remaining data before the SHA
-            remaining = os.path.getsize(self._filename) - f.tell() - 20
-            if remaining > 0:
-                f.read(remaining)
-            f.check_sha(allow_empty=True)
+            # Extensions have already been read by read_index_dict_with_version
+            sha1_reader.check_sha(allow_empty=True)
         finally:
             f.close()
 
@@ -878,7 +955,7 @@ class Index:
         """Iterate over the paths and stages in this index."""
         return iter(self._byname)
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key: bytes) -> bool:
         return key in self._byname
 
     def get_sha1(self, path: bytes) -> bytes:
@@ -936,12 +1013,23 @@ class Index:
         for key, value in entries.items():
             self[key] = value
 
-    def paths(self):
+    def paths(self) -> Generator[bytes, None, None]:
         yield from self._byname.keys()
 
     def changes_from_tree(
-        self, object_store, tree: ObjectID, want_unchanged: bool = False
-    ):
+        self,
+        object_store: ObjectContainer,
+        tree: ObjectID,
+        want_unchanged: bool = False,
+    ) -> Generator[
+        tuple[
+            tuple[Optional[bytes], Optional[bytes]],
+            tuple[Optional[int], Optional[int]],
+            tuple[Optional[bytes], Optional[bytes]],
+        ],
+        None,
+        None,
+    ]:
         """Find the differences between the contents of this index and a tree.
 
         Args:
@@ -952,9 +1040,13 @@ class Index:
             newmode), (oldsha, newsha)
         """
 
-        def lookup_entry(path):
+        def lookup_entry(path: bytes) -> tuple[bytes, int]:
             entry = self[path]
-            return entry.sha, cleanup_mode(entry.mode)
+            if hasattr(entry, "sha") and hasattr(entry, "mode"):
+                return entry.sha, cleanup_mode(entry.mode)
+            else:
+                # Handle ConflictedIndexEntry case
+                return b"", 0
 
         yield from changes_from_tree(
             self.paths(),
@@ -964,7 +1056,7 @@ class Index:
             want_unchanged=want_unchanged,
         )
 
-    def commit(self, object_store):
+    def commit(self, object_store: ObjectContainer) -> bytes:
         """Create a new tree from an index.
 
         Args:
@@ -988,13 +1080,13 @@ def commit_tree(
     """
     trees: dict[bytes, Any] = {b"": {}}
 
-    def add_tree(path):
+    def add_tree(path: bytes) -> dict[bytes, Any]:
         if path in trees:
             return trees[path]
         dirname, basename = pathsplit(path)
         t = add_tree(dirname)
         assert isinstance(basename, bytes)
-        newtree = {}
+        newtree: dict[bytes, Any] = {}
         t[basename] = newtree
         trees[path] = newtree
         return newtree
@@ -1004,7 +1096,7 @@ def commit_tree(
         tree = add_tree(tree_path)
         tree[basename] = (mode, sha)
 
-    def build_tree(path):
+    def build_tree(path: bytes) -> bytes:
         tree = Tree()
         for basename, entry in trees[path].items():
             if isinstance(entry, dict):
@@ -1036,7 +1128,7 @@ def changes_from_tree(
     lookup_entry: Callable[[bytes], tuple[bytes, int]],
     object_store: ObjectContainer,
     tree: Optional[bytes],
-    want_unchanged=False,
+    want_unchanged: bool = False,
 ) -> Iterable[
     tuple[
         tuple[Optional[bytes], Optional[bytes]],
@@ -1082,10 +1174,10 @@ def changes_from_tree(
 
 
 def index_entry_from_stat(
-    stat_val,
+    stat_val: os.stat_result,
     hex_sha: bytes,
     mode: Optional[int] = None,
-):
+) -> IndexEntry:
     """Create a new index entry from a stat value.
 
     Args:
@@ -1118,20 +1210,28 @@ if sys.platform == "win32":
     # https://github.com/jelmer/dulwich/issues/1005
 
     class WindowsSymlinkPermissionError(PermissionError):
-        def __init__(self, errno, msg, filename) -> None:
+        def __init__(self, errno: int, msg: str, filename: Optional[str]) -> None:
             super(PermissionError, self).__init__(
                 errno,
                 f"Unable to create symlink; do you have developer mode enabled? {msg}",
                 filename,
             )
 
-    def symlink(src, dst, target_is_directory=False, *, dir_fd=None):
+    def symlink(
+        src: Union[str, bytes],
+        dst: Union[str, bytes],
+        target_is_directory: bool = False,
+        *,
+        dir_fd: Optional[int] = None,
+    ) -> None:
         try:
             return os.symlink(
                 src, dst, target_is_directory=target_is_directory, dir_fd=dir_fd
             )
         except PermissionError as e:
-            raise WindowsSymlinkPermissionError(e.errno, e.strerror, e.filename) from e
+            raise WindowsSymlinkPermissionError(
+                e.errno or 0, e.strerror or "", e.filename
+            ) from e
 else:
     symlink = os.symlink
 
@@ -1141,10 +1241,10 @@ def build_file_from_blob(
     mode: int,
     target_path: bytes,
     *,
-    honor_filemode=True,
-    tree_encoding="utf-8",
-    symlink_fn=None,
-):
+    honor_filemode: bool = True,
+    tree_encoding: str = "utf-8",
+    symlink_fn: Optional[Callable] = None,
+) -> os.stat_result:
     """Build a file or symlink on disk based on a Git object.
 
     Args:
@@ -1163,12 +1263,14 @@ def build_file_from_blob(
     contents = blob.as_raw_string()
     if stat.S_ISLNK(mode):
         if oldstat:
-            os.unlink(target_path)
+            _remove_file_with_readonly_handling(target_path)
         if sys.platform == "win32":
             # os.readlink on Python3 on Windows requires a unicode string.
-            contents = contents.decode(tree_encoding)  # type: ignore
-            target_path = target_path.decode(tree_encoding)  # type: ignore
-        (symlink_fn or symlink)(contents, target_path)
+            contents_str = contents.decode(tree_encoding)
+            target_path_str = target_path.decode(tree_encoding)
+            (symlink_fn or symlink)(contents_str, target_path_str)
+        else:
+            (symlink_fn or symlink)(contents, target_path)
     else:
         if oldstat is not None and oldstat.st_size == len(contents):
             with open(target_path, "rb") as f:
@@ -1201,7 +1303,10 @@ def validate_path_element_ntfs(element: bytes) -> bool:
     return True
 
 
-def validate_path(path: bytes, element_validator=validate_path_element_default) -> bool:
+def validate_path(
+    path: bytes,
+    element_validator: Callable[[bytes], bool] = validate_path_element_default,
+) -> bool:
     """Default path validator that just checks for .git/."""
     parts = path.split(b"/")
     for p in parts:
@@ -1217,8 +1322,9 @@ def build_index_from_tree(
     object_store: ObjectContainer,
     tree_id: bytes,
     honor_filemode: bool = True,
-    validate_path_element=validate_path_element_default,
-    symlink_fn=None,
+    validate_path_element: Callable[[bytes], bool] = validate_path_element_default,
+    symlink_fn: Optional[Callable] = None,
+    blob_normalizer: Optional["BlobNormalizer"] = None,
 ) -> None:
     """Generate and materialize index from a tree.
 
@@ -1231,6 +1337,8 @@ def build_index_from_tree(
         config file, default is core.filemode=True, change executable bit
       validate_path_element: Function to validate path elements to check
         out; default just refuses .git and .. directories.
+      blob_normalizer: An optional BlobNormalizer to use for converting line
+        endings when writing blobs to the working directory.
 
     Note: existing index is wiped and contents are not merged
         in a working dir. Suitable only for fresh clones.
@@ -1256,6 +1364,9 @@ def build_index_from_tree(
         else:
             obj = object_store[entry.sha]
             assert isinstance(obj, Blob)
+            # Apply blob normalization for checkout if normalizer is provided
+            if blob_normalizer is not None:
+                obj = blob_normalizer.checkout_normalize(obj, entry.path)
             st = build_file_from_blob(
                 obj,
                 entry.mode,
@@ -1289,7 +1400,9 @@ def build_index_from_tree(
     index.write()
 
 
-def blob_from_path_and_mode(fs_path: bytes, mode: int, tree_encoding="utf-8"):
+def blob_from_path_and_mode(
+    fs_path: bytes, mode: int, tree_encoding: str = "utf-8"
+) -> Blob:
     """Create a blob from a path and a stat object.
 
     Args:
@@ -1311,7 +1424,9 @@ def blob_from_path_and_mode(fs_path: bytes, mode: int, tree_encoding="utf-8"):
     return blob
 
 
-def blob_from_path_and_stat(fs_path: bytes, st, tree_encoding="utf-8"):
+def blob_from_path_and_stat(
+    fs_path: bytes, st: os.stat_result, tree_encoding: str = "utf-8"
+) -> Blob:
     """Create a blob from a path and a stat object.
 
     Args:
@@ -1346,7 +1461,7 @@ def read_submodule_head(path: Union[str, bytes]) -> Optional[bytes]:
         return None
 
 
-def _has_directory_changed(tree_path: bytes, entry) -> bool:
+def _has_directory_changed(tree_path: bytes, entry: IndexEntry) -> bool:
     """Check if a directory has changed after getting an error.
 
     When handling an error trying to create a blob from a path, call this
@@ -1371,15 +1486,273 @@ def _has_directory_changed(tree_path: bytes, entry) -> bool:
     return False
 
 
-def update_working_tree(
-    repo,
-    old_tree_id,
-    new_tree_id,
-    honor_filemode=True,
-    validate_path_element=None,
-    symlink_fn=None,
-    force_remove_untracked=False,
+os_sep_bytes = os.sep.encode("ascii")
+
+
+def _ensure_parent_dir_exists(full_path: bytes) -> None:
+    """Ensure parent directory exists, checking no parent is a file."""
+    parent_dir = os.path.dirname(full_path)
+    if parent_dir and not os.path.exists(parent_dir):
+        # Check if any parent in the path is a file
+        parts = parent_dir.split(os_sep_bytes)
+        for i in range(len(parts)):
+            partial_path = os_sep_bytes.join(parts[: i + 1])
+            if (
+                partial_path
+                and os.path.exists(partial_path)
+                and not os.path.isdir(partial_path)
+            ):
+                # Parent path is a file, this is an error
+                raise OSError(
+                    f"Cannot create directory, parent path is a file: {partial_path!r}"
+                )
+        os.makedirs(parent_dir)
+
+
+def _remove_file_with_readonly_handling(path: bytes) -> None:
+    """Remove a file, handling read-only files on Windows.
+
+    Args:
+      path: Path to the file to remove
+    """
+    try:
+        os.unlink(path)
+    except PermissionError:
+        # On Windows, remove read-only attribute and retry
+        if sys.platform == "win32":
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+            os.unlink(path)
+        else:
+            raise
+
+
+def _remove_empty_parents(path: bytes, stop_at: bytes) -> None:
+    """Remove empty parent directories up to stop_at."""
+    parent = os.path.dirname(path)
+    while parent and parent != stop_at:
+        try:
+            os.rmdir(parent)
+            parent = os.path.dirname(parent)
+        except FileNotFoundError:
+            # Directory doesn't exist - stop trying
+            break
+        except OSError as e:
+            if e.errno == errno.ENOTEMPTY:
+                # Directory not empty - stop trying
+                break
+            raise
+
+
+def _check_symlink_matches(
+    full_path: bytes, repo_object_store, entry_sha: bytes
+) -> bool:
+    """Check if symlink target matches expected target.
+
+    Returns True if symlink needs to be written, False if it matches.
+    """
+    try:
+        current_target = os.readlink(full_path)
+        blob_obj = repo_object_store[entry_sha]
+        expected_target = blob_obj.as_raw_string()
+        if isinstance(current_target, str):
+            current_target = current_target.encode()
+        return current_target != expected_target
+    except FileNotFoundError:
+        # Symlink doesn't exist
+        return True
+    except OSError as e:
+        if e.errno == errno.EINVAL:
+            # Not a symlink
+            return True
+        raise
+
+
+def _check_file_matches(
+    repo_object_store,
+    full_path: bytes,
+    entry_sha: bytes,
+    entry_mode: int,
+    current_stat: os.stat_result,
+    honor_filemode: bool,
+    blob_normalizer: Optional["BlobNormalizer"] = None,
+    tree_path: Optional[bytes] = None,
+) -> bool:
+    """Check if a file on disk matches the expected git object.
+
+    Returns True if file needs to be written, False if it matches.
+    """
+    # Check mode first (if honor_filemode is True)
+    if honor_filemode:
+        current_mode = stat.S_IMODE(current_stat.st_mode)
+        expected_mode = stat.S_IMODE(entry_mode)
+        if current_mode != expected_mode:
+            return True
+
+    # If mode matches (or we don't care), check content via size first
+    blob_obj = repo_object_store[entry_sha]
+    if current_stat.st_size != blob_obj.raw_length():
+        return True
+
+    # Size matches, check actual content
+    try:
+        with open(full_path, "rb") as f:
+            current_content = f.read()
+            expected_content = blob_obj.as_raw_string()
+            if blob_normalizer and tree_path is not None:
+                normalized_blob = blob_normalizer.checkout_normalize(
+                    blob_obj, tree_path
+                )
+                expected_content = normalized_blob.as_raw_string()
+            return current_content != expected_content
+    except (FileNotFoundError, PermissionError, IsADirectoryError):
+        return True
+
+
+def _transition_to_submodule(repo, path, full_path, current_stat, entry, index):
+    """Transition any type to submodule."""
+    from .submodule import ensure_submodule_placeholder
+
+    if current_stat is not None and stat.S_ISDIR(current_stat.st_mode):
+        # Already a directory, just ensure .git file exists
+        ensure_submodule_placeholder(repo, path)
+    else:
+        # Remove whatever is there and create submodule
+        if current_stat is not None:
+            _remove_file_with_readonly_handling(full_path)
+        ensure_submodule_placeholder(repo, path)
+
+    st = os.lstat(full_path)
+    index[path] = index_entry_from_stat(st, entry.sha)
+
+
+def _transition_to_file(
+    object_store,
+    path,
+    full_path,
+    current_stat,
+    entry,
+    index,
+    honor_filemode,
+    symlink_fn,
+    blob_normalizer,
 ):
+    """Transition any type to regular file or symlink."""
+    # Check if we need to update
+    if (
+        current_stat is not None
+        and stat.S_ISREG(current_stat.st_mode)
+        and not stat.S_ISLNK(entry.mode)
+    ):
+        # File to file - check if update needed
+        needs_update = _check_file_matches(
+            object_store,
+            full_path,
+            entry.sha,
+            entry.mode,
+            current_stat,
+            honor_filemode,
+            blob_normalizer,
+            path,
+        )
+    elif (
+        current_stat is not None
+        and stat.S_ISLNK(current_stat.st_mode)
+        and stat.S_ISLNK(entry.mode)
+    ):
+        # Symlink to symlink - check if update needed
+        needs_update = _check_symlink_matches(full_path, object_store, entry.sha)
+    else:
+        needs_update = True
+
+    if not needs_update:
+        # Just update index - current_stat should always be valid here since we're not updating
+        index[path] = index_entry_from_stat(current_stat, entry.sha)
+        return
+
+    # Remove existing entry if needed
+    if current_stat is not None and stat.S_ISDIR(current_stat.st_mode):
+        # Remove directory
+        dir_contents = set(os.listdir(full_path))
+        git_file_name = b".git" if isinstance(full_path, bytes) else ".git"
+
+        if git_file_name in dir_contents:
+            if dir_contents != {git_file_name}:
+                raise IsADirectoryError(
+                    f"Cannot replace submodule with untracked files: {full_path!r}"
+                )
+            shutil.rmtree(full_path)
+        else:
+            try:
+                os.rmdir(full_path)
+            except OSError as e:
+                if e.errno == errno.ENOTEMPTY:
+                    raise IsADirectoryError(
+                        f"Cannot replace non-empty directory with file: {full_path!r}"
+                    )
+                raise
+    elif current_stat is not None:
+        _remove_file_with_readonly_handling(full_path)
+
+    # Ensure parent directory exists
+    _ensure_parent_dir_exists(full_path)
+
+    # Write the file
+    blob_obj = object_store[entry.sha]
+    assert isinstance(blob_obj, Blob)
+    if blob_normalizer:
+        blob_obj = blob_normalizer.checkout_normalize(blob_obj, path)
+    st = build_file_from_blob(
+        blob_obj,
+        entry.mode,
+        full_path,
+        honor_filemode=honor_filemode,
+        symlink_fn=symlink_fn,
+    )
+    index[path] = index_entry_from_stat(st, entry.sha)
+
+
+def _transition_to_absent(repo, path, full_path, current_stat, index):
+    """Remove any type of entry."""
+    if current_stat is None:
+        return
+
+    if stat.S_ISDIR(current_stat.st_mode):
+        # Check if it's a submodule directory
+        dir_contents = set(os.listdir(full_path))
+        git_file_name = b".git" if isinstance(full_path, bytes) else ".git"
+
+        if git_file_name in dir_contents and dir_contents == {git_file_name}:
+            shutil.rmtree(full_path)
+        else:
+            try:
+                os.rmdir(full_path)
+            except OSError as e:
+                if e.errno not in (errno.ENOTEMPTY, errno.EEXIST):
+                    raise
+    else:
+        _remove_file_with_readonly_handling(full_path)
+
+    try:
+        del index[path]
+    except KeyError:
+        pass
+
+    # Try to remove empty parent directories
+    _remove_empty_parents(
+        full_path, repo.path if isinstance(repo.path, bytes) else repo.path.encode()
+    )
+
+
+def update_working_tree(
+    repo: "Repo",
+    old_tree_id: Optional[bytes],
+    new_tree_id: bytes,
+    honor_filemode: bool = True,
+    validate_path_element: Optional[Callable[[bytes], bool]] = None,
+    symlink_fn: Optional[Callable] = None,
+    force_remove_untracked: bool = False,
+    blob_normalizer: Optional["BlobNormalizer"] = None,
+) -> None:
     """Update the working tree and index to match a new tree.
 
     This function handles:
@@ -1397,134 +1770,173 @@ def update_working_tree(
       symlink_fn: Function to use for creating symlinks
       force_remove_untracked: If True, remove files that exist in working
         directory but not in target tree, even if old_tree_id is None
+      blob_normalizer: An optional BlobNormalizer to use for converting line
+        endings when writing blobs to the working directory.
     """
-    import os
-
-    # Set default validate_path_element if not provided
     if validate_path_element is None:
         validate_path_element = validate_path_element_default
 
-    # Get the trees
-    old_tree = repo[old_tree_id] if old_tree_id else None
-    repo[new_tree_id]
-
-    # Open the index
+    repo_path = repo.path if isinstance(repo.path, bytes) else repo.path.encode()
     index = repo.open_index()
 
-    # Track which paths we've dealt with
-    handled_paths = set()
-
-    # Get repo path as string for comparisons
-    repo_path_str = repo.path if isinstance(repo.path, str) else repo.path.decode()
-
-    # First, update/add all files in the new tree
+    # Build sets of paths for efficient lookup
+    new_paths = {}
     for entry in iter_tree_contents(repo.object_store, new_tree_id):
-        handled_paths.add(entry.path)
-
-        # Skip .git directory
-        if entry.path.startswith(b".git"):
+        if entry.path.startswith(b".git") or not validate_path(
+            entry.path, validate_path_element
+        ):
             continue
+        new_paths[entry.path] = entry
 
-        # Validate path element
-        if not validate_path(entry.path, validate_path_element):
-            continue
-
-        # Build full path
-        full_path = os.path.join(repo_path_str, entry.path.decode())
-
-        # Get the blob
-        blob = repo.object_store[entry.sha]
-
-        # Ensure parent directory exists
-        parent_dir = os.path.dirname(full_path)
-        if parent_dir and not os.path.exists(parent_dir):
-            os.makedirs(parent_dir)
-
-        # Write the file
-        st = build_file_from_blob(
-            blob,
-            entry.mode,
-            full_path.encode(),
-            honor_filemode=honor_filemode,
-            symlink_fn=symlink_fn,
-        )
-
-        # Update index
-        index[entry.path] = index_entry_from_stat(st, entry.sha)
-
-    # Remove files that existed in old tree but not in new tree
-    if old_tree:
+    old_paths = {}
+    if old_tree_id:
         for entry in iter_tree_contents(repo.object_store, old_tree_id):
-            if entry.path not in handled_paths:
-                # Skip .git directory
-                if entry.path.startswith(b".git"):
-                    continue
+            if not entry.path.startswith(b".git"):
+                old_paths[entry.path] = entry
 
-                # File was deleted
-                full_path = os.path.join(repo_path_str, entry.path.decode())
+    # Process all paths
+    all_paths = set(new_paths.keys()) | set(old_paths.keys())
 
-                # Remove from working tree
-                if os.path.exists(full_path):
-                    os.remove(full_path)
+    # Check for paths that need to become directories
+    paths_needing_dir = set()
+    for path in new_paths:
+        parts = path.split(b"/")
+        for i in range(1, len(parts)):
+            parent = b"/".join(parts[:i])
+            if parent in old_paths and parent not in new_paths:
+                paths_needing_dir.add(parent)
 
-                # Remove from index
-                if entry.path in index:
-                    del index[entry.path]
-
-                # Clean up empty directories
-                dir_path = os.path.dirname(full_path)
-                while (
-                    dir_path and dir_path != repo_path_str and os.path.exists(dir_path)
+    # Check if any path that needs to become a directory has been modified
+    current_stat: Optional[os.stat_result]
+    stat_cache: dict[bytes, Optional[os.stat_result]] = {}
+    for path in paths_needing_dir:
+        full_path = _tree_to_fs_path(repo_path, path)
+        try:
+            current_stat = os.lstat(full_path)
+        except FileNotFoundError:
+            # File doesn't exist, proceed
+            stat_cache[full_path] = None
+        except PermissionError:
+            # Can't read file, proceed
+            pass
+        else:
+            stat_cache[full_path] = current_stat
+            if stat.S_ISREG(current_stat.st_mode):
+                # Check if file has been modified
+                old_entry = old_paths[path]
+                if _check_file_matches(
+                    repo.object_store,
+                    full_path,
+                    old_entry.sha,
+                    old_entry.mode,
+                    current_stat,
+                    honor_filemode,
+                    blob_normalizer,
+                    path,
                 ):
-                    try:
-                        if not os.listdir(dir_path):
-                            os.rmdir(dir_path)
-                            dir_path = os.path.dirname(dir_path)
-                        else:
-                            break
-                    except OSError:
-                        break
+                    # File has been modified, can't replace with directory
+                    raise OSError(
+                        f"Cannot replace modified file with directory: {path!r}"
+                    )
 
-    # If force_remove_untracked is True, remove any files in working directory
-    # that are not in the target tree (useful for reset --hard)
+    # Process in two passes: deletions first, then additions/updates
+    # This handles case-only renames on case-insensitive filesystems correctly
+    paths_to_remove = []
+    paths_to_update = []
+
+    for path in sorted(all_paths):
+        if path in new_paths:
+            paths_to_update.append(path)
+        else:
+            paths_to_remove.append(path)
+
+    # First process removals
+    for path in paths_to_remove:
+        full_path = _tree_to_fs_path(repo_path, path)
+
+        # Determine current state - use cache if available
+        try:
+            current_stat = stat_cache[full_path]
+        except KeyError:
+            try:
+                current_stat = os.lstat(full_path)
+            except FileNotFoundError:
+                current_stat = None
+
+        _transition_to_absent(repo, path, full_path, current_stat, index)
+
+    # Then process additions/updates
+    for path in paths_to_update:
+        full_path = _tree_to_fs_path(repo_path, path)
+
+        # Determine current state - use cache if available
+        try:
+            current_stat = stat_cache[full_path]
+        except KeyError:
+            try:
+                current_stat = os.lstat(full_path)
+            except FileNotFoundError:
+                current_stat = None
+
+        new_entry = new_paths[path]
+
+        # Path should exist
+        if S_ISGITLINK(new_entry.mode):
+            _transition_to_submodule(
+                repo, path, full_path, current_stat, new_entry, index
+            )
+        else:
+            _transition_to_file(
+                repo.object_store,
+                path,
+                full_path,
+                current_stat,
+                new_entry,
+                index,
+                honor_filemode,
+                symlink_fn,
+                blob_normalizer,
+            )
+
+    # Handle force_remove_untracked
     if force_remove_untracked:
-        # Walk through all files in the working directory
-        for root, dirs, files in os.walk(repo_path_str):
-            # Skip .git directory
-            if ".git" in dirs:
-                dirs.remove(".git")
-
+        for root, dirs, files in os.walk(repo_path):
+            if b".git" in os.fsencode(root):
+                continue
+            root_bytes = os.fsencode(root)
             for file in files:
-                full_path = os.path.join(root, file)
-                # Get relative path from repo root
-                rel_path = os.path.relpath(full_path, repo_path_str)
-                rel_path_bytes = rel_path.encode()
+                full_path = os.path.join(root_bytes, os.fsencode(file))
+                tree_path = os.path.relpath(full_path, repo_path)
+                if os.sep != "/":
+                    tree_path = tree_path.replace(os.sep.encode(), b"/")
 
-                # If this file is not in the target tree, remove it
-                if rel_path_bytes not in handled_paths:
-                    os.remove(full_path)
-
-                    # Remove from index if present
-                    if rel_path_bytes in index:
-                        del index[rel_path_bytes]
+                if tree_path not in new_paths:
+                    _remove_file_with_readonly_handling(full_path)
+                    if tree_path in index:
+                        del index[tree_path]
 
         # Clean up empty directories
-        for root, dirs, files in os.walk(repo_path_str, topdown=False):
-            if ".git" in root:
-                continue
-            if root != repo_path_str and not files and not dirs:
+        for root, dirs, files in os.walk(repo_path, topdown=False):
+            root_bytes = os.fsencode(root)
+            if (
+                b".git" not in root_bytes
+                and root_bytes != repo_path
+                and not files
+                and not dirs
+            ):
                 try:
                     os.rmdir(root)
                 except OSError:
                     pass
 
-    # Write the updated index
     index.write()
 
 
 def get_unstaged_changes(
-    index: Index, root_path: Union[str, bytes], filter_blob_callback=None
-):
+    index: Index,
+    root_path: Union[str, bytes],
+    filter_blob_callback: Optional[Callable] = None,
+) -> Generator[bytes, None, None]:
     """Walk through an index and check for differences against working tree.
 
     Args:
@@ -1566,10 +1978,7 @@ def get_unstaged_changes(
                 yield tree_path
 
 
-os_sep_bytes = os.sep.encode("ascii")
-
-
-def _tree_to_fs_path(root_path: bytes, tree_path: bytes):
+def _tree_to_fs_path(root_path: bytes, tree_path: bytes) -> bytes:
     """Convert a git tree path to a file system path.
 
     Args:
@@ -1605,7 +2014,7 @@ def _fs_to_tree_path(fs_path: Union[str, bytes]) -> bytes:
     return tree_path
 
 
-def index_entry_from_directory(st, path: bytes) -> Optional[IndexEntry]:
+def index_entry_from_directory(st: os.stat_result, path: bytes) -> Optional[IndexEntry]:
     if os.path.exists(os.path.join(path, b".git")):
         head = read_submodule_head(path)
         if head is None:
@@ -1666,7 +2075,10 @@ def iter_fresh_entries(
 
 
 def iter_fresh_objects(
-    paths: Iterable[bytes], root_path: bytes, include_deleted=False, object_store=None
+    paths: Iterable[bytes],
+    root_path: bytes,
+    include_deleted: bool = False,
+    object_store: Optional[ObjectContainer] = None,
 ) -> Iterator[tuple[bytes, Optional[bytes], Optional[int]]]:
     """Iterate over versions of objects on disk referenced by index.
 
@@ -1705,21 +2117,30 @@ class locked_index:
     Works as a context manager.
     """
 
+    _file: "_GitFile"
+
     def __init__(self, path: Union[bytes, str]) -> None:
         self._path = path
 
-    def __enter__(self):
+    def __enter__(self) -> Index:
         self._file = GitFile(self._path, "wb")
         self._index = Index(self._path)
         return self._index
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_value: Optional[BaseException],
+        traceback: Optional[types.TracebackType],
+    ) -> None:
         if exc_type is not None:
             self._file.abort()
             return
         try:
-            f = SHA1Writer(self._file)
-            write_index_dict(f, self._index._byname)
+            from typing import BinaryIO, cast
+
+            f = SHA1Writer(cast(BinaryIO, self._file))
+            write_index_dict(cast(BinaryIO, f), self._index._byname)
         except BaseException:
             self._file.abort()
         else:

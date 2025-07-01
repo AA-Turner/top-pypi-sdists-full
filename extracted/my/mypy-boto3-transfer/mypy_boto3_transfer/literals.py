@@ -40,6 +40,7 @@ __all__ = (
     "ExecutionStatusType",
     "HomeDirectoryTypeType",
     "IdentityProviderTypeType",
+    "IpAddressTypeType",
     "ListAccessesPaginatorName",
     "ListAgreementsPaginatorName",
     "ListCertificatesPaginatorName",
@@ -110,6 +111,7 @@ HomeDirectoryTypeType = Literal["LOGICAL", "PATH"]
 IdentityProviderTypeType = Literal[
     "API_GATEWAY", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "SERVICE_MANAGED"
 ]
+IpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 ListAccessesPaginatorName = Literal["list_accesses"]
 ListAgreementsPaginatorName = Literal["list_agreements"]
 ListCertificatesPaginatorName = Literal["list_certificates"]
@@ -151,6 +153,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -291,6 +294,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -348,6 +352,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -403,6 +408,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -443,7 +449,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -504,7 +509,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -512,6 +516,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",
@@ -548,6 +553,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

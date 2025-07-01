@@ -6,19 +6,21 @@
  */
 
 use dupe::Dupe;
+use pyrefly_python::dunder;
+use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 use vec1::vec1;
 
-use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
-use crate::dunder;
+use crate::alt::expr::TypeOrExpr;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::kind::ErrorKind;
@@ -31,6 +33,7 @@ use crate::types::callable::FunctionKind;
 use crate::types::callable::Params;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
+use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
@@ -84,7 +87,22 @@ enum Target {
     FunctionOverload(Vec1<Callable>, FuncMetadata),
     /// An overloaded method.
     BoundMethodOverload(Type, Vec1<Callable>, FuncMetadata),
+    /// A union of call targets.
+    Union(Vec<Target>),
+    /// Any, as a call target.
     Any(AnyStyle),
+}
+
+impl Target {
+    fn function_metadata(&self) -> Option<&FuncMetadata> {
+        match self {
+            Self::Function(func) | Self::BoundMethod(_, func) => Some(&func.metadata),
+            Self::FunctionOverload(_, metadata) | Self::BoundMethodOverload(_, _, metadata) => {
+                Some(metadata)
+            }
+            _ => None,
+        }
+    }
 }
 
 struct CalledOverload {
@@ -169,6 +187,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(cls)) | Type::Type(box Type::SelfType(cls)) => {
                 Some(CallTarget::new(Target::Class(cls)))
             }
+            Type::Type(box Type::Tuple(Tuple::Unbounded(element))) => {
+                Some(CallTarget::new(Target::Class(self.stdlib.tuple(*element))))
+            }
+            Type::Type(box Type::Tuple(Tuple::Concrete(elements))) => {
+                Some(CallTarget::new(Target::Class(if elements.is_empty() {
+                    self.stdlib.tuple(Type::Any(AnyStyle::Implicit))
+                } else {
+                    self.stdlib.tuple(self.unions(elements))
+                })))
+            }
+            Type::Type(box Type::Tuple(Tuple::Unpacked(box (
+                prefix,
+                Type::Tuple(Tuple::Unbounded(middle)),
+                suffix,
+            )))) => {
+                let mut elements = prefix;
+                elements.push(*middle);
+                elements.extend(suffix);
+                Some(CallTarget::new(Target::Class(
+                    self.stdlib.tuple(self.unions(elements)),
+                )))
+            }
             Type::Type(box Type::Quantified(quantified)) => {
                 Some(CallTarget::new(Target::Callable(Callable {
                     // TODO: use upper bound to determine input parameters
@@ -196,7 +236,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if res.len() == 1 {
                     Some(res.into_iter().next().unwrap())
                 } else {
-                    None
+                    let (qs, ts): (Vec<Vec<Var>>, Vec<Target>) =
+                        res.into_iter().map(|x| (x.qs, x.target)).unzip();
+                    let qs = qs.into_iter().flatten().collect();
+                    Some(CallTarget::forall(qs, Target::Union(ts)))
                 }
             }
             Type::Any(style) => Some(CallTarget::new(Target::Any(style))),
@@ -214,6 +257,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: handle constraints
                 Restriction::Constraints(_) | Restriction::Unrestricted => None,
             },
+            Type::DataclassTransformDecorator(dec) => self.as_call_target((*dec).1),
             _ => None,
         }
     }
@@ -500,7 +544,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<Type>,
     ) -> Type {
-        let is_dataclass = matches!(&call_target.target, Target::FunctionOverload(_, meta) if matches!(meta.kind, FunctionKind::Dataclass(_)));
+        let kind = call_target.target.function_metadata().map(|m| &m.kind);
+        let mut is_dataclass = false;
+        let mut is_dataclass_transform = false;
+        match kind {
+            Some(FunctionKind::Dataclass(_)) => is_dataclass = true,
+            Some(FunctionKind::DataclassTransform) => is_dataclass_transform = true,
+            _ => {}
+        }
         let res = match call_target.target {
             Target::Class(cls) => {
                 if let Some(hint) = hint {
@@ -610,6 +661,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 context,
             ),
+            Target::Union(targets) => {
+                let call = CallWithTypes::new();
+                self.unions(targets.into_map(|t| {
+                    self.call_infer(
+                        CallTarget::new(t),
+                        &call.vec_call_arg(args, self, errors),
+                        &call.vec_call_keyword(keywords, self, errors),
+                        range,
+                        errors,
+                        context,
+                        None,
+                    )
+                }))
+            }
             Target::Any(style) => {
                 // Make sure we still catch errors in the arguments.
                 for arg in args {
@@ -638,6 +703,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     flags: FuncFlags::default(),
                 },
             }))
+        } else if is_dataclass_transform {
+            // TODO(rechen): store the keyword arguments.
+            Type::DataclassTransformDecorator(Box::new((BoolKeywords::new(), res)))
         } else {
             res
         }
@@ -660,7 +728,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Therefore, flatten all TypeOrExpr's into Type before we start
         let call = CallWithTypes::new();
         let self_arg = call.opt_call_arg(self_arg.as_ref(), self, errors);
-        let args = call.vec_call_arg(args, self, errors);
+        let method_name = metadata.kind.as_func_id().func;
+        // If this is an TypedDict "update" method, then preserve argument expressions so we can
+        // contextually type them using the parameter types.
+        // Specifically, skipping vec_call_arg in the `update` case means we will not turn expressions into types here
+        // We will instead turn them into types as we evaluate them against the type hints that we synthesized for the update method.
+
+        let args = if let Some(CallArg::Arg(TypeOrExpr::Type(Type::TypedDict(_), _))) = &self_arg
+            && method_name == "update"
+        {
+            args
+        } else {
+            &call.vec_call_arg(args, self, errors)
+        };
         let keywords = call.vec_call_keyword(keywords, self, errors);
 
         let mut closest_overload: Option<CalledOverload> = None;
@@ -671,7 +751,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 callable.clone(),
                 Some(metadata.kind.as_func_id()),
                 self_arg.clone(),
-                &args,
+                args,
                 &keywords,
                 range,
                 &arg_errors,
@@ -850,7 +930,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.call_infer(call_target, &args, &[], range, errors, context, None)
     }
 
-    pub fn call_getattr(
+    pub fn call_getattr_or_delattr(
         &self,
         getattr_ty: Type,
         attr_name: Name,
@@ -864,6 +944,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.call_infer(
             call_target,
             &[CallArg::ty(&attr_name_ty, range)],
+            &[],
+            range,
+            errors,
+            context,
+            None,
+        )
+    }
+
+    pub fn call_setattr(
+        &self,
+        setattr_ty: Type,
+        arg: CallArg,
+        attr_name: Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> Type {
+        let call_target =
+            self.as_call_target_or_error(setattr_ty, CallStyle::FreeForm, range, errors, context);
+        let attr_name_ty = Type::Literal(Lit::Str(attr_name.as_str().into()));
+        self.call_infer(
+            call_target,
+            &[CallArg::ty(&attr_name_ty, range), arg],
             &[],
             range,
             errors,

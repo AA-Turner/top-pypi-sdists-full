@@ -8,23 +8,21 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
-use pyrefly_util::prelude::SliceExt;
-use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 
-use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
+use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
-use crate::binding::binding::KeyLegacyTypeParam;
+use crate::binding::binding::KeyClassMro;
 use crate::error::collector::ErrorCollector;
-use crate::graph::index::Idx;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
@@ -58,23 +56,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         def_index: ClassDefIndex,
         x: &StmtClassDef,
         fields: SmallMap<Name, ClassFieldProperties>,
-        bases: &[Expr],
-        legacy_tparams: &[Idx<KeyLegacyTypeParam>],
+        tparams_require_binding: bool,
         errors: &ErrorCollector,
     ) -> Class {
-        let scoped_tparams = self.scoped_type_params(x.type_params.as_deref(), errors);
-        let bases = bases.map(|x| self.base_class_of(x, errors));
         let name = &x.name;
-        let class_tparams =
-            self.compute_tparams(name, scoped_tparams, bases, legacy_tparams, errors);
-
-        let tparams = self.type_params(name.range, class_tparams, errors);
-
+        let precomputed_tparams = if tparams_require_binding {
+            None
+        } else {
+            Some(self.calculate_class_tparams_no_legacy(name, x.type_params.as_deref(), errors))
+        };
         Class::new(
             def_index,
             x.name.clone(),
             self.module_info().dupe(),
-            tparams,
+            precomputed_tparams,
             fields,
         )
     }
@@ -89,13 +84,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             def_index,
             name.clone(),
             self.module_info().dupe(),
-            Arc::new(TParams::default()),
+            Some(Arc::new(TParams::default())),
             fields.clone(),
         )
     }
 
     pub fn get_metadata_for_class(&self, cls: &Class) -> Arc<ClassMetadata> {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
+    }
+
+    pub fn get_mro_for_class(&self, cls: &Class) -> Arc<ClassMro> {
+        self.get_from_class(cls, &KeyClassMro(cls.index()))
     }
 
     pub fn get_class_field_map(&self, cls: &Class) -> SmallMap<String, Arc<ClassField>> {
@@ -137,7 +136,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Get an ancestor `ClassType`, in terms of the type parameters of `class`.
     fn get_ancestor(&self, class: &Class, want: &Class) -> Option<ClassType> {
-        self.get_metadata_for_class(class)
+        self.get_mro_for_class(class)
             .ancestors(self.stdlib)
             .find(|ancestor| ancestor.class_object() == want)
             .cloned()

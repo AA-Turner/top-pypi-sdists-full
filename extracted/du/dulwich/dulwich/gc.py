@@ -1,13 +1,26 @@
 """Git garbage collection implementation."""
 
 import collections
+import os
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from dulwich.object_store import BaseObjectStore, PackBasedObjectStore
+from dulwich.object_store import (
+    BaseObjectStore,
+    DiskObjectStore,
+    PackBasedObjectStore,
+)
 from dulwich.objects import Commit, ObjectID, Tag, Tree
 from dulwich.refs import RefsContainer
+
+if TYPE_CHECKING:
+    from .config import Config
+    from .repo import BaseRepo
+
+
+DEFAULT_GC_AUTO = 6700
+DEFAULT_GC_AUTO_PACK_LIMIT = 50
 
 
 @dataclass
@@ -156,8 +169,8 @@ def prune_unreachable_objects(
 
             # Check grace period
             if grace_period is not None:
-                mtime = object_store.get_object_mtime(sha)
-                if mtime is not None:
+                try:
+                    mtime = object_store.get_object_mtime(sha)
                     age = time.time() - mtime
                     if age < grace_period:
                         if progress:
@@ -165,6 +178,9 @@ def prune_unreachable_objects(
                                 f"Keeping {sha.decode('ascii', 'replace')} (age: {age:.0f}s < grace period: {grace_period}s)"
                             )
                         continue
+                except KeyError:
+                    # Object not found, skip it
+                    continue
 
             if progress:
                 progress(f"Pruning {sha.decode('ascii', 'replace')}")
@@ -219,7 +235,7 @@ def garbage_collect(
 
     # Count initial state
     stats.packs_before = len(list(object_store.packs))
-    # TODO: Count loose objects when we have a method for it
+    stats.loose_objects_before = object_store.count_loose_objects()
 
     # Find unreachable objects to exclude from repacking
     unreachable_to_prune = set()
@@ -234,8 +250,8 @@ def garbage_collect(
         for sha in unreachable:
             try:
                 if grace_period is not None:
-                    mtime = object_store.get_object_mtime(sha)
-                    if mtime is not None:
+                    try:
+                        mtime = object_store.get_object_mtime(sha)
                         age = time.time() - mtime
                         if age < grace_period:
                             if progress:
@@ -243,6 +259,9 @@ def garbage_collect(
                                     f"Keeping {sha.decode('ascii', 'replace')} (age: {age:.0f}s < grace period: {grace_period}s)"
                                 )
                             continue
+                    except KeyError:
+                        # Object not found, skip it
+                        continue
 
                 unreachable_to_prune.add(sha)
                 obj = object_store[sha]
@@ -279,8 +298,131 @@ def garbage_collect(
             # Normal repack
             object_store.repack()
 
+    # Prune orphaned temporary files
+    if progress:
+        progress("Pruning temporary files")
+    if not dry_run:
+        object_store.prune(grace_period=grace_period)
+
     # Count final state
     stats.packs_after = len(list(object_store.packs))
-    # TODO: Count loose objects when we have a method for it
+    stats.loose_objects_after = object_store.count_loose_objects()
 
     return stats
+
+
+def should_run_gc(repo: "BaseRepo", config: Optional["Config"] = None) -> bool:
+    """Check if automatic garbage collection should run.
+
+    Args:
+        repo: Repository to check
+        config: Configuration to use (defaults to repo config)
+
+    Returns:
+        True if GC should run, False otherwise
+    """
+    if config is None:
+        config = repo.get_config()
+
+    # Check if auto GC is disabled
+    try:
+        gc_auto = config.get(b"gc", b"auto")
+        gc_auto_value = int(gc_auto)
+    except KeyError:
+        gc_auto_value = DEFAULT_GC_AUTO
+
+    if gc_auto_value == 0:
+        # Auto GC is disabled
+        return False
+
+    # Check loose object count
+    object_store = repo.object_store
+    if not isinstance(object_store, DiskObjectStore):
+        # Can't count loose objects on non-disk stores
+        return False
+
+    loose_count = object_store.count_loose_objects()
+    if loose_count >= gc_auto_value:
+        return True
+
+    # Check pack file count
+    try:
+        gc_auto_pack_limit = config.get(b"gc", b"autoPackLimit")
+        pack_limit = int(gc_auto_pack_limit)
+    except KeyError:
+        pack_limit = DEFAULT_GC_AUTO_PACK_LIMIT
+
+    if pack_limit > 0:
+        pack_count = object_store.count_pack_files()
+        if pack_count >= pack_limit:
+            return True
+
+    return False
+
+
+def maybe_auto_gc(repo: "BaseRepo", config: Optional["Config"] = None) -> bool:
+    """Run automatic garbage collection if needed.
+
+    Args:
+        repo: Repository to potentially GC
+        config: Configuration to use (defaults to repo config)
+
+    Returns:
+        True if GC was run, False otherwise
+    """
+    if not should_run_gc(repo, config):
+        return False
+
+    # Check for gc.log file - only for disk-based repos
+    if not hasattr(repo, "controldir"):
+        # For non-disk repos, just run GC without gc.log handling
+        garbage_collect(repo, auto=True)
+        return True
+
+    gc_log_path = os.path.join(repo.controldir(), "gc.log")
+    if os.path.exists(gc_log_path):
+        # Check gc.logExpiry
+        if config is None:
+            config = repo.get_config()
+        try:
+            log_expiry = config.get(b"gc", b"logExpiry")
+        except KeyError:
+            # Default to 1 day
+            expiry_seconds = 86400
+        else:
+            # Parse time value (simplified - just support days for now)
+            if log_expiry.endswith((b".days", b".day")):
+                days = int(log_expiry.split(b".")[0])
+                expiry_seconds = days * 86400
+            else:
+                # Default to 1 day
+                expiry_seconds = 86400
+
+        stat_info = os.stat(gc_log_path)
+        if time.time() - stat_info.st_mtime < expiry_seconds:
+            # gc.log exists and is not expired - skip GC
+            with open(gc_log_path, "rb") as f:
+                print(f.read().decode("utf-8", errors="replace"))
+            return False
+
+    # TODO: Support gc.autoDetach to run in background
+    # For now, run in foreground
+
+    try:
+        # Run GC with auto=True flag
+        garbage_collect(repo, auto=True)
+
+        # Remove gc.log on successful completion
+        if os.path.exists(gc_log_path):
+            try:
+                os.unlink(gc_log_path)
+            except FileNotFoundError:
+                pass
+
+        return True
+    except OSError as e:
+        # Write error to gc.log
+        with open(gc_log_path, "wb") as f:
+            f.write(f"Auto GC failed: {e}\n".encode())
+        # Don't propagate the error - auto GC failures shouldn't break operations
+        return False

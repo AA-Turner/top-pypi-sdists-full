@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire
-Version: 3.21.1
+Version: 3.21.2
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://logfire.pydantic.dev/
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -191,3 +191,9 @@ We'd love anyone interested to contribute to the Logfire SDK and documentation, 
 ## Reporting a Security Vulnerability
 
 See our [security policy](https://github.com/pydantic/logfire/security).
+
+## Logfire Open-Source and Closed-Source Boundaries
+
+The Logfire SDKs (we also have them for [TypeScript](https://github.com/pydantic/logfire-js) and [Rust](https://github.com/pydantic/logfire-rust)) are open source, and you can use them to export data to [any OTel-compatible backend](https://logfire.pydantic.dev/docs/how-to-guides/alternative-backends/).
+
+The Logfire platform (the UI and backend) is closed source. You can self-host it by purchasing an [enterprise license](https://logfire.pydantic.dev/docs/enterprise/).

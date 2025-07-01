@@ -14,6 +14,10 @@ use std::sync::Arc;
 use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
+use pyrefly_python::ast::Ast;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::AnyParameterRef;
@@ -61,7 +65,6 @@ use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
 use crate::binding::table::TableKeyed;
-use crate::common::symbol_kind::SymbolKind;
 use crate::config::base::UntypedDefBehavior;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -73,12 +76,9 @@ use crate::graph::index::Idx;
 use crate::graph::index::Index;
 use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::module::short_identifier::ShortIdentifier;
-use crate::ruff::ast::Ast;
 use crate::solver::solver::Solver;
 use crate::state::loader::FindError;
-use crate::sys_info::SysInfo;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
@@ -628,7 +628,7 @@ impl<'a> BindingsBuilder<'a> {
                     let key = Key::Import(name.clone(), TextRange::default());
                     let idx = self
                         .table
-                        .insert(key, Binding::Import(builtins_module, name.clone()));
+                        .insert(key, Binding::Import(builtins_module, name.clone(), None));
                     self.bind_key(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
@@ -654,10 +654,8 @@ impl<'a> BindingsBuilder<'a> {
                     .as_special_export(&name.id, None, self.module_info.name())
             }
             Expr::Attribute(ExprAttribute {
-                value: box Expr::Name(base_name),
-                attr: name,
-                ..
-            }) => self.scopes.as_special_export(
+                value, attr: name, ..
+            }) if let Expr::Name(base_name) = &**value => self.scopes.as_special_export(
                 &name.id,
                 Some(&base_name.id),
                 self.module_info.name(),

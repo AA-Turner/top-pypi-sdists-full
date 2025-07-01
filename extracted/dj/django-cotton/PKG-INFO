@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-cotton
-Version: 2.1.2
+Version: 2.1.3
 Summary: Bringing component based design to Django templates.
 License: MIT
 Keywords: django,components,ui
@@ -54,6 +54,7 @@ Bringing component-based design to Django templates.
 [Limitations in Django that Cotton overcomes](#limitations-in-django-that-cotton-overcomes)  
 [Configuration](#configuration)  
 [Caching](#caching)  
+[Tools](#tools)  
 [Version support](#version-support)  
 [Changelog](#changelog)  
 [Comparison with other packages](#comparison-with-other-packages)  
@@ -67,7 +68,7 @@ Cotton aims to overcome [certain limitations](#limitations-in-django-that-cotton
 ## Key Features
 - **Modern UI Composition:** Efficiently compose and reuse UI components.
 - **Interoperable with Django:** Cotton only enhances django's existing template system (no Jinja needed).
-- **HTML-like Syntax:** Better code editor support and productivity as component tags are similar to html tags.
+- **HTML-like Syntax:** Native code editor syntax highlighting, code formatting and autoclosing ([VS Code plugin](#tools) for autocompletion).  
 - **Minimal Overhead:** Compiles to native Django components with dynamic caching.
 - **Encapsulates UI:** Keep layout, design and interaction in one file (especially when paired with Tailwind and Alpine.js)
 - **Compliments HTMX:** Create smart components, reducing repetition and enhancing maintainability.
@@ -589,10 +590,15 @@ Cotton is optimal when used with Django's cached.Loader. If you use <a href="htt
 
 <hr>
 
+## Tools
+
+- [Cotton VS Code plugin](https://marketplace.visualstudio.com/items?itemName=twentyforty.django-cotton) from [twentyforty](https://github.com/twentyforty)  
+- [Cotton Icons](https://github.com/wrabit/cotton-icons) - Heroicons and Tabler Icon sets for Cotton
+
 ## Version Support
 
-- Python >= 3.8
-- Django >4.2,<5.2
+- Python >=3.8,<4
+- Django >4.2,<5.3
 
 <hr>
 

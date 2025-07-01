@@ -1,7 +1,13 @@
-from langchain_core.runnables.config import RunnableConfig
+from __future__ import annotations
+
+import typing
+
 from langgraph.types import StateSnapshot
 
 from langgraph_api.schema import Checkpoint, ThreadState
+
+if typing.TYPE_CHECKING:
+    from langchain_core.runnables.config import RunnableConfig
 
 
 def runnable_config_to_checkpoint(

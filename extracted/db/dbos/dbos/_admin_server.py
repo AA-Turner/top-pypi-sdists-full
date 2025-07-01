@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict
 
 from dbos._workflow_commands import garbage_collect, global_timeout
 
+from ._conductor import protocol as conductor_protocol
 from ._context import SetWorkflowID
 from ._error import DBOSException
 from ._logger import dbos_logger
@@ -118,7 +119,12 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
                     self.send_response(404)
                     self._end_headers()
                     return
-                response_body = json.dumps(workflows[0].__dict__).encode("utf-8")
+                workflow_output = (
+                    conductor_protocol.WorkflowsOutput.from_workflow_information(
+                        workflows[0]
+                    )
+                )
+                response_body = json.dumps(workflow_output.__dict__).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(response_body)))
@@ -326,20 +332,24 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_workflows(self, filters: Dict[str, Any]) -> None:
         workflows = self.dbos.list_workflows(
-            workflow_ids=filters.get("workflow_ids"),
-            name=filters.get("name"),
+            workflow_ids=filters.get("workflow_uuids"),
+            user=filters.get("authenticated_user"),
             start_time=filters.get("start_time"),
             end_time=filters.get("end_time"),
             status=filters.get("status"),
             app_version=filters.get("application_version"),
+            name=filters.get("workflow_name"),
             limit=filters.get("limit"),
             offset=filters.get("offset"),
             sort_desc=filters.get("sort_desc", False),
             workflow_id_prefix=filters.get("workflow_id_prefix"),
         )
-
+        workflows_output = [
+            conductor_protocol.WorkflowsOutput.from_workflow_information(i)
+            for i in workflows
+        ]
         response_body = json.dumps(
-            [workflow.__dict__ for workflow in workflows]
+            [workflow.__dict__ for workflow in workflows_output]
         ).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -349,18 +359,21 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_queued_workflows(self, filters: Dict[str, Any]) -> None:
         workflows = self.dbos.list_queued_workflows(
-            queue_name=filters.get("queue_name"),
-            name=filters.get("name"),
             start_time=filters.get("start_time"),
             end_time=filters.get("end_time"),
             status=filters.get("status"),
+            name=filters.get("workflow_name"),
             limit=filters.get("limit"),
             offset=filters.get("offset"),
+            queue_name=filters.get("queue_name"),
             sort_desc=filters.get("sort_desc", False),
         )
-
+        workflows_output = [
+            conductor_protocol.WorkflowsOutput.from_workflow_information(i)
+            for i in workflows
+        ]
         response_body = json.dumps(
-            [workflow.__dict__ for workflow in workflows]
+            [workflow.__dict__ for workflow in workflows_output]
         ).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

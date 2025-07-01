@@ -11,22 +11,22 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_python::sys_info::SysInfo;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::common::symbol_kind::SymbolKind;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::definitions::DocString;
 use crate::export::definitions::DunderAllEntry;
 use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::state::loader::FindError;
-use crate::sys_info::SysInfo;
 
 /// Find the exports of a given module.
 pub trait LookupExport {
@@ -181,13 +181,13 @@ mod tests {
     use std::path::PathBuf;
 
     use anyhow::anyhow;
+    use pyrefly_python::ast::Ast;
     use starlark_map::small_map::SmallMap;
     use starlark_map::smallmap;
 
     use super::*;
     use crate::module::module_path::ModulePath;
     use crate::module::module_path::ModuleStyle;
-    use crate::ruff::ast::Ast;
 
     impl LookupExport for SmallMap<ModuleName, Exports> {
         fn get(&self, module: ModuleName) -> Result<Exports, FindError> {

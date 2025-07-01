@@ -19,12 +19,13 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, f
 from typing import Any, List, Optional
 from wandelbots_api_client.v2.models.initialize_jogging_request import InitializeJoggingRequest
 from wandelbots_api_client.v2.models.joint_velocity_request import JointVelocityRequest
+from wandelbots_api_client.v2.models.pause_jogging_request import PauseJoggingRequest
 from wandelbots_api_client.v2.models.tcp_velocity_request import TcpVelocityRequest
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-EXECUTEJOGGINGREQUEST_ONE_OF_SCHEMAS = ["InitializeJoggingRequest", "JointVelocityRequest", "TcpVelocityRequest"]
+EXECUTEJOGGINGREQUEST_ONE_OF_SCHEMAS = ["InitializeJoggingRequest", "JointVelocityRequest", "PauseJoggingRequest", "TcpVelocityRequest"]
 
 class ExecuteJoggingRequest(BaseModel):
     """
@@ -36,8 +37,10 @@ class ExecuteJoggingRequest(BaseModel):
     oneof_schema_2_validator: Optional[JointVelocityRequest] = None
     # data type: TcpVelocityRequest
     oneof_schema_3_validator: Optional[TcpVelocityRequest] = None
-    actual_instance: Optional[Union[InitializeJoggingRequest, JointVelocityRequest, TcpVelocityRequest]] = None
-    one_of_schemas: Set[str] = { "InitializeJoggingRequest", "JointVelocityRequest", "TcpVelocityRequest" }
+    # data type: PauseJoggingRequest
+    oneof_schema_4_validator: Optional[PauseJoggingRequest] = None
+    actual_instance: Optional[Union[InitializeJoggingRequest, JointVelocityRequest, PauseJoggingRequest, TcpVelocityRequest]] = None
+    one_of_schemas: Set[str] = { "InitializeJoggingRequest", "JointVelocityRequest", "PauseJoggingRequest", "TcpVelocityRequest" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -75,12 +78,17 @@ class ExecuteJoggingRequest(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `TcpVelocityRequest`")
         else:
             match += 1
+        # validate data type: PauseJoggingRequest
+        if not isinstance(v, PauseJoggingRequest):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `PauseJoggingRequest`")
+        else:
+            match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, PauseJoggingRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, PauseJoggingRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -113,13 +121,19 @@ class ExecuteJoggingRequest(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
+        # deserialize data into PauseJoggingRequest
+        try:
+            instance.actual_instance = PauseJoggingRequest.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, PauseJoggingRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ExecuteJoggingRequest with oneOf schemas: InitializeJoggingRequest, JointVelocityRequest, PauseJoggingRequest, TcpVelocityRequest. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -133,7 +147,7 @@ class ExecuteJoggingRequest(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], InitializeJoggingRequest, JointVelocityRequest, TcpVelocityRequest]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], InitializeJoggingRequest, JointVelocityRequest, PauseJoggingRequest, TcpVelocityRequest]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

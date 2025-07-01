@@ -1998,43 +1998,37 @@ OR individual keyword arguments. You cannot pass both."
             attribute. If `None`, the default return is the order of
             default project metric.
 
-            Allowed attributes to sort by are:
-
-            * ``metric``
-            * ``sample_pct``
+            Allowed attributes to sort by are ``metric`` and ``sample_pct``.
 
             If the sort attribute is preceded by a hyphen, models will be sorted in descending
             order, otherwise in ascending order.
 
-            Multiple sort attributes can be included as a comma-delimited string or in a list
-            e.g. order_by=`sample_pct,-metric` or order_by=[`sample_pct`, `-metric`]
+            Multiple sort attributes can be included as a comma-delimited string or in a list,
+            e.g., order_by=``sample_pct,-metric`` or order_by=[``sample_pct``, ``-metric``].
 
-            Using `metric` to sort by will result in models being sorted according to their
+            Using ``metric`` to sort by will result in models being sorted according to their
             validation score by how well they did according to the project metric.
-        search_params : dict, optional.
-            If not `None`, the returned models are filtered by lookup.
-            Currently you can query models by:
 
-            * ``name``
-            * ``sample_pct``
-            * ``is_starred``
+        search_params : dict, optional.
+            If not ``None``, the returned models are filtered by lookup.
+            Currently you can query models by ``name``, ``sample_pct`` and ``is_starred``.
 
         with_metric : Optional[str].
-            If not `None`, the returned models will only have scores for this
+            If not ``None``, the returned models will only have scores for this
             metric. Otherwise all the metrics are returned.
 
-        use_new_models_retrieval: bool, False by default
-            If true, new retrieval route is used, which supports filtering and returns fewer attributes per
+        use_new_models_retrieval: bool, default ``False``
+            If ``true``, new retrieval route is used, which supports filtering and returns fewer attributes per
             individual model. Following attributes are absent and could be retrieved from the blueprint level:
-            `monotonic_increasing_featurelist_id`, `monotonic_decreasing_featurelist_id`, `supports_composable_ml`
-            and `supports_monotonic_constraints`. Following attributes are absent and could be retrieved from
-            the individual model level: `has_empty_clusters`, `is_n_clusters_dynamically_determined`,
-            `prediction_threshold` and `prediction_threshold_read_only`. Attribute `n_clusters` in `Model` is
-            renamed to `number_of_clusters` in `GenericModel` and is returned for unsupervised clustering models.
+            ``monotonic_increasing_featurelist_id``, ``monotonic_decreasing_featurelist_id``, ``supports_composable_ml``
+            and ``supports_monotonic_constraints``. Following attributes are absent and could be retrieved from
+            the individual model level: ``has_empty_clusters``, ``is_n_clusters_dynamically_determined``,
+            ``prediction_threshold`` and ``prediction_threshold_read_only``. Attribute ``n_clusters`` in ``Model`` is
+            renamed to ``number_of_clusters`` in ``GenericModel`` and is returned for unsupervised clustering models.
 
         Returns
         -------
-        models : a list of Model or a list of GenericModel if `use_new_models_retrieval` is True.
+        models : a list of Model or a list of GenericModel if ``use_new_models_retrieval`` is ``True``.
             All models trained in the project.
 
         Raises

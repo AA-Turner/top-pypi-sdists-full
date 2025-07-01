@@ -49,8 +49,9 @@ if TYPE_CHECKING:
     # There are no circular imports here, but we try to defer imports as long
     # as possible to reduce start-up time for anything that doesn't need
     # these imports.
-    from .config import ConfigFile, StackedConfig
+    from .config import ConditionMatcher, ConfigFile, StackedConfig
     from .index import Index
+    from .notes import Notes
 
 from .errors import (
     CommitError,
@@ -78,6 +79,7 @@ from .object_store import (
     MissingObjectFinder,
     ObjectStoreGraphWalker,
     PackBasedObjectStore,
+    find_shallow,
     peel_sha,
 )
 from .objects import (
@@ -467,7 +469,9 @@ class BaseRepo:
         """
         raise NotImplementedError(self.open_index)
 
-    def fetch(self, target, determine_wants=None, progress=None, depth=None):
+    def fetch(
+        self, target, determine_wants=None, progress=None, depth: Optional[int] = None
+    ):
         """Fetch objects into another repository.
 
         Args:
@@ -494,8 +498,9 @@ class BaseRepo:
         determine_wants,
         graph_walker,
         progress,
+        *,
         get_tagged=None,
-        depth=None,
+        depth: Optional[int] = None,
     ):
         """Fetch the pack data required for a set of revisions.
 
@@ -513,8 +518,10 @@ class BaseRepo:
         Returns: count and iterator over pack data
         """
         missing_objects = self.find_missing_objects(
-            determine_wants, graph_walker, progress, get_tagged, depth=depth
+            determine_wants, graph_walker, progress, get_tagged=get_tagged, depth=depth
         )
+        if missing_objects is None:
+            return 0, iter([])
         remote_has = missing_objects.get_remote_has()
         object_ids = list(missing_objects)
         return len(object_ids), generate_unpacked_objects(
@@ -526,8 +533,9 @@ class BaseRepo:
         determine_wants,
         graph_walker,
         progress,
+        *,
         get_tagged=None,
-        depth=None,
+        depth: Optional[int] = None,
     ) -> Optional[MissingObjectFinder]:
         """Fetch the missing objects required for a set of revisions.
 
@@ -544,25 +552,31 @@ class BaseRepo:
           depth: Shallow fetch depth
         Returns: iterator over objects, with __len__ implemented
         """
-        if depth not in (None, 0):
-            raise NotImplementedError("depth not supported yet")
-
         refs = serialize_refs(self.object_store, self.get_refs())
 
         wants = determine_wants(refs)
         if not isinstance(wants, list):
             raise TypeError("determine_wants() did not return a list")
 
-        shallows: frozenset[ObjectID] = getattr(graph_walker, "shallow", frozenset())
-        unshallows: frozenset[ObjectID] = getattr(
-            graph_walker, "unshallow", frozenset()
-        )
+        current_shallow = set(getattr(graph_walker, "shallow", set()))
+
+        if depth not in (None, 0):
+            shallow, not_shallow = find_shallow(self.object_store, wants, depth)
+            # Only update if graph_walker has shallow attribute
+            if hasattr(graph_walker, "shallow"):
+                graph_walker.shallow.update(shallow - not_shallow)
+                new_shallow = graph_walker.shallow - current_shallow
+                unshallow = graph_walker.unshallow = not_shallow & current_shallow
+                if hasattr(graph_walker, "update_shallow"):
+                    graph_walker.update_shallow(new_shallow, unshallow)
+        else:
+            unshallow = getattr(graph_walker, "unshallow", frozenset())
 
         if wants == []:
             # TODO(dborowitz): find a way to short-circuit that doesn't change
             # this interface.
 
-            if shallows or unshallows:
+            if getattr(graph_walker, "shallow", set()) or unshallow:
                 # Do not send a pack in shallow short-circuit path
                 return None
 
@@ -585,12 +599,12 @@ class BaseRepo:
 
         # Deal with shallow requests separately because the haves do
         # not reflect what objects are missing
-        if shallows or unshallows:
+        if getattr(graph_walker, "shallow", set()) or unshallow:
             # TODO: filter the haves commits from iter_shas. the specific
             # commits aren't missing.
             haves = []
 
-        parents_provider = ParentsProvider(self.object_store, shallows=shallows)
+        parents_provider = ParentsProvider(self.object_store, shallows=current_shallow)
 
         def get_parents(commit):
             return parents_provider.get_parents(commit.id, commit)
@@ -599,7 +613,7 @@ class BaseRepo:
             self.object_store,
             haves=haves,
             wants=wants,
-            shallow=self.get_shallow(),
+            shallow=getattr(graph_walker, "shallow", set()),
             progress=progress,
             get_tagged=get_tagged,
             get_parents=get_parents,
@@ -648,7 +662,10 @@ class BaseRepo:
             ]
         parents_provider = ParentsProvider(self.object_store)
         return ObjectStoreGraphWalker(
-            heads, parents_provider.get_parents, shallow=self.get_shallow()
+            heads,
+            parents_provider.get_parents,
+            shallow=self.get_shallow(),
+            update_shallow=self.update_shallow,
         )
 
     def get_refs(self) -> dict[bytes, bytes]:
@@ -804,7 +821,18 @@ class BaseRepo:
             return cached
         return peel_sha(self.object_store, self.refs[ref])[1].id
 
-    def get_walker(self, include: Optional[list[bytes]] = None, *args, **kwargs):
+    @property
+    def notes(self) -> "Notes":
+        """Access notes functionality for this repository.
+
+        Returns:
+            Notes object for accessing notes
+        """
+        from .notes import Notes
+
+        return Notes(self.object_store, self.refs)
+
+    def get_walker(self, include: Optional[list[bytes]] = None, **kwargs):
         """Obtain a walker for this repository.
 
         Args:
@@ -840,7 +868,7 @@ class BaseRepo:
 
         kwargs["get_parents"] = lambda commit: self.get_parents(commit.id, commit)
 
-        return Walker(self.object_store, include, *args, **kwargs)
+        return Walker(self.object_store, include, **kwargs)
 
     def __getitem__(self, name: Union[ObjectID, Ref]):
         """Retrieve a Git object by SHA1 or ref.
@@ -1103,6 +1131,11 @@ class BaseRepo:
         except KeyError:  # no hook defined, silent fallthrough
             pass
 
+        # Trigger auto GC if needed
+        from .gc import maybe_auto_gc
+
+        maybe_auto_gc(self)
+
         return c.id
 
 
@@ -1208,6 +1241,12 @@ class Repo(BaseRepo):
         else:
             self._commondir = self._controldir
         self.path = root
+
+        # Initialize refs early so they're available for config condition matchers
+        self.refs = DiskRefsContainer(
+            self.commondir(), self._controldir, logger=self._write_reflog
+        )
+
         config = self.get_config()
         try:
             repository_format_version = config.get("core", "repositoryformatversion")
@@ -1230,10 +1269,7 @@ class Repo(BaseRepo):
             object_store = DiskObjectStore.from_config(
                 os.path.join(self.commondir(), OBJECTDIR), config
             )
-        refs = DiskRefsContainer(
-            self.commondir(), self._controldir, logger=self._write_reflog
-        )
-        BaseRepo.__init__(self, object_store, refs)
+        BaseRepo.__init__(self, object_store, self.refs)
 
         self._graftpoints = {}
         graft_file = self.get_named_file(
@@ -1564,7 +1600,7 @@ class Repo(BaseRepo):
         checkout=None,
         branch=None,
         progress=None,
-        depth=None,
+        depth: Optional[int] = None,
         symlinks=None,
     ) -> "Repo":
         """Clone this repository.
@@ -1684,6 +1720,7 @@ class Repo(BaseRepo):
                 ) as f:
                     f.write(source)
 
+        blob_normalizer = self.get_blob_normalizer()
         return build_index_from_tree(
             self.path,
             self.index_path(),
@@ -1692,14 +1729,86 @@ class Repo(BaseRepo):
             honor_filemode=honor_filemode,
             validate_path_element=validate_path_element,
             symlink_fn=symlink_fn,
+            blob_normalizer=blob_normalizer,
         )
+
+    def _get_config_condition_matchers(self) -> dict[str, "ConditionMatcher"]:
+        """Get condition matchers for includeIf conditions.
+
+        Returns a dict of condition prefix to matcher function.
+        """
+        from pathlib import Path
+
+        from .config import ConditionMatcher, match_glob_pattern
+
+        # Add gitdir matchers
+        def match_gitdir(pattern: str, case_sensitive: bool = True) -> bool:
+            # Handle relative patterns (starting with ./)
+            if pattern.startswith("./"):
+                # Can't handle relative patterns without config directory context
+                return False
+
+            # Normalize repository path
+            try:
+                repo_path = str(Path(self._controldir).resolve())
+            except (OSError, ValueError):
+                return False
+
+            # Expand ~ in pattern and normalize
+            pattern = os.path.expanduser(pattern)
+
+            # Normalize pattern following Git's rules
+            pattern = pattern.replace("\\", "/")
+            if not pattern.startswith(("~/", "./", "/", "**")):
+                # Check for Windows absolute path
+                if len(pattern) >= 2 and pattern[1] == ":":
+                    pass
+                else:
+                    pattern = "**/" + pattern
+            if pattern.endswith("/"):
+                pattern = pattern + "**"
+
+            # Use the existing _match_gitdir_pattern function
+            from .config import _match_gitdir_pattern
+
+            pattern_bytes = pattern.encode("utf-8", errors="replace")
+            repo_path_bytes = repo_path.encode("utf-8", errors="replace")
+
+            return _match_gitdir_pattern(
+                repo_path_bytes, pattern_bytes, ignorecase=not case_sensitive
+            )
+
+        # Add onbranch matcher
+        def match_onbranch(pattern: str) -> bool:
+            try:
+                # Get the current branch using refs
+                ref_chain, _ = self.refs.follow(b"HEAD")
+                head_ref = ref_chain[-1]  # Get the final resolved ref
+            except KeyError:
+                pass
+            else:
+                if head_ref and head_ref.startswith(b"refs/heads/"):
+                    # Extract branch name from ref
+                    branch = head_ref[11:].decode("utf-8", errors="replace")
+                    return match_glob_pattern(branch, pattern)
+            return False
+
+        matchers: dict[str, ConditionMatcher] = {
+            "onbranch:": match_onbranch,
+            "gitdir:": lambda pattern: match_gitdir(pattern, True),
+            "gitdir/i:": lambda pattern: match_gitdir(pattern, False),
+        }
+
+        return matchers
 
     def get_worktree_config(self) -> "ConfigFile":
         from .config import ConfigFile
 
         path = os.path.join(self.commondir(), "config.worktree")
         try:
-            return ConfigFile.from_path(path)
+            # Pass condition matchers for includeIf evaluation
+            condition_matchers = self._get_config_condition_matchers()
+            return ConfigFile.from_path(path, condition_matchers=condition_matchers)
         except FileNotFoundError:
             cf = ConfigFile()
             cf.path = path
@@ -1714,7 +1823,9 @@ class Repo(BaseRepo):
 
         path = os.path.join(self._commondir, "config")
         try:
-            return ConfigFile.from_path(path)
+            # Pass condition matchers for includeIf evaluation
+            condition_matchers = self._get_config_condition_matchers()
+            return ConfigFile.from_path(path, condition_matchers=condition_matchers)
         except FileNotFoundError:
             ret = ConfigFile()
             ret.path = path
@@ -1928,7 +2039,10 @@ class Repo(BaseRepo):
         git_attributes = {}
         config_stack = self.get_config_stack()
         try:
-            tree = self.object_store[self.refs[b"HEAD"]].tree
+            head_sha = self.refs[b"HEAD"]
+            # Peel tags to get the underlying commit
+            _, obj = peel_sha(self.object_store, head_sha)
+            tree = obj.tree
             return TreeBlobNormalizer(
                 config_stack,
                 git_attributes,

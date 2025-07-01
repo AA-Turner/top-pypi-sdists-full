@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adversarial-robustness-toolbox
-Version: 1.19.2
+Version: 1.20.0
 Summary: Toolbox for adversarial machine learning.
 Home-page: https://github.com/Trusted-AI/adversarial-robustness-toolbox
 Author: Irina Nicolae
@@ -13,9 +13,9 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
@@ -49,22 +49,17 @@ Requires-Dist: keras; extra == "keras"
 Requires-Dist: h5py; extra == "keras"
 Provides-Extra: lightgbm
 Requires-Dist: lightgbm; extra == "lightgbm"
-Provides-Extra: mxnet
-Requires-Dist: mxnet; extra == "mxnet"
 Provides-Extra: tensorflow
 Requires-Dist: tensorflow; extra == "tensorflow"
-Requires-Dist: tensorflow_addons; extra == "tensorflow"
 Requires-Dist: h5py; extra == "tensorflow"
 Provides-Extra: tensorflow-image
 Requires-Dist: tensorflow; extra == "tensorflow-image"
-Requires-Dist: tensorflow_addons; extra == "tensorflow-image"
 Requires-Dist: h5py; extra == "tensorflow-image"
 Requires-Dist: Pillow; extra == "tensorflow-image"
 Requires-Dist: ffmpeg-python; extra == "tensorflow-image"
 Requires-Dist: opencv-python; extra == "tensorflow-image"
 Provides-Extra: tensorflow-audio
 Requires-Dist: tensorflow; extra == "tensorflow-audio"
-Requires-Dist: tensorflow_addons; extra == "tensorflow-audio"
 Requires-Dist: h5py; extra == "tensorflow-audio"
 Requires-Dist: pydub; extra == "tensorflow-audio"
 Requires-Dist: resampy; extra == "tensorflow-audio"
@@ -88,14 +83,7 @@ Requires-Dist: resampy; extra == "pytorch-audio"
 Requires-Dist: librosa; extra == "pytorch-audio"
 Provides-Extra: xgboost
 Requires-Dist: xgboost; extra == "xgboost"
-Provides-Extra: lingvo-asr
-Requires-Dist: tensorflow-gpu==2.1.0; extra == "lingvo-asr"
-Requires-Dist: lingvo==0.6.4; extra == "lingvo-asr"
-Requires-Dist: pydub; extra == "lingvo-asr"
-Requires-Dist: resampy; extra == "lingvo-asr"
-Requires-Dist: librosa; extra == "lingvo-asr"
 Provides-Extra: all
-Requires-Dist: mxnet; extra == "all"
 Requires-Dist: catboost; extra == "all"
 Requires-Dist: lightgbm; extra == "all"
 Requires-Dist: tensorflow; extra == "all"
@@ -150,7 +138,7 @@ Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 
-# Adversarial Robustness Toolbox (ART) v1.19
+# Adversarial Robustness Toolbox (ART) v1.20
 <p align="center">
   <img src="docs/images/art_lfai.png?raw=true" width="467" title="ART logo">
 </p>
@@ -178,7 +166,7 @@ Adversarial Robustness Toolbox (ART) is a Python library for Machine Learning Se
 [Linux Foundation AI & Data Foundation](https://lfaidata.foundation) (LF AI & Data). ART provides tools that enable
 developers and researchers to defend and evaluate Machine Learning models and applications against the
 adversarial threats of Evasion, Poisoning, Extraction, and Inference. ART supports all popular machine learning frameworks
-(TensorFlow, Keras, PyTorch, MXNet, scikit-learn, XGBoost, LightGBM, CatBoost, GPy, etc.), all data types
+(TensorFlow, Keras, PyTorch, scikit-learn, XGBoost, LightGBM, CatBoost, GPy, etc.), all data types
 (images, tables, audio, video, etc.) and machine learning tasks (classification, object detection, speech recognition,
 generation, certification, etc.).
 

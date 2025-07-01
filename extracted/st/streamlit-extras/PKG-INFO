@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-extras
-Version: 0.7.1
+Version: 0.7.5
 Summary: A library to discover, try, install and share Streamlit extras
 Project-URL: Homepage, https://github.com/arnaudmiribel/streamlit-extras
 Project-URL: Bug Tracker, https://github.com/arnaudmiribel/streamlit-extras/issues
@@ -9,6 +9,7 @@ License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: data,python,streamlit,ui
 Requires-Python: <3.14,>=3.9
+Requires-Dist: altex>=0.2.0
 Requires-Dist: entrypoints>=0.4
 Requires-Dist: htbuilder>=0.6.2
 Requires-Dist: markdownlit>=0.0.7
@@ -30,7 +31,6 @@ Requires-Dist: streamlit-vertical-slider>=2.5.5
 Requires-Dist: streamlit>=1.37.0
 Requires-Dist: validators>=0.33.0
 Description-Content-Type: text/markdown
-
 
 <a href="https://extras.streamlitapp.com" title="Python Version"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg"></a><br>
 <a href="https://github.com/arnaudmiribel/streamlit-extras/" title="Python Version"><img src="https://img.shields.io/badge/Python-3.9%2B-blue&style=flat"></a>
@@ -58,8 +58,14 @@ Description-Content-Type: text/markdown
 
 ### Installation
 
-```
+```bash
 pip install streamlit-extras
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add streamlit-extras
 ```
 
 ### Usage
@@ -75,6 +81,26 @@ stoggle(
 ```
 
 <img src="https://user-images.githubusercontent.com/16867691/192553812-f91c801b-e820-470b-84c6-4563504c6ce5.gif"></img>
+
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone and setup
+git clone https://github.com/arnaudmiribel/streamlit-extras.git
+cd streamlit-extras
+uv sync
+
+# Run tests
+uv run pytest
+
+# Run the gallery
+uv run streamlit run gallery/streamlit_app.py
+```
 
 ## Documentation
 

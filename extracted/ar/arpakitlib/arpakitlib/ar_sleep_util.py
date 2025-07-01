@@ -2,9 +2,8 @@
 
 import asyncio
 import math
+from datetime import timedelta
 from time import sleep
-
-from asyncpg.pgproto.pgproto import timedelta
 
 _ARPAKIT_LIB_MODULE_VERSION = "3.0"
 

@@ -20,6 +20,7 @@ class LargeFileStorage:
         type (Union[Unset, LargeFileStorageType]):
         s3_resource_path (Union[Unset, str]):
         azure_blob_resource_path (Union[Unset, str]):
+        gcs_resource_path (Union[Unset, str]):
         public_resource (Union[Unset, bool]):
         secondary_storage (Union[Unset, LargeFileStorageSecondaryStorage]):
     """
@@ -27,6 +28,7 @@ class LargeFileStorage:
     type: Union[Unset, LargeFileStorageType] = UNSET
     s3_resource_path: Union[Unset, str] = UNSET
     azure_blob_resource_path: Union[Unset, str] = UNSET
+    gcs_resource_path: Union[Unset, str] = UNSET
     public_resource: Union[Unset, bool] = UNSET
     secondary_storage: Union[Unset, "LargeFileStorageSecondaryStorage"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -38,6 +40,7 @@ class LargeFileStorage:
 
         s3_resource_path = self.s3_resource_path
         azure_blob_resource_path = self.azure_blob_resource_path
+        gcs_resource_path = self.gcs_resource_path
         public_resource = self.public_resource
         secondary_storage: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.secondary_storage, Unset):
@@ -52,6 +55,8 @@ class LargeFileStorage:
             field_dict["s3_resource_path"] = s3_resource_path
         if azure_blob_resource_path is not UNSET:
             field_dict["azure_blob_resource_path"] = azure_blob_resource_path
+        if gcs_resource_path is not UNSET:
+            field_dict["gcs_resource_path"] = gcs_resource_path
         if public_resource is not UNSET:
             field_dict["public_resource"] = public_resource
         if secondary_storage is not UNSET:
@@ -75,6 +80,8 @@ class LargeFileStorage:
 
         azure_blob_resource_path = d.pop("azure_blob_resource_path", UNSET)
 
+        gcs_resource_path = d.pop("gcs_resource_path", UNSET)
+
         public_resource = d.pop("public_resource", UNSET)
 
         _secondary_storage = d.pop("secondary_storage", UNSET)
@@ -88,6 +95,7 @@ class LargeFileStorage:
             type=type,
             s3_resource_path=s3_resource_path,
             azure_blob_resource_path=azure_blob_resource_path,
+            gcs_resource_path=gcs_resource_path,
             public_resource=public_resource,
             secondary_storage=secondary_storage,
         )

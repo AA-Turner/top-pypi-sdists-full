@@ -2,26 +2,27 @@
 
 import pytest
 
-import keyring
-
 from io import StringIO
+from pathlib import Path
 from urllib.parse import urlunparse
-from botocore.client import BaseClient
 from datetime import datetime, timedelta
-from keyrings.codeartifact import CodeArtifactBackend
+
+from botocore.stub import Stubber
+
+from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
+
+from keyrings.codeartifact import make_codeartifact_client
+from keyrings.codeartifact import CodeArtifactBackend, CodeArtifactKeyringConfig
+
+REGION_NAME = "ca-central-1"
+CONFIG_DIR = Path(__file__).parent / "config"
 
 
-@pytest.fixture
-def backend():
-    # Find the system-wide keyring.
-    original = keyring.get_keyring()
-
-    # Use our keyring backend with an empty configuration.
-    backend = CodeArtifactBackend(config_file=StringIO())
-
-    keyring.set_keyring(backend)
-    yield backend
-    keyring.set_keyring(original)
+def current_time():
+    # Compute time zone information to calculate offset.
+    tzinfo = datetime.now().astimezone().tzinfo
+    return datetime.now(tz=tzinfo)
 
 
 def codeartifact_url(domain, owner, region, path):
@@ -33,64 +34,140 @@ def codeartifact_pypi_url(domain, owner, region, name):
     return codeartifact_url(domain, owner, region, f"/pypi/{name}/")
 
 
-def test_set_password_raises(backend):
-    with pytest.raises(NotImplementedError):
-        keyring.set_password("service", "username", "password")
+@contextmanager
+def config_from_string(content: str):
+    """
+    Generates a temporary configuration file from a string.
+    """
+    with NamedTemporaryFile(mode="w+") as cfg:
+        cfg.write(content)
+        cfg.flush()
+        yield cfg
 
 
-def test_delete_password_raises(backend):
-    with pytest.raises(NotImplementedError):
-        keyring.delete_password("service", "username")
+def test_get_credential_supported_host():
+    def make_client(options):
+        client = make_codeartifact_client(options)
+        stubber = Stubber(client)
 
-
-@pytest.mark.parametrize(
-    "service",
-    [
-        "https://example.com/",
-        "https://unknown.amazonaws.com/",
-        codeartifact_url("domain", "owner", "region", "/maven/repo/"),
-    ],
-)
-def test_get_credential_unsupported_host(backend, service):
-    assert not keyring.get_credential(service, None)
-
-
-@pytest.mark.parametrize(
-    "service",
-    [
-        codeartifact_url("domain", "000000000000", "region", "/pkg"),
-        codeartifact_url("domain", "000000000000", "region", "/pypi/"),
-        codeartifact_url("domain", "000000000000", "region", "/pkg/simple/"),
-    ],
-)
-def test_get_credential_invalid_path(backend, service):
-    assert not keyring.get_credential(service, None)
-
-
-def test_get_credential_supported_host(backend, monkeypatch):
-    def _make_api_call(client, *args, **kwargs):
-        # We should only ever call GetAuthorizationToken
-        assert args[0] == "GetAuthorizationToken"
-
-        # We should only ever supply these parameters.
-        assert args[1]["domain"] == "domain"
-        assert args[1]["domainOwner"] == "000000000000"
-        assert args[1]["durationSeconds"] == 3600
-
-        tzinfo = datetime.now().astimezone().tzinfo
-        current_time = datetime.now(tz=tzinfo)
-
-        # Compute the expiration based on the current timestamp.
-        expiration = timedelta(seconds=args[1]["durationSeconds"])
-
-        return {
-            "authorizationToken": "TOKEN",
-            "expiration": current_time + expiration,
+        parameters = {
+            "domain": "domain",
+            "domainOwner": "000000000000",
+            "durationSeconds": 3600,
         }
 
-    monkeypatch.setattr(BaseClient, "_make_api_call", _make_api_call)
+        # The response we expect from the API.
+        response = {
+            "authorizationToken": "TOKEN",
+            # Compute the expiration based on the current timestamp.
+            "expiration": current_time() + timedelta(seconds=3600),
+        }
+
+        stubber.add_response("get_authorization_token", response, parameters)
+        stubber.activate()
+
+        return client
+
+    config = CodeArtifactKeyringConfig(config_file=StringIO())
+    backend = CodeArtifactBackend(config=config, make_client=make_client)
+
     url = codeartifact_pypi_url("domain", "000000000000", "region", "name")
     credentials = backend.get_credential(url, None)
 
     assert credentials.username == "aws"
     assert credentials.password == "TOKEN"
+
+
+@pytest.mark.parametrize(
+    ("configuration", "assertions"),
+    [
+        # The effective default options.
+        (
+            """
+            # Empty configuration file.
+            """,
+            {
+                "region_name": "region",
+                "profile_name": None,
+                "aws_access_key_id": None,
+                "aws_secret_access_key": None,
+            },
+        ),
+        # Overriding profile and providing access/secret keys.
+        (
+            """
+            [codeartifact]
+            profile_name = PROFILE-NAME
+            aws_access_key_id = ACCESS-KEY-ID
+            aws_secret_access_key = SECRET-ACCESS-KEY
+            """,
+            {
+                "profile_name": "PROFILE-NAME",
+                "aws_access_key_id": "ACCESS-KEY-ID",
+                "aws_secret_access_key": "SECRET-ACCESS-KEY",
+            },
+        ),
+        # Only accepting both access/secret keys together.
+        (
+            """
+            [codeartifact]
+            aws_access_key_id = ACCESS-KEY-ID
+            """,
+            {
+                "aws_access_key_id": None,
+                "aws_secret_access_key": None,
+            },
+        ),
+        # Overriding profile name in multi-block configuration.
+        (
+            """
+            [codeartifact]
+            profile_name = DEFAULT-PROFILE
+
+            [codeartifact name="name"]
+            profile_name = PROFILE-OVERRIDDEN
+            """,
+            {
+                "profile_name": "PROFILE-OVERRIDDEN",
+            },
+        ),
+        # Turning off SSL verification by default.
+        (
+            """
+            [codeartifact]
+            verify = off
+            """,
+            {
+                "verify": False,
+            },
+        ),
+        # Turning on SSL verification using a custom certificate.
+        (
+            """
+            [codeartifact]
+            verify = ./path/to/certificate.pem
+            """,
+            {
+                "verify": "./path/to/certificate.pem",
+            },
+        ),
+    ],
+)
+def test_backend_default_options(configuration, assertions):
+    class DummyClient:
+        def get_authorization_token(self, *args, **kwargs):
+            return {}
+
+    def make_client(options):
+        # Assert that we received specific options.
+        for key, value in assertions.items():
+            assert value == options.get(key)
+
+        # Ignore the rest.
+        return DummyClient()
+
+    with config_from_string(configuration) as config_file:
+        config = CodeArtifactKeyringConfig(config_file=config_file.name)
+        backend = CodeArtifactBackend(config=config, make_client=make_client)
+        url = codeartifact_pypi_url("domain", "000000000000", "region", "name")
+        credentials = backend.get_credential(url, None)

@@ -119,7 +119,9 @@ class NotionHelper:
             raise Exception(f"获取NotionID失败，请检查输入的Url是否正确")
 
     def search_database(self, block_id):
+        print(self.client.blocks.retrieve(block_id))
         try:
+            print(block_id)
             children = self.client.blocks.children.list(block_id=block_id)["results"]
             # 遍历子块
             for child in children:

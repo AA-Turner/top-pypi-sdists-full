@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.4.0
+Version: 0.4.2
 Summary: Make websites accessible for AI agents
 Project-URL: Repository, https://github.com/browser-use/browser-use
 Author: Gregor Zunic
@@ -20,6 +20,7 @@ Requires-Dist: groq>=0.28.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: markdownify==1.1.0
 Requires-Dist: mem0ai>=0.1.106
+Requires-Dist: ollama>=0.5.1
 Requires-Dist: openai>=1.81.0
 Requires-Dist: patchright>=1.52.5
 Requires-Dist: playwright>=1.52.0
@@ -35,19 +36,24 @@ Requires-Dist: screeninfo>=0.8.1; platform_system != 'darwin'
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: uuid7>=0.1.0
 Provides-Extra: all
+Requires-Dist: boto3>=1.38.45; extra == 'all'
 Requires-Dist: botocore>=1.37.23; extra == 'all'
 Requires-Dist: browserbase>=0.4.0; extra == 'all'
 Requires-Dist: click>=8.1.8; extra == 'all'
 Requires-Dist: imgcat>=0.6.0; extra == 'all'
+Requires-Dist: langchain-openai>=0.3.26; extra == 'all'
 Requires-Dist: rich>=14.0.0; extra == 'all'
 Requires-Dist: stagehand-py>=0.3.6; extra == 'all'
 Requires-Dist: textual>=3.2.0; extra == 'all'
+Provides-Extra: aws
+Requires-Dist: boto3>=1.38.45; extra == 'aws'
 Provides-Extra: cli
 Requires-Dist: click>=8.1.8; extra == 'cli'
 Requires-Dist: rich>=14.0.0; extra == 'cli'
 Requires-Dist: textual>=3.2.0; extra == 'cli'
 Provides-Extra: eval
 Requires-Dist: anyio>=4.9.0; extra == 'eval'
+Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'eval'
 Requires-Dist: lmnr[all]>=0.6.11; extra == 'eval'
 Requires-Dist: pillow>=11.2.1; extra == 'eval'
 Requires-Dist: psutil>=7.0.0; extra == 'eval'
@@ -55,6 +61,7 @@ Provides-Extra: examples
 Requires-Dist: botocore>=1.37.23; extra == 'examples'
 Requires-Dist: browserbase>=0.4.0; extra == 'examples'
 Requires-Dist: imgcat>=0.6.0; extra == 'examples'
+Requires-Dist: langchain-openai>=0.3.26; extra == 'examples'
 Requires-Dist: stagehand-py>=0.3.6; extra == 'examples'
 Description-Content-Type: text/markdown
 

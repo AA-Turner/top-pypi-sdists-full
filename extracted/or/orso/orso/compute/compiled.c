@@ -1833,7 +1833,7 @@ typedef int (*__pyx_t_5numpy_NpyIter_IterNextFunc)(NpyIter *);
 typedef void (*__pyx_t_5numpy_NpyIter_GetMultiIndexFunc)(NpyIter *, npy_intp *);
 struct __pyx_opt_args_4orso_7compute_8compiled_collect_cython;
 
-/* "orso/compute/compiled.pyx":102
+/* "orso/compute/compiled.pyx":100
  * 
  * 
  * cpdef cnp.ndarray collect_cython(list rows, int32_t[:] columns, int limit=-1):             # <<<<<<<<<<<<<<
@@ -2674,35 +2674,6 @@ static Py_ssize_t __Pyx_zeros[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 static PyObject *__Pyx_Object_VectorcallMethod_CallFromBuilder(PyObject *name, PyObject *const *args, size_t nargsf, PyObject *kwnames);
 #endif
 
-/* ModInt[Py_ssize_t].proto */
-static CYTHON_INLINE Py_ssize_t __Pyx_mod_Py_ssize_t(Py_ssize_t, Py_ssize_t, int b_is_constant);
-
-/* PyLongBinop.proto */
-#if !CYTHON_COMPILING_IN_PYPY
-static CYTHON_INLINE PyObject* __Pyx_PyLong_FloorDivideObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check);
-#else
-#define __Pyx_PyLong_FloorDivideObjC(op1, op2, intval, inplace, zerodivision_check)\
-    (inplace ? PyNumber_InPlaceFloorDivide(op1, op2) : PyNumber_FloorDivide(op1, op2))
-#endif
-
-/* PyLongCompare.proto */
-static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
-
-/* ListExtend.proto */
-static CYTHON_INLINE int __Pyx_PyList_Extend(PyObject* L, PyObject* v) {
-#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00a2
-    return PyList_Extend(L, v);
-#elif CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030d0000
-    PyObject* none = _PyList_Extend((PyListObject*)L, v);
-    if (unlikely(!none))
-        return -1;
-    Py_DECREF(none);
-    return 0;
-#else
-    return PyList_SetSlice(L, PY_SSIZE_T_MAX, PY_SSIZE_T_MAX, v);
-#endif
-}
-
 /* CallTypeTraverse.proto */
 #if !CYTHON_USE_TYPE_SPECS || (!CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x03090000)
 #define __Pyx_call_type_traverse(o, always_call, visit, arg) 0
@@ -3037,9 +3008,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int32_t(int32_t value);
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value);
 
 /* CIntFromPy.proto */
-static CYTHON_INLINE size_t __Pyx_PyLong_As_size_t(PyObject *);
-
-/* CIntFromPy.proto */
 static CYTHON_INLINE long __Pyx_PyLong_As_long(PyObject *);
 
 /* CIntFromPy.proto */
@@ -3178,12 +3146,6 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void); /*proto*/
 
 /* Module declarations from "cpython.list" */
 
-/* Module declarations from "cython.view" */
-
-/* Module declarations from "cython.dataclasses" */
-
-/* Module declarations from "cython" */
-
 /* Module declarations from "orso.compute.compiled" */
 static PyObject *__pyx_collections_abc_Sequence = 0;
 static PyObject *generic = 0;
@@ -3197,7 +3159,6 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *, 
 static PyObject *__pyx_f_4orso_7compute_8compiled_extract_dict_columns(PyObject *, PyObject *, int __pyx_skip_dispatch); /*proto*/
 static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *, __Pyx_memviewslice, int __pyx_skip_dispatch, struct __pyx_opt_args_4orso_7compute_8compiled_collect_cython *__pyx_optional_args); /*proto*/
 static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *, int __pyx_skip_dispatch); /*proto*/
-static PyObject *__pyx_f_4orso_7compute_8compiled__process_table(PyObject *, PyObject *, int, int __pyx_skip_dispatch); /*proto*/
 static int __pyx_array_allocate_buffer(struct __pyx_array_obj *); /*proto*/
 static struct __pyx_array_obj *__pyx_array_new(PyObject *, Py_ssize_t, char *, char const *, char *); /*proto*/
 static PyObject *__pyx_memoryview_new(PyObject *, int, int, __Pyx_TypeInfo const *); /*proto*/
@@ -3257,22 +3218,15 @@ static PyObject *__pyx_builtin_ImportError;
 /* #### Code section: string_decls ### */
 static const char __pyx_k_[] = ": ";
 static const char __pyx_k_O[] = "O";
-static const char __pyx_k_b[] = "<b";
 static const char __pyx_k_c[] = "c";
-static const char __pyx_k_d[] = "<d";
-static const char __pyx_k_f[] = "<f";
-static const char __pyx_k_h[] = "<h";
-static const char __pyx_k_i[] = "<i";
-static const char __pyx_k_q[] = "<q";
 static const char __pyx_k_x[] = "x";
 static const char __pyx_k__2[] = ".";
 static const char __pyx_k__3[] = ">";
 static const char __pyx_k__4[] = "'";
 static const char __pyx_k__5[] = ")";
 static const char __pyx_k__6[] = " < ";
-static const char __pyx_k__7[] = "";
-static const char __pyx_k__8[] = "\020\000";
-static const char __pyx_k__9[] = "?";
+static const char __pyx_k__7[] = "\020\000";
+static const char __pyx_k__8[] = "?";
 static const char __pyx_k_gc[] = "gc";
 static const char __pyx_k_id[] = "id";
 static const char __pyx_k_np[] = "np";
@@ -3297,9 +3251,7 @@ static const char __pyx_k_spec[] = "__spec__";
 static const char __pyx_k_step[] = "step";
 static const char __pyx_k_stop[] = "stop";
 static const char __pyx_k_test[] = "__test__";
-static const char __pyx_k_type[] = "type";
 static const char __pyx_k_ASCII[] = "ASCII";
-static const char __pyx_k_as_py[] = "as_py";
 static const char __pyx_k_at_0x[] = " at 0x";
 static const char __pyx_k_class[] = "__class__";
 static const char __pyx_k_count[] = "count";
@@ -3314,12 +3266,8 @@ static const char __pyx_k_range[] = "range";
 static const char __pyx_k_shape[] = "shape";
 static const char __pyx_k_start[] = "start";
 static const char __pyx_k_table[] = "table";
-static const char __pyx_k_types[] = "types";
-static const char __pyx_k_utf_8[] = "utf-8";
-static const char __pyx_k_decode[] = "decode";
 static const char __pyx_k_enable[] = "enable";
 static const char __pyx_k_encode[] = "encode";
-static const char __pyx_k_errors[] = "errors";
 static const char __pyx_k_fields[] = "fields";
 static const char __pyx_k_format[] = "format";
 static const char __pyx_k_import[] = "__import__";
@@ -3331,13 +3279,10 @@ static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_struct[] = "struct";
 static const char __pyx_k_unpack[] = "unpack";
 static const char __pyx_k_update[] = "update";
-static const char __pyx_k_address[] = "address";
-static const char __pyx_k_buffers[] = "buffers";
 static const char __pyx_k_columns[] = "columns";
 static const char __pyx_k_disable[] = "disable";
 static const char __pyx_k_fortran[] = "fortran";
 static const char __pyx_k_memview[] = "memview";
-static const char __pyx_k_pyarrow[] = "pyarrow";
 static const char __pyx_k_replace[] = "replace";
 static const char __pyx_k_unpackb[] = "unpackb";
 static const char __pyx_k_Ellipsis[] = "Ellipsis";
@@ -3355,10 +3300,7 @@ static const char __pyx_k_set_name[] = "__set_name__";
 static const char __pyx_k_setstate[] = "__setstate__";
 static const char __pyx_k_DataError[] = "DataError";
 static const char __pyx_k_TypeError[] = "TypeError";
-static const char __pyx_k_bit_width[] = "bit_width";
 static const char __pyx_k_enumerate[] = "enumerate";
-static const char __pyx_k_is_binary[] = "is_binary";
-static const char __pyx_k_is_string[] = "is_string";
 static const char __pyx_k_isenabled[] = "isenabled";
 static const char __pyx_k_ormsgpack[] = "ormsgpack";
 static const char __pyx_k_pyx_state[] = "__pyx_state";
@@ -3367,18 +3309,13 @@ static const char __pyx_k_to_pandas[] = "to_pandas";
 static const char __pyx_k_IndexError[] = "IndexError";
 static const char __pyx_k_ValueError[] = "ValueError";
 static const char __pyx_k_datetime_2[] = "datetime";
-static const char __pyx_k_is_boolean[] = "is_boolean";
-static const char __pyx_k_is_integer[] = "is_integer";
 static const char __pyx_k_itertuples[] = "itertuples";
 static const char __pyx_k_pyx_vtable[] = "__pyx_vtable__";
 static const char __pyx_k_to_batches[] = "to_batches";
 static const char __pyx_k_ImportError[] = "ImportError";
 static const char __pyx_k_MemoryError[] = "MemoryError";
 static const char __pyx_k_PickleError[] = "PickleError";
-static const char __pyx_k_is_floating[] = "is_floating";
-static const char __pyx_k_num_columns[] = "num_columns";
 static const char __pyx_k_row_factory[] = "row_factory";
-static const char __pyx_k_unpack_from[] = "unpack_from";
 static const char __pyx_k_initializing[] = "_initializing";
 static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_HEADER_PREFIX[] = "HEADER_PREFIX";
@@ -3480,7 +3417,6 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_2extract_dict_columns(CYTHON_
 static PyObject *__pyx_pf_4orso_7compute_8compiled_4collect_cython(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_rows, __Pyx_memviewslice __pyx_v_columns, int __pyx_v_limit); /* proto */
 static PyObject *__pyx_pf_4orso_7compute_8compiled_6calculate_data_width(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_column_values); /* proto */
 static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_table, PyObject *__pyx_v_row_factory, int __pyx_v_max_chunksize); /* proto */
-static PyObject *__pyx_pf_4orso_7compute_8compiled_10_process_table(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_table, PyObject *__pyx_v_row_factory, int __pyx_v_max_chunksize); /* proto */
 static PyObject *__pyx_tp_new_array(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_Enum(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_memoryview(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3550,12 +3486,9 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[2];
-  PyObject *__pyx_string_tab[178];
+  PyObject *__pyx_string_tab[154];
   PyObject *__pyx_int_0;
   PyObject *__pyx_int_1;
-  PyObject *__pyx_int_2;
-  PyObject *__pyx_int_4;
-  PyObject *__pyx_int_8;
   PyObject *__pyx_int_8388608;
   PyObject *__pyx_int_112105877;
   PyObject *__pyx_int_136983863;
@@ -3633,141 +3566,117 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u__4 __pyx_string_tab[40]
 #define __pyx_kp_u__5 __pyx_string_tab[41]
 #define __pyx_kp_u__6 __pyx_string_tab[42]
-#define __pyx_kp_u__7 __pyx_string_tab[43]
-#define __pyx_kp_b__8 __pyx_string_tab[44]
-#define __pyx_kp_u__9 __pyx_string_tab[45]
-#define __pyx_n_u_abc __pyx_string_tab[46]
-#define __pyx_kp_u_add_note __pyx_string_tab[47]
-#define __pyx_n_u_address __pyx_string_tab[48]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[49]
-#define __pyx_kp_u_and __pyx_string_tab[50]
-#define __pyx_n_u_as_py __pyx_string_tab[51]
-#define __pyx_kp_u_at_0x __pyx_string_tab[52]
-#define __pyx_kp_u_b __pyx_string_tab[53]
-#define __pyx_n_u_base __pyx_string_tab[54]
-#define __pyx_n_u_bit_width __pyx_string_tab[55]
-#define __pyx_n_u_buffers __pyx_string_tab[56]
-#define __pyx_n_u_c __pyx_string_tab[57]
-#define __pyx_n_u_class __pyx_string_tab[58]
-#define __pyx_n_u_class_getitem __pyx_string_tab[59]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[60]
-#define __pyx_kp_u_collections_abc __pyx_string_tab[61]
-#define __pyx_n_u_column_values __pyx_string_tab[62]
-#define __pyx_n_u_columns __pyx_string_tab[63]
-#define __pyx_kp_u_contiguous_and_direct __pyx_string_tab[64]
-#define __pyx_kp_u_contiguous_and_indirect __pyx_string_tab[65]
-#define __pyx_n_u_count __pyx_string_tab[66]
-#define __pyx_kp_u_d __pyx_string_tab[67]
-#define __pyx_n_u_data __pyx_string_tab[68]
-#define __pyx_n_u_datetime __pyx_string_tab[69]
-#define __pyx_n_u_datetime_2 __pyx_string_tab[70]
-#define __pyx_n_u_decode __pyx_string_tab[71]
-#define __pyx_n_u_dict __pyx_string_tab[72]
-#define __pyx_kp_u_disable __pyx_string_tab[73]
-#define __pyx_n_u_dtype __pyx_string_tab[74]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[75]
-#define __pyx_n_u_empty __pyx_string_tab[76]
-#define __pyx_kp_u_enable __pyx_string_tab[77]
-#define __pyx_n_u_encode __pyx_string_tab[78]
-#define __pyx_n_u_enumerate __pyx_string_tab[79]
-#define __pyx_n_u_error __pyx_string_tab[80]
-#define __pyx_n_u_errors __pyx_string_tab[81]
-#define __pyx_kp_u_f __pyx_string_tab[82]
-#define __pyx_n_u_fields __pyx_string_tab[83]
-#define __pyx_n_u_flags __pyx_string_tab[84]
-#define __pyx_n_u_format __pyx_string_tab[85]
-#define __pyx_n_u_fortran __pyx_string_tab[86]
-#define __pyx_n_u_fromtimestamp __pyx_string_tab[87]
-#define __pyx_kp_u_gc __pyx_string_tab[88]
-#define __pyx_n_u_getstate __pyx_string_tab[89]
-#define __pyx_kp_u_got __pyx_string_tab[90]
-#define __pyx_kp_u_got_differing_extents_in_dimensi __pyx_string_tab[91]
-#define __pyx_kp_u_h __pyx_string_tab[92]
-#define __pyx_kp_u_i __pyx_string_tab[93]
-#define __pyx_n_u_id __pyx_string_tab[94]
-#define __pyx_n_u_import __pyx_string_tab[95]
-#define __pyx_n_u_index __pyx_string_tab[96]
-#define __pyx_n_u_initializing __pyx_string_tab[97]
-#define __pyx_n_u_is_binary __pyx_string_tab[98]
-#define __pyx_n_u_is_boolean __pyx_string_tab[99]
-#define __pyx_n_u_is_floating __pyx_string_tab[100]
-#define __pyx_n_u_is_integer __pyx_string_tab[101]
-#define __pyx_n_u_is_string __pyx_string_tab[102]
-#define __pyx_kp_u_isenabled __pyx_string_tab[103]
-#define __pyx_n_u_itemsize __pyx_string_tab[104]
-#define __pyx_kp_u_itemsize_0_for_cython_array __pyx_string_tab[105]
-#define __pyx_n_u_itertuples __pyx_string_tab[106]
-#define __pyx_n_u_limit __pyx_string_tab[107]
-#define __pyx_n_u_main __pyx_string_tab[108]
-#define __pyx_n_u_max_chunksize __pyx_string_tab[109]
-#define __pyx_n_u_memview __pyx_string_tab[110]
-#define __pyx_n_u_mode __pyx_string_tab[111]
-#define __pyx_n_u_module __pyx_string_tab[112]
-#define __pyx_n_u_name __pyx_string_tab[113]
-#define __pyx_n_u_name_2 __pyx_string_tab[114]
-#define __pyx_n_u_nan __pyx_string_tab[115]
-#define __pyx_n_u_ndim __pyx_string_tab[116]
-#define __pyx_n_u_new __pyx_string_tab[117]
-#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[118]
-#define __pyx_n_u_np __pyx_string_tab[119]
-#define __pyx_n_u_num_columns __pyx_string_tab[120]
-#define __pyx_n_u_num_rows __pyx_string_tab[121]
-#define __pyx_n_u_numpy __pyx_string_tab[122]
-#define __pyx_kp_u_numpy__core_multiarray_failed_to __pyx_string_tab[123]
-#define __pyx_kp_u_numpy__core_umath_failed_to_impo __pyx_string_tab[124]
-#define __pyx_n_u_obj __pyx_string_tab[125]
-#define __pyx_n_u_object __pyx_string_tab[126]
-#define __pyx_kp_u_object_2 __pyx_string_tab[127]
-#define __pyx_n_u_ormsgpack __pyx_string_tab[128]
-#define __pyx_n_u_orso_compute_compiled __pyx_string_tab[129]
-#define __pyx_n_u_orso_exceptions __pyx_string_tab[130]
-#define __pyx_n_u_pack __pyx_string_tab[131]
-#define __pyx_n_u_pickle __pyx_string_tab[132]
-#define __pyx_n_u_pop __pyx_string_tab[133]
-#define __pyx_n_u_process_table __pyx_string_tab[134]
-#define __pyx_n_u_pyarrow __pyx_string_tab[135]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[136]
-#define __pyx_n_u_pyx_state __pyx_string_tab[137]
-#define __pyx_n_u_pyx_type __pyx_string_tab[138]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[139]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[140]
-#define __pyx_kp_u_q __pyx_string_tab[141]
-#define __pyx_n_u_qualname __pyx_string_tab[142]
-#define __pyx_n_u_range __pyx_string_tab[143]
-#define __pyx_n_u_reduce __pyx_string_tab[144]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[145]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[146]
-#define __pyx_n_u_register __pyx_string_tab[147]
-#define __pyx_n_u_replace __pyx_string_tab[148]
-#define __pyx_n_u_row_factory __pyx_string_tab[149]
-#define __pyx_n_u_rows __pyx_string_tab[150]
-#define __pyx_n_u_set_name __pyx_string_tab[151]
-#define __pyx_n_u_setstate __pyx_string_tab[152]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[153]
-#define __pyx_n_u_shape __pyx_string_tab[154]
-#define __pyx_n_u_size __pyx_string_tab[155]
-#define __pyx_n_u_spec __pyx_string_tab[156]
-#define __pyx_n_u_start __pyx_string_tab[157]
-#define __pyx_n_u_step __pyx_string_tab[158]
-#define __pyx_n_u_stop __pyx_string_tab[159]
-#define __pyx_kp_u_strided_and_direct __pyx_string_tab[160]
-#define __pyx_kp_u_strided_and_direct_or_indirect __pyx_string_tab[161]
-#define __pyx_kp_u_strided_and_indirect __pyx_string_tab[162]
-#define __pyx_n_u_struct __pyx_string_tab[163]
-#define __pyx_n_u_table __pyx_string_tab[164]
-#define __pyx_n_u_test __pyx_string_tab[165]
-#define __pyx_n_u_to_batches __pyx_string_tab[166]
-#define __pyx_n_u_to_pandas __pyx_string_tab[167]
-#define __pyx_n_u_type __pyx_string_tab[168]
-#define __pyx_n_u_types __pyx_string_tab[169]
-#define __pyx_kp_u_unable_to_allocate_array_data __pyx_string_tab[170]
-#define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[171]
-#define __pyx_n_u_unpack __pyx_string_tab[172]
-#define __pyx_n_u_unpack_from __pyx_string_tab[173]
-#define __pyx_n_u_unpackb __pyx_string_tab[174]
-#define __pyx_n_u_update __pyx_string_tab[175]
-#define __pyx_kp_u_utf_8 __pyx_string_tab[176]
-#define __pyx_n_u_x __pyx_string_tab[177]
+#define __pyx_kp_b__7 __pyx_string_tab[43]
+#define __pyx_kp_u__8 __pyx_string_tab[44]
+#define __pyx_n_u_abc __pyx_string_tab[45]
+#define __pyx_kp_u_add_note __pyx_string_tab[46]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[47]
+#define __pyx_kp_u_and __pyx_string_tab[48]
+#define __pyx_kp_u_at_0x __pyx_string_tab[49]
+#define __pyx_n_u_base __pyx_string_tab[50]
+#define __pyx_n_u_c __pyx_string_tab[51]
+#define __pyx_n_u_class __pyx_string_tab[52]
+#define __pyx_n_u_class_getitem __pyx_string_tab[53]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[54]
+#define __pyx_kp_u_collections_abc __pyx_string_tab[55]
+#define __pyx_n_u_column_values __pyx_string_tab[56]
+#define __pyx_n_u_columns __pyx_string_tab[57]
+#define __pyx_kp_u_contiguous_and_direct __pyx_string_tab[58]
+#define __pyx_kp_u_contiguous_and_indirect __pyx_string_tab[59]
+#define __pyx_n_u_count __pyx_string_tab[60]
+#define __pyx_n_u_data __pyx_string_tab[61]
+#define __pyx_n_u_datetime __pyx_string_tab[62]
+#define __pyx_n_u_datetime_2 __pyx_string_tab[63]
+#define __pyx_n_u_dict __pyx_string_tab[64]
+#define __pyx_kp_u_disable __pyx_string_tab[65]
+#define __pyx_n_u_dtype __pyx_string_tab[66]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[67]
+#define __pyx_n_u_empty __pyx_string_tab[68]
+#define __pyx_kp_u_enable __pyx_string_tab[69]
+#define __pyx_n_u_encode __pyx_string_tab[70]
+#define __pyx_n_u_enumerate __pyx_string_tab[71]
+#define __pyx_n_u_error __pyx_string_tab[72]
+#define __pyx_n_u_fields __pyx_string_tab[73]
+#define __pyx_n_u_flags __pyx_string_tab[74]
+#define __pyx_n_u_format __pyx_string_tab[75]
+#define __pyx_n_u_fortran __pyx_string_tab[76]
+#define __pyx_n_u_fromtimestamp __pyx_string_tab[77]
+#define __pyx_kp_u_gc __pyx_string_tab[78]
+#define __pyx_n_u_getstate __pyx_string_tab[79]
+#define __pyx_kp_u_got __pyx_string_tab[80]
+#define __pyx_kp_u_got_differing_extents_in_dimensi __pyx_string_tab[81]
+#define __pyx_n_u_id __pyx_string_tab[82]
+#define __pyx_n_u_import __pyx_string_tab[83]
+#define __pyx_n_u_index __pyx_string_tab[84]
+#define __pyx_n_u_initializing __pyx_string_tab[85]
+#define __pyx_kp_u_isenabled __pyx_string_tab[86]
+#define __pyx_n_u_itemsize __pyx_string_tab[87]
+#define __pyx_kp_u_itemsize_0_for_cython_array __pyx_string_tab[88]
+#define __pyx_n_u_itertuples __pyx_string_tab[89]
+#define __pyx_n_u_limit __pyx_string_tab[90]
+#define __pyx_n_u_main __pyx_string_tab[91]
+#define __pyx_n_u_max_chunksize __pyx_string_tab[92]
+#define __pyx_n_u_memview __pyx_string_tab[93]
+#define __pyx_n_u_mode __pyx_string_tab[94]
+#define __pyx_n_u_module __pyx_string_tab[95]
+#define __pyx_n_u_name __pyx_string_tab[96]
+#define __pyx_n_u_name_2 __pyx_string_tab[97]
+#define __pyx_n_u_nan __pyx_string_tab[98]
+#define __pyx_n_u_ndim __pyx_string_tab[99]
+#define __pyx_n_u_new __pyx_string_tab[100]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[101]
+#define __pyx_n_u_np __pyx_string_tab[102]
+#define __pyx_n_u_num_rows __pyx_string_tab[103]
+#define __pyx_n_u_numpy __pyx_string_tab[104]
+#define __pyx_kp_u_numpy__core_multiarray_failed_to __pyx_string_tab[105]
+#define __pyx_kp_u_numpy__core_umath_failed_to_impo __pyx_string_tab[106]
+#define __pyx_n_u_obj __pyx_string_tab[107]
+#define __pyx_n_u_object __pyx_string_tab[108]
+#define __pyx_kp_u_object_2 __pyx_string_tab[109]
+#define __pyx_n_u_ormsgpack __pyx_string_tab[110]
+#define __pyx_n_u_orso_compute_compiled __pyx_string_tab[111]
+#define __pyx_n_u_orso_exceptions __pyx_string_tab[112]
+#define __pyx_n_u_pack __pyx_string_tab[113]
+#define __pyx_n_u_pickle __pyx_string_tab[114]
+#define __pyx_n_u_pop __pyx_string_tab[115]
+#define __pyx_n_u_process_table __pyx_string_tab[116]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[117]
+#define __pyx_n_u_pyx_state __pyx_string_tab[118]
+#define __pyx_n_u_pyx_type __pyx_string_tab[119]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[120]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[121]
+#define __pyx_n_u_qualname __pyx_string_tab[122]
+#define __pyx_n_u_range __pyx_string_tab[123]
+#define __pyx_n_u_reduce __pyx_string_tab[124]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[125]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[126]
+#define __pyx_n_u_register __pyx_string_tab[127]
+#define __pyx_n_u_replace __pyx_string_tab[128]
+#define __pyx_n_u_row_factory __pyx_string_tab[129]
+#define __pyx_n_u_rows __pyx_string_tab[130]
+#define __pyx_n_u_set_name __pyx_string_tab[131]
+#define __pyx_n_u_setstate __pyx_string_tab[132]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[133]
+#define __pyx_n_u_shape __pyx_string_tab[134]
+#define __pyx_n_u_size __pyx_string_tab[135]
+#define __pyx_n_u_spec __pyx_string_tab[136]
+#define __pyx_n_u_start __pyx_string_tab[137]
+#define __pyx_n_u_step __pyx_string_tab[138]
+#define __pyx_n_u_stop __pyx_string_tab[139]
+#define __pyx_kp_u_strided_and_direct __pyx_string_tab[140]
+#define __pyx_kp_u_strided_and_direct_or_indirect __pyx_string_tab[141]
+#define __pyx_kp_u_strided_and_indirect __pyx_string_tab[142]
+#define __pyx_n_u_struct __pyx_string_tab[143]
+#define __pyx_n_u_table __pyx_string_tab[144]
+#define __pyx_n_u_test __pyx_string_tab[145]
+#define __pyx_n_u_to_batches __pyx_string_tab[146]
+#define __pyx_n_u_to_pandas __pyx_string_tab[147]
+#define __pyx_kp_u_unable_to_allocate_array_data __pyx_string_tab[148]
+#define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[149]
+#define __pyx_n_u_unpack __pyx_string_tab[150]
+#define __pyx_n_u_unpackb __pyx_string_tab[151]
+#define __pyx_n_u_update __pyx_string_tab[152]
+#define __pyx_n_u_x __pyx_string_tab[153]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3814,12 +3723,9 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<178; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<154; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_int_0);
   Py_CLEAR(clear_module_state->__pyx_int_1);
-  Py_CLEAR(clear_module_state->__pyx_int_2);
-  Py_CLEAR(clear_module_state->__pyx_int_4);
-  Py_CLEAR(clear_module_state->__pyx_int_8);
   Py_CLEAR(clear_module_state->__pyx_int_8388608);
   Py_CLEAR(clear_module_state->__pyx_int_112105877);
   Py_CLEAR(clear_module_state->__pyx_int_136983863);
@@ -3871,12 +3777,9 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<178; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<154; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_1);
-  __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_2);
-  __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_4);
-  __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_8);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_8388608);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_112105877);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_136983863);
@@ -18984,7 +18887,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   return __pyx_r;
 }
 
-/* "orso/compute/compiled.pyx":41
+/* "orso/compute/compiled.pyx":42
  * 
  * 
  * cpdef from_bytes_cython(bytes data):             # <<<<<<<<<<<<<<
@@ -19026,17 +18929,17 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("from_bytes_cython", 0);
 
-  /* "orso/compute/compiled.pyx":42
+  /* "orso/compute/compiled.pyx":43
  * 
  * cpdef from_bytes_cython(bytes data):
  *     cdef const char* data_ptr = PyBytes_AsString(data)             # <<<<<<<<<<<<<<
  *     cdef Py_ssize_t length = PyBytes_GET_SIZE(data)
  * 
 */
-  __pyx_t_1 = PyBytes_AsString(__pyx_v_data); if (unlikely(__pyx_t_1 == ((char *)0))) __PYX_ERR(0, 42, __pyx_L1_error)
+  __pyx_t_1 = PyBytes_AsString(__pyx_v_data); if (unlikely(__pyx_t_1 == ((char *)0))) __PYX_ERR(0, 43, __pyx_L1_error)
   __pyx_v_data_ptr = __pyx_t_1;
 
-  /* "orso/compute/compiled.pyx":43
+  /* "orso/compute/compiled.pyx":44
  * cpdef from_bytes_cython(bytes data):
  *     cdef const char* data_ptr = PyBytes_AsString(data)
  *     cdef Py_ssize_t length = PyBytes_GET_SIZE(data)             # <<<<<<<<<<<<<<
@@ -19045,7 +18948,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
 */
   __pyx_v_length = PyBytes_GET_SIZE(__pyx_v_data);
 
-  /* "orso/compute/compiled.pyx":45
+  /* "orso/compute/compiled.pyx":46
  *     cdef Py_ssize_t length = PyBytes_GET_SIZE(data)
  * 
  *     HEADER_SIZE = 14             # <<<<<<<<<<<<<<
@@ -19054,7 +18957,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
 */
   __pyx_v_HEADER_SIZE = 14;
 
-  /* "orso/compute/compiled.pyx":47
+  /* "orso/compute/compiled.pyx":48
  *     HEADER_SIZE = 14
  *     # Validate header and size, now using pointer arithmetic
  *     if length < HEADER_SIZE or (data_ptr[0] & 0xF0 != 0x10):             # <<<<<<<<<<<<<<
@@ -19072,7 +18975,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_2)) {
 
-    /* "orso/compute/compiled.pyx":48
+    /* "orso/compute/compiled.pyx":49
  *     # Validate header and size, now using pointer arithmetic
  *     if length < HEADER_SIZE or (data_ptr[0] & 0xF0 != 0x10):
  *         raise DataError("Data malformed")             # <<<<<<<<<<<<<<
@@ -19080,7 +18983,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
  *     # Deserialize record bytes
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_DataError); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 48, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_DataError); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -19099,14 +19002,14 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 49, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 48, __pyx_L1_error)
+    __PYX_ERR(0, 49, __pyx_L1_error)
 
-    /* "orso/compute/compiled.pyx":47
+    /* "orso/compute/compiled.pyx":48
  *     HEADER_SIZE = 14
  *     # Validate header and size, now using pointer arithmetic
  *     if length < HEADER_SIZE or (data_ptr[0] & 0xF0 != 0x10):             # <<<<<<<<<<<<<<
@@ -19115,7 +19018,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
 */
   }
 
-  /* "orso/compute/compiled.pyx":54
+  /* "orso/compute/compiled.pyx":55
  *         (<unsigned char>data_ptr[2]) << 24 |
  *         (<unsigned char>data_ptr[3]) << 16 |
  *         (<unsigned char>data_ptr[4]) << 8 |             # <<<<<<<<<<<<<<
@@ -19124,7 +19027,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
 */
   __pyx_v_record_size = ((((((unsigned char)(__pyx_v_data_ptr[2])) << 24) | (((unsigned char)(__pyx_v_data_ptr[3])) << 16)) | (((unsigned char)(__pyx_v_data_ptr[4])) << 8)) | ((unsigned char)(__pyx_v_data_ptr[5])));
 
-  /* "orso/compute/compiled.pyx":58
+  /* "orso/compute/compiled.pyx":59
  *     )
  * 
  *     if record_size != length - HEADER_SIZE:             # <<<<<<<<<<<<<<
@@ -19134,7 +19037,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
   __pyx_t_2 = (__pyx_v_record_size != (__pyx_v_length - __pyx_v_HEADER_SIZE));
   if (unlikely(__pyx_t_2)) {
 
-    /* "orso/compute/compiled.pyx":59
+    /* "orso/compute/compiled.pyx":60
  * 
  *     if record_size != length - HEADER_SIZE:
  *         raise DataError("Data malformed - incorrect length")             # <<<<<<<<<<<<<<
@@ -19142,7 +19045,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
  *     # Deserialize and post-process
 */
     __pyx_t_6 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DataError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 59, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DataError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -19161,14 +19064,14 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 60, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 59, __pyx_L1_error)
+    __PYX_ERR(0, 60, __pyx_L1_error)
 
-    /* "orso/compute/compiled.pyx":58
+    /* "orso/compute/compiled.pyx":59
  *     )
  * 
  *     if record_size != length - HEADER_SIZE:             # <<<<<<<<<<<<<<
@@ -19177,7 +19080,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
 */
   }
 
-  /* "orso/compute/compiled.pyx":62
+  /* "orso/compute/compiled.pyx":63
  * 
  *     # Deserialize and post-process
  *     cdef list raw_tuple = unpackb(data[HEADER_SIZE:])             # <<<<<<<<<<<<<<
@@ -19185,13 +19088,13 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
  *     cdef object item
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_unpackb); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_unpackb); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 62, __pyx_L1_error)
+    __PYX_ERR(0, 63, __pyx_L1_error)
   }
-  __pyx_t_8 = PySequence_GetSlice(__pyx_v_data, __pyx_v_HEADER_SIZE, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_8 = PySequence_GetSlice(__pyx_v_data, __pyx_v_HEADER_SIZE, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -19211,26 +19114,26 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 63, __pyx_L1_error)
   __pyx_v_raw_tuple = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "orso/compute/compiled.pyx":63
+  /* "orso/compute/compiled.pyx":64
  *     # Deserialize and post-process
  *     cdef list raw_tuple = unpackb(data[HEADER_SIZE:])
  *     cdef list processed_list = []             # <<<<<<<<<<<<<<
  *     cdef object item
  * 
 */
-  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_processed_list = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "orso/compute/compiled.pyx":66
+  /* "orso/compute/compiled.pyx":67
  *     cdef object item
  * 
  *     for item in raw_tuple:             # <<<<<<<<<<<<<<
@@ -19239,7 +19142,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
 */
   if (unlikely(__pyx_v_raw_tuple == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 66, __pyx_L1_error)
+    __PYX_ERR(0, 67, __pyx_L1_error)
   }
   __pyx_t_4 = __pyx_v_raw_tuple; __Pyx_INCREF(__pyx_t_4);
   __pyx_t_9 = 0;
@@ -19247,18 +19150,18 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 66, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
       #endif
       if (__pyx_t_9 >= __pyx_temp) break;
     }
     __pyx_t_6 = __Pyx_PyList_GetItemRef(__pyx_t_4, __pyx_t_9);
     ++__pyx_t_9;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 66, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 67, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "orso/compute/compiled.pyx":67
+    /* "orso/compute/compiled.pyx":68
  * 
  *     for item in raw_tuple:
  *         if isinstance(item, list) and len(item) == 2 and item[0] == "__datetime__":             # <<<<<<<<<<<<<<
@@ -19271,22 +19174,22 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
       __pyx_t_2 = __pyx_t_3;
       goto __pyx_L10_bool_binop_done;
     }
-    __pyx_t_10 = PyObject_Length(__pyx_v_item); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_t_10 = PyObject_Length(__pyx_v_item); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 68, __pyx_L1_error)
     __pyx_t_3 = (__pyx_t_10 == 2);
     if (__pyx_t_3) {
     } else {
       __pyx_t_2 = __pyx_t_3;
       goto __pyx_L10_bool_binop_done;
     }
-    __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_item, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_item, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_datetime, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_datetime, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_2 = __pyx_t_3;
     __pyx_L10_bool_binop_done:;
     if (__pyx_t_2) {
 
-      /* "orso/compute/compiled.pyx":68
+      /* "orso/compute/compiled.pyx":69
  *     for item in raw_tuple:
  *         if isinstance(item, list) and len(item) == 2 and item[0] == "__datetime__":
  *             processed_list.append(datetime.fromtimestamp(item[1]))             # <<<<<<<<<<<<<<
@@ -19294,12 +19197,12 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
  *             processed_list.append(item)
 */
       __pyx_t_8 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_datetime_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 68, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_datetime_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_fromtimestamp); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 68, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_fromtimestamp); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 69, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_item, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 68, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_item, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_7 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -19319,13 +19222,13 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 68, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 69, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_processed_list, __pyx_t_6); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 68, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_processed_list, __pyx_t_6); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 69, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "orso/compute/compiled.pyx":67
+      /* "orso/compute/compiled.pyx":68
  * 
  *     for item in raw_tuple:
  *         if isinstance(item, list) and len(item) == 2 and item[0] == "__datetime__":             # <<<<<<<<<<<<<<
@@ -19335,7 +19238,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
       goto __pyx_L9;
     }
 
-    /* "orso/compute/compiled.pyx":70
+    /* "orso/compute/compiled.pyx":71
  *             processed_list.append(datetime.fromtimestamp(item[1]))
  *         else:
  *             processed_list.append(item)             # <<<<<<<<<<<<<<
@@ -19343,11 +19246,11 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
  *     return tuple(processed_list)
 */
     /*else*/ {
-      __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_processed_list, __pyx_v_item); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 70, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_processed_list, __pyx_v_item); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
     }
     __pyx_L9:;
 
-    /* "orso/compute/compiled.pyx":66
+    /* "orso/compute/compiled.pyx":67
  *     cdef object item
  * 
  *     for item in raw_tuple:             # <<<<<<<<<<<<<<
@@ -19357,7 +19260,7 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "orso/compute/compiled.pyx":72
+  /* "orso/compute/compiled.pyx":73
  *             processed_list.append(item)
  * 
  *     return tuple(processed_list)             # <<<<<<<<<<<<<<
@@ -19365,13 +19268,13 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_from_bytes_cython(PyObject *__
  * cpdef tuple extract_dict_columns(dict data, tuple fields):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = PyList_AsTuple(__pyx_v_processed_list); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_4 = PyList_AsTuple(__pyx_v_processed_list); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "orso/compute/compiled.pyx":41
+  /* "orso/compute/compiled.pyx":42
  * 
  * 
  * cpdef from_bytes_cython(bytes data):             # <<<<<<<<<<<<<<
@@ -19436,32 +19339,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 41, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 42, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 41, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 42, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "from_bytes_cython", 0) < 0) __PYX_ERR(0, 41, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "from_bytes_cython", 0) < 0) __PYX_ERR(0, 42, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("from_bytes_cython", 1, 1, 1, i); __PYX_ERR(0, 41, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("from_bytes_cython", 1, 1, 1, i); __PYX_ERR(0, 42, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 41, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 42, __pyx_L3_error)
     }
     __pyx_v_data = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("from_bytes_cython", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 41, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("from_bytes_cython", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 42, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19472,7 +19375,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 1, "data", 1))) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyBytes_Type), 1, "data", 1))) __PYX_ERR(0, 42, __pyx_L1_error)
   __pyx_r = __pyx_pf_4orso_7compute_8compiled_from_bytes_cython(__pyx_self, __pyx_v_data);
 
   /* function exit code */
@@ -19501,7 +19404,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_from_bytes_cython(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("from_bytes_cython", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled_from_bytes_cython(__pyx_v_data, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled_from_bytes_cython(__pyx_v_data, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19518,7 +19421,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_from_bytes_cython(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "orso/compute/compiled.pyx":74
+/* "orso/compute/compiled.pyx":75
  *     return tuple(processed_list)
  * 
  * cpdef tuple extract_dict_columns(dict data, tuple fields):             # <<<<<<<<<<<<<<
@@ -19536,7 +19439,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 static PyObject *__pyx_f_4orso_7compute_8compiled_extract_dict_columns(PyObject *__pyx_v_data, PyObject *__pyx_v_fields, CYTHON_UNUSED int __pyx_skip_dispatch) {
   int64_t __pyx_v_i;
   int64_t __pyx_v_num_fields;
-  void *__pyx_v_value_ptr;
+  PyObject *__pyx_v_value_ptr;
   PyObject *__pyx_v_field_data = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -19551,127 +19454,101 @@ static PyObject *__pyx_f_4orso_7compute_8compiled_extract_dict_columns(PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("extract_dict_columns", 0);
 
-  /* "orso/compute/compiled.pyx":88
+  /* "orso/compute/compiled.pyx":89
  *         Missing fields will have None.
  *     """
  *     cdef int64_t i, num_fields = len(fields)             # <<<<<<<<<<<<<<
- *     cdef void* value_ptr
+ *     cdef PyObject* value_ptr
  *     cdef list field_data = [None] * num_fields
 */
   if (unlikely(__pyx_v_fields == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 88, __pyx_L1_error)
+    __PYX_ERR(0, 89, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyTuple_GET_SIZE(__pyx_v_fields); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyTuple_GET_SIZE(__pyx_v_fields); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 89, __pyx_L1_error)
   __pyx_v_num_fields = __pyx_t_1;
 
-  /* "orso/compute/compiled.pyx":90
+  /* "orso/compute/compiled.pyx":91
  *     cdef int64_t i, num_fields = len(fields)
- *     cdef void* value_ptr
+ *     cdef PyObject* value_ptr
  *     cdef list field_data = [None] * num_fields             # <<<<<<<<<<<<<<
  * 
  *     for i in range(num_fields):
 */
-  __pyx_t_2 = PyList_New(1 * ((__pyx_v_num_fields<0) ? 0:__pyx_v_num_fields)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(1 * ((__pyx_v_num_fields<0) ? 0:__pyx_v_num_fields)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   { Py_ssize_t __pyx_temp;
     for (__pyx_temp=0; __pyx_temp < __pyx_v_num_fields; __pyx_temp++) {
       __Pyx_INCREF(Py_None);
       __Pyx_GIVEREF(Py_None);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_2, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 90, __pyx_L1_error);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_2, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 91, __pyx_L1_error);
     }
   }
   __pyx_v_field_data = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "orso/compute/compiled.pyx":92
+  /* "orso/compute/compiled.pyx":93
  *     cdef list field_data = [None] * num_fields
  * 
  *     for i in range(num_fields):             # <<<<<<<<<<<<<<
  *         value_ptr = PyDict_GetItem(data, fields[i])
- *         if value_ptr != NULL:
+ *         field_data[i] = <object>value_ptr if value_ptr is not NULL else None
 */
   __pyx_t_3 = __pyx_v_num_fields;
   __pyx_t_4 = __pyx_t_3;
   for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
     __pyx_v_i = __pyx_t_5;
 
-    /* "orso/compute/compiled.pyx":93
+    /* "orso/compute/compiled.pyx":94
  * 
  *     for i in range(num_fields):
  *         value_ptr = PyDict_GetItem(data, fields[i])             # <<<<<<<<<<<<<<
- *         if value_ptr != NULL:
- *             field_data[i] = <object>value_ptr
+ *         field_data[i] = <object>value_ptr if value_ptr is not NULL else None
+ * 
 */
     if (unlikely(__pyx_v_fields == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 93, __pyx_L1_error)
+      __PYX_ERR(0, 94, __pyx_L1_error)
     }
     __pyx_t_2 = __Pyx_PyTuple_GET_ITEM(__pyx_v_fields, __pyx_v_i);
     __Pyx_INCREF(__pyx_t_2);
     __pyx_v_value_ptr = PyDict_GetItem(__pyx_v_data, __pyx_t_2);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "orso/compute/compiled.pyx":94
+    /* "orso/compute/compiled.pyx":95
  *     for i in range(num_fields):
  *         value_ptr = PyDict_GetItem(data, fields[i])
- *         if value_ptr != NULL:             # <<<<<<<<<<<<<<
- *             field_data[i] = <object>value_ptr
- *         else:
+ *         field_data[i] = <object>value_ptr if value_ptr is not NULL else None             # <<<<<<<<<<<<<<
+ * 
+ *     return tuple(field_data)
 */
     __pyx_t_6 = (__pyx_v_value_ptr != NULL);
     if (__pyx_t_6) {
-
-      /* "orso/compute/compiled.pyx":95
- *         value_ptr = PyDict_GetItem(data, fields[i])
- *         if value_ptr != NULL:
- *             field_data[i] = <object>value_ptr             # <<<<<<<<<<<<<<
- *         else:
- *             field_data[i] = None
-*/
+      __Pyx_INCREF(((PyObject *)__pyx_v_value_ptr));
       __pyx_t_2 = ((PyObject *)__pyx_v_value_ptr);
-      __Pyx_INCREF(__pyx_t_2);
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_field_data, __pyx_v_i, __pyx_t_2, int64_t, 1, __Pyx_PyLong_From_int64_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 95, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-      /* "orso/compute/compiled.pyx":94
- *     for i in range(num_fields):
- *         value_ptr = PyDict_GetItem(data, fields[i])
- *         if value_ptr != NULL:             # <<<<<<<<<<<<<<
- *             field_data[i] = <object>value_ptr
- *         else:
-*/
-      goto __pyx_L5;
+    } else {
+      __Pyx_INCREF(Py_None);
+      __pyx_t_2 = Py_None;
     }
-
-    /* "orso/compute/compiled.pyx":97
- *             field_data[i] = <object>value_ptr
- *         else:
- *             field_data[i] = None             # <<<<<<<<<<<<<<
- * 
- *     return tuple(field_data)  # Convert list to tuple
-*/
-    /*else*/ {
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_field_data, __pyx_v_i, Py_None, int64_t, 1, __Pyx_PyLong_From_int64_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
-    }
-    __pyx_L5:;
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_field_data, __pyx_v_i, __pyx_t_2, int64_t, 1, __Pyx_PyLong_From_int64_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 95, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
 
-  /* "orso/compute/compiled.pyx":99
- *             field_data[i] = None
+  /* "orso/compute/compiled.pyx":97
+ *         field_data[i] = <object>value_ptr if value_ptr is not NULL else None
  * 
- *     return tuple(field_data)  # Convert list to tuple             # <<<<<<<<<<<<<<
+ *     return tuple(field_data)             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyList_AsTuple(__pyx_v_field_data); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_2 = PyList_AsTuple(__pyx_v_field_data); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "orso/compute/compiled.pyx":74
+  /* "orso/compute/compiled.pyx":75
  *     return tuple(processed_list)
  * 
  * cpdef tuple extract_dict_columns(dict data, tuple fields):             # <<<<<<<<<<<<<<
@@ -19731,39 +19608,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_fields,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 74, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 75, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 74, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 75, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 74, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "extract_dict_columns", 0) < 0) __PYX_ERR(0, 74, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "extract_dict_columns", 0) < 0) __PYX_ERR(0, 75, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("extract_dict_columns", 1, 2, 2, i); __PYX_ERR(0, 74, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("extract_dict_columns", 1, 2, 2, i); __PYX_ERR(0, 75, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 74, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 74, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 75, __pyx_L3_error)
     }
     __pyx_v_data = ((PyObject*)values[0]);
     __pyx_v_fields = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("extract_dict_columns", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 74, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("extract_dict_columns", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 75, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19774,8 +19651,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyDict_Type), 1, "data", 1))) __PYX_ERR(0, 74, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_fields), (&PyTuple_Type), 1, "fields", 1))) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyDict_Type), 1, "data", 1))) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_fields), (&PyTuple_Type), 1, "fields", 1))) __PYX_ERR(0, 75, __pyx_L1_error)
   __pyx_r = __pyx_pf_4orso_7compute_8compiled_2extract_dict_columns(__pyx_self, __pyx_v_data, __pyx_v_fields);
 
   /* function exit code */
@@ -19804,7 +19681,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_2extract_dict_columns(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("extract_dict_columns", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled_extract_dict_columns(__pyx_v_data, __pyx_v_fields, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled_extract_dict_columns(__pyx_v_data, __pyx_v_fields, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19821,7 +19698,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_2extract_dict_columns(CYTHON_
   return __pyx_r;
 }
 
-/* "orso/compute/compiled.pyx":102
+/* "orso/compute/compiled.pyx":100
  * 
  * 
  * cpdef cnp.ndarray collect_cython(list rows, int32_t[:] columns, int limit=-1):             # <<<<<<<<<<<<<<
@@ -19887,7 +19764,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   __pyx_pybuffernd_result.data = NULL;
   __pyx_pybuffernd_result.rcbuffer = &__pyx_pybuffer_result;
 
-  /* "orso/compute/compiled.pyx":107
+  /* "orso/compute/compiled.pyx":105
  *     """
  *     cdef int64_t i, j
  *     cdef int64_t num_rows = len(rows)             # <<<<<<<<<<<<<<
@@ -19896,12 +19773,12 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
   if (unlikely(__pyx_v_rows == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 107, __pyx_L1_error)
+    __PYX_ERR(0, 105, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_rows); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 107, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_rows); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 105, __pyx_L1_error)
   __pyx_v_num_rows = __pyx_t_1;
 
-  /* "orso/compute/compiled.pyx":108
+  /* "orso/compute/compiled.pyx":106
  *     cdef int64_t i, j
  *     cdef int64_t num_rows = len(rows)
  *     cdef int64_t num_cols = columns.shape[0]             # <<<<<<<<<<<<<<
@@ -19910,7 +19787,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
   __pyx_v_num_cols = (__pyx_v_columns.shape[0]);
 
-  /* "orso/compute/compiled.pyx":114
+  /* "orso/compute/compiled.pyx":112
  * 
  *     # Early exit if no rows or columns
  *     if num_rows == 0 or num_cols == 0:             # <<<<<<<<<<<<<<
@@ -19928,7 +19805,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "orso/compute/compiled.pyx":115
+    /* "orso/compute/compiled.pyx":113
  *     # Early exit if no rows or columns
  *     if num_rows == 0 or num_cols == 0:
  *         return np.empty((num_cols, num_rows), dtype=object)             # <<<<<<<<<<<<<<
@@ -19937,21 +19814,21 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_num_cols); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_num_cols); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_8 = __Pyx_PyLong_From_int64_t(__pyx_v_num_rows); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_int64_t(__pyx_v_num_rows); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_6) != (0)) __PYX_ERR(0, 115, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_6) != (0)) __PYX_ERR(0, 113, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_8);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_8) != (0)) __PYX_ERR(0, 115, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_8) != (0)) __PYX_ERR(0, 113, __pyx_L1_error);
     __pyx_t_6 = 0;
     __pyx_t_8 = 0;
     __pyx_t_10 = 1;
@@ -19968,23 +19845,23 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_5, __pyx_t_9};
-      __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 115, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 113, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_8, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 115, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_8, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 113, __pyx_L1_error)
       __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 115, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 113, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 115, __pyx_L1_error)
+    if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 113, __pyx_L1_error)
     __pyx_r = ((PyArrayObject *)__pyx_t_4);
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "orso/compute/compiled.pyx":114
+    /* "orso/compute/compiled.pyx":112
  * 
  *     # Early exit if no rows or columns
  *     if num_rows == 0 or num_cols == 0:             # <<<<<<<<<<<<<<
@@ -19993,7 +19870,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
   }
 
-  /* "orso/compute/compiled.pyx":117
+  /* "orso/compute/compiled.pyx":115
  *         return np.empty((num_cols, num_rows), dtype=object)
  * 
  *     cdef int64_t row_width = len(rows[0])             # <<<<<<<<<<<<<<
@@ -20002,15 +19879,15 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
   if (unlikely(__pyx_v_rows == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 117, __pyx_L1_error)
+    __PYX_ERR(0, 115, __pyx_L1_error)
   }
   __pyx_t_4 = __Pyx_PyList_GET_ITEM(__pyx_v_rows, 0);
   __Pyx_INCREF(__pyx_t_4);
-  __pyx_t_1 = PyObject_Length(__pyx_t_4); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_1 = PyObject_Length(__pyx_t_4); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 115, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_row_width = __pyx_t_1;
 
-  /* "orso/compute/compiled.pyx":120
+  /* "orso/compute/compiled.pyx":118
  * 
  *     # Check if limit is set and within bounds
  *     if limit >= 0 and limit < num_rows:             # <<<<<<<<<<<<<<
@@ -20028,7 +19905,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "orso/compute/compiled.pyx":121
+    /* "orso/compute/compiled.pyx":119
  *     # Check if limit is set and within bounds
  *     if limit >= 0 and limit < num_rows:
  *         num_rows = limit             # <<<<<<<<<<<<<<
@@ -20037,7 +19914,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
     __pyx_v_num_rows = __pyx_v_limit;
 
-    /* "orso/compute/compiled.pyx":120
+    /* "orso/compute/compiled.pyx":118
  * 
  *     # Check if limit is set and within bounds
  *     if limit >= 0 and limit < num_rows:             # <<<<<<<<<<<<<<
@@ -20046,7 +19923,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
   }
 
-  /* "orso/compute/compiled.pyx":124
+  /* "orso/compute/compiled.pyx":122
  * 
  *     # Check if columns are within bounds (only need to check once)
  *     for j in range(num_cols):             # <<<<<<<<<<<<<<
@@ -20058,7 +19935,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
     __pyx_v_j = __pyx_t_13;
 
-    /* "orso/compute/compiled.pyx":125
+    /* "orso/compute/compiled.pyx":123
  *     # Check if columns are within bounds (only need to check once)
  *     for j in range(num_cols):
  *         col_idx = columns[j]             # <<<<<<<<<<<<<<
@@ -20068,7 +19945,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     __pyx_t_14 = __pyx_v_j;
     __pyx_v_col_idx = (*((int32_t *) ( /* dim=0 */ (__pyx_v_columns.data + __pyx_t_14 * __pyx_v_columns.strides[0]) )));
 
-    /* "orso/compute/compiled.pyx":126
+    /* "orso/compute/compiled.pyx":124
  *     for j in range(num_cols):
  *         col_idx = columns[j]
  *         if col_idx < 0 or col_idx >= row_width:             # <<<<<<<<<<<<<<
@@ -20086,7 +19963,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     __pyx_L12_bool_binop_done:;
     if (unlikely(__pyx_t_2)) {
 
-      /* "orso/compute/compiled.pyx":127
+      /* "orso/compute/compiled.pyx":125
  *         col_idx = columns[j]
  *         if col_idx < 0 or col_idx >= row_width:
  *             raise IndexError(f"Column index out of bounds (0 <= {col_idx} < {row_width})")             # <<<<<<<<<<<<<<
@@ -20096,14 +19973,14 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
       __pyx_t_7 = NULL;
       __Pyx_INCREF(__pyx_builtin_IndexError);
       __pyx_t_8 = __pyx_builtin_IndexError; 
-      __pyx_t_9 = __Pyx_PyLong_From_int32_t(__pyx_v_col_idx); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_From_int32_t(__pyx_v_col_idx); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_9, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_9, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __pyx_t_9 = __Pyx_PyLong_From_int64_t(__pyx_v_row_width); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_From_int64_t(__pyx_v_row_width); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_9, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_9, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_15[0] = __pyx_mstate_global->__pyx_kp_u_Column_index_out_of_bounds_0;
@@ -20112,7 +19989,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
       __pyx_t_15[3] = __pyx_t_6;
       __pyx_t_15[4] = __pyx_mstate_global->__pyx_kp_u__5;
       __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_15, 5, 33 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -20123,14 +20000,14 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_Raise(__pyx_t_4, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __PYX_ERR(0, 127, __pyx_L1_error)
+      __PYX_ERR(0, 125, __pyx_L1_error)
 
-      /* "orso/compute/compiled.pyx":126
+      /* "orso/compute/compiled.pyx":124
  *     for j in range(num_cols):
  *         col_idx = columns[j]
  *         if col_idx < 0 or col_idx >= row_width:             # <<<<<<<<<<<<<<
@@ -20140,7 +20017,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     }
   }
 
-  /* "orso/compute/compiled.pyx":130
+  /* "orso/compute/compiled.pyx":128
  * 
  *     # Create result array directly
  *     cdef cnp.ndarray[object, ndim=2] result = np.empty((num_cols, num_rows), dtype=object)             # <<<<<<<<<<<<<<
@@ -20148,21 +20025,21 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
  *     # Specialized fast paths for common column counts
 */
   __pyx_t_8 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyLong_From_int64_t(__pyx_v_num_cols); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_int64_t(__pyx_v_num_cols); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_num_rows); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_num_rows); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_9) != (0)) __PYX_ERR(0, 130, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_9) != (0)) __PYX_ERR(0, 128, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 130, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 128, __pyx_L1_error);
   __pyx_t_9 = 0;
   __pyx_t_6 = 0;
   __pyx_t_10 = 1;
@@ -20179,30 +20056,30 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, __pyx_t_5};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_6, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 130, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_6, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 128, __pyx_L1_error)
     __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 128, __pyx_L1_error)
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
     if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_result.rcbuffer->pybuffer, (PyObject*)((PyArrayObject *)__pyx_t_4), &__Pyx_TypeInfo_object, PyBUF_FORMAT| PyBUF_STRIDES| PyBUF_WRITABLE, 2, 0, __pyx_stack) == -1)) {
       __pyx_v_result = ((PyArrayObject *)Py_None); __Pyx_INCREF(Py_None); __pyx_pybuffernd_result.rcbuffer->pybuffer.buf = NULL;
-      __PYX_ERR(0, 130, __pyx_L1_error)
+      __PYX_ERR(0, 128, __pyx_L1_error)
     } else {__pyx_pybuffernd_result.diminfo[0].strides = __pyx_pybuffernd_result.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_result.diminfo[0].shape = __pyx_pybuffernd_result.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_result.diminfo[1].strides = __pyx_pybuffernd_result.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_result.diminfo[1].shape = __pyx_pybuffernd_result.rcbuffer->pybuffer.shape[1];
     }
   }
   __pyx_v_result = ((PyArrayObject *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "orso/compute/compiled.pyx":133
+  /* "orso/compute/compiled.pyx":131
  * 
  *     # Specialized fast paths for common column counts
  *     if num_cols == 1:             # <<<<<<<<<<<<<<
@@ -20212,7 +20089,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   switch (__pyx_v_num_cols) {
     case 1:
 
-    /* "orso/compute/compiled.pyx":135
+    /* "orso/compute/compiled.pyx":133
  *     if num_cols == 1:
  *         # Single column case (very common)
  *         col_idx = columns[0]             # <<<<<<<<<<<<<<
@@ -20222,7 +20099,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     __pyx_t_14 = 0;
     __pyx_v_col_idx = (*((int32_t *) ( /* dim=0 */ (__pyx_v_columns.data + __pyx_t_14 * __pyx_v_columns.strides[0]) )));
 
-    /* "orso/compute/compiled.pyx":136
+    /* "orso/compute/compiled.pyx":134
  *         # Single column case (very common)
  *         col_idx = columns[0]
  *         for i in range(num_rows):             # <<<<<<<<<<<<<<
@@ -20234,7 +20111,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
       __pyx_v_i = __pyx_t_13;
 
-      /* "orso/compute/compiled.pyx":137
+      /* "orso/compute/compiled.pyx":135
  *         col_idx = columns[0]
  *         for i in range(num_rows):
  *             tuple_row = <tuple>rows[i]             # <<<<<<<<<<<<<<
@@ -20243,14 +20120,14 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
       if (unlikely(__pyx_v_rows == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 137, __pyx_L1_error)
+        __PYX_ERR(0, 135, __pyx_L1_error)
       }
       __pyx_t_4 = __Pyx_PyList_GET_ITEM(__pyx_v_rows, __pyx_v_i);
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_XDECREF_SET(__pyx_v_tuple_row, ((PyObject*)__pyx_t_4));
       __pyx_t_4 = 0;
 
-      /* "orso/compute/compiled.pyx":138
+      /* "orso/compute/compiled.pyx":136
  *         for i in range(num_rows):
  *             tuple_row = <tuple>rows[i]
  *             result[0, i] = tuple_row[col_idx]             # <<<<<<<<<<<<<<
@@ -20259,7 +20136,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
       if (unlikely(__pyx_v_tuple_row == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 138, __pyx_L1_error)
+        __PYX_ERR(0, 136, __pyx_L1_error)
       }
       __pyx_t_4 = __Pyx_PyTuple_GET_ITEM(__pyx_v_tuple_row, __pyx_v_col_idx);
       __Pyx_INCREF(__pyx_t_4);
@@ -20273,7 +20150,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
 
-    /* "orso/compute/compiled.pyx":133
+    /* "orso/compute/compiled.pyx":131
  * 
  *     # Specialized fast paths for common column counts
  *     if num_cols == 1:             # <<<<<<<<<<<<<<
@@ -20283,7 +20160,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     break;
     case 2:
 
-    /* "orso/compute/compiled.pyx":141
+    /* "orso/compute/compiled.pyx":139
  *     elif num_cols == 2:
  *         # Two column case (also common)
  *         col_idx0 = columns[0]             # <<<<<<<<<<<<<<
@@ -20293,7 +20170,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     __pyx_t_16 = 0;
     __pyx_v_col_idx0 = (*((int32_t *) ( /* dim=0 */ (__pyx_v_columns.data + __pyx_t_16 * __pyx_v_columns.strides[0]) )));
 
-    /* "orso/compute/compiled.pyx":142
+    /* "orso/compute/compiled.pyx":140
  *         # Two column case (also common)
  *         col_idx0 = columns[0]
  *         col_idx1 = columns[1]             # <<<<<<<<<<<<<<
@@ -20303,7 +20180,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     __pyx_t_16 = 1;
     __pyx_v_col_idx1 = (*((int32_t *) ( /* dim=0 */ (__pyx_v_columns.data + __pyx_t_16 * __pyx_v_columns.strides[0]) )));
 
-    /* "orso/compute/compiled.pyx":143
+    /* "orso/compute/compiled.pyx":141
  *         col_idx0 = columns[0]
  *         col_idx1 = columns[1]
  *         for i in range(num_rows):             # <<<<<<<<<<<<<<
@@ -20315,7 +20192,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
       __pyx_v_i = __pyx_t_13;
 
-      /* "orso/compute/compiled.pyx":144
+      /* "orso/compute/compiled.pyx":142
  *         col_idx1 = columns[1]
  *         for i in range(num_rows):
  *             tuple_row = <tuple>rows[i]             # <<<<<<<<<<<<<<
@@ -20324,14 +20201,14 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
       if (unlikely(__pyx_v_rows == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 144, __pyx_L1_error)
+        __PYX_ERR(0, 142, __pyx_L1_error)
       }
       __pyx_t_4 = __Pyx_PyList_GET_ITEM(__pyx_v_rows, __pyx_v_i);
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_XDECREF_SET(__pyx_v_tuple_row, ((PyObject*)__pyx_t_4));
       __pyx_t_4 = 0;
 
-      /* "orso/compute/compiled.pyx":145
+      /* "orso/compute/compiled.pyx":143
  *         for i in range(num_rows):
  *             tuple_row = <tuple>rows[i]
  *             result[0, i] = tuple_row[col_idx0]             # <<<<<<<<<<<<<<
@@ -20340,7 +20217,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
       if (unlikely(__pyx_v_tuple_row == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 145, __pyx_L1_error)
+        __PYX_ERR(0, 143, __pyx_L1_error)
       }
       __pyx_t_4 = __Pyx_PyTuple_GET_ITEM(__pyx_v_tuple_row, __pyx_v_col_idx0);
       __Pyx_INCREF(__pyx_t_4);
@@ -20353,7 +20230,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
       __Pyx_XGIVEREF(*__pyx_t_17);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "orso/compute/compiled.pyx":146
+      /* "orso/compute/compiled.pyx":144
  *             tuple_row = <tuple>rows[i]
  *             result[0, i] = tuple_row[col_idx0]
  *             result[1, i] = tuple_row[col_idx1]             # <<<<<<<<<<<<<<
@@ -20362,7 +20239,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
       if (unlikely(__pyx_v_tuple_row == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 146, __pyx_L1_error)
+        __PYX_ERR(0, 144, __pyx_L1_error)
       }
       __pyx_t_4 = __Pyx_PyTuple_GET_ITEM(__pyx_v_tuple_row, __pyx_v_col_idx1);
       __Pyx_INCREF(__pyx_t_4);
@@ -20376,7 +20253,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
 
-    /* "orso/compute/compiled.pyx":139
+    /* "orso/compute/compiled.pyx":137
  *             tuple_row = <tuple>rows[i]
  *             result[0, i] = tuple_row[col_idx]
  *     elif num_cols == 2:             # <<<<<<<<<<<<<<
@@ -20386,7 +20263,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     break;
     default:
 
-    /* "orso/compute/compiled.pyx":149
+    /* "orso/compute/compiled.pyx":147
  *     else:
  *         # General case for any number of columns
  *         for i in range(num_rows):             # <<<<<<<<<<<<<<
@@ -20398,7 +20275,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
       __pyx_v_i = __pyx_t_13;
 
-      /* "orso/compute/compiled.pyx":150
+      /* "orso/compute/compiled.pyx":148
  *         # General case for any number of columns
  *         for i in range(num_rows):
  *             tuple_row = <tuple>rows[i]             # <<<<<<<<<<<<<<
@@ -20407,14 +20284,14 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
       if (unlikely(__pyx_v_rows == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 150, __pyx_L1_error)
+        __PYX_ERR(0, 148, __pyx_L1_error)
       }
       __pyx_t_4 = __Pyx_PyList_GET_ITEM(__pyx_v_rows, __pyx_v_i);
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_XDECREF_SET(__pyx_v_tuple_row, ((PyObject*)__pyx_t_4));
       __pyx_t_4 = 0;
 
-      /* "orso/compute/compiled.pyx":151
+      /* "orso/compute/compiled.pyx":149
  *         for i in range(num_rows):
  *             tuple_row = <tuple>rows[i]
  *             for j in range(num_cols):             # <<<<<<<<<<<<<<
@@ -20426,7 +20303,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
       for (__pyx_t_20 = 0; __pyx_t_20 < __pyx_t_19; __pyx_t_20+=1) {
         __pyx_v_j = __pyx_t_20;
 
-        /* "orso/compute/compiled.pyx":152
+        /* "orso/compute/compiled.pyx":150
  *             tuple_row = <tuple>rows[i]
  *             for j in range(num_cols):
  *                 result[j, i] = tuple_row[columns[j]]             # <<<<<<<<<<<<<<
@@ -20435,7 +20312,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
 */
         if (unlikely(__pyx_v_tuple_row == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-          __PYX_ERR(0, 152, __pyx_L1_error)
+          __PYX_ERR(0, 150, __pyx_L1_error)
         }
         __pyx_t_16 = __pyx_v_j;
         __pyx_t_21 = (*((int32_t *) ( /* dim=0 */ (__pyx_v_columns.data + __pyx_t_16 * __pyx_v_columns.strides[0]) )));
@@ -20454,7 +20331,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
     break;
   }
 
-  /* "orso/compute/compiled.pyx":154
+  /* "orso/compute/compiled.pyx":152
  *                 result[j, i] = tuple_row[columns[j]]
  * 
  *     return result             # <<<<<<<<<<<<<<
@@ -20466,7 +20343,7 @@ static PyArrayObject *__pyx_f_4orso_7compute_8compiled_collect_cython(PyObject *
   __pyx_r = ((PyArrayObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "orso/compute/compiled.pyx":102
+  /* "orso/compute/compiled.pyx":100
  * 
  * 
  * cpdef cnp.ndarray collect_cython(list rows, int32_t[:] columns, int limit=-1):             # <<<<<<<<<<<<<<
@@ -20542,55 +20419,55 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_rows,&__pyx_mstate_global->__pyx_n_u_columns,&__pyx_mstate_global->__pyx_n_u_limit,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 102, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 100, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "collect_cython", 0) < 0) __PYX_ERR(0, 102, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "collect_cython", 0) < 0) __PYX_ERR(0, 100, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("collect_cython", 0, 2, 3, i); __PYX_ERR(0, 102, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("collect_cython", 0, 2, 3, i); __PYX_ERR(0, 100, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     __pyx_v_rows = ((PyObject*)values[0]);
-    __pyx_v_columns = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_int32_t(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_columns.memview)) __PYX_ERR(0, 102, __pyx_L3_error)
+    __pyx_v_columns = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_int32_t(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_columns.memview)) __PYX_ERR(0, 100, __pyx_L3_error)
     if (values[2]) {
-      __pyx_v_limit = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_limit == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 102, __pyx_L3_error)
+      __pyx_v_limit = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_limit == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
     } else {
       __pyx_v_limit = ((int)-1);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("collect_cython", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 102, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("collect_cython", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 100, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20602,7 +20479,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 1, "rows", 1))) __PYX_ERR(0, 102, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 1, "rows", 1))) __PYX_ERR(0, 100, __pyx_L1_error)
   __pyx_r = __pyx_pf_4orso_7compute_8compiled_4collect_cython(__pyx_self, __pyx_v_rows, __pyx_v_columns, __pyx_v_limit);
 
   /* function exit code */
@@ -20633,10 +20510,10 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_4collect_cython(CYTHON_UNUSED
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("collect_cython", 0);
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_columns.memview)) { __Pyx_RaiseUnboundLocalError("columns"); __PYX_ERR(0, 102, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_columns.memview)) { __Pyx_RaiseUnboundLocalError("columns"); __PYX_ERR(0, 100, __pyx_L1_error) }
   __pyx_t_2.__pyx_n = 1;
   __pyx_t_2.limit = __pyx_v_limit;
-  __pyx_t_1 = ((PyObject *)__pyx_f_4orso_7compute_8compiled_collect_cython(__pyx_v_rows, __pyx_v_columns, 1, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_4orso_7compute_8compiled_collect_cython(__pyx_v_rows, __pyx_v_columns, 1, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20653,7 +20530,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_4collect_cython(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "orso/compute/compiled.pyx":157
+/* "orso/compute/compiled.pyx":155
  * 
  * 
  * cpdef int calculate_data_width(cnp.ndarray column_values):             # <<<<<<<<<<<<<<
@@ -20684,7 +20561,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("calculate_data_width", 0);
 
-  /* "orso/compute/compiled.pyx":161
+  /* "orso/compute/compiled.pyx":159
  *     cdef object value
  * 
  *     max_width = 4  # Default width             # <<<<<<<<<<<<<<
@@ -20693,7 +20570,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
 */
   __pyx_v_max_width = 4;
 
-  /* "orso/compute/compiled.pyx":162
+  /* "orso/compute/compiled.pyx":160
  * 
  *     max_width = 4  # Default width
  *     for value in column_values:             # <<<<<<<<<<<<<<
@@ -20705,9 +20582,9 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(((PyObject *)__pyx_v_column_values)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(((PyObject *)__pyx_v_column_values)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 160, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_3)) {
@@ -20715,7 +20592,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 160, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -20725,7 +20602,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 160, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -20736,13 +20613,13 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_3(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 162, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 160, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -20752,7 +20629,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
     __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "orso/compute/compiled.pyx":163
+    /* "orso/compute/compiled.pyx":161
  *     max_width = 4  # Default width
  *     for value in column_values:
  *         if value is not None:             # <<<<<<<<<<<<<<
@@ -20762,19 +20639,19 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
     __pyx_t_5 = (__pyx_v_value != Py_None);
     if (__pyx_t_5) {
 
-      /* "orso/compute/compiled.pyx":164
+      /* "orso/compute/compiled.pyx":162
  *     for value in column_values:
  *         if value is not None:
  *             width = PyBytes_GET_SIZE(PyObject_Str(value))             # <<<<<<<<<<<<<<
  *             if width > max_width:
  *                 max_width = width
 */
-      __pyx_t_4 = PyObject_Str(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+      __pyx_t_4 = PyObject_Str(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_v_width = PyBytes_GET_SIZE(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "orso/compute/compiled.pyx":165
+      /* "orso/compute/compiled.pyx":163
  *         if value is not None:
  *             width = PyBytes_GET_SIZE(PyObject_Str(value))
  *             if width > max_width:             # <<<<<<<<<<<<<<
@@ -20784,7 +20661,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
       __pyx_t_5 = (__pyx_v_width > __pyx_v_max_width);
       if (__pyx_t_5) {
 
-        /* "orso/compute/compiled.pyx":166
+        /* "orso/compute/compiled.pyx":164
  *             width = PyBytes_GET_SIZE(PyObject_Str(value))
  *             if width > max_width:
  *                 max_width = width             # <<<<<<<<<<<<<<
@@ -20793,7 +20670,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
 */
         __pyx_v_max_width = __pyx_v_width;
 
-        /* "orso/compute/compiled.pyx":165
+        /* "orso/compute/compiled.pyx":163
  *         if value is not None:
  *             width = PyBytes_GET_SIZE(PyObject_Str(value))
  *             if width > max_width:             # <<<<<<<<<<<<<<
@@ -20802,7 +20679,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
 */
       }
 
-      /* "orso/compute/compiled.pyx":163
+      /* "orso/compute/compiled.pyx":161
  *     max_width = 4  # Default width
  *     for value in column_values:
  *         if value is not None:             # <<<<<<<<<<<<<<
@@ -20811,7 +20688,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
 */
     }
 
-    /* "orso/compute/compiled.pyx":162
+    /* "orso/compute/compiled.pyx":160
  * 
  *     max_width = 4  # Default width
  *     for value in column_values:             # <<<<<<<<<<<<<<
@@ -20821,7 +20698,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "orso/compute/compiled.pyx":168
+  /* "orso/compute/compiled.pyx":166
  *                 max_width = width
  * 
  *     return max_width             # <<<<<<<<<<<<<<
@@ -20831,7 +20708,7 @@ static int __pyx_f_4orso_7compute_8compiled_calculate_data_width(PyArrayObject *
   __pyx_r = __pyx_v_max_width;
   goto __pyx_L0;
 
-  /* "orso/compute/compiled.pyx":157
+  /* "orso/compute/compiled.pyx":155
  * 
  * 
  * cpdef int calculate_data_width(cnp.ndarray column_values):             # <<<<<<<<<<<<<<
@@ -20890,32 +20767,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_column_values,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 157, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 155, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 157, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 155, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "calculate_data_width", 0) < 0) __PYX_ERR(0, 157, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "calculate_data_width", 0) < 0) __PYX_ERR(0, 155, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("calculate_data_width", 1, 1, 1, i); __PYX_ERR(0, 157, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("calculate_data_width", 1, 1, 1, i); __PYX_ERR(0, 155, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 157, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 155, __pyx_L3_error)
     }
     __pyx_v_column_values = ((PyArrayObject *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("calculate_data_width", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 157, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("calculate_data_width", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 155, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20926,7 +20803,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_column_values), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "column_values", 0))) __PYX_ERR(0, 157, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_column_values), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "column_values", 0))) __PYX_ERR(0, 155, __pyx_L1_error)
   __pyx_r = __pyx_pf_4orso_7compute_8compiled_6calculate_data_width(__pyx_self, __pyx_v_column_values);
 
   /* function exit code */
@@ -20956,8 +20833,8 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_6calculate_data_width(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("calculate_data_width", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled_calculate_data_width(__pyx_v_column_values, 1); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled_calculate_data_width(__pyx_v_column_values, 1); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -20974,7 +20851,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_6calculate_data_width(CYTHON_
   return __pyx_r;
 }
 
-/* "orso/compute/compiled.pyx":173
+/* "orso/compute/compiled.pyx":171
  * from cpython.list cimport PyList_New, PyList_SET_ITEM
  * 
  * def process_table(table, row_factory, int max_chunksize) -> list:             # <<<<<<<<<<<<<<
@@ -21024,46 +20901,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_table,&__pyx_mstate_global->__pyx_n_u_row_factory,&__pyx_mstate_global->__pyx_n_u_max_chunksize,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 173, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 171, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 173, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 173, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 173, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "process_table", 0) < 0) __PYX_ERR(0, 173, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "process_table", 0) < 0) __PYX_ERR(0, 171, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("process_table", 1, 3, 3, i); __PYX_ERR(0, 173, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("process_table", 1, 3, 3, i); __PYX_ERR(0, 171, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 173, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 173, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 171, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 173, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 171, __pyx_L3_error)
     }
     __pyx_v_table = values[0];
     __pyx_v_row_factory = values[1];
-    __pyx_v_max_chunksize = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_max_chunksize == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 173, __pyx_L3_error)
+    __pyx_v_max_chunksize = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_max_chunksize == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 171, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("process_table", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 173, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("process_table", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 171, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21109,21 +20986,21 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("process_table", 0);
 
-  /* "orso/compute/compiled.pyx":188
+  /* "orso/compute/compiled.pyx":186
  *         A list of transformed rows.
  *     """
  *     cdef list rows = [None] * table.num_rows             # <<<<<<<<<<<<<<
  *     cdef int64_t i = 0
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_table, __pyx_mstate_global->__pyx_n_u_num_rows); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_table, __pyx_mstate_global->__pyx_n_u_num_rows); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, Py_None) != (0)) __PYX_ERR(0, 188, __pyx_L1_error);
-  { PyObject* __pyx_temp = PyNumber_InPlaceMultiply(__pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_temp)) __PYX_ERR(0, 188, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, Py_None) != (0)) __PYX_ERR(0, 186, __pyx_L1_error);
+  { PyObject* __pyx_temp = PyNumber_InPlaceMultiply(__pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_temp)) __PYX_ERR(0, 186, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_temp);
     __Pyx_DECREF(__pyx_t_2);
     __pyx_t_2 = __pyx_temp;
@@ -21132,7 +21009,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
   __pyx_v_rows = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "orso/compute/compiled.pyx":189
+  /* "orso/compute/compiled.pyx":187
  *     """
  *     cdef list rows = [None] * table.num_rows
  *     cdef int64_t i = 0             # <<<<<<<<<<<<<<
@@ -21141,7 +21018,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
 */
   __pyx_v_i = 0;
 
-  /* "orso/compute/compiled.pyx":191
+  /* "orso/compute/compiled.pyx":189
  *     cdef int64_t i = 0
  * 
  *     for batch in table.to_batches(max_chunksize):             # <<<<<<<<<<<<<<
@@ -21150,7 +21027,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
 */
   __pyx_t_1 = __pyx_v_table;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_max_chunksize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_max_chunksize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 0;
   {
@@ -21158,7 +21035,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_to_batches, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
@@ -21166,9 +21043,9 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
     __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 189, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   for (;;) {
@@ -21177,7 +21054,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -21187,7 +21064,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -21198,13 +21075,13 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
         #endif
         ++__pyx_t_5;
       }
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L1_error)
     } else {
       __pyx_t_2 = __pyx_t_6(__pyx_t_3);
       if (unlikely(!__pyx_t_2)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 191, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 189, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -21214,7 +21091,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
     __Pyx_XDECREF_SET(__pyx_v_batch, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "orso/compute/compiled.pyx":192
+    /* "orso/compute/compiled.pyx":190
  * 
  *     for batch in table.to_batches(max_chunksize):
  *         df = batch.to_pandas().replace({np.nan: None})             # <<<<<<<<<<<<<<
@@ -21228,19 +21105,19 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
       PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
       __pyx_t_7 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_to_pandas, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 192, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 190, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
     }
     __pyx_t_1 = __pyx_t_7;
     __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_8 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_nan); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_nan); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (PyDict_SetItem(__pyx_t_8, __pyx_t_10, Py_None) < 0) __PYX_ERR(0, 192, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_8, __pyx_t_10, Py_None) < 0) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_4 = 0;
     {
@@ -21249,13 +21126,13 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_XDECREF_SET(__pyx_v_df, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "orso/compute/compiled.pyx":193
+    /* "orso/compute/compiled.pyx":191
  *     for batch in table.to_batches(max_chunksize):
  *         df = batch.to_pandas().replace({np.nan: None})
  *         for row in df.itertuples(index=False, name=None):             # <<<<<<<<<<<<<<
@@ -21267,14 +21144,14 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
     __pyx_t_4 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_7, NULL};
-      __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 193, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 191, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_index, Py_False, __pyx_t_8, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 193, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, Py_None, __pyx_t_8, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 193, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_index, Py_False, __pyx_t_8, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 191, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, Py_None, __pyx_t_8, __pyx_callargs+1, 1) < 0) __PYX_ERR(0, 191, __pyx_L1_error)
       __pyx_t_2 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_itertuples, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 193, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
@@ -21282,9 +21159,9 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
       __pyx_t_11 = 0;
       __pyx_t_12 = NULL;
     } else {
-      __pyx_t_11 = -1; __pyx_t_8 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 193, __pyx_L1_error)
+      __pyx_t_11 = -1; __pyx_t_8 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 191, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_12 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 193, __pyx_L1_error)
+      __pyx_t_12 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 191, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     for (;;) {
@@ -21293,7 +21170,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_8);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 193, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
             #endif
             if (__pyx_t_11 >= __pyx_temp) break;
           }
@@ -21303,7 +21180,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_8);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 193, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
             #endif
             if (__pyx_t_11 >= __pyx_temp) break;
           }
@@ -21314,13 +21191,13 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
           #endif
           ++__pyx_t_11;
         }
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 193, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
       } else {
         __pyx_t_2 = __pyx_t_12(__pyx_t_8);
         if (unlikely(!__pyx_t_2)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 193, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 191, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -21330,7 +21207,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
       __Pyx_XDECREF_SET(__pyx_v_row, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "orso/compute/compiled.pyx":194
+      /* "orso/compute/compiled.pyx":192
  *         df = batch.to_pandas().replace({np.nan: None})
  *         for row in df.itertuples(index=False, name=None):
  *             rows[i] = row_factory(row)             # <<<<<<<<<<<<<<
@@ -21357,22 +21234,21 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 194, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_rows, __pyx_v_i, __pyx_t_2, int64_t, 1, __Pyx_PyLong_From_int64_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 194, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_v_rows, __pyx_v_i, __pyx_t_2, int64_t, 1, __Pyx_PyLong_From_int64_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 192, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "orso/compute/compiled.pyx":195
+      /* "orso/compute/compiled.pyx":193
  *         for row in df.itertuples(index=False, name=None):
  *             rows[i] = row_factory(row)
  *             i += 1             # <<<<<<<<<<<<<<
  *     return rows
- * 
 */
       __pyx_v_i = (__pyx_v_i + 1);
 
-      /* "orso/compute/compiled.pyx":193
+      /* "orso/compute/compiled.pyx":191
  *     for batch in table.to_batches(max_chunksize):
  *         df = batch.to_pandas().replace({np.nan: None})
  *         for row in df.itertuples(index=False, name=None):             # <<<<<<<<<<<<<<
@@ -21382,7 +21258,7 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
     }
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "orso/compute/compiled.pyx":191
+    /* "orso/compute/compiled.pyx":189
  *     cdef int64_t i = 0
  * 
  *     for batch in table.to_batches(max_chunksize):             # <<<<<<<<<<<<<<
@@ -21392,19 +21268,17 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "orso/compute/compiled.pyx":196
+  /* "orso/compute/compiled.pyx":194
  *             rows[i] = row_factory(row)
  *             i += 1
  *     return rows             # <<<<<<<<<<<<<<
- * 
- * 
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_rows);
   __pyx_r = __pyx_v_rows;
   goto __pyx_L0;
 
-  /* "orso/compute/compiled.pyx":173
+  /* "orso/compute/compiled.pyx":171
  * from cpython.list cimport PyList_New, PyList_SET_ITEM
  * 
  * def process_table(table, row_factory, int max_chunksize) -> list:             # <<<<<<<<<<<<<<
@@ -21428,1806 +21302,6 @@ static PyObject *__pyx_pf_4orso_7compute_8compiled_8process_table(CYTHON_UNUSED 
   __Pyx_XDECREF(__pyx_v_batch);
   __Pyx_XDECREF(__pyx_v_df);
   __Pyx_XDECREF(__pyx_v_row);
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "orso/compute/compiled.pyx":215
- * from libc.stdint cimport int32_t, int64_t, uint8_t, uint64_t, uintptr_t
- * from cpython.tuple cimport PyTuple_New, PyTuple_SET_ITEM
- * cpdef list _process_table(table, object row_factory, int max_chunksize):             # <<<<<<<<<<<<<<
- *     """
- *     Converts a PyArrow table into a list of tuples efficiently.
-*/
-
-static PyObject *__pyx_pw_4orso_7compute_8compiled_11_process_table(PyObject *__pyx_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-); /*proto*/
-static PyObject *__pyx_f_4orso_7compute_8compiled__process_table(PyObject *__pyx_v_table, PyObject *__pyx_v_row_factory, int __pyx_v_max_chunksize, CYTHON_UNUSED int __pyx_skip_dispatch) {
-  PyObject *__pyx_v_result = 0;
-  Py_ssize_t __pyx_v_num_cols;
-  Py_ssize_t __pyx_v_row_idx;
-  Py_ssize_t __pyx_v_col_idx;
-  PyObject *__pyx_v_chunk = 0;
-  PyObject *__pyx_v_buffers = 0;
-  uint8_t const *__pyx_v_validity;
-  int32_t const *__pyx_v_int_offsets;
-  char const *__pyx_v_data;
-  Py_ssize_t __pyx_v_str_start;
-  Py_ssize_t __pyx_v_str_end;
-  PyObject *__pyx_v_value = 0;
-  PyObject *__pyx_v_row_tuple = 0;
-  uint8_t __pyx_v_null_mask;
-  Py_ssize_t __pyx_v_byte_offset;
-  Py_ssize_t __pyx_v_bit_index;
-  uint8_t const *__pyx_v_raw_data;
-  PyObject *__pyx_v_batch = NULL;
-  PyObject *__pyx_v_batch_cols = NULL;
-  PyObject *__pyx_v_batch_num_rows = NULL;
-  PyObject *__pyx_v_batch_result = NULL;
-  PyObject *__pyx_v_row_data = NULL;
-  PyObject *__pyx_v_item_size = NULL;
-  PyObject *__pyx_v_buffer_size = NULL;
-  PyObject *__pyx_v_offset = NULL;
-  uint8_t const *__pyx_v_bool_data;
-  Py_ssize_t __pyx_v_bool_value;
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  Py_ssize_t __pyx_t_2;
-  PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
-  size_t __pyx_t_5;
-  PyObject *(*__pyx_t_6)(PyObject *);
-  Py_ssize_t __pyx_t_7;
-  Py_ssize_t __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
-  Py_ssize_t __pyx_t_10;
-  Py_ssize_t __pyx_t_11;
-  Py_ssize_t __pyx_t_12;
-  uint8_t const *__pyx_t_13;
-  int __pyx_t_14;
-  uintptr_t __pyx_t_15;
-  PyObject *__pyx_t_16 = NULL;
-  PyObject *__pyx_t_17 = NULL;
-  int __pyx_t_18;
-  char const *__pyx_t_19;
-  Py_ssize_t __pyx_t_20;
-  uint8_t const *__pyx_t_21;
-  PyObject *__pyx_t_22 = NULL;
-  PyObject *__pyx_t_23 = NULL;
-  PyObject *__pyx_t_24 = NULL;
-  int __pyx_t_25;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_process_table", 0);
-
-  /* "orso/compute/compiled.pyx":230
- *         A list of transformed rows.
- *     """
- *     cdef list result = []             # <<<<<<<<<<<<<<
- *     cdef Py_ssize_t num_cols = table.num_columns
- *     cdef Py_ssize_t row_idx, col_idx
-*/
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_v_result = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
-
-  /* "orso/compute/compiled.pyx":231
- *     """
- *     cdef list result = []
- *     cdef Py_ssize_t num_cols = table.num_columns             # <<<<<<<<<<<<<<
- *     cdef Py_ssize_t row_idx, col_idx
- *     cdef object chunk, buffers
-*/
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_table, __pyx_mstate_global->__pyx_n_u_num_columns); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 231, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_num_cols = __pyx_t_2;
-
-  /* "orso/compute/compiled.pyx":244
- *     cdef const uint8_t* raw_data
- * 
- *     for batch in table.to_batches(max_chunksize):             # <<<<<<<<<<<<<<
- *         batch_cols = batch.columns
- *         batch_num_rows = batch.num_rows
-*/
-  __pyx_t_3 = __pyx_v_table;
-  __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_max_chunksize); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = 0;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_4};
-    __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_to_batches, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-  }
-  if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
-    __pyx_t_4 = __pyx_t_1; __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_2 = 0;
-    __pyx_t_6 = NULL;
-  } else {
-    __pyx_t_2 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 244, __pyx_L1_error)
-  }
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  for (;;) {
-    if (likely(!__pyx_t_6)) {
-      if (likely(PyList_CheckExact(__pyx_t_4))) {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 244, __pyx_L1_error)
-          #endif
-          if (__pyx_t_2 >= __pyx_temp) break;
-        }
-        __pyx_t_1 = __Pyx_PyList_GetItemRef(__pyx_t_4, __pyx_t_2);
-        ++__pyx_t_2;
-      } else {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 244, __pyx_L1_error)
-          #endif
-          if (__pyx_t_2 >= __pyx_temp) break;
-        }
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_2));
-        #else
-        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_4, __pyx_t_2);
-        #endif
-        ++__pyx_t_2;
-      }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
-    } else {
-      __pyx_t_1 = __pyx_t_6(__pyx_t_4);
-      if (unlikely(!__pyx_t_1)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 244, __pyx_L1_error)
-          PyErr_Clear();
-        }
-        break;
-      }
-    }
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_XDECREF_SET(__pyx_v_batch, __pyx_t_1);
-    __pyx_t_1 = 0;
-
-    /* "orso/compute/compiled.pyx":245
- * 
- *     for batch in table.to_batches(max_chunksize):
- *         batch_cols = batch.columns             # <<<<<<<<<<<<<<
- *         batch_num_rows = batch.num_rows
- * 
-*/
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_batch, __pyx_mstate_global->__pyx_n_u_columns); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_XDECREF_SET(__pyx_v_batch_cols, __pyx_t_1);
-    __pyx_t_1 = 0;
-
-    /* "orso/compute/compiled.pyx":246
- *     for batch in table.to_batches(max_chunksize):
- *         batch_cols = batch.columns
- *         batch_num_rows = batch.num_rows             # <<<<<<<<<<<<<<
- * 
- *         # Preallocate row storage
-*/
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_batch, __pyx_mstate_global->__pyx_n_u_num_rows); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 246, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_XDECREF_SET(__pyx_v_batch_num_rows, __pyx_t_1);
-    __pyx_t_1 = 0;
-
-    /* "orso/compute/compiled.pyx":249
- * 
- *         # Preallocate row storage
- *         batch_result = [None] * batch_num_rows             # <<<<<<<<<<<<<<
- * 
- *         for row_idx in range(batch_num_rows):
-*/
-    __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_INCREF(Py_None);
-    __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 249, __pyx_L1_error);
-    { PyObject* __pyx_temp = PyNumber_InPlaceMultiply(__pyx_t_1, __pyx_v_batch_num_rows); if (unlikely(!__pyx_temp)) __PYX_ERR(0, 249, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_temp);
-      __Pyx_DECREF(__pyx_t_1);
-      __pyx_t_1 = __pyx_temp;
-    }
-    __Pyx_XDECREF_SET(__pyx_v_batch_result, ((PyObject*)__pyx_t_1));
-    __pyx_t_1 = 0;
-
-    /* "orso/compute/compiled.pyx":251
- *         batch_result = [None] * batch_num_rows
- * 
- *         for row_idx in range(batch_num_rows):             # <<<<<<<<<<<<<<
- *             # Create Python list for row data first
- *             row_data = [None] * num_cols
-*/
-    __pyx_t_7 = __Pyx_PyIndex_AsSsize_t(__pyx_v_batch_num_rows); if (unlikely((__pyx_t_7 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 251, __pyx_L1_error)
-    __pyx_t_8 = __pyx_t_7;
-    for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
-      __pyx_v_row_idx = __pyx_t_9;
-
-      /* "orso/compute/compiled.pyx":253
- *         for row_idx in range(batch_num_rows):
- *             # Create Python list for row data first
- *             row_data = [None] * num_cols             # <<<<<<<<<<<<<<
- * 
- *             for col_idx in range(num_cols):
-*/
-      __pyx_t_1 = PyList_New(1 * ((__pyx_v_num_cols<0) ? 0:__pyx_v_num_cols)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      { Py_ssize_t __pyx_temp;
-        for (__pyx_temp=0; __pyx_temp < __pyx_v_num_cols; __pyx_temp++) {
-          __Pyx_INCREF(Py_None);
-          __Pyx_GIVEREF(Py_None);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_1, __pyx_temp, Py_None) != (0)) __PYX_ERR(0, 253, __pyx_L1_error);
-        }
-      }
-      __Pyx_XDECREF_SET(__pyx_v_row_data, ((PyObject*)__pyx_t_1));
-      __pyx_t_1 = 0;
-
-      /* "orso/compute/compiled.pyx":255
- *             row_data = [None] * num_cols
- * 
- *             for col_idx in range(num_cols):             # <<<<<<<<<<<<<<
- *                 chunk = batch_cols[col_idx]
- *                 buffers = chunk.buffers()
-*/
-      __pyx_t_10 = __pyx_v_num_cols;
-      __pyx_t_11 = __pyx_t_10;
-      for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
-        __pyx_v_col_idx = __pyx_t_12;
-
-        /* "orso/compute/compiled.pyx":256
- * 
- *             for col_idx in range(num_cols):
- *                 chunk = batch_cols[col_idx]             # <<<<<<<<<<<<<<
- *                 buffers = chunk.buffers()
- * 
-*/
-        __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_batch_cols, __pyx_v_col_idx, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 256, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __Pyx_XDECREF_SET(__pyx_v_chunk, __pyx_t_1);
-        __pyx_t_1 = 0;
-
-        /* "orso/compute/compiled.pyx":257
- *             for col_idx in range(num_cols):
- *                 chunk = batch_cols[col_idx]
- *                 buffers = chunk.buffers()             # <<<<<<<<<<<<<<
- * 
- *                 # Extract validity bitmap
-*/
-        __pyx_t_3 = __pyx_v_chunk;
-        __Pyx_INCREF(__pyx_t_3);
-        __pyx_t_5 = 0;
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
-          __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_buffers, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 257, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_1);
-        }
-        __Pyx_XDECREF_SET(__pyx_v_buffers, __pyx_t_1);
-        __pyx_t_1 = 0;
-
-        /* "orso/compute/compiled.pyx":260
- * 
- *                 # Extract validity bitmap
- *                 validity = <const uint8_t*><uintptr_t>buffers[0].address if buffers[0] else NULL             # <<<<<<<<<<<<<<
- * 
- *                 # Compute null mask offsets
-*/
-        __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_buffers, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 260, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (__pyx_t_14) {
-          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_buffers, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_address); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 260, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_3);
-          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __pyx_t_15 = __Pyx_PyLong_As_size_t(__pyx_t_3); if (unlikely((__pyx_t_15 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 260, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          __pyx_t_13 = ((uint8_t const *)((uintptr_t)__pyx_t_15));
-        } else {
-          __pyx_t_13 = NULL;
-        }
-        __pyx_v_validity = __pyx_t_13;
-
-        /* "orso/compute/compiled.pyx":263
- * 
- *                 # Compute null mask offsets
- *                 if validity:             # <<<<<<<<<<<<<<
- *                     byte_offset = row_idx // 8
- *                     bit_index = row_idx % 8
-*/
-        __pyx_t_14 = (__pyx_v_validity != 0);
-        if (__pyx_t_14) {
-
-          /* "orso/compute/compiled.pyx":264
- *                 # Compute null mask offsets
- *                 if validity:
- *                     byte_offset = row_idx // 8             # <<<<<<<<<<<<<<
- *                     bit_index = row_idx % 8
- *                     null_mask = (validity[byte_offset] >> bit_index) & 1
-*/
-          __pyx_v_byte_offset = __Pyx_div_Py_ssize_t(__pyx_v_row_idx, 8, 1);
-
-          /* "orso/compute/compiled.pyx":265
- *                 if validity:
- *                     byte_offset = row_idx // 8
- *                     bit_index = row_idx % 8             # <<<<<<<<<<<<<<
- *                     null_mask = (validity[byte_offset] >> bit_index) & 1
- *                 else:
-*/
-          __pyx_v_bit_index = __Pyx_mod_Py_ssize_t(__pyx_v_row_idx, 8, 1);
-
-          /* "orso/compute/compiled.pyx":266
- *                     byte_offset = row_idx // 8
- *                     bit_index = row_idx % 8
- *                     null_mask = (validity[byte_offset] >> bit_index) & 1             # <<<<<<<<<<<<<<
- *                 else:
- *                     null_mask = 1  # If no validity buffer, assume all valid
-*/
-          __pyx_v_null_mask = (((__pyx_v_validity[__pyx_v_byte_offset]) >> __pyx_v_bit_index) & 1);
-
-          /* "orso/compute/compiled.pyx":263
- * 
- *                 # Compute null mask offsets
- *                 if validity:             # <<<<<<<<<<<<<<
- *                     byte_offset = row_idx // 8
- *                     bit_index = row_idx % 8
-*/
-          goto __pyx_L9;
-        }
-
-        /* "orso/compute/compiled.pyx":268
- *                     null_mask = (validity[byte_offset] >> bit_index) & 1
- *                 else:
- *                     null_mask = 1  # If no validity buffer, assume all valid             # <<<<<<<<<<<<<<
- * 
- *                 if null_mask == 0:
-*/
-        /*else*/ {
-          __pyx_v_null_mask = 1;
-        }
-        __pyx_L9:;
-
-        /* "orso/compute/compiled.pyx":270
- *                     null_mask = 1  # If no validity buffer, assume all valid
- * 
- *                 if null_mask == 0:             # <<<<<<<<<<<<<<
- *                     # NULL value case
- *                     continue
-*/
-        __pyx_t_14 = (__pyx_v_null_mask == 0);
-        if (__pyx_t_14) {
-
-          /* "orso/compute/compiled.pyx":272
- *                 if null_mask == 0:
- *                     # NULL value case
- *                     continue             # <<<<<<<<<<<<<<
- * 
- *                 # Process based on type
-*/
-          goto __pyx_L7_continue;
-
-          /* "orso/compute/compiled.pyx":270
- *                     null_mask = 1  # If no validity buffer, assume all valid
- * 
- *                 if null_mask == 0:             # <<<<<<<<<<<<<<
- *                     # NULL value case
- *                     continue
-*/
-        }
-
-        /* "orso/compute/compiled.pyx":275
- * 
- *                 # Process based on type
- *                 if pyarrow.types.is_string(chunk.type) or pyarrow.types.is_binary(chunk.type):             # <<<<<<<<<<<<<<
- *                     int_offsets = <const int32_t*><uintptr_t>buffers[1].address
- *                     data = <const char*><uintptr_t>buffers[2].address if len(buffers) > 2 else NULL
-*/
-        __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_pyarrow); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_16);
-        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_types); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_17);
-        __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-        __pyx_t_1 = __pyx_t_17;
-        __Pyx_INCREF(__pyx_t_1);
-        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_16);
-        __pyx_t_5 = 0;
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_t_16};
-          __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_is_string, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_3);
-        }
-        __pyx_t_18 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_18 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (!__pyx_t_18) {
-        } else {
-          __pyx_t_14 = __pyx_t_18;
-          goto __pyx_L12_bool_binop_done;
-        }
-        __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_pyarrow); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_16);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_types); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-        __pyx_t_17 = __pyx_t_1;
-        __Pyx_INCREF(__pyx_t_17);
-        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_16);
-        __pyx_t_5 = 0;
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_17, __pyx_t_16};
-          __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_is_binary, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-          __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_3);
-        }
-        __pyx_t_18 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_18 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __pyx_t_14 = __pyx_t_18;
-        __pyx_L12_bool_binop_done:;
-        if (__pyx_t_14) {
-
-          /* "orso/compute/compiled.pyx":276
- *                 # Process based on type
- *                 if pyarrow.types.is_string(chunk.type) or pyarrow.types.is_binary(chunk.type):
- *                     int_offsets = <const int32_t*><uintptr_t>buffers[1].address             # <<<<<<<<<<<<<<
- *                     data = <const char*><uintptr_t>buffers[2].address if len(buffers) > 2 else NULL
- * 
-*/
-          __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 276, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_3);
-          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_address); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 276, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_1);
-          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          __pyx_t_15 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_15 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 276, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __pyx_v_int_offsets = ((int32_t const *)((uintptr_t)__pyx_t_15));
-
-          /* "orso/compute/compiled.pyx":277
- *                 if pyarrow.types.is_string(chunk.type) or pyarrow.types.is_binary(chunk.type):
- *                     int_offsets = <const int32_t*><uintptr_t>buffers[1].address
- *                     data = <const char*><uintptr_t>buffers[2].address if len(buffers) > 2 else NULL             # <<<<<<<<<<<<<<
- * 
- *                     str_start = int_offsets[row_idx]
-*/
-          __pyx_t_20 = PyObject_Length(__pyx_v_buffers); if (unlikely(__pyx_t_20 == ((Py_ssize_t)-1))) __PYX_ERR(0, 277, __pyx_L1_error)
-          __pyx_t_14 = (__pyx_t_20 > 2);
-          if (__pyx_t_14) {
-            __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_buffers, 2, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 277, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_address); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 277, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_3);
-            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_15 = __Pyx_PyLong_As_size_t(__pyx_t_3); if (unlikely((__pyx_t_15 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 277, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __pyx_t_19 = ((char const *)((uintptr_t)__pyx_t_15));
-          } else {
-            __pyx_t_19 = NULL;
-          }
-          __pyx_v_data = __pyx_t_19;
-
-          /* "orso/compute/compiled.pyx":279
- *                     data = <const char*><uintptr_t>buffers[2].address if len(buffers) > 2 else NULL
- * 
- *                     str_start = int_offsets[row_idx]             # <<<<<<<<<<<<<<
- *                     str_end = int_offsets[row_idx + 1]
- * 
-*/
-          __pyx_v_str_start = (__pyx_v_int_offsets[__pyx_v_row_idx]);
-
-          /* "orso/compute/compiled.pyx":280
- * 
- *                     str_start = int_offsets[row_idx]
- *                     str_end = int_offsets[row_idx + 1]             # <<<<<<<<<<<<<<
- * 
- *                     if str_start < str_end and data:
-*/
-          __pyx_v_str_end = (__pyx_v_int_offsets[(__pyx_v_row_idx + 1)]);
-
-          /* "orso/compute/compiled.pyx":282
- *                     str_end = int_offsets[row_idx + 1]
- * 
- *                     if str_start < str_end and data:             # <<<<<<<<<<<<<<
- *                         value = data[str_start:str_end]
- *                         row_data[col_idx] = value.decode('utf-8', errors='replace')
-*/
-          __pyx_t_18 = (__pyx_v_str_start < __pyx_v_str_end);
-          if (__pyx_t_18) {
-          } else {
-            __pyx_t_14 = __pyx_t_18;
-            goto __pyx_L15_bool_binop_done;
-          }
-          __pyx_t_18 = (__pyx_v_data != 0);
-          __pyx_t_14 = __pyx_t_18;
-          __pyx_L15_bool_binop_done:;
-          if (__pyx_t_14) {
-
-            /* "orso/compute/compiled.pyx":283
- * 
- *                     if str_start < str_end and data:
- *                         value = data[str_start:str_end]             # <<<<<<<<<<<<<<
- *                         row_data[col_idx] = value.decode('utf-8', errors='replace')
- *                     else:
-*/
-            __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_data + __pyx_v_str_start, __pyx_v_str_end - __pyx_v_str_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_3);
-            __Pyx_XDECREF_SET(__pyx_v_value, ((PyObject*)__pyx_t_3));
-            __pyx_t_3 = 0;
-
-            /* "orso/compute/compiled.pyx":284
- *                     if str_start < str_end and data:
- *                         value = data[str_start:str_end]
- *                         row_data[col_idx] = value.decode('utf-8', errors='replace')             # <<<<<<<<<<<<<<
- *                     else:
- *                         row_data[col_idx] = ""
-*/
-            __pyx_t_1 = __pyx_v_value;
-            __Pyx_INCREF(__pyx_t_1);
-            __pyx_t_5 = 0;
-            {
-              PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_utf_8};
-              __pyx_t_16 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 284, __pyx_L1_error)
-              __Pyx_GOTREF(__pyx_t_16);
-              if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_errors, __pyx_mstate_global->__pyx_n_u_replace, __pyx_t_16, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 284, __pyx_L1_error)
-              __pyx_t_3 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_decode, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_16);
-              __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-              __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-              if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
-              __Pyx_GOTREF(__pyx_t_3);
-            }
-            if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_3, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 284, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-            /* "orso/compute/compiled.pyx":282
- *                     str_end = int_offsets[row_idx + 1]
- * 
- *                     if str_start < str_end and data:             # <<<<<<<<<<<<<<
- *                         value = data[str_start:str_end]
- *                         row_data[col_idx] = value.decode('utf-8', errors='replace')
-*/
-            goto __pyx_L14;
-          }
-
-          /* "orso/compute/compiled.pyx":286
- *                         row_data[col_idx] = value.decode('utf-8', errors='replace')
- *                     else:
- *                         row_data[col_idx] = ""             # <<<<<<<<<<<<<<
- * 
- *                 # Integer handling section - replace with this safer version
-*/
-          /*else*/ {
-            if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_mstate_global->__pyx_kp_u__7, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 286, __pyx_L1_error)
-          }
-          __pyx_L14:;
-
-          /* "orso/compute/compiled.pyx":275
- * 
- *                 # Process based on type
- *                 if pyarrow.types.is_string(chunk.type) or pyarrow.types.is_binary(chunk.type):             # <<<<<<<<<<<<<<
- *                     int_offsets = <const int32_t*><uintptr_t>buffers[1].address
- *                     data = <const char*><uintptr_t>buffers[2].address if len(buffers) > 2 else NULL
-*/
-          goto __pyx_L11;
-        }
-
-        /* "orso/compute/compiled.pyx":289
- * 
- *                 # Integer handling section - replace with this safer version
- *                 elif pyarrow.types.is_integer(chunk.type):             # <<<<<<<<<<<<<<
- *                     # Get raw pointer to numeric data and safely handle buffer sizes
- *                     if buffers[1]:
-*/
-        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_pyarrow); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_types); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 289, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_17);
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __pyx_t_16 = __pyx_t_17;
-        __Pyx_INCREF(__pyx_t_16);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_5 = 0;
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_16, __pyx_t_1};
-          __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_is_integer, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 289, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_3);
-        }
-        __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 289, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (__pyx_t_14) {
-
-          /* "orso/compute/compiled.pyx":291
- *                 elif pyarrow.types.is_integer(chunk.type):
- *                     # Get raw pointer to numeric data and safely handle buffer sizes
- *                     if buffers[1]:             # <<<<<<<<<<<<<<
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8
-*/
-          __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_3);
-          __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 291, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (__pyx_t_14) {
-
-            /* "orso/compute/compiled.pyx":292
- *                     # Get raw pointer to numeric data and safely handle buffer sizes
- *                     if buffers[1]:
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address             # <<<<<<<<<<<<<<
- *                         item_size = chunk.type.bit_width // 8
- *                         buffer_size = buffers[1].size
-*/
-            __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 292, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_3);
-            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_address); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 292, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __pyx_t_15 = __Pyx_PyLong_As_size_t(__pyx_t_17); if (unlikely((__pyx_t_15 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 292, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_v_raw_data = ((uint8_t const *)((uintptr_t)__pyx_t_15));
-
-            /* "orso/compute/compiled.pyx":293
- *                     if buffers[1]:
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8             # <<<<<<<<<<<<<<
- *                         buffer_size = buffers[1].size
- * 
-*/
-            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 293, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_bit_width); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 293, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_3);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_17 = __Pyx_PyLong_FloorDivideObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_8, 8, 0, 0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 293, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __Pyx_XDECREF_SET(__pyx_v_item_size, __pyx_t_17);
-            __pyx_t_17 = 0;
-
-            /* "orso/compute/compiled.pyx":294
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8
- *                         buffer_size = buffers[1].size             # <<<<<<<<<<<<<<
- * 
- *                         # Calculate offset and make sure we have enough bytes
-*/
-            __pyx_t_17 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 294, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 294, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_3);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __Pyx_XDECREF_SET(__pyx_v_buffer_size, __pyx_t_3);
-            __pyx_t_3 = 0;
-
-            /* "orso/compute/compiled.pyx":297
- * 
- *                         # Calculate offset and make sure we have enough bytes
- *                         offset = row_idx * item_size             # <<<<<<<<<<<<<<
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # int64
-*/
-            __pyx_t_3 = PyLong_FromSsize_t(__pyx_v_row_idx); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 297, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_3);
-            __pyx_t_17 = PyNumber_Multiply(__pyx_t_3, __pyx_v_item_size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 297, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __Pyx_XDECREF_SET(__pyx_v_offset, __pyx_t_17);
-            __pyx_t_17 = 0;
-
-            /* "orso/compute/compiled.pyx":298
- *                         # Calculate offset and make sure we have enough bytes
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:             # <<<<<<<<<<<<<<
- *                             if item_size == 8:  # int64
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
-*/
-            __pyx_t_17 = PyNumber_Add(__pyx_v_offset, __pyx_v_item_size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 298, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_3 = PyObject_RichCompare(__pyx_t_17, __pyx_v_buffer_size, Py_LE); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 298, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 298, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            if (__pyx_t_14) {
-
-              /* "orso/compute/compiled.pyx":299
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # int64             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
- *                             elif item_size == 4:  # int32
-*/
-              __pyx_t_14 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_item_size, __pyx_mstate_global->__pyx_int_8, 8, 0)); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 299, __pyx_L1_error)
-              if (__pyx_t_14) {
-
-                /* "orso/compute/compiled.pyx":300
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # int64
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]             # <<<<<<<<<<<<<<
- *                             elif item_size == 4:  # int32
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]
-*/
-                __pyx_t_17 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_unpack_from); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 300, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_16);
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_raw_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_5 = 1;
-                #if CYTHON_UNPACK_METHODS
-                if (unlikely(PyMethod_Check(__pyx_t_16))) {
-                  __pyx_t_17 = PyMethod_GET_SELF(__pyx_t_16);
-                  assert(__pyx_t_17);
-                  PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_16);
-                  __Pyx_INCREF(__pyx_t_17);
-                  __Pyx_INCREF(__pyx__function);
-                  __Pyx_DECREF_SET(__pyx_t_16, __pyx__function);
-                  __pyx_t_5 = 0;
-                }
-                #endif
-                {
-                  PyObject *__pyx_callargs[4] = {__pyx_t_17, __pyx_mstate_global->__pyx_kp_u_q, __pyx_t_1, __pyx_v_offset};
-                  __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_16, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                  __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-                  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                  __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-                  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 300, __pyx_L1_error)
-                  __Pyx_GOTREF(__pyx_t_3);
-                }
-                __pyx_t_16 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 300, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_16);
-                __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_16, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 300, __pyx_L1_error)
-                __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-
-                /* "orso/compute/compiled.pyx":299
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # int64             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
- *                             elif item_size == 4:  # int32
-*/
-                goto __pyx_L19;
-              }
-
-              /* "orso/compute/compiled.pyx":301
- *                             if item_size == 8:  # int64
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
- *                             elif item_size == 4:  # int32             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]
- *                             elif item_size == 2:  # int16
-*/
-              __pyx_t_14 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_item_size, __pyx_mstate_global->__pyx_int_4, 4, 0)); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 301, __pyx_L1_error)
-              if (__pyx_t_14) {
-
-                /* "orso/compute/compiled.pyx":302
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
- *                             elif item_size == 4:  # int32
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]             # <<<<<<<<<<<<<<
- *                             elif item_size == 2:  # int16
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]
-*/
-                __pyx_t_3 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 302, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_unpack_from); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 302, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_17);
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_raw_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 302, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_5 = 1;
-                #if CYTHON_UNPACK_METHODS
-                if (unlikely(PyMethod_Check(__pyx_t_17))) {
-                  __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_17);
-                  assert(__pyx_t_3);
-                  PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_17);
-                  __Pyx_INCREF(__pyx_t_3);
-                  __Pyx_INCREF(__pyx__function);
-                  __Pyx_DECREF_SET(__pyx_t_17, __pyx__function);
-                  __pyx_t_5 = 0;
-                }
-                #endif
-                {
-                  PyObject *__pyx_callargs[4] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_i, __pyx_t_1, __pyx_v_offset};
-                  __pyx_t_16 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                  __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-                  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                  __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-                  if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 302, __pyx_L1_error)
-                  __Pyx_GOTREF(__pyx_t_16);
-                }
-                __pyx_t_17 = __Pyx_GetItemInt(__pyx_t_16, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 302, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_17);
-                __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-                if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_17, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 302, __pyx_L1_error)
-                __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-
-                /* "orso/compute/compiled.pyx":301
- *                             if item_size == 8:  # int64
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
- *                             elif item_size == 4:  # int32             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]
- *                             elif item_size == 2:  # int16
-*/
-                goto __pyx_L19;
-              }
-
-              /* "orso/compute/compiled.pyx":303
- *                             elif item_size == 4:  # int32
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]
- *                             elif item_size == 2:  # int16             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]
- *                             elif item_size == 1:  # int8
-*/
-              __pyx_t_14 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_item_size, __pyx_mstate_global->__pyx_int_2, 2, 0)); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 303, __pyx_L1_error)
-              if (__pyx_t_14) {
-
-                /* "orso/compute/compiled.pyx":304
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]
- *                             elif item_size == 2:  # int16
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]             # <<<<<<<<<<<<<<
- *                             elif item_size == 1:  # int8
- *                                 row_data[col_idx] = struct.unpack_from("<b", raw_data, offset)[0]
-*/
-                __pyx_t_16 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_unpack_from); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 304, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_3);
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_raw_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_5 = 1;
-                #if CYTHON_UNPACK_METHODS
-                if (unlikely(PyMethod_Check(__pyx_t_3))) {
-                  __pyx_t_16 = PyMethod_GET_SELF(__pyx_t_3);
-                  assert(__pyx_t_16);
-                  PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
-                  __Pyx_INCREF(__pyx_t_16);
-                  __Pyx_INCREF(__pyx__function);
-                  __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
-                  __pyx_t_5 = 0;
-                }
-                #endif
-                {
-                  PyObject *__pyx_callargs[4] = {__pyx_t_16, __pyx_mstate_global->__pyx_kp_u_h, __pyx_t_1, __pyx_v_offset};
-                  __pyx_t_17 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                  __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-                  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                  if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 304, __pyx_L1_error)
-                  __Pyx_GOTREF(__pyx_t_17);
-                }
-                __pyx_t_3 = __Pyx_GetItemInt(__pyx_t_17, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 304, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_3);
-                __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-                if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_3, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 304, __pyx_L1_error)
-                __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-                /* "orso/compute/compiled.pyx":303
- *                             elif item_size == 4:  # int32
- *                                 row_data[col_idx] = struct.unpack_from("<i", raw_data, offset)[0]
- *                             elif item_size == 2:  # int16             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]
- *                             elif item_size == 1:  # int8
-*/
-                goto __pyx_L19;
-              }
-
-              /* "orso/compute/compiled.pyx":305
- *                             elif item_size == 2:  # int16
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]
- *                             elif item_size == 1:  # int8             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<b", raw_data, offset)[0]
- *                         else:
-*/
-              __pyx_t_14 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_item_size, __pyx_mstate_global->__pyx_int_1, 1, 0)); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 305, __pyx_L1_error)
-              if (__pyx_t_14) {
-
-                /* "orso/compute/compiled.pyx":306
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]
- *                             elif item_size == 1:  # int8
- *                                 row_data[col_idx] = struct.unpack_from("<b", raw_data, offset)[0]             # <<<<<<<<<<<<<<
- *                         else:
- *                             # Not enough bytes in buffer
-*/
-                __pyx_t_17 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_unpack_from); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 306, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_16);
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_raw_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_5 = 1;
-                #if CYTHON_UNPACK_METHODS
-                if (unlikely(PyMethod_Check(__pyx_t_16))) {
-                  __pyx_t_17 = PyMethod_GET_SELF(__pyx_t_16);
-                  assert(__pyx_t_17);
-                  PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_16);
-                  __Pyx_INCREF(__pyx_t_17);
-                  __Pyx_INCREF(__pyx__function);
-                  __Pyx_DECREF_SET(__pyx_t_16, __pyx__function);
-                  __pyx_t_5 = 0;
-                }
-                #endif
-                {
-                  PyObject *__pyx_callargs[4] = {__pyx_t_17, __pyx_mstate_global->__pyx_kp_u_b, __pyx_t_1, __pyx_v_offset};
-                  __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_16, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                  __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-                  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                  __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-                  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 306, __pyx_L1_error)
-                  __Pyx_GOTREF(__pyx_t_3);
-                }
-                __pyx_t_16 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 306, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_16);
-                __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_16, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 306, __pyx_L1_error)
-                __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-
-                /* "orso/compute/compiled.pyx":305
- *                             elif item_size == 2:  # int16
- *                                 row_data[col_idx] = struct.unpack_from("<h", raw_data, offset)[0]
- *                             elif item_size == 1:  # int8             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<b", raw_data, offset)[0]
- *                         else:
-*/
-              }
-              __pyx_L19:;
-
-              /* "orso/compute/compiled.pyx":298
- *                         # Calculate offset and make sure we have enough bytes
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:             # <<<<<<<<<<<<<<
- *                             if item_size == 8:  # int64
- *                                 row_data[col_idx] = struct.unpack_from("<q", raw_data, offset)[0]
-*/
-              goto __pyx_L18;
-            }
-
-            /* "orso/compute/compiled.pyx":309
- *                         else:
- *                             # Not enough bytes in buffer
- *                             row_data[col_idx] = None             # <<<<<<<<<<<<<<
- *                     else:
- *                         row_data[col_idx] = None
-*/
-            /*else*/ {
-              if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, Py_None, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 309, __pyx_L1_error)
-            }
-            __pyx_L18:;
-
-            /* "orso/compute/compiled.pyx":291
- *                 elif pyarrow.types.is_integer(chunk.type):
- *                     # Get raw pointer to numeric data and safely handle buffer sizes
- *                     if buffers[1]:             # <<<<<<<<<<<<<<
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8
-*/
-            goto __pyx_L17;
-          }
-
-          /* "orso/compute/compiled.pyx":311
- *                             row_data[col_idx] = None
- *                     else:
- *                         row_data[col_idx] = None             # <<<<<<<<<<<<<<
- *                 elif pyarrow.types.is_floating(chunk.type):
- *                     if buffers[1]:
-*/
-          /*else*/ {
-            if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, Py_None, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 311, __pyx_L1_error)
-          }
-          __pyx_L17:;
-
-          /* "orso/compute/compiled.pyx":289
- * 
- *                 # Integer handling section - replace with this safer version
- *                 elif pyarrow.types.is_integer(chunk.type):             # <<<<<<<<<<<<<<
- *                     # Get raw pointer to numeric data and safely handle buffer sizes
- *                     if buffers[1]:
-*/
-          goto __pyx_L11;
-        }
-
-        /* "orso/compute/compiled.pyx":312
- *                     else:
- *                         row_data[col_idx] = None
- *                 elif pyarrow.types.is_floating(chunk.type):             # <<<<<<<<<<<<<<
- *                     if buffers[1]:
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
-*/
-        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_pyarrow); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 312, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_types); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 312, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_17);
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __pyx_t_3 = __pyx_t_17;
-        __Pyx_INCREF(__pyx_t_3);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 312, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_5 = 0;
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_1};
-          __pyx_t_16 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_is_floating, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 312, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_16);
-        }
-        __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 312, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-        if (__pyx_t_14) {
-
-          /* "orso/compute/compiled.pyx":313
- *                         row_data[col_idx] = None
- *                 elif pyarrow.types.is_floating(chunk.type):
- *                     if buffers[1]:             # <<<<<<<<<<<<<<
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8
-*/
-          __pyx_t_16 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 313, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_16);
-          __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 313, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          if (__pyx_t_14) {
-
-            /* "orso/compute/compiled.pyx":314
- *                 elif pyarrow.types.is_floating(chunk.type):
- *                     if buffers[1]:
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address             # <<<<<<<<<<<<<<
- *                         item_size = chunk.type.bit_width // 8
- *                         buffer_size = buffers[1].size
-*/
-            __pyx_t_16 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 314, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_address); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 314, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __pyx_t_15 = __Pyx_PyLong_As_size_t(__pyx_t_17); if (unlikely((__pyx_t_15 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 314, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_v_raw_data = ((uint8_t const *)((uintptr_t)__pyx_t_15));
-
-            /* "orso/compute/compiled.pyx":315
- *                     if buffers[1]:
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8             # <<<<<<<<<<<<<<
- *                         buffer_size = buffers[1].size
- * 
-*/
-            __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 315, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_bit_width); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 315, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_17 = __Pyx_PyLong_FloorDivideObjC(__pyx_t_16, __pyx_mstate_global->__pyx_int_8, 8, 0, 0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 315, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __Pyx_XDECREF_SET(__pyx_v_item_size, __pyx_t_17);
-            __pyx_t_17 = 0;
-
-            /* "orso/compute/compiled.pyx":316
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8
- *                         buffer_size = buffers[1].size             # <<<<<<<<<<<<<<
- * 
- *                         # Calculate offset and make sure we have enough bytes
-*/
-            __pyx_t_17 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 316, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 316, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __Pyx_XDECREF_SET(__pyx_v_buffer_size, __pyx_t_16);
-            __pyx_t_16 = 0;
-
-            /* "orso/compute/compiled.pyx":319
- * 
- *                         # Calculate offset and make sure we have enough bytes
- *                         offset = row_idx * item_size             # <<<<<<<<<<<<<<
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # float64
-*/
-            __pyx_t_16 = PyLong_FromSsize_t(__pyx_v_row_idx); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 319, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __pyx_t_17 = PyNumber_Multiply(__pyx_t_16, __pyx_v_item_size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 319, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __Pyx_XDECREF_SET(__pyx_v_offset, __pyx_t_17);
-            __pyx_t_17 = 0;
-
-            /* "orso/compute/compiled.pyx":320
- *                         # Calculate offset and make sure we have enough bytes
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:             # <<<<<<<<<<<<<<
- *                             if item_size == 8:  # float64
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
-*/
-            __pyx_t_17 = PyNumber_Add(__pyx_v_offset, __pyx_v_item_size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 320, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_16 = PyObject_RichCompare(__pyx_t_17, __pyx_v_buffer_size, Py_LE); __Pyx_XGOTREF(__pyx_t_16); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 320, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 320, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            if (__pyx_t_14) {
-
-              /* "orso/compute/compiled.pyx":321
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # float64             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
- *                             elif item_size == 4:  # float32
-*/
-              __pyx_t_14 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_item_size, __pyx_mstate_global->__pyx_int_8, 8, 0)); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 321, __pyx_L1_error)
-              if (__pyx_t_14) {
-
-                /* "orso/compute/compiled.pyx":322
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # float64
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]             # <<<<<<<<<<<<<<
- *                             elif item_size == 4:  # float32
- *                                 row_data[col_idx] = struct.unpack_from("<f", raw_data, offset)[0]
-*/
-                __pyx_t_17 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 322, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_unpack_from); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 322, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_3);
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_raw_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 322, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_5 = 1;
-                #if CYTHON_UNPACK_METHODS
-                if (unlikely(PyMethod_Check(__pyx_t_3))) {
-                  __pyx_t_17 = PyMethod_GET_SELF(__pyx_t_3);
-                  assert(__pyx_t_17);
-                  PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
-                  __Pyx_INCREF(__pyx_t_17);
-                  __Pyx_INCREF(__pyx__function);
-                  __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
-                  __pyx_t_5 = 0;
-                }
-                #endif
-                {
-                  PyObject *__pyx_callargs[4] = {__pyx_t_17, __pyx_mstate_global->__pyx_kp_u_d, __pyx_t_1, __pyx_v_offset};
-                  __pyx_t_16 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                  __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-                  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                  if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 322, __pyx_L1_error)
-                  __Pyx_GOTREF(__pyx_t_16);
-                }
-                __pyx_t_3 = __Pyx_GetItemInt(__pyx_t_16, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 322, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_3);
-                __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-                if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_3, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 322, __pyx_L1_error)
-                __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-                /* "orso/compute/compiled.pyx":321
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:
- *                             if item_size == 8:  # float64             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
- *                             elif item_size == 4:  # float32
-*/
-                goto __pyx_L22;
-              }
-
-              /* "orso/compute/compiled.pyx":323
- *                             if item_size == 8:  # float64
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
- *                             elif item_size == 4:  # float32             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<f", raw_data, offset)[0]
- *                         else:
-*/
-              __pyx_t_14 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_item_size, __pyx_mstate_global->__pyx_int_4, 4, 0)); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 323, __pyx_L1_error)
-              if (__pyx_t_14) {
-
-                /* "orso/compute/compiled.pyx":324
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
- *                             elif item_size == 4:  # float32
- *                                 row_data[col_idx] = struct.unpack_from("<f", raw_data, offset)[0]             # <<<<<<<<<<<<<<
- *                         else:
- *                             row_data[col_idx] = None
-*/
-                __pyx_t_16 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 324, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_unpack_from); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 324, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_17);
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_raw_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 324, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_5 = 1;
-                #if CYTHON_UNPACK_METHODS
-                if (unlikely(PyMethod_Check(__pyx_t_17))) {
-                  __pyx_t_16 = PyMethod_GET_SELF(__pyx_t_17);
-                  assert(__pyx_t_16);
-                  PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_17);
-                  __Pyx_INCREF(__pyx_t_16);
-                  __Pyx_INCREF(__pyx__function);
-                  __Pyx_DECREF_SET(__pyx_t_17, __pyx__function);
-                  __pyx_t_5 = 0;
-                }
-                #endif
-                {
-                  PyObject *__pyx_callargs[4] = {__pyx_t_16, __pyx_mstate_global->__pyx_kp_u_f, __pyx_t_1, __pyx_v_offset};
-                  __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_17, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                  __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-                  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                  __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-                  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 324, __pyx_L1_error)
-                  __Pyx_GOTREF(__pyx_t_3);
-                }
-                __pyx_t_17 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 324, __pyx_L1_error)
-                __Pyx_GOTREF(__pyx_t_17);
-                __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_17, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 324, __pyx_L1_error)
-                __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-
-                /* "orso/compute/compiled.pyx":323
- *                             if item_size == 8:  # float64
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
- *                             elif item_size == 4:  # float32             # <<<<<<<<<<<<<<
- *                                 row_data[col_idx] = struct.unpack_from("<f", raw_data, offset)[0]
- *                         else:
-*/
-              }
-              __pyx_L22:;
-
-              /* "orso/compute/compiled.pyx":320
- *                         # Calculate offset and make sure we have enough bytes
- *                         offset = row_idx * item_size
- *                         if offset + item_size <= buffer_size:             # <<<<<<<<<<<<<<
- *                             if item_size == 8:  # float64
- *                                 row_data[col_idx] = struct.unpack_from("<d", raw_data, offset)[0]
-*/
-              goto __pyx_L21;
-            }
-
-            /* "orso/compute/compiled.pyx":326
- *                                 row_data[col_idx] = struct.unpack_from("<f", raw_data, offset)[0]
- *                         else:
- *                             row_data[col_idx] = None             # <<<<<<<<<<<<<<
- *                     else:
- *                         row_data[col_idx] = None
-*/
-            /*else*/ {
-              if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, Py_None, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 326, __pyx_L1_error)
-            }
-            __pyx_L21:;
-
-            /* "orso/compute/compiled.pyx":313
- *                         row_data[col_idx] = None
- *                 elif pyarrow.types.is_floating(chunk.type):
- *                     if buffers[1]:             # <<<<<<<<<<<<<<
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
- *                         item_size = chunk.type.bit_width // 8
-*/
-            goto __pyx_L20;
-          }
-
-          /* "orso/compute/compiled.pyx":328
- *                             row_data[col_idx] = None
- *                     else:
- *                         row_data[col_idx] = None             # <<<<<<<<<<<<<<
- *                 elif pyarrow.types.is_boolean(chunk.type):
- *                     # Booleans are bit-packed
-*/
-          /*else*/ {
-            if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, Py_None, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 328, __pyx_L1_error)
-          }
-          __pyx_L20:;
-
-          /* "orso/compute/compiled.pyx":312
- *                     else:
- *                         row_data[col_idx] = None
- *                 elif pyarrow.types.is_floating(chunk.type):             # <<<<<<<<<<<<<<
- *                     if buffers[1]:
- *                         raw_data = <const uint8_t*><uintptr_t>buffers[1].address
-*/
-          goto __pyx_L11;
-        }
-
-        /* "orso/compute/compiled.pyx":329
- *                     else:
- *                         row_data[col_idx] = None
- *                 elif pyarrow.types.is_boolean(chunk.type):             # <<<<<<<<<<<<<<
- *                     # Booleans are bit-packed
- *                     bool_data = <const uint8_t*><uintptr_t>buffers[1].address if buffers[1] else NULL
-*/
-        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_pyarrow); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_types); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 329, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_16);
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __pyx_t_3 = __pyx_t_16;
-        __Pyx_INCREF(__pyx_t_3);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_chunk, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_5 = 0;
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_1};
-          __pyx_t_17 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_is_boolean, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 329, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_17);
-        }
-        __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_17); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 329, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-        if (__pyx_t_14) {
-
-          /* "orso/compute/compiled.pyx":331
- *                 elif pyarrow.types.is_boolean(chunk.type):
- *                     # Booleans are bit-packed
- *                     bool_data = <const uint8_t*><uintptr_t>buffers[1].address if buffers[1] else NULL             # <<<<<<<<<<<<<<
- *                     if bool_data:
- *                         bool_value = (bool_data[byte_offset] >> bit_index) & 1
-*/
-          __pyx_t_17 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 331, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_17); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 331, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (__pyx_t_14) {
-            __pyx_t_17 = __Pyx_GetItemInt(__pyx_v_buffers, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 331, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_17);
-            __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_address); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 331, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __pyx_t_15 = __Pyx_PyLong_As_size_t(__pyx_t_16); if (unlikely((__pyx_t_15 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 331, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __pyx_t_21 = ((uint8_t const *)((uintptr_t)__pyx_t_15));
-          } else {
-            __pyx_t_21 = NULL;
-          }
-          __pyx_v_bool_data = __pyx_t_21;
-
-          /* "orso/compute/compiled.pyx":332
- *                     # Booleans are bit-packed
- *                     bool_data = <const uint8_t*><uintptr_t>buffers[1].address if buffers[1] else NULL
- *                     if bool_data:             # <<<<<<<<<<<<<<
- *                         bool_value = (bool_data[byte_offset] >> bit_index) & 1
- *                         row_data[col_idx] = bool(bool_value)
-*/
-          __pyx_t_14 = (__pyx_v_bool_data != 0);
-          if (__pyx_t_14) {
-
-            /* "orso/compute/compiled.pyx":333
- *                     bool_data = <const uint8_t*><uintptr_t>buffers[1].address if buffers[1] else NULL
- *                     if bool_data:
- *                         bool_value = (bool_data[byte_offset] >> bit_index) & 1             # <<<<<<<<<<<<<<
- *                         row_data[col_idx] = bool(bool_value)
- *                     else:
-*/
-            __pyx_v_bool_value = (((__pyx_v_bool_data[__pyx_v_byte_offset]) >> __pyx_v_bit_index) & 1);
-
-            /* "orso/compute/compiled.pyx":334
- *                     if bool_data:
- *                         bool_value = (bool_data[byte_offset] >> bit_index) & 1
- *                         row_data[col_idx] = bool(bool_value)             # <<<<<<<<<<<<<<
- *                     else:
- *                         row_data[col_idx] = False
-*/
-            __pyx_t_16 = PyLong_FromSsize_t(__pyx_v_bool_value); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 334, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 334, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __pyx_t_16 = __Pyx_PyBool_FromLong((!(!__pyx_t_14))); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 334, __pyx_L1_error)
-            __Pyx_GOTREF(__pyx_t_16);
-            if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_16, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 334, __pyx_L1_error)
-            __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-
-            /* "orso/compute/compiled.pyx":332
- *                     # Booleans are bit-packed
- *                     bool_data = <const uint8_t*><uintptr_t>buffers[1].address if buffers[1] else NULL
- *                     if bool_data:             # <<<<<<<<<<<<<<
- *                         bool_value = (bool_data[byte_offset] >> bit_index) & 1
- *                         row_data[col_idx] = bool(bool_value)
-*/
-            goto __pyx_L23;
-          }
-
-          /* "orso/compute/compiled.pyx":336
- *                         row_data[col_idx] = bool(bool_value)
- *                     else:
- *                         row_data[col_idx] = False             # <<<<<<<<<<<<<<
- * 
- *                 else:
-*/
-          /*else*/ {
-            if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, Py_False, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 336, __pyx_L1_error)
-          }
-          __pyx_L23:;
-
-          /* "orso/compute/compiled.pyx":329
- *                     else:
- *                         row_data[col_idx] = None
- *                 elif pyarrow.types.is_boolean(chunk.type):             # <<<<<<<<<<<<<<
- *                     # Booleans are bit-packed
- *                     bool_data = <const uint8_t*><uintptr_t>buffers[1].address if buffers[1] else NULL
-*/
-          goto __pyx_L11;
-        }
-
-        /* "orso/compute/compiled.pyx":340
- *                 else:
- *                     # Fallback for unsupported types
- *                     try:             # <<<<<<<<<<<<<<
- *                         row_data[col_idx] = chunk[row_idx].as_py()
- *                     except:
-*/
-        /*else*/ {
-          {
-            __Pyx_PyThreadState_declare
-            __Pyx_PyThreadState_assign
-            __Pyx_ExceptionSave(&__pyx_t_22, &__pyx_t_23, &__pyx_t_24);
-            __Pyx_XGOTREF(__pyx_t_22);
-            __Pyx_XGOTREF(__pyx_t_23);
-            __Pyx_XGOTREF(__pyx_t_24);
-            /*try:*/ {
-
-              /* "orso/compute/compiled.pyx":341
- *                     # Fallback for unsupported types
- *                     try:
- *                         row_data[col_idx] = chunk[row_idx].as_py()             # <<<<<<<<<<<<<<
- *                     except:
- *                         row_data[col_idx] = None
-*/
-              __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_chunk, __pyx_v_row_idx, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 341, __pyx_L24_error)
-              __Pyx_GOTREF(__pyx_t_1);
-              __pyx_t_17 = __pyx_t_1;
-              __Pyx_INCREF(__pyx_t_17);
-              __pyx_t_5 = 0;
-              {
-                PyObject *__pyx_callargs[2] = {__pyx_t_17, NULL};
-                __pyx_t_16 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_as_py, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-                __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 341, __pyx_L24_error)
-                __Pyx_GOTREF(__pyx_t_16);
-              }
-              if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, __pyx_t_16, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 341, __pyx_L24_error)
-              __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-
-              /* "orso/compute/compiled.pyx":340
- *                 else:
- *                     # Fallback for unsupported types
- *                     try:             # <<<<<<<<<<<<<<
- *                         row_data[col_idx] = chunk[row_idx].as_py()
- *                     except:
-*/
-            }
-            __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-            __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-            __Pyx_XDECREF(__pyx_t_24); __pyx_t_24 = 0;
-            goto __pyx_L31_try_end;
-            __pyx_L24_error:;
-            __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-            __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-            __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-            /* "orso/compute/compiled.pyx":342
- *                     try:
- *                         row_data[col_idx] = chunk[row_idx].as_py()
- *                     except:             # <<<<<<<<<<<<<<
- *                         row_data[col_idx] = None
- * 
-*/
-            /*except:*/ {
-              __Pyx_AddTraceback("orso.compute.compiled._process_table", __pyx_clineno, __pyx_lineno, __pyx_filename);
-              if (__Pyx_GetException(&__pyx_t_16, &__pyx_t_1, &__pyx_t_17) < 0) __PYX_ERR(0, 342, __pyx_L26_except_error)
-              __Pyx_XGOTREF(__pyx_t_16);
-              __Pyx_XGOTREF(__pyx_t_1);
-              __Pyx_XGOTREF(__pyx_t_17);
-
-              /* "orso/compute/compiled.pyx":343
- *                         row_data[col_idx] = chunk[row_idx].as_py()
- *                     except:
- *                         row_data[col_idx] = None             # <<<<<<<<<<<<<<
- * 
- *             # Convert list to tuple and apply row factory
-*/
-              if (unlikely((__Pyx_SetItemInt(__pyx_v_row_data, __pyx_v_col_idx, Py_None, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 343, __pyx_L26_except_error)
-              __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
-              __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-              __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-              goto __pyx_L25_exception_handled;
-            }
-
-            /* "orso/compute/compiled.pyx":340
- *                 else:
- *                     # Fallback for unsupported types
- *                     try:             # <<<<<<<<<<<<<<
- *                         row_data[col_idx] = chunk[row_idx].as_py()
- *                     except:
-*/
-            __pyx_L26_except_error:;
-            __Pyx_XGIVEREF(__pyx_t_22);
-            __Pyx_XGIVEREF(__pyx_t_23);
-            __Pyx_XGIVEREF(__pyx_t_24);
-            __Pyx_ExceptionReset(__pyx_t_22, __pyx_t_23, __pyx_t_24);
-            goto __pyx_L1_error;
-            __pyx_L25_exception_handled:;
-            __Pyx_XGIVEREF(__pyx_t_22);
-            __Pyx_XGIVEREF(__pyx_t_23);
-            __Pyx_XGIVEREF(__pyx_t_24);
-            __Pyx_ExceptionReset(__pyx_t_22, __pyx_t_23, __pyx_t_24);
-            __pyx_L31_try_end:;
-          }
-        }
-        __pyx_L11:;
-        __pyx_L7_continue:;
-      }
-
-      /* "orso/compute/compiled.pyx":346
- * 
- *             # Convert list to tuple and apply row factory
- *             row_tuple = tuple(row_data)             # <<<<<<<<<<<<<<
- *             batch_result[row_idx] = row_factory(row_tuple)
- * 
-*/
-      __pyx_t_17 = PyList_AsTuple(__pyx_v_row_data); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 346, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_17);
-      __Pyx_XDECREF_SET(__pyx_v_row_tuple, ((PyObject*)__pyx_t_17));
-      __pyx_t_17 = 0;
-
-      /* "orso/compute/compiled.pyx":347
- *             # Convert list to tuple and apply row factory
- *             row_tuple = tuple(row_data)
- *             batch_result[row_idx] = row_factory(row_tuple)             # <<<<<<<<<<<<<<
- * 
- *         result.extend(batch_result)
-*/
-      __pyx_t_1 = NULL;
-      __Pyx_INCREF(__pyx_v_row_factory);
-      __pyx_t_16 = __pyx_v_row_factory; 
-      __pyx_t_5 = 1;
-      #if CYTHON_UNPACK_METHODS
-      if (unlikely(PyMethod_Check(__pyx_t_16))) {
-        __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_16);
-        assert(__pyx_t_1);
-        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_16);
-        __Pyx_INCREF(__pyx_t_1);
-        __Pyx_INCREF(__pyx__function);
-        __Pyx_DECREF_SET(__pyx_t_16, __pyx__function);
-        __pyx_t_5 = 0;
-      }
-      #endif
-      {
-        PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_row_tuple};
-        __pyx_t_17 = __Pyx_PyObject_FastCall(__pyx_t_16, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-        if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 347, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_17);
-      }
-      if (unlikely((__Pyx_SetItemInt(__pyx_v_batch_result, __pyx_v_row_idx, __pyx_t_17, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 0, 0, 1) < 0))) __PYX_ERR(0, 347, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-    }
-
-    /* "orso/compute/compiled.pyx":349
- *             batch_result[row_idx] = row_factory(row_tuple)
- * 
- *         result.extend(batch_result)             # <<<<<<<<<<<<<<
- * 
- *     return result
-*/
-    __pyx_t_25 = __Pyx_PyList_Extend(__pyx_v_result, __pyx_v_batch_result); if (unlikely(__pyx_t_25 == ((int)-1))) __PYX_ERR(0, 349, __pyx_L1_error)
-
-    /* "orso/compute/compiled.pyx":244
- *     cdef const uint8_t* raw_data
- * 
- *     for batch in table.to_batches(max_chunksize):             # <<<<<<<<<<<<<<
- *         batch_cols = batch.columns
- *         batch_num_rows = batch.num_rows
-*/
-  }
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "orso/compute/compiled.pyx":351
- *         result.extend(batch_result)
- * 
- *     return result             # <<<<<<<<<<<<<<
-*/
-  __Pyx_XDECREF(__pyx_r);
-  __Pyx_INCREF(__pyx_v_result);
-  __pyx_r = __pyx_v_result;
-  goto __pyx_L0;
-
-  /* "orso/compute/compiled.pyx":215
- * from libc.stdint cimport int32_t, int64_t, uint8_t, uint64_t, uintptr_t
- * from cpython.tuple cimport PyTuple_New, PyTuple_SET_ITEM
- * cpdef list _process_table(table, object row_factory, int max_chunksize):             # <<<<<<<<<<<<<<
- *     """
- *     Converts a PyArrow table into a list of tuples efficiently.
-*/
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_16);
-  __Pyx_XDECREF(__pyx_t_17);
-  __Pyx_AddTraceback("orso.compute.compiled._process_table", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = 0;
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_result);
-  __Pyx_XDECREF(__pyx_v_chunk);
-  __Pyx_XDECREF(__pyx_v_buffers);
-  __Pyx_XDECREF(__pyx_v_value);
-  __Pyx_XDECREF(__pyx_v_row_tuple);
-  __Pyx_XDECREF(__pyx_v_batch);
-  __Pyx_XDECREF(__pyx_v_batch_cols);
-  __Pyx_XDECREF(__pyx_v_batch_num_rows);
-  __Pyx_XDECREF(__pyx_v_batch_result);
-  __Pyx_XDECREF(__pyx_v_row_data);
-  __Pyx_XDECREF(__pyx_v_item_size);
-  __Pyx_XDECREF(__pyx_v_buffer_size);
-  __Pyx_XDECREF(__pyx_v_offset);
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* Python wrapper */
-static PyObject *__pyx_pw_4orso_7compute_8compiled_11_process_table(PyObject *__pyx_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-); /*proto*/
-PyDoc_STRVAR(__pyx_doc_4orso_7compute_8compiled_10_process_table, "_process_table(table, row_factory, int max_chunksize) -> list\n\nConverts a PyArrow table into a list of tuples efficiently.\n\nParameters:\n    table: PyArrow Table\n        The input table to process.\n    row_factory: function\n        A function applied to each row.\n    max_chunksize: int\n        The batch size to process at a time.\n\nReturns:\n    A list of transformed rows.");
-static PyObject *__pyx_pw_4orso_7compute_8compiled_11_process_table(PyObject *__pyx_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-) {
-  PyObject *__pyx_v_table = 0;
-  PyObject *__pyx_v_row_factory = 0;
-  int __pyx_v_max_chunksize;
-  #if !CYTHON_METH_FASTCALL
-  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
-  #endif
-  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[3] = {0,0,0};
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  PyObject *__pyx_r = 0;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("_process_table (wrapper)", 0);
-  #if !CYTHON_METH_FASTCALL
-  #if CYTHON_ASSUME_SAFE_SIZE
-  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
-  #else
-  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
-  #endif
-  #endif
-  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
-  {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_table,&__pyx_mstate_global->__pyx_n_u_row_factory,&__pyx_mstate_global->__pyx_n_u_max_chunksize,0};
-    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 215, __pyx_L3_error)
-    if (__pyx_kwds_len > 0) {
-      switch (__pyx_nargs) {
-        case  3:
-        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 215, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  2:
-        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 215, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  1:
-        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 215, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_process_table", 0) < 0) __PYX_ERR(0, 215, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_process_table", 1, 3, 3, i); __PYX_ERR(0, 215, __pyx_L3_error) }
-      }
-    } else if (unlikely(__pyx_nargs != 3)) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 215, __pyx_L3_error)
-      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 215, __pyx_L3_error)
-      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 215, __pyx_L3_error)
-    }
-    __pyx_v_table = values[0];
-    __pyx_v_row_factory = values[1];
-    __pyx_v_max_chunksize = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_max_chunksize == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L3_error)
-  }
-  goto __pyx_L6_skip;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_process_table", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 215, __pyx_L3_error)
-  __pyx_L6_skip:;
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L3_error:;
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __Pyx_AddTraceback("orso.compute.compiled._process_table", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_4orso_7compute_8compiled_10_process_table(__pyx_self, __pyx_v_table, __pyx_v_row_factory, __pyx_v_max_chunksize);
-
-  /* function exit code */
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-static PyObject *__pyx_pf_4orso_7compute_8compiled_10_process_table(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_table, PyObject *__pyx_v_row_factory, int __pyx_v_max_chunksize) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_process_table", 0);
-  __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_4orso_7compute_8compiled__process_table(__pyx_v_table, __pyx_v_row_factory, __pyx_v_max_chunksize, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
-  goto __pyx_L0;
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_AddTraceback("orso.compute.compiled._process_table", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -24129,7 +22203,6 @@ static PyMethodDef __pyx_methods[] = {
   {"extract_dict_columns", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4orso_7compute_8compiled_3extract_dict_columns, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4orso_7compute_8compiled_2extract_dict_columns},
   {"collect_cython", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4orso_7compute_8compiled_5collect_cython, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4orso_7compute_8compiled_4collect_cython},
   {"calculate_data_width", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4orso_7compute_8compiled_7calculate_data_width, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4orso_7compute_8compiled_6calculate_data_width},
-  {"_process_table", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4orso_7compute_8compiled_11_process_table, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4orso_7compute_8compiled_10_process_table},
   {0, 0, 0, 0}
 };
 /* #### Code section: initfunc_declarations ### */
@@ -25384,67 +23457,43 @@ __Pyx_RefNannySetupContext("PyInit_compiled", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_np, __pyx_t_4) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "orso/compute/compiled.pyx":35
- * from cpython.tuple cimport PyTuple_New, PyTuple_SET_ITEM
+  /* "orso/compute/compiled.pyx":36
+ * from cpython.object cimport PyObject
  * 
  * cnp.import_array()             # <<<<<<<<<<<<<<
  * 
  * HEADER_PREFIX = b"\x10\x00"
 */
-  __pyx_t_10 = __pyx_f_5numpy_import_array(); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_5numpy_import_array(); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 36, __pyx_L1_error)
 
-  /* "orso/compute/compiled.pyx":37
+  /* "orso/compute/compiled.pyx":38
  * cnp.import_array()
  * 
  * HEADER_PREFIX = b"\x10\x00"             # <<<<<<<<<<<<<<
  * MAXIMUM_RECORD_SIZE = 8 * 1024 * 1024
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_HEADER_PREFIX, __pyx_mstate_global->__pyx_kp_b__8) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_HEADER_PREFIX, __pyx_mstate_global->__pyx_kp_b__7) < 0) __PYX_ERR(0, 38, __pyx_L1_error)
 
-  /* "orso/compute/compiled.pyx":38
+  /* "orso/compute/compiled.pyx":39
  * 
  * HEADER_PREFIX = b"\x10\x00"
  * MAXIMUM_RECORD_SIZE = 8 * 1024 * 1024             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MAXIMUM_RECORD_SIZE, __pyx_mstate_global->__pyx_int_8388608) < 0) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MAXIMUM_RECORD_SIZE, __pyx_mstate_global->__pyx_int_8388608) < 0) __PYX_ERR(0, 39, __pyx_L1_error)
 
-  /* "orso/compute/compiled.pyx":173
+  /* "orso/compute/compiled.pyx":171
  * from cpython.list cimport PyList_New, PyList_SET_ITEM
  * 
  * def process_table(table, row_factory, int max_chunksize) -> list:             # <<<<<<<<<<<<<<
  *     """
  *     Processes a PyArrow table and applies a row factory function to each row.
 */
-  __pyx_t_4 = PyCFunction_NewEx(&__pyx_mdef_4orso_7compute_8compiled_9process_table, NULL, __pyx_mstate_global->__pyx_n_u_orso_compute_compiled); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_4 = PyCFunction_NewEx(&__pyx_mdef_4orso_7compute_8compiled_9process_table, NULL, __pyx_mstate_global->__pyx_n_u_orso_compute_compiled); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_process_table, __pyx_t_4) < 0) __PYX_ERR(0, 173, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "orso/compute/compiled.pyx":208
- * # cython: infer_types=True
- * 
- * import pyarrow             # <<<<<<<<<<<<<<
- * cimport cython
- * import struct
-*/
-  __pyx_t_4 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_pyarrow, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 208, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyarrow, __pyx_t_4) < 0) __PYX_ERR(0, 208, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "orso/compute/compiled.pyx":210
- * import pyarrow
- * cimport cython
- * import struct             # <<<<<<<<<<<<<<
- * 
- * from libc.stdint cimport int64_t, uint8_t, int32_t
-*/
-  __pyx_t_4 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_struct, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 210, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_struct, __pyx_t_4) < 0) __PYX_ERR(0, 210, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_process_table, __pyx_t_4) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "orso/compute/compiled.pyx":1
@@ -25560,20 +23609,14 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k__4, sizeof(__pyx_k__4), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__4 */
   {__pyx_k__5, sizeof(__pyx_k__5), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__5 */
   {__pyx_k__6, sizeof(__pyx_k__6), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__6 */
-  {__pyx_k__7, sizeof(__pyx_k__7), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__7 */
-  {__pyx_k__8, sizeof(__pyx_k__8), 0, 0, 0}, /* PyObject cname: __pyx_kp_b__8 */
-  {__pyx_k__9, sizeof(__pyx_k__9), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__9 */
+  {__pyx_k__7, sizeof(__pyx_k__7), 0, 0, 0}, /* PyObject cname: __pyx_kp_b__7 */
+  {__pyx_k__8, sizeof(__pyx_k__8), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__8 */
   {__pyx_k_abc, sizeof(__pyx_k_abc), 0, 1, 1}, /* PyObject cname: __pyx_n_u_abc */
   {__pyx_k_add_note, sizeof(__pyx_k_add_note), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_add_note */
-  {__pyx_k_address, sizeof(__pyx_k_address), 0, 1, 1}, /* PyObject cname: __pyx_n_u_address */
   {__pyx_k_allocate_buffer, sizeof(__pyx_k_allocate_buffer), 0, 1, 1}, /* PyObject cname: __pyx_n_u_allocate_buffer */
   {__pyx_k_and, sizeof(__pyx_k_and), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_and */
-  {__pyx_k_as_py, sizeof(__pyx_k_as_py), 0, 1, 1}, /* PyObject cname: __pyx_n_u_as_py */
   {__pyx_k_at_0x, sizeof(__pyx_k_at_0x), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_at_0x */
-  {__pyx_k_b, sizeof(__pyx_k_b), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_b */
   {__pyx_k_base, sizeof(__pyx_k_base), 0, 1, 1}, /* PyObject cname: __pyx_n_u_base */
-  {__pyx_k_bit_width, sizeof(__pyx_k_bit_width), 0, 1, 1}, /* PyObject cname: __pyx_n_u_bit_width */
-  {__pyx_k_buffers, sizeof(__pyx_k_buffers), 0, 1, 1}, /* PyObject cname: __pyx_n_u_buffers */
   {__pyx_k_c, sizeof(__pyx_k_c), 0, 1, 1}, /* PyObject cname: __pyx_n_u_c */
   {__pyx_k_class, sizeof(__pyx_k_class), 0, 1, 1}, /* PyObject cname: __pyx_n_u_class */
   {__pyx_k_class_getitem, sizeof(__pyx_k_class_getitem), 0, 1, 1}, /* PyObject cname: __pyx_n_u_class_getitem */
@@ -25584,11 +23627,9 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_contiguous_and_direct, sizeof(__pyx_k_contiguous_and_direct), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_contiguous_and_direct */
   {__pyx_k_contiguous_and_indirect, sizeof(__pyx_k_contiguous_and_indirect), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_contiguous_and_indirect */
   {__pyx_k_count, sizeof(__pyx_k_count), 0, 1, 1}, /* PyObject cname: __pyx_n_u_count */
-  {__pyx_k_d, sizeof(__pyx_k_d), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_d */
   {__pyx_k_data, sizeof(__pyx_k_data), 0, 1, 1}, /* PyObject cname: __pyx_n_u_data */
   {__pyx_k_datetime, sizeof(__pyx_k_datetime), 0, 1, 1}, /* PyObject cname: __pyx_n_u_datetime */
   {__pyx_k_datetime_2, sizeof(__pyx_k_datetime_2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_datetime_2 */
-  {__pyx_k_decode, sizeof(__pyx_k_decode), 0, 1, 1}, /* PyObject cname: __pyx_n_u_decode */
   {__pyx_k_dict, sizeof(__pyx_k_dict), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dict */
   {__pyx_k_disable, sizeof(__pyx_k_disable), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_disable */
   {__pyx_k_dtype, sizeof(__pyx_k_dtype), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dtype */
@@ -25598,8 +23639,6 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_encode, sizeof(__pyx_k_encode), 0, 1, 1}, /* PyObject cname: __pyx_n_u_encode */
   {__pyx_k_enumerate, sizeof(__pyx_k_enumerate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_enumerate */
   {__pyx_k_error, sizeof(__pyx_k_error), 0, 1, 1}, /* PyObject cname: __pyx_n_u_error */
-  {__pyx_k_errors, sizeof(__pyx_k_errors), 0, 1, 1}, /* PyObject cname: __pyx_n_u_errors */
-  {__pyx_k_f, sizeof(__pyx_k_f), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_f */
   {__pyx_k_fields, sizeof(__pyx_k_fields), 0, 1, 1}, /* PyObject cname: __pyx_n_u_fields */
   {__pyx_k_flags, sizeof(__pyx_k_flags), 0, 1, 1}, /* PyObject cname: __pyx_n_u_flags */
   {__pyx_k_format, sizeof(__pyx_k_format), 0, 1, 1}, /* PyObject cname: __pyx_n_u_format */
@@ -25609,17 +23648,10 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_getstate */
   {__pyx_k_got, sizeof(__pyx_k_got), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_got */
   {__pyx_k_got_differing_extents_in_dimensi, sizeof(__pyx_k_got_differing_extents_in_dimensi), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_got_differing_extents_in_dimensi */
-  {__pyx_k_h, sizeof(__pyx_k_h), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_h */
-  {__pyx_k_i, sizeof(__pyx_k_i), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_i */
   {__pyx_k_id, sizeof(__pyx_k_id), 0, 1, 1}, /* PyObject cname: __pyx_n_u_id */
   {__pyx_k_import, sizeof(__pyx_k_import), 0, 1, 1}, /* PyObject cname: __pyx_n_u_import */
   {__pyx_k_index, sizeof(__pyx_k_index), 0, 1, 1}, /* PyObject cname: __pyx_n_u_index */
   {__pyx_k_initializing, sizeof(__pyx_k_initializing), 0, 1, 1}, /* PyObject cname: __pyx_n_u_initializing */
-  {__pyx_k_is_binary, sizeof(__pyx_k_is_binary), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_binary */
-  {__pyx_k_is_boolean, sizeof(__pyx_k_is_boolean), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_boolean */
-  {__pyx_k_is_floating, sizeof(__pyx_k_is_floating), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_floating */
-  {__pyx_k_is_integer, sizeof(__pyx_k_is_integer), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_integer */
-  {__pyx_k_is_string, sizeof(__pyx_k_is_string), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_string */
   {__pyx_k_isenabled, sizeof(__pyx_k_isenabled), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_isenabled */
   {__pyx_k_itemsize, sizeof(__pyx_k_itemsize), 0, 1, 1}, /* PyObject cname: __pyx_n_u_itemsize */
   {__pyx_k_itemsize_0_for_cython_array, sizeof(__pyx_k_itemsize_0_for_cython_array), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_itemsize_0_for_cython_array */
@@ -25637,7 +23669,6 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_new, sizeof(__pyx_k_new), 0, 1, 1}, /* PyObject cname: __pyx_n_u_new */
   {__pyx_k_no_default___reduce___due_to_non, sizeof(__pyx_k_no_default___reduce___due_to_non), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_no_default___reduce___due_to_non */
   {__pyx_k_np, sizeof(__pyx_k_np), 0, 1, 1}, /* PyObject cname: __pyx_n_u_np */
-  {__pyx_k_num_columns, sizeof(__pyx_k_num_columns), 0, 1, 1}, /* PyObject cname: __pyx_n_u_num_columns */
   {__pyx_k_num_rows, sizeof(__pyx_k_num_rows), 0, 1, 1}, /* PyObject cname: __pyx_n_u_num_rows */
   {__pyx_k_numpy, sizeof(__pyx_k_numpy), 0, 1, 1}, /* PyObject cname: __pyx_n_u_numpy */
   {__pyx_k_numpy__core_multiarray_failed_to, sizeof(__pyx_k_numpy__core_multiarray_failed_to), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_numpy__core_multiarray_failed_to */
@@ -25652,13 +23683,11 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pickle */
   {__pyx_k_pop, sizeof(__pyx_k_pop), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pop */
   {__pyx_k_process_table, sizeof(__pyx_k_process_table), 0, 1, 1}, /* PyObject cname: __pyx_n_u_process_table */
-  {__pyx_k_pyarrow, sizeof(__pyx_k_pyarrow), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pyarrow */
   {__pyx_k_pyx_checksum, sizeof(__pyx_k_pyx_checksum), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pyx_checksum */
   {__pyx_k_pyx_state, sizeof(__pyx_k_pyx_state), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pyx_state */
   {__pyx_k_pyx_type, sizeof(__pyx_k_pyx_type), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pyx_type */
   {__pyx_k_pyx_unpickle_Enum, sizeof(__pyx_k_pyx_unpickle_Enum), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pyx_unpickle_Enum */
   {__pyx_k_pyx_vtable, sizeof(__pyx_k_pyx_vtable), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pyx_vtable */
-  {__pyx_k_q, sizeof(__pyx_k_q), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_q */
   {__pyx_k_qualname, sizeof(__pyx_k_qualname), 0, 1, 1}, /* PyObject cname: __pyx_n_u_qualname */
   {__pyx_k_range, sizeof(__pyx_k_range), 0, 1, 1}, /* PyObject cname: __pyx_n_u_range */
   {__pyx_k_reduce, sizeof(__pyx_k_reduce), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reduce */
@@ -25685,15 +23714,11 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_test, sizeof(__pyx_k_test), 0, 1, 1}, /* PyObject cname: __pyx_n_u_test */
   {__pyx_k_to_batches, sizeof(__pyx_k_to_batches), 0, 1, 1}, /* PyObject cname: __pyx_n_u_to_batches */
   {__pyx_k_to_pandas, sizeof(__pyx_k_to_pandas), 0, 1, 1}, /* PyObject cname: __pyx_n_u_to_pandas */
-  {__pyx_k_type, sizeof(__pyx_k_type), 0, 1, 1}, /* PyObject cname: __pyx_n_u_type */
-  {__pyx_k_types, sizeof(__pyx_k_types), 0, 1, 1}, /* PyObject cname: __pyx_n_u_types */
   {__pyx_k_unable_to_allocate_array_data, sizeof(__pyx_k_unable_to_allocate_array_data), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_unable_to_allocate_array_data */
   {__pyx_k_unable_to_allocate_shape_and_str, sizeof(__pyx_k_unable_to_allocate_shape_and_str), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_unable_to_allocate_shape_and_str */
   {__pyx_k_unpack, sizeof(__pyx_k_unpack), 0, 1, 1}, /* PyObject cname: __pyx_n_u_unpack */
-  {__pyx_k_unpack_from, sizeof(__pyx_k_unpack_from), 0, 1, 1}, /* PyObject cname: __pyx_n_u_unpack_from */
   {__pyx_k_unpackb, sizeof(__pyx_k_unpackb), 0, 1, 1}, /* PyObject cname: __pyx_n_u_unpackb */
   {__pyx_k_update, sizeof(__pyx_k_update), 0, 1, 1}, /* PyObject cname: __pyx_n_u_update */
-  {__pyx_k_utf_8, sizeof(__pyx_k_utf_8), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_utf_8 */
   {__pyx_k_x, sizeof(__pyx_k_x), 0, 1, 1}, /* PyObject cname: __pyx_n_u_x */
   {0, 0, 0, 0, 0}
 };
@@ -25704,9 +23729,9 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(0, 92, __pyx_L1_error)
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 115, __pyx_L1_error)
-  __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 113, __pyx_L1_error)
+  __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(0, 125, __pyx_L1_error)
   __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_import); if (!__pyx_builtin___import__) __PYX_ERR(1, 101, __pyx_L1_error)
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(1, 139, __pyx_L1_error)
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(1, 154, __pyx_L1_error)
@@ -25777,9 +23802,6 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   if (__Pyx_InitStrings(__pyx_string_tab, __pyx_mstate->__pyx_string_tab, __pyx_string_tab_encodings) < 0) __PYX_ERR(0, 1, __pyx_L1_error);
   __pyx_mstate->__pyx_int_0 = PyLong_FromLong(0); if (unlikely(!__pyx_mstate->__pyx_int_0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_1 = PyLong_FromLong(1); if (unlikely(!__pyx_mstate->__pyx_int_1)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_mstate->__pyx_int_2 = PyLong_FromLong(2); if (unlikely(!__pyx_mstate->__pyx_int_2)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_mstate->__pyx_int_4 = PyLong_FromLong(4); if (unlikely(!__pyx_mstate->__pyx_int_4)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_mstate->__pyx_int_8 = PyLong_FromLong(8); if (unlikely(!__pyx_mstate->__pyx_int_8)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_8388608 = PyLong_FromLong(8388608L); if (unlikely(!__pyx_mstate->__pyx_int_8388608)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_112105877 = PyLong_FromLong(112105877L); if (unlikely(!__pyx_mstate->__pyx_int_112105877)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_136983863 = PyLong_FromLong(136983863L); if (unlikely(!__pyx_mstate->__pyx_int_136983863)) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -29204,206 +27226,6 @@ static PyObject *__Pyx_Object_VectorcallMethod_CallFromBuilder(PyObject *name, P
 }
 #endif
 
-/* ModInt[Py_ssize_t] */
-  static CYTHON_INLINE Py_ssize_t __Pyx_mod_Py_ssize_t(Py_ssize_t a, Py_ssize_t b, int b_is_constant) {
-    Py_ssize_t r = a % b;
-    Py_ssize_t adapt_python = (b_is_constant ?
-        ((r != 0) & ((r < 0) ^ (b < 0))) :
-        ((r != 0) & ((r ^ b) < 0))
-    );
-    return r + adapt_python * b;
-}
-
-/* PyLongBinop */
-  #if !CYTHON_COMPILING_IN_PYPY
-static PyObject* __Pyx_Fallback___Pyx_PyLong_FloorDivideObjC(PyObject *op1, PyObject *op2, int inplace) {
-    return (inplace ? PyNumber_InPlaceFloorDivide : PyNumber_FloorDivide)(op1, op2);
-}
-#if CYTHON_USE_PYLONG_INTERNALS
-static PyObject* __Pyx_Unpacked___Pyx_PyLong_FloorDivideObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
-    CYTHON_MAYBE_UNUSED_VAR(inplace);
-    CYTHON_UNUSED_VAR(zerodivision_check);
-    const long b = intval;
-    long a, x;
-#ifdef HAVE_LONG_LONG
-    const PY_LONG_LONG llb = intval;
-    PY_LONG_LONG lla, llx;
-#endif
-    if (unlikely(__Pyx_PyLong_IsZero(op1))) {
-        return __Pyx_NewRef(op1);
-    }
-    if (likely(__Pyx_PyLong_IsCompact(op1))) {
-        a = __Pyx_PyLong_CompactValue(op1);
-    } else {
-        const digit* digits = __Pyx_PyLong_Digits(op1);
-        const Py_ssize_t size = __Pyx_PyLong_SignedDigitCount(op1);
-        switch (size) {
-            case -2:
-                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT) {
-                    a = -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    break;
-                #ifdef HAVE_LONG_LONG
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT) {
-                    lla = -(PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    goto long_long;
-                #endif
-                }
-                CYTHON_FALLTHROUGH;
-            case 2:
-                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT) {
-                    a = (long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    break;
-                #ifdef HAVE_LONG_LONG
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT) {
-                    lla = (PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    goto long_long;
-                #endif
-                }
-                CYTHON_FALLTHROUGH;
-            case -3:
-                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT) {
-                    a = -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    break;
-                #ifdef HAVE_LONG_LONG
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT) {
-                    lla = -(PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    goto long_long;
-                #endif
-                }
-                CYTHON_FALLTHROUGH;
-            case 3:
-                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT) {
-                    a = (long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    break;
-                #ifdef HAVE_LONG_LONG
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT) {
-                    lla = (PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    goto long_long;
-                #endif
-                }
-                CYTHON_FALLTHROUGH;
-            case -4:
-                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT) {
-                    a = -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    break;
-                #ifdef HAVE_LONG_LONG
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT) {
-                    lla = -(PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    goto long_long;
-                #endif
-                }
-                CYTHON_FALLTHROUGH;
-            case 4:
-                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT) {
-                    a = (long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    break;
-                #ifdef HAVE_LONG_LONG
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT) {
-                    lla = (PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    goto long_long;
-                #endif
-                }
-                CYTHON_FALLTHROUGH;
-            default: return PyLong_Type.tp_as_number->nb_floor_divide(op1, op2);
-        }
-    }
-            {
-                long q, r;
-                q = a / b;
-                r = a - q*b;
-                q -= ((r != 0) & ((r ^ b) < 0));
-                x = q;
-            }
-        return PyLong_FromLong(x);
-#ifdef HAVE_LONG_LONG
-    long_long:
-            {
-                PY_LONG_LONG q, r;
-                q = lla / llb;
-                r = lla - q*llb;
-                q -= ((r != 0) & ((r ^ llb) < 0));
-                llx = q;
-            }
-        return PyLong_FromLongLong(llx);
-#endif
-    return __Pyx_Fallback___Pyx_PyLong_FloorDivideObjC(op1, op2, inplace);
-    
-    
-}
-#endif
-static CYTHON_INLINE PyObject* __Pyx_PyLong_FloorDivideObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
-    CYTHON_MAYBE_UNUSED_VAR(intval);
-    CYTHON_UNUSED_VAR(zerodivision_check);
-    #if CYTHON_USE_PYLONG_INTERNALS
-    if (likely(PyLong_CheckExact(op1))) {
-        return __Pyx_Unpacked___Pyx_PyLong_FloorDivideObjC(op1, op2, intval, inplace, zerodivision_check);
-    }
-    #endif
-    return __Pyx_Fallback___Pyx_PyLong_FloorDivideObjC(op1, op2, inplace);
-}
-#endif
-
-/* PyLongCompare */
-  static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace) {
-    CYTHON_MAYBE_UNUSED_VAR(intval);
-    CYTHON_UNUSED_VAR(inplace);
-    if (op1 == op2) {
-        return 1;
-    }
-    #if CYTHON_USE_PYLONG_INTERNALS
-    if (likely(PyLong_CheckExact(op1))) {
-        int unequal;
-        unsigned long uintval;
-        Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
-        const digit* digits = __Pyx_PyLong_Digits(op1);
-        if (intval == 0) {
-            return (__Pyx_PyLong_IsZero(op1) == 1);
-        } else if (intval < 0) {
-            if (__Pyx_PyLong_IsNonNeg(op1))
-                return 0;
-            intval = -intval;
-        } else {
-            if (__Pyx_PyLong_IsNeg(op1))
-                return 0;
-        }
-        uintval = (unsigned long) intval;
-#if PyLong_SHIFT * 4 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 4)) {
-            unequal = (size != 5) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[4] != ((uintval >> (4 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-#if PyLong_SHIFT * 3 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 3)) {
-            unequal = (size != 4) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-#if PyLong_SHIFT * 2 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 2)) {
-            unequal = (size != 3) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-#if PyLong_SHIFT * 1 < SIZEOF_LONG*8
-        if (uintval >> (PyLong_SHIFT * 1)) {
-            unequal = (size != 2) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
-                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
-        } else
-#endif
-            unequal = (size != 1) || (((unsigned long) digits[0]) != (uintval & (unsigned long) PyLong_MASK));
-        return (unequal == 0);
-    }
-    #endif
-    if (PyFloat_CheckExact(op1)) {
-        const long b = intval;
-        double a = __Pyx_PyFloat_AS_DOUBLE(op1);
-        return ((double)a == (double)b);
-    }
-    return __Pyx_PyObject_IsTrueAndDecref(
-        PyObject_RichCompare(op1, op2, Py_EQ));
-}
-
 /* CallTypeTraverse */
   #if !CYTHON_USE_TYPE_SPECS || (!CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x03090000)
 #else
@@ -32311,260 +30133,6 @@ raise_neg_overflow:
 }
 
 /* CIntFromPy */
-  static CYTHON_INLINE size_t __Pyx_PyLong_As_size_t(PyObject *x) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const size_t neg_one = (size_t) -1, const_zero = (size_t) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (unlikely(!PyLong_Check(x))) {
-        size_t val;
-        PyObject *tmp = __Pyx_PyNumber_Long(x);
-        if (!tmp) return (size_t) -1;
-        val = __Pyx_PyLong_As_size_t(tmp);
-        Py_DECREF(tmp);
-        return val;
-    }
-    if (is_unsigned) {
-#if CYTHON_USE_PYLONG_INTERNALS
-        if (unlikely(__Pyx_PyLong_IsNeg(x))) {
-            goto raise_neg_overflow;
-        } else if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(size_t, __Pyx_compact_upylong, __Pyx_PyLong_CompactValueUnsigned(x))
-        } else {
-            const digit* digits = __Pyx_PyLong_Digits(x);
-            assert(__Pyx_PyLong_DigitCount(x) > 1);
-            switch (__Pyx_PyLong_DigitCount(x)) {
-                case 2:
-                    if ((8 * sizeof(size_t) > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) >= 2 * PyLong_SHIFT)) {
-                            return (size_t) (((((size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0]));
-                        }
-                    }
-                    break;
-                case 3:
-                    if ((8 * sizeof(size_t) > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) >= 3 * PyLong_SHIFT)) {
-                            return (size_t) (((((((size_t)digits[2]) << PyLong_SHIFT) | (size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0]));
-                        }
-                    }
-                    break;
-                case 4:
-                    if ((8 * sizeof(size_t) > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) >= 4 * PyLong_SHIFT)) {
-                            return (size_t) (((((((((size_t)digits[3]) << PyLong_SHIFT) | (size_t)digits[2]) << PyLong_SHIFT) | (size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0]));
-                        }
-                    }
-                    break;
-            }
-        }
-#endif
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A7
-        if (unlikely(Py_SIZE(x) < 0)) {
-            goto raise_neg_overflow;
-        }
-#else
-        {
-            int result = PyObject_RichCompareBool(x, Py_False, Py_LT);
-            if (unlikely(result < 0))
-                return (size_t) -1;
-            if (unlikely(result == 1))
-                goto raise_neg_overflow;
-        }
-#endif
-        if ((sizeof(size_t) <= sizeof(unsigned long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(size_t, unsigned long, PyLong_AsUnsignedLong(x))
-#ifdef HAVE_LONG_LONG
-        } else if ((sizeof(size_t) <= sizeof(unsigned PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(size_t, unsigned PY_LONG_LONG, PyLong_AsUnsignedLongLong(x))
-#endif
-        }
-    } else {
-#if CYTHON_USE_PYLONG_INTERNALS
-        if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(size_t, __Pyx_compact_pylong, __Pyx_PyLong_CompactValue(x))
-        } else {
-            const digit* digits = __Pyx_PyLong_Digits(x);
-            assert(__Pyx_PyLong_DigitCount(x) > 1);
-            switch (__Pyx_PyLong_SignedDigitCount(x)) {
-                case -2:
-                    if ((8 * sizeof(size_t) - 1 > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, long, -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) - 1 > 2 * PyLong_SHIFT)) {
-                            return (size_t) (((size_t)-1)*(((((size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0])));
-                        }
-                    }
-                    break;
-                case 2:
-                    if ((8 * sizeof(size_t) > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) - 1 > 2 * PyLong_SHIFT)) {
-                            return (size_t) ((((((size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0])));
-                        }
-                    }
-                    break;
-                case -3:
-                    if ((8 * sizeof(size_t) - 1 > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, long, -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) - 1 > 3 * PyLong_SHIFT)) {
-                            return (size_t) (((size_t)-1)*(((((((size_t)digits[2]) << PyLong_SHIFT) | (size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0])));
-                        }
-                    }
-                    break;
-                case 3:
-                    if ((8 * sizeof(size_t) > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) - 1 > 3 * PyLong_SHIFT)) {
-                            return (size_t) ((((((((size_t)digits[2]) << PyLong_SHIFT) | (size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0])));
-                        }
-                    }
-                    break;
-                case -4:
-                    if ((8 * sizeof(size_t) - 1 > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, long, -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) - 1 > 4 * PyLong_SHIFT)) {
-                            return (size_t) (((size_t)-1)*(((((((((size_t)digits[3]) << PyLong_SHIFT) | (size_t)digits[2]) << PyLong_SHIFT) | (size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0])));
-                        }
-                    }
-                    break;
-                case 4:
-                    if ((8 * sizeof(size_t) > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(size_t, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(size_t) - 1 > 4 * PyLong_SHIFT)) {
-                            return (size_t) ((((((((((size_t)digits[3]) << PyLong_SHIFT) | (size_t)digits[2]) << PyLong_SHIFT) | (size_t)digits[1]) << PyLong_SHIFT) | (size_t)digits[0])));
-                        }
-                    }
-                    break;
-            }
-        }
-#endif
-        if ((sizeof(size_t) <= sizeof(long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(size_t, long, PyLong_AsLong(x))
-#ifdef HAVE_LONG_LONG
-        } else if ((sizeof(size_t) <= sizeof(PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(size_t, PY_LONG_LONG, PyLong_AsLongLong(x))
-#endif
-        }
-    }
-    {
-        size_t val;
-        int ret = -1;
-#if PY_VERSION_HEX >= 0x030d00A6 && !CYTHON_COMPILING_IN_LIMITED_API
-        Py_ssize_t bytes_copied = PyLong_AsNativeBytes(
-            x, &val, sizeof(val), Py_ASNATIVEBYTES_NATIVE_ENDIAN | (is_unsigned ? Py_ASNATIVEBYTES_UNSIGNED_BUFFER | Py_ASNATIVEBYTES_REJECT_NEGATIVE : 0));
-        if (unlikely(bytes_copied == -1)) {
-        } else if (unlikely(bytes_copied > (Py_ssize_t) sizeof(val))) {
-            goto raise_overflow;
-        } else {
-            ret = 0;
-        }
-#elif PY_VERSION_HEX < 0x030d0000 && !(CYTHON_COMPILING_IN_PYPY || CYTHON_COMPILING_IN_LIMITED_API) || defined(_PyLong_AsByteArray)
-        int one = 1; int is_little = (int)*(unsigned char *)&one;
-        unsigned char *bytes = (unsigned char *)&val;
-        ret = _PyLong_AsByteArray((PyLongObject *)x,
-                                    bytes, sizeof(val),
-                                    is_little, !is_unsigned);
-#else
-        PyObject *v;
-        PyObject *stepval = NULL, *mask = NULL, *shift = NULL;
-        int bits, remaining_bits, is_negative = 0;
-        int chunk_size = (sizeof(long) < 8) ? 30 : 62;
-        if (likely(PyLong_CheckExact(x))) {
-            v = __Pyx_NewRef(x);
-        } else {
-            v = PyNumber_Long(x);
-            if (unlikely(!v)) return (size_t) -1;
-            assert(PyLong_CheckExact(v));
-        }
-        {
-            int result = PyObject_RichCompareBool(v, Py_False, Py_LT);
-            if (unlikely(result < 0)) {
-                Py_DECREF(v);
-                return (size_t) -1;
-            }
-            is_negative = result == 1;
-        }
-        if (is_unsigned && unlikely(is_negative)) {
-            Py_DECREF(v);
-            goto raise_neg_overflow;
-        } else if (is_negative) {
-            stepval = PyNumber_Invert(v);
-            Py_DECREF(v);
-            if (unlikely(!stepval))
-                return (size_t) -1;
-        } else {
-            stepval = v;
-        }
-        v = NULL;
-        val = (size_t) 0;
-        mask = PyLong_FromLong((1L << chunk_size) - 1); if (unlikely(!mask)) goto done;
-        shift = PyLong_FromLong(chunk_size); if (unlikely(!shift)) goto done;
-        for (bits = 0; bits < (int) sizeof(size_t) * 8 - chunk_size; bits += chunk_size) {
-            PyObject *tmp, *digit;
-            long idigit;
-            digit = PyNumber_And(stepval, mask);
-            if (unlikely(!digit)) goto done;
-            idigit = PyLong_AsLong(digit);
-            Py_DECREF(digit);
-            if (unlikely(idigit < 0)) goto done;
-            val |= ((size_t) idigit) << bits;
-            tmp = PyNumber_Rshift(stepval, shift);
-            if (unlikely(!tmp)) goto done;
-            Py_DECREF(stepval); stepval = tmp;
-        }
-        Py_DECREF(shift); shift = NULL;
-        Py_DECREF(mask); mask = NULL;
-        {
-            long idigit = PyLong_AsLong(stepval);
-            if (unlikely(idigit < 0)) goto done;
-            remaining_bits = ((int) sizeof(size_t) * 8) - bits - (is_unsigned ? 0 : 1);
-            if (unlikely(idigit >= (1L << remaining_bits)))
-                goto raise_overflow;
-            val |= ((size_t) idigit) << bits;
-        }
-        if (!is_unsigned) {
-            if (unlikely(val & (((size_t) 1) << (sizeof(size_t) * 8 - 1))))
-                goto raise_overflow;
-            if (is_negative)
-                val = ~val;
-        }
-        ret = 0;
-    done:
-        Py_XDECREF(shift);
-        Py_XDECREF(mask);
-        Py_XDECREF(stepval);
-#endif
-        if (unlikely(ret))
-            return (size_t) -1;
-        return val;
-    }
-raise_overflow:
-    PyErr_SetString(PyExc_OverflowError,
-        "value too large to convert to size_t");
-    return (size_t) -1;
-raise_neg_overflow:
-    PyErr_SetString(PyExc_OverflowError,
-        "can't convert negative value to size_t");
-    return (size_t) -1;
-}
-
-/* CIntFromPy */
   static CYTHON_INLINE long __Pyx_PyLong_As_long(PyObject *x) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic push
@@ -33105,7 +30673,7 @@ __Pyx_PyType_GetFullyQualifiedName(PyTypeObject* tp)
         result = name;
         name = NULL;
     } else {
-        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__9);
+        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__8);
     }
     goto done;
 }

@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class UnitType(str, Enum):
     """
-    The unit of input/outputs value.
+    The unit of input/output value.
     """
 
     """

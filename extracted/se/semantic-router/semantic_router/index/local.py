@@ -12,8 +12,8 @@ from semantic_router.utils.logger import logger
 class LocalIndex(BaseIndex):
     type: str = "local"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **data):
+        super().__init__(**data)
 
     # Stop pydantic from complaining about Optional[np.ndarray]type hints.
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
@@ -110,6 +110,14 @@ class LocalIndex(BaseIndex):
 
     def is_ready(self) -> bool:
         """Checks if the index is ready to be used.
+
+        :return: True if the index is ready, False otherwise.
+        :rtype: bool
+        """
+        return self.index is not None and self.routes is not None
+
+    async def ais_ready(self) -> bool:
+        """Checks if the index is ready to be used asynchronously.
 
         :return: True if the index is ready, False otherwise.
         :rtype: bool
@@ -233,8 +241,30 @@ class LocalIndex(BaseIndex):
                 "utterances is None."
             )
 
+    async def adelete(self, route_name: str):
+        """Delete all records of a specific route from the index. Note that this just points
+        to the sync delete method as async makes no difference for the local computations
+        of the LocalIndex.
+
+        :param route_name: The name of the route to delete.
+        :type route_name: str
+        """
+        self.delete(route_name)
+
     def delete_index(self):
         """Deletes the index, effectively clearing it and setting it to None.
+
+        :return: None
+        :rtype: None
+        """
+        self.index = None
+        self.routes = None
+        self.utterances = None
+
+    async def adelete_index(self):
+        """Deletes the index, effectively clearing it and setting it to None. Note that this just points
+        to the sync delete_index method as async makes no difference for the local computations
+        of the LocalIndex.
 
         :return: None
         :rtype: None

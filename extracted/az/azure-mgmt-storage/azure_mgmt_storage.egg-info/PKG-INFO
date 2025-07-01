@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-storage
-Version: 23.0.0
+Version: 23.0.1
 Summary: Microsoft Azure Storage Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -88,6 +88,12 @@ section of the project.
 
 
 # Release History
+
+## 23.0.1 (2025-06-30)
+
+### Other Changes
+
+  - Fix for StorageTaskAssignmentsOperations
 
 ## 23.0.0 (2025-05-15)
 

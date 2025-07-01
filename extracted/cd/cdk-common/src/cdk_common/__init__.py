@@ -5556,6 +5556,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_BEDROCK_LIMITED_ACCESS = "AMAZON_BEDROCK_LIMITED_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_BEDROCK_MARKETPLACE_ACCESS = "AMAZON_BEDROCK_MARKETPLACE_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

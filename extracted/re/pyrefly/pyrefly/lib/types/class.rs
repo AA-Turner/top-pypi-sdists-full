@@ -19,7 +19,7 @@ use parse_display::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
-use pyrefly_util::display::commas_iter;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
@@ -28,7 +28,6 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
 use crate::module::module_info::ModuleInfo;
-use crate::module::module_name::ModuleName;
 use crate::module::module_path::ModulePath;
 use crate::types::equality::TypeEq;
 use crate::types::qname::QName;
@@ -81,12 +80,15 @@ impl Visit<Type> for Class {
 #[derive(Debug, Clone)]
 pub struct ClassFieldProperties {
     is_annotated: bool,
+    // The field is initialized on the class (outside of a method)
+    is_initialized_on_class: bool,
     range: TextRange,
 }
 
 impl PartialEq for ClassFieldProperties {
     fn eq(&self, other: &Self) -> bool {
         self.is_annotated == other.is_annotated
+            && self.is_initialized_on_class == other.is_initialized_on_class
     }
 }
 
@@ -99,11 +101,16 @@ impl TypeEq for ClassFieldProperties {}
 pub struct ClassDefIndex(pub u32);
 
 impl ClassFieldProperties {
-    pub fn new(is_annotated: bool, range: TextRange) -> Self {
+    pub fn new(is_annotated: bool, has_default_value: bool, range: TextRange) -> Self {
         Self {
             is_annotated,
+            is_initialized_on_class: has_default_value,
             range,
         }
+    }
+
+    pub fn is_initialized_on_class(&self) -> bool {
+        self.is_initialized_on_class
     }
 }
 
@@ -111,7 +118,11 @@ impl ClassFieldProperties {
 struct ClassInner {
     def_index: ClassDefIndex,
     qname: QName,
-    tparams: Arc<TParams>,
+    /// The precomputed tparams will be `Some(..)` if we were able to verify that there
+    /// are no legacy type variables (at which point there's no chance of producing a cycle
+    /// when computing the class tparams). Whenever it is `None`, there will be a corresponding
+    /// `KeyTParams` / `BindingTParams` pair to compute the class tparams.
+    precomputed_tparams: Option<Arc<TParams>>,
     fields: SmallMap<Name, ClassFieldProperties>,
 }
 
@@ -120,7 +131,7 @@ impl Debug for ClassInner {
         f.debug_struct("ClassInner")
             .field("index", &self.def_index)
             .field("qname", &self.qname)
-            .field("tparams", &self.tparams)
+            .field("tparams", &self.precomputed_tparams)
             // We don't print `fields` because it's way too long.
             .finish_non_exhaustive()
     }
@@ -154,9 +165,6 @@ impl ClassKind {
 impl Display for ClassInner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "class {}", self.qname.id())?;
-        if !self.tparams.is_empty() {
-            write!(f, "[{}]", commas_iter(|| self.tparams.iter()))?;
-        }
         writeln!(f, ": ...")
     }
 }
@@ -173,13 +181,13 @@ impl Class {
         def_index: ClassDefIndex,
         name: Identifier,
         module_info: ModuleInfo,
-        tparams: Arc<TParams>,
+        precomputed_tparams: Option<Arc<TParams>>,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
         Self(Arc::new(ClassInner {
             def_index,
             qname: QName::new(name, module_info),
-            tparams,
+            precomputed_tparams,
             fields,
         }))
     }
@@ -204,12 +212,8 @@ impl Class {
         ClassKind::from_qname(self.qname())
     }
 
-    pub fn arc_tparams(&self) -> &Arc<TParams> {
-        &self.0.tparams
-    }
-
-    pub fn tparams(&self) -> &TParams {
-        &self.0.tparams
+    pub fn precomputed_tparams(&self) -> &Option<Arc<TParams>> {
+        &self.0.precomputed_tparams
     }
 
     pub fn index(&self) -> ClassDefIndex {
@@ -218,6 +222,10 @@ impl Class {
 
     pub fn module_name(&self) -> ModuleName {
         self.0.qname.module_name()
+    }
+
+    pub fn module_path(&self) -> &ModulePath {
+        self.0.qname.module_path()
     }
 
     pub fn module_info(&self) -> &ModuleInfo {
@@ -233,6 +241,13 @@ impl Class {
             .fields
             .get(name)
             .is_some_and(|prop| prop.is_annotated)
+    }
+
+    pub fn is_field_initialized_on_class(&self, name: &Name) -> bool {
+        self.0
+            .fields
+            .get(name)
+            .is_some_and(|prop| prop.is_initialized_on_class)
     }
 
     pub fn field_decl_range(&self, name: &Name) -> Option<TextRange> {
@@ -253,7 +268,7 @@ impl Class {
         (
             self.0.def_index,
             self.0.qname.module_name(),
-            self.0.qname.module_info().path(),
+            self.0.qname.module_path(),
         )
     }
 
@@ -278,17 +293,6 @@ impl ClassType {
     /// Create a class type.
     /// The `targs` must match the `tparams`, if this fails we will panic.
     pub fn new(class: Class, targs: TArgs) -> Self {
-        let tparams = class.tparams();
-        if targs.len() != tparams.len() && !tparams.contain_type_var_tuple() {
-            // Invariant violation: we should always have valid type arguments when
-            // constructing `ClassType`.
-            panic!(
-                "Encountered invalid type arguments in class `{}`, expected `{}` type arguments, got `{}`.",
-                class.name(),
-                tparams.len(),
-                targs.len(),
-            )
-        }
         Self(class, targs)
     }
 
@@ -297,7 +301,7 @@ impl ClassType {
     }
 
     pub fn tparams(&self) -> &TParams {
-        self.0.tparams()
+        self.1.tparams()
     }
 
     pub fn targs(&self) -> &TArgs {
@@ -313,11 +317,11 @@ impl ClassType {
     /// This is used to propagate instantiation of base class type parameters when computing
     /// the MRO.
     pub fn substitute(&self, substitution: &Substitution) -> Self {
-        Self(self.0.dupe(), self.1.substitute(substitution))
+        Self(self.0.dupe(), self.1.apply_substitution(substitution))
     }
 
     pub fn substitution(&self) -> Substitution {
-        Substitution::new(self.class_object(), self.targs())
+        self.targs().substitution()
     }
 
     pub fn name(&self) -> &Name {

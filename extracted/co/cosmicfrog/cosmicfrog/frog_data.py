@@ -1269,7 +1269,7 @@ class FrogModel:
         Args:
             table_name: str -- Name of the table to create the column in
             column_name: str -- Name of the column to create
-            data_type: str -- Data type of the column (e.g. text, integer, float, date, boolean)
+            data_type: str -- Data type of the column (e.g. text, integer, date, timestamp, bool)
             key_column: bool -- Will be included as part of the unique record identification when importing (updating, inserting) data to the table
             pseudo: bool -- Data of any type can be freely imported and will behave as the defined data type in UI (Grids, Maps, Dashboards)
 

@@ -121,6 +121,7 @@ from .protocol import (
 )
 from .refs import (
     PEELED_TAG_SUFFIX,
+    SYMREF,
     Ref,
     _import_remote_refs,
     _set_default_branch,
@@ -395,6 +396,77 @@ class FetchPackResult:
         return f"{self.__class__.__name__}({self.refs!r}, {self.symrefs!r}, {self.agent!r})"
 
 
+class LsRemoteResult:
+    """Result of a ls-remote operation.
+
+    Attributes:
+      refs: Dictionary with all remote refs
+      symrefs: Dictionary with remote symrefs
+    """
+
+    _FORWARDED_ATTRS: ClassVar[set[str]] = {
+        "clear",
+        "copy",
+        "fromkeys",
+        "get",
+        "items",
+        "keys",
+        "pop",
+        "popitem",
+        "setdefault",
+        "update",
+        "values",
+        "viewitems",
+        "viewkeys",
+        "viewvalues",
+    }
+
+    def __init__(self, refs, symrefs) -> None:
+        self.refs = refs
+        self.symrefs = symrefs
+
+    def _warn_deprecated(self) -> None:
+        import warnings
+
+        warnings.warn(
+            "Treating LsRemoteResult as a dictionary is deprecated. "
+            "Use result.refs instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
+    def __eq__(self, other):
+        if isinstance(other, dict):
+            self._warn_deprecated()
+            return self.refs == other
+        return self.refs == other.refs and self.symrefs == other.symrefs
+
+    def __contains__(self, name) -> bool:
+        self._warn_deprecated()
+        return name in self.refs
+
+    def __getitem__(self, name):
+        self._warn_deprecated()
+        return self.refs[name]
+
+    def __len__(self) -> int:
+        self._warn_deprecated()
+        return len(self.refs)
+
+    def __iter__(self):
+        self._warn_deprecated()
+        return iter(self.refs)
+
+    def __getattribute__(self, name):
+        if name in type(self)._FORWARDED_ATTRS:
+            self._warn_deprecated()
+            return getattr(self.refs, name)
+        return super().__getattribute__(name)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.refs!r}, {self.symrefs!r})"
+
+
 class SendPackResult:
     """Result of a upload-pack operation.
 
@@ -575,7 +647,7 @@ def _handle_upload_pack_head(
     graph_walker,
     wants,
     can_read,
-    depth,
+    depth: Optional[int],
     protocol_version,
 ):
     """Handle the head of a 'git-upload-pack' request.
@@ -831,7 +903,7 @@ class GitClient:
         checkout=None,
         branch=None,
         progress=None,
-        depth=None,
+        depth: Optional[int] = None,
         ref_prefix: Optional[list[Ref]] = None,
         filter_spec=None,
         protocol_version: Optional[int] = None,
@@ -1041,11 +1113,16 @@ class GitClient:
         path,
         protocol_version: Optional[int] = None,
         ref_prefix: Optional[list[Ref]] = None,
-    ) -> dict[Ref, ObjectID]:
+    ) -> LsRemoteResult:
         """Retrieve the current refs from a git smart server.
 
         Args:
           path: Path to the repo to fetch from. (as bytestring)
+          protocol_version: Desired Git protocol version.
+          ref_prefix: Prefix filter for refs.
+
+        Returns:
+          LsRemoteResult object with refs and symrefs
         """
         raise NotImplementedError(self.get_refs)
 
@@ -1314,7 +1391,7 @@ class TraditionalGitClient(GitClient):
         graph_walker,
         pack_data,
         progress=None,
-        depth=None,
+        depth: Optional[int] = None,
         ref_prefix: Optional[list[Ref]] = None,
         filter_spec=None,
         protocol_version: Optional[int] = None,
@@ -1484,13 +1561,13 @@ class TraditionalGitClient(GitClient):
             proto.write_pkt_line(None)
             with proto:
                 try:
-                    refs, _symrefs, peeled = read_pkt_refs_v2(proto.read_pkt_seq())
+                    refs, symrefs, peeled = read_pkt_refs_v2(proto.read_pkt_seq())
                 except HangupException as exc:
                     raise _remote_error_from_stderr(stderr) from exc
                 proto.write_pkt_line(None)
                 for refname, refvalue in peeled.items():
                     refs[refname + PEELED_TAG_SUFFIX] = refvalue
-                return refs
+                return LsRemoteResult(refs, symrefs)
         else:
             with proto:
                 try:
@@ -1498,10 +1575,10 @@ class TraditionalGitClient(GitClient):
                 except HangupException as exc:
                     raise _remote_error_from_stderr(stderr) from exc
                 proto.write_pkt_line(None)
-                (_symrefs, _agent) = _extract_symrefs_and_agent(server_capabilities)
+                (symrefs, _agent) = _extract_symrefs_and_agent(server_capabilities)
                 if ref_prefix is not None:
                     refs = filter_ref_prefix(refs, ref_prefix)
-                return refs
+                return LsRemoteResult(refs, symrefs)
 
     def archive(
         self,
@@ -1533,7 +1610,7 @@ class TraditionalGitClient(GitClient):
                 return
             elif pkt == b"ACK\n" or pkt == b"ACK":
                 pass
-            elif pkt.startswith(b"ERR "):
+            elif pkt and pkt.startswith(b"ERR "):
                 raise GitProtocolError(pkt[4:].rstrip(b"\n").decode("utf-8", "replace"))
             else:
                 raise AssertionError(f"invalid response {pkt!r}")
@@ -1879,7 +1956,7 @@ class LocalGitClient(GitClient):
         graph_walker,
         pack_data,
         progress=None,
-        depth=None,
+        depth: Optional[int] = None,
         ref_prefix: Optional[list[Ref]] = None,
         filter_spec: Optional[bytes] = None,
         protocol_version: Optional[int] = None,
@@ -1932,7 +2009,20 @@ class LocalGitClient(GitClient):
     ):
         """Retrieve the current refs from a local on-disk repository."""
         with self._open_repo(path) as target:
-            return target.get_refs()
+            refs = target.get_refs()
+            # Extract symrefs from the local repository
+            symrefs = {}
+            for ref in refs:
+                try:
+                    # Check if this ref is symbolic by reading it directly
+                    ref_value = target.refs.read_ref(ref)
+                    if ref_value and ref_value.startswith(SYMREF):
+                        # Extract the target from the symref
+                        symrefs[ref] = ref_value[len(SYMREF) :]
+                except (KeyError, ValueError):
+                    # Not a symbolic ref or error reading it
+                    pass
+            return LsRemoteResult(refs, symrefs)
 
 
 # What Git client to use for local access
@@ -2143,10 +2233,14 @@ class SSHGitClient(TraditionalGitClient):
 
             # Fall back to config if no environment variable set
             if not self.ssh_command and config is not None:
-                config_ssh_command = config.get((b"core",), b"sshCommand")
-                self.ssh_command = (
-                    config_ssh_command.decode() if config_ssh_command else None
-                )
+                try:
+                    config_ssh_command = config.get((b"core",), b"sshCommand")
+                    self.ssh_command = (
+                        config_ssh_command.decode() if config_ssh_command else None
+                    )
+                except KeyError:
+                    pass
+
         super().__init__(**kwargs)
         self.alternative_paths: dict[bytes, bytes] = {}
         if vendor is not None:
@@ -2235,6 +2329,7 @@ def default_urllib3_manager(
     pool_manager_cls=None,
     proxy_manager_cls=None,
     base_url=None,
+    timeout=None,
     **override_kwargs,
 ) -> Union["urllib3.ProxyManager", "urllib3.PoolManager"]:
     """Return urllib3 connection pool manager.
@@ -2243,6 +2338,7 @@ def default_urllib3_manager(
 
     Args:
       config: `dulwich.config.ConfigDict` instance with Git configuration.
+      timeout: Timeout for HTTP requests in seconds
       override_kwargs: Additional arguments for `urllib3.ProxyManager`
 
     Returns:
@@ -2286,6 +2382,15 @@ def default_urllib3_manager(
         except KeyError:
             ca_certs = None
 
+        # Check for timeout configuration
+        if timeout is None:
+            try:
+                timeout = config.get(b"http", b"timeout")
+                if timeout is not None:
+                    timeout = int(timeout)
+            except KeyError:
+                pass
+
     if user_agent is None:
         user_agent = default_user_agent_string()
 
@@ -2294,6 +2399,10 @@ def default_urllib3_manager(
     kwargs = {
         "ca_certs": ca_certs,
     }
+
+    # Add timeout if specified
+    if timeout is not None:
+        kwargs["timeout"] = timeout
     if ssl_verify is True:
         kwargs["cert_reqs"] = "CERT_REQUIRED"
     elif ssl_verify is False:
@@ -2489,7 +2598,7 @@ class AbstractHttpGitClient(GitClient):
                     proto = Protocol(read, None)
                     return server_capabilities, resp, read, proto
 
-                proto = Protocol(read, None)
+                proto = Protocol(read, None)  # type: ignore
                 server_protocol_version = negotiate_protocol_version(proto)
                 if server_protocol_version not in GIT_PROTOCOL_VERSIONS:
                     raise ValueError(
@@ -2547,7 +2656,14 @@ class AbstractHttpGitClient(GitClient):
                     return refs, server_capabilities, base_url, symrefs, peeled
             else:
                 self.protocol_version = 0  # dumb servers only support protocol v0
-                (refs, peeled) = split_peeled_refs(read_info_refs(resp))
+                # Read all the response data
+                data = b""
+                while True:
+                    chunk = read(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                (refs, peeled) = split_peeled_refs(read_info_refs(BytesIO(data)))
                 if ref_prefix is not None:
                     refs = filter_ref_prefix(refs, ref_prefix)
                 return refs, set(), base_url, {}, peeled
@@ -2650,7 +2766,7 @@ class AbstractHttpGitClient(GitClient):
         graph_walker,
         pack_data,
         progress=None,
-        depth=None,
+        depth: Optional[int] = None,
         ref_prefix: Optional[list[Ref]] = None,
         filter_spec=None,
         protocol_version: Optional[int] = None,
@@ -2700,9 +2816,34 @@ class AbstractHttpGitClient(GitClient):
         if not wants:
             return FetchPackResult(refs, symrefs, agent)
         if self.dumb:
-            raise NotImplementedError(self.fetch_pack)
+            # Use dumb HTTP protocol
+            from .dumb import DumbRemoteHTTPRepo
+
+            # Pass http_request function
+            dumb_repo = DumbRemoteHTTPRepo(url, self._http_request)
+
+            # Fetch pack data from dumb remote
+            pack_data_list = list(
+                dumb_repo.fetch_pack_data(
+                    graph_walker, lambda refs: wants, progress=progress, depth=depth
+                )
+            )
+
+            # Write pack data
+            if pack_data:
+                from .pack import write_pack_data
+
+                # Write pack data directly using the unpacked objects
+                write_pack_data(
+                    pack_data,
+                    iter(pack_data_list),
+                    num_records=len(pack_data_list),
+                    progress=progress,
+                )
+
+            return FetchPackResult(refs, symrefs, agent)
         req_data = BytesIO()
-        req_proto = Protocol(None, req_data.write)
+        req_proto = Protocol(None, req_data.write)  # type: ignore
         (new_shallow, new_unshallow) = _handle_upload_pack_head(
             req_proto,
             negotiated_capabilities,
@@ -2732,7 +2873,7 @@ class AbstractHttpGitClient(GitClient):
             data = req_data.getvalue()
         resp, read = self._smart_request("git-upload-pack", url, data)
         try:
-            resp_proto = Protocol(read, None)
+            resp_proto = Protocol(read, None)  # type: ignore
             if new_shallow is None and new_unshallow is None:
                 (new_shallow, new_unshallow) = _read_shallow_updates(
                     resp_proto.read_pkt_seq()
@@ -2757,7 +2898,7 @@ class AbstractHttpGitClient(GitClient):
     ):
         """Retrieve the current refs from a git smart server."""
         url = self._get_url(path)
-        refs, _, _, _, peeled = self._discover_references(
+        refs, _, _, symrefs, peeled = self._discover_references(
             b"git-upload-pack",
             url,
             protocol_version=protocol_version,
@@ -2765,7 +2906,7 @@ class AbstractHttpGitClient(GitClient):
         )
         for refname, refvalue in peeled.items():
             refs[refname + PEELED_TAG_SUFFIX] = refvalue
-        return refs
+        return LsRemoteResult(refs, symrefs)
 
     def get_url(self, path):
         return self._get_url(path).rstrip("/")
@@ -2808,13 +2949,17 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
         config=None,
         username=None,
         password=None,
+        timeout=None,
         **kwargs,
     ) -> None:
         self._username = username
         self._password = password
+        self._timeout = timeout
 
         if pool_manager is None:
-            self.pool_manager = default_urllib3_manager(config, base_url=base_url)
+            self.pool_manager = default_urllib3_manager(
+                config, base_url=base_url, timeout=timeout
+            )
         else:
             self.pool_manager = pool_manager
 
@@ -2847,14 +2992,18 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
         req_headers["Pragma"] = "no-cache"
 
         try:
+            request_kwargs = {
+                "headers": req_headers,
+                "preload_content": False,
+            }
+            if self._timeout is not None:
+                request_kwargs["timeout"] = self._timeout
+
             if data is None:
-                resp = self.pool_manager.request(
-                    "GET", url, headers=req_headers, preload_content=False
-                )
+                resp = self.pool_manager.request("GET", url, **request_kwargs)
             else:
-                resp = self.pool_manager.request(
-                    "POST", url, headers=req_headers, body=data, preload_content=False
-                )
+                request_kwargs["body"] = data
+                resp = self.pool_manager.request("POST", url, **request_kwargs)
         except urllib3.exceptions.HTTPError as e:
             raise GitProtocolError(str(e)) from e
 

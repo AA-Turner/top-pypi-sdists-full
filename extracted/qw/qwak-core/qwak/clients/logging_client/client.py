@@ -12,10 +12,10 @@ from _qwak_proto.qwak.logging.log_source_pb2 import (
     ModelRuntimeSource,
     RemoteBuildSource,
 )
-from grpc import RpcError
 from qwak.clients.administration.eco_system.client import EcosystemClient
 from qwak.exceptions import QwakException
 from qwak.inner.tool.grpc.grpc_tools import create_grpc_channel
+from qwak.inner.tool.grpc.grpc_try_wrapping import grpc_try_catch_wrapper
 
 
 class LoggingClient:
@@ -119,6 +119,7 @@ class LoggingClient:
         except QwakException as e:
             raise QwakException(f"Failed to fetch execution logs, error is [{e}]")
 
+    @grpc_try_catch_wrapper("Failed to read logs request")
     def read_logs(
         self,
         source,
@@ -127,21 +128,15 @@ class LoggingClient:
         max_number_of_results,
         log_text_filter,
     ):
-        try:
-            response = self._logging_service.ReadLogs(
-                ReadLogsRequest(
-                    source=source,
-                    before_offset=before_offset,
-                    after_offset=after_offset,
-                    search_filter=SearchFilter(
-                        log_text_filter=LogText(contains=log_text_filter)
-                    ),
-                    max_number_of_results=max_number_of_results,
-                )
+        response = self._logging_service.ReadLogs(
+            ReadLogsRequest(
+                source=source,
+                before_offset=before_offset,
+                after_offset=after_offset,
+                search_filter=SearchFilter(
+                    log_text_filter=LogText(contains=log_text_filter)
+                ),
+                max_number_of_results=max_number_of_results,
             )
-            return response
-        except RpcError as e:
-            raise QwakException(
-                f"Failed grpc read logs request, grpc error is "
-                f"[{e.details() if e.details() else e.code()}]"
-            )
+        )
+        return response

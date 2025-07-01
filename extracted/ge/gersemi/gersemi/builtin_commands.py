@@ -7,7 +7,7 @@ from gersemi.specializations.condition_syntax_command_invocation_dumper import (
 )
 from gersemi.specializations.set_property import set_property
 from gersemi.keywords import AnyMatcher, KeywordMatcher
-from gersemi.keyword_kind import KeywordKind
+from gersemi.keyword_kind import KeywordFormatter
 
 
 _COMPARE_EQUAL = ("COMPARE", "EQUAL")
@@ -113,8 +113,17 @@ _ExternalProject_Add_PatchStep = {
     "multi_value_keywords": ["PATCH_COMMAND"],
 }
 
+_target_sources_FILE_SET = {
+    "multi_value_keywords": [_FILE_SET_Any],
+    "sections": {
+        _FILE_SET_Any: {
+            "one_value_keywords": ["TYPE"],
+            "multi_value_keywords": ["BASE_DIRS", "FILES"],
+        }
+    },
+}
 
-builtin_commands_impl = {
+builtin_commands = {
     #### Legend
     #### (&): canonical name used different than in the documentation
     #
@@ -305,23 +314,62 @@ builtin_commands_impl = {
         },
     },
     "cmake_pkg_config": {
-        "options": ["REQUIRED", "EXACT", "QUIET"],
-        "one_value_keywords": [
-            "STRICTNESS",
-            "ENV_MODE",
-            "DISABLE_UNINSTALLED",
-            "PC_SYSROOT_DIR",
-            "TOP_BUILD_DIR",
-            "ALLOW_SYSTEM_INCLUDES",
-            "ALLOW_SYSTEM_LIBS",
-        ],
-        "multi_value_keywords": [
-            "EXTRACT",
-            "PC_LIBDIR",
-            "PC_PATH",
-            "SYSTEM_INCLUDE_DIRS",
-            "SYSTEM_LIBRARY_DIRS",
-        ],
+        "signatures": {
+            "EXTRACT": {
+                "options": ["REQUIRED", "EXACT", "QUIET"],
+                "one_value_keywords": [
+                    "STRICTNESS",
+                    "ENV_MODE",
+                    "DISABLE_UNINSTALLED",
+                    "PC_SYSROOT_DIR",
+                    "TOP_BUILD_DIR",
+                    "ALLOW_SYSTEM_INCLUDES",
+                    "ALLOW_SYSTEM_LIBS",
+                ],
+                "multi_value_keywords": [
+                    "EXTRACT",
+                    "PC_LIBDIR",
+                    "PC_PATH",
+                    "SYSTEM_INCLUDE_DIRS",
+                    "SYSTEM_LIBRARY_DIRS",
+                ],
+            },
+            "POPULATE": {
+                "options": ["REQUIRED", "EXACT", "QUIET"],
+                "one_value_keywords": [
+                    "PREFIX",
+                    "STRICTNESS",
+                    "ENV_MODE",
+                    "DISABLE_UNINSTALLED",
+                    "PC_SYSROOT_DIR",
+                    "TOP_BUILD_DIR",
+                ],
+                "multi_value_keywords": [
+                    "POPULATE",
+                    "BIND_PC_REQUIRES",
+                    "PC_LIBDIR",
+                    "PC_PATH",
+                ],
+            },
+            "IMPORT": {
+                "options": ["REQUIRED", "EXACT", "QUIET"],
+                "one_value_keywords": [
+                    "NAME",
+                    "PREFIX",
+                    "STRICTNESS",
+                    "ENV_MODE",
+                    "DISABLE_UNINSTALLED",
+                    "PC_SYSROOT_DIR",
+                    "TOP_BUILD_DIR",
+                ],
+                "multi_value_keywords": [
+                    "IMPORT",
+                    "BIND_PC_REQUIRES",
+                    "PC_LIBDIR",
+                    "PC_PATH",
+                ],
+            },
+        }
     },
     "cmake_policy": {
         "signatures": {
@@ -374,7 +422,7 @@ builtin_commands_impl = {
             "COMMAND_ERROR_IS_FATAL",
         ],
         "multi_value_keywords": ["COMMAND"],
-        "keyword_kinds": {"COMMAND": KeywordKind.CommandLine},
+        "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
     },
     "file": {
         "_two_words_keywords": [_GENERATE_OUTPUT],
@@ -882,7 +930,7 @@ builtin_commands_impl = {
     },
     "set_directory_properties": {
         "multi_value_keywords": ["PROPERTIES"],
-        "keyword_kinds": {"PROPERTIES": KeywordKind.Pairs},
+        "keyword_formatters": {"PROPERTIES": KeywordFormatter.Pairs},
     },
     **set_property,
     "set": {
@@ -1107,9 +1155,9 @@ builtin_commands_impl = {
                     "IMPLICIT_DEPENDS",
                     "OUTPUT",
                 ],
-                "keyword_kinds": {
-                    "COMMAND": KeywordKind.CommandLine,
-                    "ARGS": KeywordKind.CommandLine,
+                "keyword_formatters": {
+                    "COMMAND": KeywordFormatter.CommandLine,
+                    "ARGS": KeywordFormatter.CommandLine,
                 },
             },
             "TARGET": {
@@ -1128,9 +1176,9 @@ builtin_commands_impl = {
                     "TARGET",
                 ],
                 "multi_value_keywords": ["COMMAND", "ARGS", "BYPRODUCTS"],
-                "keyword_kinds": {
-                    "COMMAND": KeywordKind.CommandLine,
-                    "ARGS": KeywordKind.CommandLine,
+                "keyword_formatters": {
+                    "COMMAND": KeywordFormatter.CommandLine,
+                    "ARGS": KeywordFormatter.CommandLine,
                 },
             },
         },
@@ -1178,7 +1226,7 @@ builtin_commands_impl = {
         "options": ["COMMAND_EXPAND_LISTS"],
         "one_value_keywords": ["NAME", "WORKING_DIRECTORY"],
         "multi_value_keywords": ["COMMAND", "CONFIGURATIONS"],
-        "keyword_kinds": {"COMMAND": KeywordKind.CommandLine},
+        "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
     },
     "aux_source_directory": {},
     "build_command": {
@@ -1327,6 +1375,7 @@ builtin_commands_impl = {
                     "MESSAGE_NEVER",
                     "EXCLUDE_FROM_ALL",
                     "FILES_MATCHING",
+                    "EXCLUDE_EMPTY_DIRECTORIES",
                 ],
                 "one_value_keywords": ["TYPE", "DESTINATION", "COMPONENT"],
                 "multi_value_keywords": [
@@ -1448,7 +1497,12 @@ builtin_commands_impl = {
     },
     "project": {
         "front_positional_arguments": ["<PROJECT-NAME>"],
-        "one_value_keywords": ["VERSION", "DESCRIPTION", "HOMEPAGE_URL"],
+        "one_value_keywords": [
+            "VERSION",
+            "DESCRIPTION",
+            "HOMEPAGE_URL",
+            "COMPAT_VERSION",
+        ],
         "multi_value_keywords": ["LANGUAGES"],
     },
     "remove_definitions": {},
@@ -1459,17 +1513,17 @@ builtin_commands_impl = {
     },
     "set_source_files_properties": {
         "multi_value_keywords": ["PROPERTIES", "DIRECTORY", "TARGET_DIRECTORY"],
-        "keyword_kinds": {"PROPERTIES": KeywordKind.Pairs},
+        "keyword_formatters": {"PROPERTIES": KeywordFormatter.Pairs},
     },
     "set_target_properties": {
         "multi_value_keywords": ["PROPERTIES"],
-        "keyword_kinds": {"PROPERTIES": KeywordKind.Pairs},
+        "keyword_formatters": {"PROPERTIES": KeywordFormatter.Pairs},
     },
     "set_tests_properties": {
         "one_value_keywords": ["DIRECTORY"],
         "multi_value_keywords": ["PROPERTIES"],
-        "keyword_kinds": {
-            "PROPERTIES": KeywordKind.Pairs,
+        "keyword_formatters": {
+            "PROPERTIES": KeywordFormatter.Pairs,
         },
     },
     "target_compile_definitions": {
@@ -1525,21 +1579,13 @@ builtin_commands_impl = {
         "multi_value_keywords": ["INTERFACE", "PUBLIC", "PRIVATE"],
     },
     "target_sources": {
+        "_two_words_keywords": [_FILE_SET_Any],
         "front_positional_arguments": ["<target>"],
         "multi_value_keywords": ["INTERFACE", "PUBLIC", "PRIVATE"],
         "sections": {
-            "INTERFACE": {
-                "one_value_keywords": ["FILE_SET", "TYPE"],
-                "multi_value_keywords": ["BASE_DIRS", "FILES"],
-            },
-            "PUBLIC": {
-                "one_value_keywords": ["FILE_SET", "TYPE"],
-                "multi_value_keywords": ["BASE_DIRS", "FILES"],
-            },
-            "PRIVATE": {
-                "one_value_keywords": ["FILE_SET", "TYPE"],
-                "multi_value_keywords": ["BASE_DIRS", "FILES"],
-            },
+            "INTERFACE": _target_sources_FILE_SET,
+            "PUBLIC": _target_sources_FILE_SET,
+            "PRIVATE": _target_sources_FILE_SET,
         },
     },
     "try_compile": {
@@ -1956,7 +2002,7 @@ builtin_commands_impl = {
         "options": ["NO_EXTERNAL_INSTALL", "LINK_LIBRARIES"],
         "one_value_keywords": ["PROJECT", "ARCHIVE_DIR", "RUNTIME_DIR"],
         "multi_value_keywords": ["LIBRARIES", "LINK_LIBS", "CMAKE_COMMAND_LINE"],
-        "keyword_kinds": {"CMAKE_COMMAND_LINE": KeywordKind.CommandLine},
+        "keyword_formatters": {"CMAKE_COMMAND_LINE": KeywordFormatter.CommandLine},
     },
     #
     ### CMakeBackwardCompatibilityCXX
@@ -2169,7 +2215,7 @@ builtin_commands_impl = {
         "options": ["GLOB", "DELETE", "QUIET"],
         "one_value_keywords": ["TARBALL", "SOURCE", "BUILD", "GCOV_COMMAND"],
         "multi_value_keywords": ["GCOV_OPTIONS"],
-        "keyword_kinds": {"GCOV_OPTIONS": KeywordKind.CommandLine},
+        "keyword_formatters": {"GCOV_OPTIONS": KeywordFormatter.CommandLine},
     },
     #
     ### CTestScriptMode
@@ -2284,8 +2330,8 @@ builtin_commands_impl = {
             # Miscellaneous
             "COMMAND",
         ],
-        "keyword_kinds": {
-            key: KeywordKind.CommandLine
+        "keyword_formatters": {
+            key: KeywordFormatter.CommandLine
             for key in [
                 "DOWNLOAD_COMMAND",
                 "GIT_CONFIG",
@@ -2318,7 +2364,7 @@ builtin_commands_impl = {
             "DEPENDS",
             "BYPRODUCTS",
         ],
-        "keyword_kinds": {"COMMAND": KeywordKind.CommandLine},
+        "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
     },
     "ExternalProject_Add_StepDependencies": {},
     "ExternalProject_Add_StepTargets": {},
@@ -2342,7 +2388,7 @@ builtin_commands_impl = {
     "set_package_info": {},
     "set_package_properties": {
         "multi_value_keywords": ["PROPERTIES"],
-        "keyword_kinds": {"PROPERTIES": KeywordKind.Pairs},
+        "keyword_formatters": {"PROPERTIES": KeywordFormatter.Pairs},
     },
     #
     ### FetchContent
@@ -2365,8 +2411,8 @@ builtin_commands_impl = {
             # Patch Step
             *_ExternalProject_Add_PatchStep["multi_value_keywords"],
         ],
-        "keyword_kinds": {
-            key: KeywordKind.CommandLine
+        "keyword_formatters": {
+            key: KeywordFormatter.CommandLine
             for key in ["DOWNLOAD_COMMAND", "UPDATE_COMMAND", "PATCH_COMMAND"]
         },
     },
@@ -2515,10 +2561,10 @@ builtin_commands_impl = {
             "DISCOVERY_MODE",
         ],
         "multi_value_keywords": ["EXTRA_ARGS", "PROPERTIES", "DISCOVERY_EXTRA_ARGS"],
-        "keyword_kinds": {
-            "EXTRA_ARGS": KeywordKind.CommandLine,
-            "PROPERTIES": KeywordKind.Pairs,
-            "DISCOVERY_EXTRA_ARGS": KeywordKind.CommandLine,
+        "keyword_formatters": {
+            "EXTRA_ARGS": KeywordFormatter.CommandLine,
+            "PROPERTIES": KeywordFormatter.Pairs,
+            "DISCOVERY_EXTRA_ARGS": KeywordFormatter.CommandLine,
         },
     },
     #
@@ -2702,7 +2748,7 @@ builtin_commands_impl = {
     "env_module": {
         "one_value_keywords": ["OUTPUT_VARIABLE", "RESULT_VARIABLE"],
         "multi_value_keywords": ["COMMAND"],
-        "keyword_kinds": {"COMMAND": KeywordKind.CommandLine},
+        "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
     },
     "env_module_swap": {
         "one_value_keywords": ["OUTPUT_VARIABLE", "RESULT_VARIABLE"],
@@ -2851,7 +2897,9 @@ builtin_commands_impl = {
             "MATLAB_ADDITIONAL_STARTUP_OPTIONS",
             "TEST_ARGS",
         ],
-        "keyword_kinds": {"MATLAB_ADDITIONAL_STARTUP_OPTIONS": KeywordKind.CommandLine},
+        "keyword_formatters": {
+            "MATLAB_ADDITIONAL_STARTUP_OPTIONS": KeywordFormatter.CommandLine
+        },
     },
     "matlab_add_mex": {
         "options": [
@@ -3003,7 +3051,6 @@ builtin_commands_impl = {
             "PROTOC_OUT_DIR",
             "PLUGIN",
             "PLUGIN_OPTIONS",
-            "DEPENDENCIES",
             "PROTOC_EXE",
         ],
         "multi_value_keywords": [
@@ -3011,6 +3058,7 @@ builtin_commands_impl = {
             "IMPORT_DIRS",
             "GENERATE_EXTENSIONS",
             "PROTOC_OPTIONS",
+            "DEPENDENCIES",
         ],
     },
     #
@@ -3160,4 +3208,4 @@ def preprocess_definitions(definitions):
     )
 
 
-builtin_commands = preprocess_definitions(builtin_commands_impl)
+_builtin_commands = preprocess_definitions(builtin_commands)

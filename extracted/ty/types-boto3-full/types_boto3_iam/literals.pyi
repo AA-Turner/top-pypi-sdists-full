@@ -166,7 +166,7 @@ SortKeyTypeType = Literal[
     "SERVICE_NAMESPACE_ASCENDING",
     "SERVICE_NAMESPACE_DESCENDING",
 ]
-StatusTypeType = Literal["Active", "Inactive"]
+StatusTypeType = Literal["Active", "Expired", "Inactive"]
 SummaryKeyTypeType = Literal[
     "AccessKeysPerUserQuota",
     "AccountAccessKeysPresent",

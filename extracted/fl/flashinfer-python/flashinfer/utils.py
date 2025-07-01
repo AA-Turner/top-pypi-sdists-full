@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import functools
 import math
 import os
 from enum import Enum
@@ -24,9 +23,6 @@ import torch
 import torch.version
 from torch.torch_version import TorchVersion
 from torch.torch_version import __version__ as torch_version
-
-from .jit import env as jit_env
-from .jit import gen_jit_spec
 
 IS_BUILDING_DOCS = os.environ.get("FLASHINFER_BUILDING_DOCS") == "1"
 
@@ -394,14 +390,20 @@ def determine_attention_backend(
         return "fa2"
 
 
+def version_at_least(version: str, base_version: str) -> bool:
+    from packaging import version as pkg_version
+
+    return pkg_version.parse(version) >= pkg_version.parse(base_version)
+
+
 def is_sm90a_supported(device: torch.device) -> bool:
     major, _ = get_compute_capability(device)
-    return major == 9 and torch.version.cuda >= "12.3"
+    return major == 9 and version_at_least(torch.version.cuda, "12.3")
 
 
 def is_sm100a_supported(device: torch.device) -> bool:
     major, _ = get_compute_capability(device)
-    return major == 10 and torch.version.cuda >= "12.8"
+    return major == 10 and version_at_least(torch.version.cuda, "12.8")
 
 
 def determine_mla_backend(device: torch.device) -> str:
@@ -465,36 +467,11 @@ def set_log_level(lvl_str: str) -> None:
     get_logging_module().set_log_level(log_level_map[lvl_str].value)
 
 
-@functools.cache
-def get_trtllm_utils_module():
-    return gen_jit_spec(
-        "trtllm_utils",
-        [
-            jit_env.FLASHINFER_CSRC_DIR
-            / "nv_internal/tensorrt_llm/kernels/delayStream.cu",
-        ],
-        extra_include_paths=[
-            jit_env.FLASHINFER_CSRC_DIR / "nv_internal",
-            jit_env.FLASHINFER_CSRC_DIR / "nv_internal" / "include",
-            jit_env.FLASHINFER_CSRC_DIR
-            / "nv_internal"
-            / "tensorrt_llm"
-            / "cutlass_extensions"
-            / "include",
-            jit_env.FLASHINFER_CSRC_DIR
-            / "nv_internal"
-            / "tensorrt_llm"
-            / "kernels"
-            / "internal_cutlass_kernels"
-            / "include",
-            jit_env.FLASHINFER_CSRC_DIR
-            / "nv_internal"
-            / "tensorrt_llm"
-            / "kernels"
-            / "internal_cutlass_kernels",
-        ],
-    ).build_and_load()
+def device_support_pdl(device: torch.device) -> bool:
+    major, _ = get_compute_capability(device)
+    return major >= 9
 
 
-def delay_kernel(stream_delay_micro_secs):
-    get_trtllm_utils_module().delay_kernel(stream_delay_micro_secs)
+def round_up(x: int, y: int) -> int:
+    """Round up x to the nearest multiple of y"""
+    return (x + y - 1) // y * y

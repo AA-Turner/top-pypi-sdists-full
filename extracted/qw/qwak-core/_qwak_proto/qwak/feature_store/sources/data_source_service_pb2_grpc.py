@@ -44,6 +44,11 @@ class DataSourceServiceStub(object):
                 request_serializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesRequest.SerializeToString,
                 response_deserializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesResponse.FromString,
                 )
+        self.ListDataSourcesByAccount = channel.unary_unary(
+                '/qwak.feature.store.sources.DataSourceService/ListDataSourcesByAccount',
+                request_serializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesByAccountRequest.SerializeToString,
+                response_deserializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesByAccountResponse.FromString,
+                )
         self.CreateDataSourceUploadURL = channel.unary_unary(
                 '/qwak.feature.store.sources.DataSourceService/CreateDataSourceUploadURL',
                 request_serializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.CreateDataSourceUploadURLRequest.SerializeToString,
@@ -101,6 +106,13 @@ class DataSourceServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListDataSourcesByAccount(self, request, context):
+        """List of registered data sources
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateDataSourceUploadURL(self, request, context):
         """Create a url for uploading data source configuration
         """
@@ -147,6 +159,11 @@ def add_DataSourceServiceServicer_to_server(servicer, server):
                     servicer.ListDataSources,
                     request_deserializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesRequest.FromString,
                     response_serializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesResponse.SerializeToString,
+            ),
+            'ListDataSourcesByAccount': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListDataSourcesByAccount,
+                    request_deserializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesByAccountRequest.FromString,
+                    response_serializer=qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesByAccountResponse.SerializeToString,
             ),
             'CreateDataSourceUploadURL': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateDataSourceUploadURL,
@@ -267,6 +284,23 @@ class DataSourceService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.feature.store.sources.DataSourceService/ListDataSources',
             qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesRequest.SerializeToString,
             qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListDataSourcesByAccount(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.feature.store.sources.DataSourceService/ListDataSourcesByAccount',
+            qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesByAccountRequest.SerializeToString,
+            qwak_dot_feature__store_dot_sources_dot_data__source__service__pb2.ListDataSourcesByAccountResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

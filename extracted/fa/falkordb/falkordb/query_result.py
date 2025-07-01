@@ -2,6 +2,8 @@ import sys
 from enum import Enum
 from typing import List
 from collections import OrderedDict
+from datetime import datetime, date, time
+from dateutil.relativedelta import relativedelta
 
 from redis import ResponseError
 
@@ -44,19 +46,23 @@ class ResultSetScalarTypes(Enum):
     Enumeration representing different scalar types in the query result set.
 
     Attributes:
-        VALUE_UNKNOWN   (int): Unknown scalar type (0)
-        VALUE_NULL      (int): Null scalar type    (1)
-        VALUE_STRING    (int): String scalar type  (2)
-        VALUE_INTEGER   (int): Integer scalar type (3)
-        VALUE_BOOLEAN   (int): Boolean scalar type (4)
-        VALUE_DOUBLE    (int): Double scalar type  (5)
-        VALUE_ARRAY     (int): Array scalar type   (6)
-        VALUE_EDGE      (int): Edge scalar type    (7)
-        VALUE_NODE      (int): Node scalar type    (8)
-        VALUE_PATH      (int): Path scalar type    (9)
-        VALUE_MAP       (int): Map scalar type     (10)
-        VALUE_POINT     (int): Point scalar type   (11)
-        VALUE_VECTORF32 (int): Vector scalar type  (12)
+        VALUE_UNKNOWN   (int): Unknown scalar type  (0)
+        VALUE_NULL      (int): Null scalar type     (1)
+        VALUE_STRING    (int): String scalar type   (2)
+        VALUE_INTEGER   (int): Integer scalar type  (3)
+        VALUE_BOOLEAN   (int): Boolean scalar type  (4)
+        VALUE_DOUBLE    (int): Double scalar type   (5)
+        VALUE_ARRAY     (int): Array scalar type    (6)
+        VALUE_EDGE      (int): Edge scalar type     (7)
+        VALUE_NODE      (int): Node scalar type     (8)
+        VALUE_PATH      (int): Path scalar type     (9)
+        VALUE_MAP       (int): Map scalar type      (10)
+        VALUE_POINT     (int): Point scalar type    (11)
+        VALUE_VECTORF32 (int): Vector scalar type   (12)
+        VALUE_DATETIME  (int): DateTime scalar type (13)
+        VALUE_DATE      (int): Date scalar type     (14)
+        VALUE_TIME      (int): Time scalar type     (15)
+        VALUE_DURATION  (int): Duration scalar type (16)
     """
 
     VALUE_UNKNOWN   = 0
@@ -72,6 +78,10 @@ class ResultSetScalarTypes(Enum):
     VALUE_MAP       = 10
     VALUE_POINT     = 11
     VALUE_VECTORF32 = 12
+    VALUE_DATETIME  = 13
+    VALUE_DATE      = 14
+    VALUE_TIME      = 15
+    VALUE_DURATION  = 16
 
 def __parse_unknown(value, graph):
     """
@@ -185,6 +195,20 @@ def __parse_vectorf32(value, graph) -> List:
     """
 
     return [float(v) for v in value]
+
+def __parse_datetime(value, graph) -> datetime:
+    return datetime.utcfromtimestamp(value)
+
+def __parse_date(value, graph) -> date:
+    return datetime.utcfromtimestamp(value).date()
+
+def __parse_time(value, graph) -> time:
+    return datetime.utcfromtimestamp(value).time()
+
+def __parse_duration(value, graph) -> relativedelta:
+    timestamp = datetime.utcfromtimestamp(value)
+    epoch = datetime(1970, 1, 1)
+    return relativedelta(timestamp, epoch)
 
 def __parse_entity_properties(props, graph):
     """
@@ -309,19 +333,23 @@ def parse_scalar(value, graph):
 
 
 PARSE_SCALAR_TYPES = [
-    __parse_unknown,  # VALUE_UNKNOWN
-    __parse_null,     # VALUE_NULL
-    __parse_string,   # VALUE_STRING
-    __parse_integer,  # VALUE_INTEGER
-    __parse_boolean,  # VALUE_BOOLEAN
-    __parse_double,   # VALUE_DOUBLE
-    __parse_array,    # VALUE_ARRAY
-    __parse_edge,     # VALUE_EDGE
-    __parse_node,     # VALUE_NODE
-    __parse_path,     # VALUE_PATH
-    __parse_map,      # VALUE_MAP
-    __parse_point,    # VALUE_POINT
-    __parse_vectorf32 # VALUE_VECTORF32
+    __parse_unknown,   # VALUE_UNKNOWN
+    __parse_null,      # VALUE_NULL
+    __parse_string,    # VALUE_STRING
+    __parse_integer,   # VALUE_INTEGER
+    __parse_boolean,   # VALUE_BOOLEAN
+    __parse_double,    # VALUE_DOUBLE
+    __parse_array,     # VALUE_ARRAY
+    __parse_edge,      # VALUE_EDGE
+    __parse_node,      # VALUE_NODE
+    __parse_path,      # VALUE_PATH
+    __parse_map,       # VALUE_MAP
+    __parse_point,     # VALUE_POINT
+    __parse_vectorf32, # VALUE_VECTORF32
+    __parse_datetime,  # VALUE_DATETIME
+    __parse_date,      # VALUE_DATE
+    __parse_time,      # VALUE_TIME
+    __parse_duration   # VALUE_DURATION
 ]
 
 class QueryResult:
@@ -336,9 +364,9 @@ class QueryResult:
             graph: The graph on which the query was executed.
             response: The response from the server.
         """
-        self.graph      = graph
-        self.header     = []
-        self.result_set = []
+        self._graph      = graph
+        self._header     = []
+        self._result_set = []
         self._raw_stats = []
 
         # in case of an error, an exception will be raised
@@ -365,7 +393,7 @@ class QueryResult:
             error = response[0]
             if str(error) == "version mismatch":
                 version = response[1]
-                error = VersionMismatchException(version)
+                error = SchemaVersionMismatchException(version)
             raise error
 
         # if we encountered a run-time error, the last response
@@ -380,13 +408,13 @@ class QueryResult:
         Args:
             raw_result_set: The raw result set from the server.
         """
-        self.header = self.__parse_header(raw_result_set)
+        self._header = self.__parse_header(raw_result_set)
 
         # empty header
-        if len(self.header) == 0:
+        if len(self._header) == 0:
             return
 
-        self.result_set = self.__parse_records(raw_result_set)
+        self._result_set = self.__parse_records(raw_result_set)
 
     def __get_statistics(self, s):
         """
@@ -429,11 +457,31 @@ class QueryResult:
             list: A list of records.
         """
         records = [
-            [parse_scalar(cell, self.graph) for cell in row]
+            [parse_scalar(cell, self._graph) for cell in row]
             for row in raw_result_set[1]
         ]
 
         return records
+
+    @property
+    def header(self) -> list:
+        """
+        Get the header of the result.
+
+        Returns:
+            list: An array of column name/column type pairs.
+        """
+        return self._header
+
+    @property
+    def result_set(self) -> list:
+        """
+        Get a list of the results from a query.
+
+        Returns:
+            list: A list of each row returned from a query.
+        """
+        return self._result_set
 
     @property
     def labels_added(self) -> int:

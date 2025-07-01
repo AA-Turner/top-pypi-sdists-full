@@ -51,7 +51,9 @@ ControlConditionTypeType = Literal["CLOUDWATCH"]
 ListAutoshiftsPaginatorName = Literal["list_autoshifts"]
 ListManagedResourcesPaginatorName = Literal["list_managed_resources"]
 ListZonalShiftsPaginatorName = Literal["list_zonal_shifts"]
-PracticeRunOutcomeType = Literal["FAILED", "INTERRUPTED", "PENDING", "SUCCEEDED"]
+PracticeRunOutcomeType = Literal[
+    "CAPACITY_CHECK_FAILED", "FAILED", "INTERRUPTED", "PENDING", "SUCCEEDED"
+]
 ShiftTypeType = Literal["FIS_EXPERIMENT", "PRACTICE_RUN", "ZONAL_AUTOSHIFT", "ZONAL_SHIFT"]
 ZonalAutoshiftStatusType = Literal["DISABLED", "ENABLED"]
 ZonalShiftStatusType = Literal["ACTIVE", "CANCELED", "EXPIRED"]
@@ -61,6 +63,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -201,6 +204,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -258,6 +262,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -313,6 +318,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -353,7 +359,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -414,7 +419,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -422,6 +426,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",
@@ -458,6 +463,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -478,6 +484,7 @@ PaginatorName = Literal["list_autoshifts", "list_managed_resources", "list_zonal
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

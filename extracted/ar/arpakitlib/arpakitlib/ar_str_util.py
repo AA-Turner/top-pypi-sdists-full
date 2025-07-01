@@ -2,9 +2,6 @@
 
 from typing import Optional, Any
 
-import markdown
-from bs4 import BeautifulSoup
-
 from arpakitlib.ar_type_util import raise_for_type
 
 _ARPAKIT_LIB_MODULE_VERSION = "3.0"
@@ -85,11 +82,14 @@ def lower_and_strip_if_not_none(string: str | None) -> str | None:
 
 
 def remove_html(string: str) -> str:
+    from bs4 import BeautifulSoup
     raise_for_type(string, str)
     return BeautifulSoup(string, "html.parser").text
 
 
 def remove_markdown(text: str) -> str:
+    import markdown
+    from bs4 import BeautifulSoup
     html_text = markdown.markdown(text)
     soup = BeautifulSoup(html_text, "html.parser")
     return soup.get_text(separator=" ", strip=True)

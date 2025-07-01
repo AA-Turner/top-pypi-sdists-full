@@ -1434,11 +1434,21 @@ class DataExportNames(sgqlc.types.Enum):
     * `ALL_MONITORS`: DEPRECATED
     * `ASSETS`: Export containing all assets data
     * `EVENTS`: Export containing all events data in the past 90 days
+    * `LINEAGE_EDGES`: Export containing lineage edges data. (This
+      report is not generally available.)
     * `MONITORS`: Export containing all monitors data
     """
 
     __schema__ = schema
-    __choices__ = ("ALERTS", "ALERTS_AND_EVENTS", "ALL_MONITORS", "ASSETS", "EVENTS", "MONITORS")
+    __choices__ = (
+        "ALERTS",
+        "ALERTS_AND_EVENTS",
+        "ALL_MONITORS",
+        "ASSETS",
+        "EVENTS",
+        "LINEAGE_EDGES",
+        "MONITORS",
+    )
 
 
 class DataMaintenanceMetric(sgqlc.types.Enum):
@@ -4176,11 +4186,18 @@ class ReportTypeEnum(sgqlc.types.Enum):
     * `ALERTS_REPORT`None
     * `ASSETS_REPORT`None
     * `EVENTS_REPORT`None
+    * `LINEAGE_EDGES_REPORT`None
     * `MONITORS_REPORT`None
     """
 
     __schema__ = schema
-    __choices__ = ("ALERTS_REPORT", "ASSETS_REPORT", "EVENTS_REPORT", "MONITORS_REPORT")
+    __choices__ = (
+        "ALERTS_REPORT",
+        "ASSETS_REPORT",
+        "EVENTS_REPORT",
+        "LINEAGE_EDGES_REPORT",
+        "MONITORS_REPORT",
+    )
 
 
 class ResponseMetadataType(sgqlc.types.Enum):
@@ -4502,6 +4519,7 @@ class SqlDialect(sgqlc.types.Enum):
     * `POSTGRES`None
     * `PRESTO`None
     * `REDSHIFT`None
+    * `SALESFORCE_CRM`None
     * `SAPHANA`None
     * `SNOWFLAKE`None
     * `SPARK`None
@@ -4524,6 +4542,7 @@ class SqlDialect(sgqlc.types.Enum):
         "POSTGRES",
         "PRESTO",
         "REDSHIFT",
+        "SALESFORCE_CRM",
         "SAPHANA",
         "SNOWFLAKE",
         "SPARK",
@@ -18170,6 +18189,7 @@ class DomainOutput(sgqlc.types.Type):
         "created_by_email",
         "assignments",
         "tags",
+        "excluded_tags",
         "assignments_with_properties",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
@@ -18189,6 +18209,11 @@ class DomainOutput(sgqlc.types.Type):
 
     tags = sgqlc.types.Field(sgqlc.types.list_of("TagKeyValuePairOutput"), graphql_name="tags")
     """Filter by tag key/value pairs for tables."""
+
+    excluded_tags = sgqlc.types.Field(
+        sgqlc.types.list_of("TagKeyValuePairOutput"), graphql_name="excludedTags"
+    )
+    """Filter out by tag key/value pairs for tables."""
 
     assignments_with_properties = sgqlc.types.Field(
         sgqlc.types.list_of(AssignmentWithProperties), graphql_name="assignmentsWithProperties"
@@ -34603,6 +34628,14 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 (
+                    "excluded_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput),
+                        graphql_name="excludedTags",
+                        default=None,
+                    ),
+                ),
+                (
                     "name",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(String), graphql_name="name", default=None
@@ -34625,6 +34658,8 @@ class Mutation(sgqlc.types.Type):
     * `assignments` (`[String]`): Objects assigned to domain (as
       MCONs)
     * `description` (`String`): Description of the domain
+    * `excluded_tags` (`[TagKeyValuePairInput]`): Filter out by tag
+      key/value pairs for tables.
     * `name` (`String!`): Domain name
     * `tags` (`[TagKeyValuePairInput]`): Filter by tag key/value pairs
       for tables.

@@ -18,16 +18,15 @@ import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
 from wandelbots_api_client.v2.models.initialize_movement_response import InitializeMovementResponse
-from wandelbots_api_client.v2.models.movement import Movement
-from wandelbots_api_client.v2.models.movement_error import MovementError
+from wandelbots_api_client.v2.models.movement_error_response import MovementErrorResponse
 from wandelbots_api_client.v2.models.pause_movement_response import PauseMovementResponse
 from wandelbots_api_client.v2.models.playback_speed_response import PlaybackSpeedResponse
-from wandelbots_api_client.v2.models.standstill import Standstill
+from wandelbots_api_client.v2.models.start_movement_response import StartMovementResponse
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-EXECUTETRAJECTORYRESPONSE_ONE_OF_SCHEMAS = ["InitializeMovementResponse", "Movement", "MovementError", "PauseMovementResponse", "PlaybackSpeedResponse", "Standstill"]
+EXECUTETRAJECTORYRESPONSE_ONE_OF_SCHEMAS = ["InitializeMovementResponse", "MovementErrorResponse", "PauseMovementResponse", "PlaybackSpeedResponse", "StartMovementResponse"]
 
 class ExecuteTrajectoryResponse(BaseModel):
     """
@@ -35,24 +34,25 @@ class ExecuteTrajectoryResponse(BaseModel):
     """
     # data type: InitializeMovementResponse
     oneof_schema_1_validator: Optional[InitializeMovementResponse] = None
-    # data type: Movement
-    oneof_schema_2_validator: Optional[Movement] = None
-    # data type: Standstill
-    oneof_schema_3_validator: Optional[Standstill] = None
+    # data type: StartMovementResponse
+    oneof_schema_2_validator: Optional[StartMovementResponse] = None
     # data type: PauseMovementResponse
-    oneof_schema_4_validator: Optional[PauseMovementResponse] = None
+    oneof_schema_3_validator: Optional[PauseMovementResponse] = None
     # data type: PlaybackSpeedResponse
-    oneof_schema_5_validator: Optional[PlaybackSpeedResponse] = None
-    # data type: MovementError
-    oneof_schema_6_validator: Optional[MovementError] = None
-    actual_instance: Optional[Union[InitializeMovementResponse, Movement, MovementError, PauseMovementResponse, PlaybackSpeedResponse, Standstill]] = None
-    one_of_schemas: Set[str] = { "InitializeMovementResponse", "Movement", "MovementError", "PauseMovementResponse", "PlaybackSpeedResponse", "Standstill" }
+    oneof_schema_4_validator: Optional[PlaybackSpeedResponse] = None
+    # data type: MovementErrorResponse
+    oneof_schema_5_validator: Optional[MovementErrorResponse] = None
+    actual_instance: Optional[Union[InitializeMovementResponse, MovementErrorResponse, PauseMovementResponse, PlaybackSpeedResponse, StartMovementResponse]] = None
+    one_of_schemas: Set[str] = { "InitializeMovementResponse", "MovementErrorResponse", "PauseMovementResponse", "PlaybackSpeedResponse", "StartMovementResponse" }
 
     model_config = ConfigDict(
         validate_assignment=True,
         protected_namespaces=(),
     )
 
+
+    discriminator_value_class_map: Dict[str, str] = {
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         if args:
@@ -74,14 +74,9 @@ class ExecuteTrajectoryResponse(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `InitializeMovementResponse`")
         else:
             match += 1
-        # validate data type: Movement
-        if not isinstance(v, Movement):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Movement`")
-        else:
-            match += 1
-        # validate data type: Standstill
-        if not isinstance(v, Standstill):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Standstill`")
+        # validate data type: StartMovementResponse
+        if not isinstance(v, StartMovementResponse):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `StartMovementResponse`")
         else:
             match += 1
         # validate data type: PauseMovementResponse
@@ -94,17 +89,17 @@ class ExecuteTrajectoryResponse(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `PlaybackSpeedResponse`")
         else:
             match += 1
-        # validate data type: MovementError
-        if not isinstance(v, MovementError):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `MovementError`")
+        # validate data type: MovementErrorResponse
+        if not isinstance(v, MovementErrorResponse):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `MovementErrorResponse`")
         else:
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, Movement, MovementError, PauseMovementResponse, PlaybackSpeedResponse, Standstill. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, MovementErrorResponse, PauseMovementResponse, PlaybackSpeedResponse, StartMovementResponse. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, Movement, MovementError, PauseMovementResponse, PlaybackSpeedResponse, Standstill. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, MovementErrorResponse, PauseMovementResponse, PlaybackSpeedResponse, StartMovementResponse. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -119,21 +114,45 @@ class ExecuteTrajectoryResponse(BaseModel):
         error_messages = []
         match = 0
 
+        # use oneOf discriminator to lookup the data type
+        _data_type = json.loads(json_str).get("kind")
+        if not _data_type:
+            raise ValueError("Failed to lookup data type from the field `kind` in the input.")
+
+        # check if data type is `InitializeMovementResponse`
+        if _data_type == "InitializeMovementResponse":
+            instance.actual_instance = InitializeMovementResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `MovementErrorResponse`
+        if _data_type == "MovementErrorResponse":
+            instance.actual_instance = MovementErrorResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `PauseMovementResponse`
+        if _data_type == "PauseMovementResponse":
+            instance.actual_instance = PauseMovementResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `PlaybackSpeedResponse`
+        if _data_type == "PlaybackSpeedResponse":
+            instance.actual_instance = PlaybackSpeedResponse.from_json(json_str)
+            return instance
+
+        # check if data type is `StartMovementResponse`
+        if _data_type == "StartMovementResponse":
+            instance.actual_instance = StartMovementResponse.from_json(json_str)
+            return instance
+
         # deserialize data into InitializeMovementResponse
         try:
             instance.actual_instance = InitializeMovementResponse.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into Movement
+        # deserialize data into StartMovementResponse
         try:
-            instance.actual_instance = Movement.from_json(json_str)
-            match += 1
-        except (ValidationError, ValueError) as e:
-            error_messages.append(str(e))
-        # deserialize data into Standstill
-        try:
-            instance.actual_instance = Standstill.from_json(json_str)
+            instance.actual_instance = StartMovementResponse.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
@@ -149,19 +168,19 @@ class ExecuteTrajectoryResponse(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into MovementError
+        # deserialize data into MovementErrorResponse
         try:
-            instance.actual_instance = MovementError.from_json(json_str)
+            instance.actual_instance = MovementErrorResponse.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, Movement, MovementError, PauseMovementResponse, PlaybackSpeedResponse, Standstill. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, MovementErrorResponse, PauseMovementResponse, PlaybackSpeedResponse, StartMovementResponse. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, Movement, MovementError, PauseMovementResponse, PlaybackSpeedResponse, Standstill. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ExecuteTrajectoryResponse with oneOf schemas: InitializeMovementResponse, MovementErrorResponse, PauseMovementResponse, PlaybackSpeedResponse, StartMovementResponse. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -175,7 +194,7 @@ class ExecuteTrajectoryResponse(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], InitializeMovementResponse, Movement, MovementError, PauseMovementResponse, PlaybackSpeedResponse, Standstill]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], InitializeMovementResponse, MovementErrorResponse, PauseMovementResponse, PlaybackSpeedResponse, StartMovementResponse]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

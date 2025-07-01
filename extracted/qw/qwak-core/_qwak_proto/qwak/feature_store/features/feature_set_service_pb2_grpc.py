@@ -54,6 +54,11 @@ class FeatureSetServiceStub(object):
                 request_serializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeatureSetsRequest.SerializeToString,
                 response_deserializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeatureSetsResponse.FromString,
                 )
+        self.ListFeaturesetsByAccount = channel.unary_unary(
+                '/qwak.feature.store.features.FeatureSetService/ListFeaturesetsByAccount',
+                request_serializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeaturesetsByAccountRequest.SerializeToString,
+                response_deserializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeaturesetsByAccountResponse.FromString,
+                )
         self.RunBatchFeatureSet = channel.unary_unary(
                 '/qwak.feature.store.features.FeatureSetService/RunBatchFeatureSet',
                 request_serializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.RunBatchFeatureSetRequest.SerializeToString,
@@ -175,6 +180,13 @@ class FeatureSetServiceServicer(object):
 
     def ListFeatureSets(self, request, context):
         """List all registered features
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListFeaturesetsByAccount(self, request, context):
+        """List of registered featuresets
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -312,6 +324,11 @@ def add_FeatureSetServiceServicer_to_server(servicer, server):
                     servicer.ListFeatureSets,
                     request_deserializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeatureSetsRequest.FromString,
                     response_serializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeatureSetsResponse.SerializeToString,
+            ),
+            'ListFeaturesetsByAccount': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFeaturesetsByAccount,
+                    request_deserializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeaturesetsByAccountRequest.FromString,
+                    response_serializer=qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeaturesetsByAccountResponse.SerializeToString,
             ),
             'RunBatchFeatureSet': grpc.unary_unary_rpc_method_handler(
                     servicer.RunBatchFeatureSet,
@@ -521,6 +538,23 @@ class FeatureSetService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.feature.store.features.FeatureSetService/ListFeatureSets',
             qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeatureSetsRequest.SerializeToString,
             qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeatureSetsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListFeaturesetsByAccount(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.feature.store.features.FeatureSetService/ListFeaturesetsByAccount',
+            qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeaturesetsByAccountRequest.SerializeToString,
+            qwak_dot_feature__store_dot_features_dot_feature__set__service__pb2.ListFeaturesetsByAccountResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -213,9 +213,6 @@ class ToolkitController:
 
     
     def remove_toolkit(self, name: str):
-        if not is_local_dev():
-            logger.error("This functionality is only available for Local Environments")
-            sys.exit(1)
         try:
             client = self.get_client()
             draft_toolkits = client.get_draft_by_name(toolkit_name=name)
@@ -246,9 +243,15 @@ class ToolkitController:
             rich.print(JSON(json.dumps(tools_list, indent=4)))
         else:
             table = rich.table.Table(show_header=True, header_style="bold white", show_lines=True)
-            columns = ["Name", "Kind", "Description", "Tools", "App ID"]
-            for column in columns:
-                table.add_column(column)
+            column_args = {
+                "Name": {"overflow": "fold"},
+                "Kind": {},
+                "Description": {},
+                "Tools": {},
+                "App ID": {"overflow": "fold"}
+            }
+            for column in column_args:
+                table.add_column(column,**column_args[column])
 
             tools_client = instantiate_client(ToolClient)
 

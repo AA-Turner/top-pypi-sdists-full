@@ -365,7 +365,7 @@ class ParametricUMAP(UMAP):
             landmark_positions = check_array(
                 landmark_positions,
                 dtype=np.float32,
-                force_all_finite="allow-nan",
+                ensure_all_finite="allow-nan",
             )
 
         # get dataset of edges
@@ -795,7 +795,7 @@ def prepare_networks(
                     keras.layers.Dense(units=100, activation="relu"),
                     keras.layers.Dense(units=100, activation="relu"),
                     keras.layers.Dense(
-                        units=np.product(dims), name="recon", activation=None
+                        units=np.prod(dims), name="recon", activation=None
                     ),
                     keras.layers.Reshape(dims),
                 ]

@@ -130,6 +130,14 @@ def clipped_silu(x):
     return mx.clip(x * mx.sigmoid(x), a_min=-100, a_max=100)
 
 
+class ClippedSilu(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, x):
+        return clipped_silu(x)
+
+
 class DeepseekV3Attention(nn.Module):
     def __init__(self, config: ModelArgs):
         super().__init__()
@@ -344,7 +352,7 @@ class DeepseekV3MoE(nn.Module):
             config.hidden_size,
             config.moe_intermediate_size,
             config.n_routed_experts,
-            activation=clipped_silu,
+            activation=ClippedSilu(),
         )
 
         self.gate = MoEGate(config)
@@ -529,6 +537,7 @@ class Model(nn.Module):
     def layers(self):
         return self.model.layers[self.model.start_idx : self.model.end_idx]
 
+    @property
     def cast_predicate(self):
         def predicate(k):
             return "e_score_correction_bias" not in k

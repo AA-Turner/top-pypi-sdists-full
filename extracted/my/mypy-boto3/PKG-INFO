@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3
-Version: 1.38.0
-Summary: Type annotations for boto3 1.38.0 module generated with mypy-boto3-builder 8.10.1
+Version: 1.39.0
+Summary: Type annotations for boto3 1.39.0 module generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -58,10 +58,10 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Dynamic
-[boto3 1.38.0](https://boto3.amazonaws.com/v1/documentation/api/1.38.0/index.html)
+[boto3 1.39.0](https://boto3.amazonaws.com/v1/documentation/api/1.39.0/index.html)
 
 Generated with
-[mypy-boto3-builder 8.10.1](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [types-boto3](https://pypi.org/project/types-boto3/) page.

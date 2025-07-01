@@ -127,7 +127,9 @@ class OAuthAccessTokenProvider:
         supported_auth_types = ", ".join(str(t) for t in ToolAuth)
 
         if auth_type == ToolAuth.OBO:
-            token_data = oauth_client.refresh_access_token(identity_id=identity.id)
+            token_data = oauth_client.refresh_access_token(
+                identity_id=identity.provider_identity_id
+            )
             return token_data.access_token
 
         raise ValueError(

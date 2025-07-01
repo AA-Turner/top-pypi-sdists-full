@@ -15,6 +15,7 @@ from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
 from sqlmesh.core import constants as c
 from sqlmesh.core.audit import StandaloneAudit
+from sqlmesh.core.environment import EnvironmentSuffixTarget
 from sqlmesh.core.macros import call_macro
 from sqlmesh.core.model import Model, ModelKindMixin, ModelKindName, ViewKind, CustomKind
 from sqlmesh.core.model.definition import _Model
@@ -783,7 +784,9 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
 
             # only warn if the requested removal interval was a subset of the actual model intervals and was automatically expanded
             # if the requested interval was the same or wider than the actual model intervals, no need to warn
-            if requested_start > expanded_start or requested_end < expanded_end:
+            if (
+                requested_start > expanded_start or requested_end < expanded_end
+            ) and self.is_incremental:
                 from sqlmesh.core.console import get_console
 
                 get_console().log_warning(
@@ -793,6 +796,21 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
                 )
 
             removal_interval = expanded_removal_interval
+
+        # SCD Type 2 validation that end date is the latest interval if it was provided
+        if not is_preview and self.is_scd_type_2 and self.intervals:
+            requested_start, requested_end = removal_interval
+            latest_end = self.intervals[-1][1]
+            if requested_end < latest_end:
+                from sqlmesh.core.console import get_console
+
+                get_console().log_warning(
+                    f"SCD Type 2 model '{self.model.name}' does not support end date in restatements.\n"
+                    f"Requested end date [{to_ts(requested_end)}] is less than the latest interval end date.\n"
+                    f"The requested end date will be ignored. Using the latest interval end instead: [{to_ts(latest_end)}]"
+                )
+
+                removal_interval = self.inclusive_exclusive(requested_start, latest_end, strict)
 
         return removal_interval
 
@@ -1589,12 +1607,18 @@ def display_name(
     if snapshot_info_like.is_audit:
         return snapshot_info_like.name
     view_name = exp.to_table(snapshot_info_like.name)
+
+    catalog = (
+        None
+        if (
+            environment_naming_info.suffix_target != EnvironmentSuffixTarget.CATALOG
+            and view_name.catalog == default_catalog
+        )
+        else view_name.catalog
+    )
+
     qvn = QualifiedViewName(
-        catalog=(
-            view_name.catalog
-            if view_name.catalog and view_name.catalog != default_catalog
-            else None
-        ),
+        catalog=catalog,
         schema_name=view_name.db or None,
         table=view_name.name,
     )

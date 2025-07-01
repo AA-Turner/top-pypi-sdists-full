@@ -25,6 +25,7 @@ from botocore.response import StreamingBody
 from .literals import (
     AgreementStatusType,
     ApplicationTypeType,
+    AttributeTypeType,
     AuthorizationStatusType,
     CommitmentDurationType,
     CustomizationTypeType,
@@ -63,6 +64,7 @@ from .literals import (
     PromptRouterTypeType,
     ProvisionedModelStatusType,
     RegionAvailabilityType,
+    RerankingMetadataSelectionModeType,
     RetrieveAndGenerateTypeType,
     SearchTypeType,
     SortOrderType,
@@ -175,6 +177,7 @@ __all__ = (
     "ExternalSourcesGenerationConfigurationTypeDef",
     "ExternalSourcesRetrieveAndGenerateConfigurationOutputTypeDef",
     "ExternalSourcesRetrieveAndGenerateConfigurationTypeDef",
+    "FieldForRerankingTypeDef",
     "FilterAttributeOutputTypeDef",
     "FilterAttributeTypeDef",
     "FoundationModelDetailsTypeDef",
@@ -248,6 +251,8 @@ __all__ = (
     "HumanEvaluationConfigTypeDef",
     "HumanEvaluationCustomMetricTypeDef",
     "HumanWorkflowConfigTypeDef",
+    "ImplicitFilterConfigurationOutputTypeDef",
+    "ImplicitFilterConfigurationTypeDef",
     "ImportedModelSummaryTypeDef",
     "InferenceProfileModelSourceTypeDef",
     "InferenceProfileModelTypeDef",
@@ -311,6 +316,9 @@ __all__ = (
     "LoggingConfigTypeDef",
     "MarketplaceModelEndpointSummaryTypeDef",
     "MarketplaceModelEndpointTypeDef",
+    "MetadataAttributeSchemaTypeDef",
+    "MetadataConfigurationForRerankingOutputTypeDef",
+    "MetadataConfigurationForRerankingTypeDef",
     "ModelCopyJobSummaryTypeDef",
     "ModelCustomizationJobSummaryTypeDef",
     "ModelDataSourceTypeDef",
@@ -343,6 +351,8 @@ __all__ = (
     "RequestMetadataBaseFiltersTypeDef",
     "RequestMetadataFiltersOutputTypeDef",
     "RequestMetadataFiltersTypeDef",
+    "RerankingMetadataSelectiveModeConfigurationOutputTypeDef",
+    "RerankingMetadataSelectiveModeConfigurationTypeDef",
     "ResponseMetadataTypeDef",
     "RetrievalFilterOutputTypeDef",
     "RetrievalFilterTypeDef",
@@ -386,6 +396,12 @@ __all__ = (
     "ValidatorMetricTypeDef",
     "ValidatorTypeDef",
     "ValidityTermTypeDef",
+    "VectorSearchBedrockRerankingConfigurationOutputTypeDef",
+    "VectorSearchBedrockRerankingConfigurationTypeDef",
+    "VectorSearchBedrockRerankingModelConfigurationOutputTypeDef",
+    "VectorSearchBedrockRerankingModelConfigurationTypeDef",
+    "VectorSearchRerankingConfigurationOutputTypeDef",
+    "VectorSearchRerankingConfigurationTypeDef",
     "VpcConfigOutputTypeDef",
     "VpcConfigTypeDef",
     "VpcConfigUnionTypeDef",
@@ -551,6 +567,9 @@ class GuardrailConfigurationTypeDef(TypedDict):
 
 class PromptTemplateTypeDef(TypedDict):
     textPromptTemplate: NotRequired[str]
+
+class FieldForRerankingTypeDef(TypedDict):
+    fieldName: str
 
 class FilterAttributeOutputTypeDef(TypedDict):
     key: str
@@ -796,6 +815,15 @@ class HumanWorkflowConfigTypeDef(TypedDict):
     flowDefinitionArn: str
     instructions: NotRequired[str]
 
+MetadataAttributeSchemaTypeDef = TypedDict(
+    "MetadataAttributeSchemaTypeDef",
+    {
+        "key": str,
+        "type": AttributeTypeType,
+        "description": str,
+    },
+)
+
 class ImportedModelSummaryTypeDef(TypedDict):
     modelArn: str
     modelName: str
@@ -973,6 +1001,14 @@ class UpdateProvisionedModelThroughputRequestTypeDef(TypedDict):
 
 class ValidatorTypeDef(TypedDict):
     s3Uri: str
+
+class VectorSearchBedrockRerankingModelConfigurationOutputTypeDef(TypedDict):
+    modelArn: str
+    additionalModelRequestFields: NotRequired[Dict[str, Dict[str, Any]]]
+
+class VectorSearchBedrockRerankingModelConfigurationTypeDef(TypedDict):
+    modelArn: str
+    additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
 class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
     errors: List[BatchDeleteEvaluationJobErrorTypeDef]
@@ -1225,6 +1261,14 @@ class ExternalSourceOutputTypeDef(TypedDict):
     s3Location: NotRequired[S3ObjectDocTypeDef]
     byteContent: NotRequired[ByteContentDocOutputTypeDef]
 
+class RerankingMetadataSelectiveModeConfigurationOutputTypeDef(TypedDict):
+    fieldsToInclude: NotRequired[List[FieldForRerankingTypeDef]]
+    fieldsToExclude: NotRequired[List[FieldForRerankingTypeDef]]
+
+class RerankingMetadataSelectiveModeConfigurationTypeDef(TypedDict):
+    fieldsToInclude: NotRequired[Sequence[FieldForRerankingTypeDef]]
+    fieldsToExclude: NotRequired[Sequence[FieldForRerankingTypeDef]]
+
 RetrievalFilterOutputTypeDef = TypedDict(
     "RetrievalFilterOutputTypeDef",
     {
@@ -1374,6 +1418,14 @@ class GuardrailWordPolicyConfigTypeDef(TypedDict):
 class GuardrailWordPolicyTypeDef(TypedDict):
     words: NotRequired[List[GuardrailWordTypeDef]]
     managedWordLists: NotRequired[List[GuardrailManagedWordsTypeDef]]
+
+class ImplicitFilterConfigurationOutputTypeDef(TypedDict):
+    metadataAttributes: List[MetadataAttributeSchemaTypeDef]
+    modelArn: str
+
+class ImplicitFilterConfigurationTypeDef(TypedDict):
+    metadataAttributes: Sequence[MetadataAttributeSchemaTypeDef]
+    modelArn: str
 
 class ListImportedModelsResponseTypeDef(TypedDict):
     modelSummaries: List[ImportedModelSummaryTypeDef]
@@ -1693,22 +1745,15 @@ class EvaluationSummaryTypeDef(TypedDict):
     inferenceConfigSummary: NotRequired[EvaluationInferenceConfigSummaryTypeDef]
     applicationType: NotRequired[ApplicationTypeType]
 
-KnowledgeBaseVectorSearchConfigurationOutputTypeDef = TypedDict(
-    "KnowledgeBaseVectorSearchConfigurationOutputTypeDef",
-    {
-        "numberOfResults": NotRequired[int],
-        "overrideSearchType": NotRequired[SearchTypeType],
-        "filter": NotRequired[RetrievalFilterOutputTypeDef],
-    },
-)
-KnowledgeBaseVectorSearchConfigurationTypeDef = TypedDict(
-    "KnowledgeBaseVectorSearchConfigurationTypeDef",
-    {
-        "numberOfResults": NotRequired[int],
-        "overrideSearchType": NotRequired[SearchTypeType],
-        "filter": NotRequired[RetrievalFilterTypeDef],
-    },
-)
+class MetadataConfigurationForRerankingOutputTypeDef(TypedDict):
+    selectionMode: RerankingMetadataSelectionModeType
+    selectiveModeConfiguration: NotRequired[
+        RerankingMetadataSelectiveModeConfigurationOutputTypeDef
+    ]
+
+class MetadataConfigurationForRerankingTypeDef(TypedDict):
+    selectionMode: RerankingMetadataSelectionModeType
+    selectiveModeConfiguration: NotRequired[RerankingMetadataSelectiveModeConfigurationTypeDef]
 
 class GetFoundationModelResponseTypeDef(TypedDict):
     modelDetails: FoundationModelDetailsTypeDef
@@ -1967,11 +2012,15 @@ class ListEvaluationJobsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class KnowledgeBaseRetrievalConfigurationOutputTypeDef(TypedDict):
-    vectorSearchConfiguration: KnowledgeBaseVectorSearchConfigurationOutputTypeDef
+class VectorSearchBedrockRerankingConfigurationOutputTypeDef(TypedDict):
+    modelConfiguration: VectorSearchBedrockRerankingModelConfigurationOutputTypeDef
+    numberOfRerankedResults: NotRequired[int]
+    metadataConfiguration: NotRequired[MetadataConfigurationForRerankingOutputTypeDef]
 
-class KnowledgeBaseRetrievalConfigurationTypeDef(TypedDict):
-    vectorSearchConfiguration: KnowledgeBaseVectorSearchConfigurationTypeDef
+class VectorSearchBedrockRerankingConfigurationTypeDef(TypedDict):
+    modelConfiguration: VectorSearchBedrockRerankingModelConfigurationTypeDef
+    numberOfRerankedResults: NotRequired[int]
+    metadataConfiguration: NotRequired[MetadataConfigurationForRerankingTypeDef]
 
 class MarketplaceModelEndpointTypeDef(TypedDict):
     endpointArn: str
@@ -2025,27 +2074,24 @@ class ListFoundationModelAgreementOffersResponseTypeDef(TypedDict):
     offers: List[OfferTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
-    knowledgeBaseId: str
-    modelArn: str
-    retrievalConfiguration: NotRequired[KnowledgeBaseRetrievalConfigurationOutputTypeDef]
-    generationConfiguration: NotRequired[GenerationConfigurationOutputTypeDef]
-    orchestrationConfiguration: NotRequired[OrchestrationConfigurationTypeDef]
-
-class RetrieveConfigOutputTypeDef(TypedDict):
-    knowledgeBaseId: str
-    knowledgeBaseRetrievalConfiguration: KnowledgeBaseRetrievalConfigurationOutputTypeDef
-
-class KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef(TypedDict):
-    knowledgeBaseId: str
-    modelArn: str
-    retrievalConfiguration: NotRequired[KnowledgeBaseRetrievalConfigurationTypeDef]
-    generationConfiguration: NotRequired[GenerationConfigurationTypeDef]
-    orchestrationConfiguration: NotRequired[OrchestrationConfigurationTypeDef]
-
-class RetrieveConfigTypeDef(TypedDict):
-    knowledgeBaseId: str
-    knowledgeBaseRetrievalConfiguration: KnowledgeBaseRetrievalConfigurationTypeDef
+VectorSearchRerankingConfigurationOutputTypeDef = TypedDict(
+    "VectorSearchRerankingConfigurationOutputTypeDef",
+    {
+        "type": Literal["BEDROCK_RERANKING_MODEL"],
+        "bedrockRerankingConfiguration": NotRequired[
+            VectorSearchBedrockRerankingConfigurationOutputTypeDef
+        ],
+    },
+)
+VectorSearchRerankingConfigurationTypeDef = TypedDict(
+    "VectorSearchRerankingConfigurationTypeDef",
+    {
+        "type": Literal["BEDROCK_RERANKING_MODEL"],
+        "bedrockRerankingConfiguration": NotRequired[
+            VectorSearchBedrockRerankingConfigurationTypeDef
+        ],
+    },
+)
 
 class CreateMarketplaceModelEndpointResponseTypeDef(TypedDict):
     marketplaceModelEndpoint: MarketplaceModelEndpointTypeDef
@@ -2132,28 +2178,24 @@ class UpdateMarketplaceModelEndpointRequestTypeDef(TypedDict):
     endpointConfig: EndpointConfigUnionTypeDef
     clientRequestToken: NotRequired[str]
 
-RetrieveAndGenerateConfigurationOutputTypeDef = TypedDict(
-    "RetrieveAndGenerateConfigurationOutputTypeDef",
+KnowledgeBaseVectorSearchConfigurationOutputTypeDef = TypedDict(
+    "KnowledgeBaseVectorSearchConfigurationOutputTypeDef",
     {
-        "type": RetrieveAndGenerateTypeType,
-        "knowledgeBaseConfiguration": NotRequired[
-            KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef
-        ],
-        "externalSourcesConfiguration": NotRequired[
-            ExternalSourcesRetrieveAndGenerateConfigurationOutputTypeDef
-        ],
+        "numberOfResults": NotRequired[int],
+        "overrideSearchType": NotRequired[SearchTypeType],
+        "filter": NotRequired[RetrievalFilterOutputTypeDef],
+        "implicitFilterConfiguration": NotRequired[ImplicitFilterConfigurationOutputTypeDef],
+        "rerankingConfiguration": NotRequired[VectorSearchRerankingConfigurationOutputTypeDef],
     },
 )
-RetrieveAndGenerateConfigurationTypeDef = TypedDict(
-    "RetrieveAndGenerateConfigurationTypeDef",
+KnowledgeBaseVectorSearchConfigurationTypeDef = TypedDict(
+    "KnowledgeBaseVectorSearchConfigurationTypeDef",
     {
-        "type": RetrieveAndGenerateTypeType,
-        "knowledgeBaseConfiguration": NotRequired[
-            KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef
-        ],
-        "externalSourcesConfiguration": NotRequired[
-            ExternalSourcesRetrieveAndGenerateConfigurationTypeDef
-        ],
+        "numberOfResults": NotRequired[int],
+        "overrideSearchType": NotRequired[SearchTypeType],
+        "filter": NotRequired[RetrievalFilterTypeDef],
+        "implicitFilterConfiguration": NotRequired[ImplicitFilterConfigurationTypeDef],
+        "rerankingConfiguration": NotRequired[VectorSearchRerankingConfigurationTypeDef],
     },
 )
 
@@ -2184,13 +2226,11 @@ class CreateModelCustomizationJobRequestTypeDef(TypedDict):
     vpcConfig: NotRequired[VpcConfigUnionTypeDef]
     customizationConfig: NotRequired[CustomizationConfigTypeDef]
 
-class KnowledgeBaseConfigOutputTypeDef(TypedDict):
-    retrieveConfig: NotRequired[RetrieveConfigOutputTypeDef]
-    retrieveAndGenerateConfig: NotRequired[RetrieveAndGenerateConfigurationOutputTypeDef]
+class KnowledgeBaseRetrievalConfigurationOutputTypeDef(TypedDict):
+    vectorSearchConfiguration: KnowledgeBaseVectorSearchConfigurationOutputTypeDef
 
-class KnowledgeBaseConfigTypeDef(TypedDict):
-    retrieveConfig: NotRequired[RetrieveConfigTypeDef]
-    retrieveAndGenerateConfig: NotRequired[RetrieveAndGenerateConfigurationTypeDef]
+class KnowledgeBaseRetrievalConfigurationTypeDef(TypedDict):
+    vectorSearchConfiguration: KnowledgeBaseVectorSearchConfigurationTypeDef
 
 class EvaluationConfigOutputTypeDef(TypedDict):
     automated: NotRequired[AutomatedEvaluationConfigOutputTypeDef]
@@ -2200,6 +2240,62 @@ class EvaluationConfigTypeDef(TypedDict):
     automated: NotRequired[AutomatedEvaluationConfigTypeDef]
     human: NotRequired[HumanEvaluationConfigTypeDef]
 
+class KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
+    knowledgeBaseId: str
+    modelArn: str
+    retrievalConfiguration: NotRequired[KnowledgeBaseRetrievalConfigurationOutputTypeDef]
+    generationConfiguration: NotRequired[GenerationConfigurationOutputTypeDef]
+    orchestrationConfiguration: NotRequired[OrchestrationConfigurationTypeDef]
+
+class RetrieveConfigOutputTypeDef(TypedDict):
+    knowledgeBaseId: str
+    knowledgeBaseRetrievalConfiguration: KnowledgeBaseRetrievalConfigurationOutputTypeDef
+
+class KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef(TypedDict):
+    knowledgeBaseId: str
+    modelArn: str
+    retrievalConfiguration: NotRequired[KnowledgeBaseRetrievalConfigurationTypeDef]
+    generationConfiguration: NotRequired[GenerationConfigurationTypeDef]
+    orchestrationConfiguration: NotRequired[OrchestrationConfigurationTypeDef]
+
+class RetrieveConfigTypeDef(TypedDict):
+    knowledgeBaseId: str
+    knowledgeBaseRetrievalConfiguration: KnowledgeBaseRetrievalConfigurationTypeDef
+
+EvaluationConfigUnionTypeDef = Union[EvaluationConfigTypeDef, EvaluationConfigOutputTypeDef]
+RetrieveAndGenerateConfigurationOutputTypeDef = TypedDict(
+    "RetrieveAndGenerateConfigurationOutputTypeDef",
+    {
+        "type": RetrieveAndGenerateTypeType,
+        "knowledgeBaseConfiguration": NotRequired[
+            KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef
+        ],
+        "externalSourcesConfiguration": NotRequired[
+            ExternalSourcesRetrieveAndGenerateConfigurationOutputTypeDef
+        ],
+    },
+)
+RetrieveAndGenerateConfigurationTypeDef = TypedDict(
+    "RetrieveAndGenerateConfigurationTypeDef",
+    {
+        "type": RetrieveAndGenerateTypeType,
+        "knowledgeBaseConfiguration": NotRequired[
+            KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef
+        ],
+        "externalSourcesConfiguration": NotRequired[
+            ExternalSourcesRetrieveAndGenerateConfigurationTypeDef
+        ],
+    },
+)
+
+class KnowledgeBaseConfigOutputTypeDef(TypedDict):
+    retrieveConfig: NotRequired[RetrieveConfigOutputTypeDef]
+    retrieveAndGenerateConfig: NotRequired[RetrieveAndGenerateConfigurationOutputTypeDef]
+
+class KnowledgeBaseConfigTypeDef(TypedDict):
+    retrieveConfig: NotRequired[RetrieveConfigTypeDef]
+    retrieveAndGenerateConfig: NotRequired[RetrieveAndGenerateConfigurationTypeDef]
+
 class RAGConfigOutputTypeDef(TypedDict):
     knowledgeBaseConfig: NotRequired[KnowledgeBaseConfigOutputTypeDef]
     precomputedRagSourceConfig: NotRequired[EvaluationPrecomputedRagSourceConfigTypeDef]
@@ -2207,8 +2303,6 @@ class RAGConfigOutputTypeDef(TypedDict):
 class RAGConfigTypeDef(TypedDict):
     knowledgeBaseConfig: NotRequired[KnowledgeBaseConfigTypeDef]
     precomputedRagSourceConfig: NotRequired[EvaluationPrecomputedRagSourceConfigTypeDef]
-
-EvaluationConfigUnionTypeDef = Union[EvaluationConfigTypeDef, EvaluationConfigOutputTypeDef]
 
 class EvaluationInferenceConfigOutputTypeDef(TypedDict):
     models: NotRequired[List[EvaluationModelConfigTypeDef]]

@@ -24,7 +24,7 @@ from typing_extensions import Annotated
 from urllib.parse import quote
 
 from pydantic import Field, StrictStr
-from typing import List, Optional
+from typing import Optional
 from typing_extensions import Annotated
 from wandelbots_api_client.v2.models.plan_trajectory_request import PlanTrajectoryRequest
 from wandelbots_api_client.v2.models.plan_trajectory_response import PlanTrajectoryResponse
@@ -46,273 +46,6 @@ class TrajectoryPlanningApi:
         self.api_client = api_client
 
     @validate_call
-    async def get_planning_motion_group_models(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> List[str]:
-        """Motion Group Models for Planning
-
-        Returns motion group models that are supported for planning. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_planning_motion_group_models_serialize(
-            cell=cell,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[str]",
-            '404': None,
-            '422': "HTTPValidationError",
-            '500': None,
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    async def get_planning_motion_group_models_with_http_info(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[List[str]]:
-        """Motion Group Models for Planning
-
-        Returns motion group models that are supported for planning. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_planning_motion_group_models_serialize(
-            cell=cell,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[str]",
-            '404': None,
-            '422': "HTTPValidationError",
-            '500': None,
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    async def get_planning_motion_group_models_without_preload_content(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Motion Group Models for Planning
-
-        Returns motion group models that are supported for planning. 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_planning_motion_group_models_serialize(
-            cell=cell,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[str]",
-            '404': None,
-            '422': "HTTPValidationError",
-            '500': None,
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _get_planning_motion_group_models_serialize(
-        self,
-        cell,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if cell is not None:
-            _path_params['cell'] = cell
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        _header_params['Accept'] = self.api_client.select_header_accept(
-            [
-                'application/json'
-            ]
-        )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'BasicAuth', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/cells/{cell}/motion-planning/motion-group-models',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-    @validate_call
     async def plan_trajectory(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
@@ -332,7 +65,7 @@ class TrajectoryPlanningApi:
     ) -> PlanTrajectoryResponse:
         """Plan Trajectory
 
-        Plans a new trajectory for a single motion group.  Describe the trajectory as a sequence of motion commands that the robots TCP should follow.  Use the following workflow to execute a planned trajectory: 1. Plan a trajectory. 2. Validate the planned trajectory and load it into the cache using the [addTrajectory](addTrajectory) endpoint. 3. Execute the cached trajectory using the [executeTrajectory](executeTrajectory) endpoint.  If the trajectory is not executable, the [PlanTrajectoryResponse](PlanTrajectoryResponse) will contain the joint trajectory up until the error, e.g. all samples until a collision occurs. EXCEPTION: If a CartesianPTP or JointPTP motion command has an invalid target, the response will contain the trajectory up until the start of the invalid PTP motion.
+        Plans a new trajectory for a single motion group.  Describe the trajectory as a sequence of motion commands that the robots TCP should follow.  Use the following workflow to execute a planned trajectory: 1. Plan a trajectory. 2. Optional: Load the planned trajectory into the cache using the [addTrajectory](addTrajectory) endpoint. 3. Execute the (cached) trajectory using the [executeTrajectory](executeTrajectory) endpoint.  If the trajectory is not executable, the [PlanTrajectoryResponse](PlanTrajectoryResponse) will contain the joint trajectory up until the error, e.g. all samples until a collision occurs. EXCEPTION: If a CartesianPTP or JointPTP motion command has an invalid target, the response will contain the trajectory up until the start of the invalid PTP motion.
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -406,7 +139,7 @@ class TrajectoryPlanningApi:
     ) -> ApiResponse[PlanTrajectoryResponse]:
         """Plan Trajectory
 
-        Plans a new trajectory for a single motion group.  Describe the trajectory as a sequence of motion commands that the robots TCP should follow.  Use the following workflow to execute a planned trajectory: 1. Plan a trajectory. 2. Validate the planned trajectory and load it into the cache using the [addTrajectory](addTrajectory) endpoint. 3. Execute the cached trajectory using the [executeTrajectory](executeTrajectory) endpoint.  If the trajectory is not executable, the [PlanTrajectoryResponse](PlanTrajectoryResponse) will contain the joint trajectory up until the error, e.g. all samples until a collision occurs. EXCEPTION: If a CartesianPTP or JointPTP motion command has an invalid target, the response will contain the trajectory up until the start of the invalid PTP motion.
+        Plans a new trajectory for a single motion group.  Describe the trajectory as a sequence of motion commands that the robots TCP should follow.  Use the following workflow to execute a planned trajectory: 1. Plan a trajectory. 2. Optional: Load the planned trajectory into the cache using the [addTrajectory](addTrajectory) endpoint. 3. Execute the (cached) trajectory using the [executeTrajectory](executeTrajectory) endpoint.  If the trajectory is not executable, the [PlanTrajectoryResponse](PlanTrajectoryResponse) will contain the joint trajectory up until the error, e.g. all samples until a collision occurs. EXCEPTION: If a CartesianPTP or JointPTP motion command has an invalid target, the response will contain the trajectory up until the start of the invalid PTP motion.
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -480,7 +213,7 @@ class TrajectoryPlanningApi:
     ) -> RESTResponseType:
         """Plan Trajectory
 
-        Plans a new trajectory for a single motion group.  Describe the trajectory as a sequence of motion commands that the robots TCP should follow.  Use the following workflow to execute a planned trajectory: 1. Plan a trajectory. 2. Validate the planned trajectory and load it into the cache using the [addTrajectory](addTrajectory) endpoint. 3. Execute the cached trajectory using the [executeTrajectory](executeTrajectory) endpoint.  If the trajectory is not executable, the [PlanTrajectoryResponse](PlanTrajectoryResponse) will contain the joint trajectory up until the error, e.g. all samples until a collision occurs. EXCEPTION: If a CartesianPTP or JointPTP motion command has an invalid target, the response will contain the trajectory up until the start of the invalid PTP motion.
+        Plans a new trajectory for a single motion group.  Describe the trajectory as a sequence of motion commands that the robots TCP should follow.  Use the following workflow to execute a planned trajectory: 1. Plan a trajectory. 2. Optional: Load the planned trajectory into the cache using the [addTrajectory](addTrajectory) endpoint. 3. Execute the (cached) trajectory using the [executeTrajectory](executeTrajectory) endpoint.  If the trajectory is not executable, the [PlanTrajectoryResponse](PlanTrajectoryResponse) will contain the joint trajectory up until the error, e.g. all samples until a collision occurs. EXCEPTION: If a CartesianPTP or JointPTP motion command has an invalid target, the response will contain the trajectory up until the start of the invalid PTP motion.
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -592,7 +325,7 @@ class TrajectoryPlanningApi:
 
         return self.api_client.param_serialize(
             method='POST',
-            resource_path='/cells/{cell}/motion-planning/plan-trajectory',
+            resource_path='/cells/{cell}/trajectory-planning/plan-trajectory',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
